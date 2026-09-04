@@ -86,16 +86,13 @@ static const F32 F32_MAX = F32(3.402823466e+38F);                 ///< Constant 
 
 // define all the variants of Offset that we might use
 #define _Offset_Normal(x, cls) ((dsize_t)((const char *)&(((cls *)1)->x)-(const char *)1))
-// Was cast to `int`, truncating the synthesised address on 64-bit targets.
-// This feeds OffsetNonConst on every GCC branch in types.gcc.h.
+// Was cast to `int`, truncating on 64-bit. Feeds OffsetNonConst.
 #define _Offset_Variant_1(x, cls) ((dsize_t)(&((cls *)1)->x) - 1)
 #define _Offset_Variant_2(x, cls) offsetof(cls, x) // also requires #include <stddef.h>
 
 //--------------------------------------
 // Identify the compiler being used
 
-// The CodeWarrior and Visual C++ variants went with the Win32 and macOS
-// platform layers. GCC and Clang both satisfy __GNUC__.
 #if defined(_lint)
 #  include "platform/types.lint.h"
 #elif defined(__GNUC__)

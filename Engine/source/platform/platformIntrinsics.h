@@ -35,13 +35,7 @@
 #  error No intrinsics implemented for compiler.
 #endif
 
-// This carried a "TODO: 64bit safe" from the original authors. It reinterpreted
-// the pointer slot as a volatile U32 and truncated both comparands, so on a
-// 64-bit target the compare-and-swap operated on half a pointer -- it would
-// have succeeded against a stale value whose low word happened to match.
-// Dispatches on pointer width; both U32 and U64 overloads exist in
-// platformIntrinsics.gcc.h.
-
+// Was a U32 slot with truncated comparands, so this compared half a pointer.
 template< typename T >
 inline bool dCompareAndSwap( T* volatile& refPtr, T* oldPtr, T* newPtr )
 {

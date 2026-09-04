@@ -221,11 +221,8 @@ struct _TypeTraits< T* >
    typedef _ConstructPtr Construct;
    typedef _DestructPtr Destruct;
 
-   // These carried a "TODO: 64bits" from the original authors. Going through
-   // U32 truncated the pointer, and the 0xFFFFFFFE mask cleared the whole upper
-   // half of a 64-bit address as a side effect. uintptr_t fixes both; the mask
-   // is now expressed as the complement of the tag bit so it stays correct at
-   // any pointer width.
+   // Were U32, truncating the pointer; the 0xFFFFFFFE mask also cleared the
+   // upper half of a 64-bit address.
    template< typename A >
    static bool isTaggedPtr( A* ptr ) { return ( uintptr_t( ptr ) & 0x1 ); }
    template< typename A >

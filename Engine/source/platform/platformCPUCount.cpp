@@ -98,21 +98,12 @@ namespace CPUInfo {
       // CpuIDSupported will return 0 if CPUID instruction is unavailable. Otherwise, it will return 
       // the maximum supported standard function.
       //
-      // The five routines below were hand-written 32-bit inline assembly, and were
-      // broken in more than one way. MaxCorePerPhysicalProc() split a single cpuid
-      // sequence across three separate asm statements, relying on register state
-      // surviving between them and on assembler labels crossing statement
-      // boundaries -- neither of which GCC has ever guaranteed -- and popped %ebx
-      // before the cpuid whose result it wanted. find_maskwidth() did the same with
-      // a "next:" label defined in one statement and jumped to from another.
-      //
-      // All of it is now expressed with the <cpuid.h> intrinsics, which are correct
-      // on both 32- and 64-bit and let the compiler handle %ebx (which is the PIC
-      // register on 32-bit x86, the reason for all the pushing and popping).
+      // Were 32-bit inline asm. MaxCorePerPhysicalProc() and find_maskwidth() also
+      // split one cpuid sequence across separate asm statements, relying on register
+      // state and labels surviving between them.
 
       static unsigned int CpuIDSupported(void)
       {
-         // Returns the maximum supported standard CPUID leaf, or 0 if unsupported.
          return __get_cpuid_max(0, NULL);
       }
 
@@ -130,11 +121,8 @@ namespace CPUInfo {
 
       static unsigned int MaxCorePerPhysicalProc(void)
       {
-         if (!HWD_MTSupported())
-            return 1;                  // Single core
-
-         if (CpuIDSupported() < 4)
-            return 1;                  // Leaf 4 unavailable
+         if (!HWD_MTSupported() || CpuIDSupported() < 4)
+            return 1;
 
          unsigned int eax = 0, ebx = 0, ecx = 0, edx = 0;
          if (!__get_cpuid_count(4, 0, &eax, &ebx, &ecx, &edx))
@@ -169,8 +157,7 @@ namespace CPUInfo {
       //
       unsigned int find_maskwidth(unsigned int CountItem)
       {
-         // Equivalent to the original bsr-based routine: the number of bits needed
-         // to represent (CountItem - 1), i.e. ceil(log2(CountItem)).
+         // Bits needed to represent (CountItem - 1), as the original bsr routine did.
          if (CountItem <= 1)
             return 0;
 

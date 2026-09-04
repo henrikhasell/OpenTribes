@@ -28,21 +28,14 @@
 
 #define FN_CDECL     ///< Calling convention
 
-/// Allocation and pointer-difference size type. Used to overload operator new
-/// and to size every allocation in the engine.
-///
-/// This was `unsigned int` -- 32 bits regardless of target. On a 64-bit build
-/// that silently truncates every allocation size and every pointer arithmetic
-/// result that passes through it, across the 55 files that name the type.
+/// Allocation/pointer size type. Was `unsigned int`, truncating on 64-bit.
 typedef uintptr_t dsize_t;
 
 
 /** Platform dependent file date-time structure.  The defination of this structure
   * will likely be different for each OS platform.
   */
-/// Was S32, which truncates a 64-bit time_t and breaks outright in 2038.
-/// Spelled as the fixed-width type rather than S64 so this header does not
-/// depend on being included after the S*/U* typedefs in types.gcc.h.
+/// Was S32, which truncates a 64-bit time_t.
 typedef int64_t FileTime;
 
 

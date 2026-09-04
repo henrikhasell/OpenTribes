@@ -1,12 +1,5 @@
-# Third-party sources carried in Engine/lib.
-#
-# These are the libraries with no maintained upstream to fetch, plus the ones
-# still awaiting their migration phase. Each is a static target; the aggregate
-# torque::vendored interface target is what the engine links against.
-#
-# Deleted relative to the old projectGenerator build: d3dx8dll (DirectX),
-# Engine/lib/sdl (a 32-bit SDL 1.2.5 binary), Engine/lib/openal (per-platform
-# OpenAL headers, superseded by openal-soft in Phase 8).
+# Third-party sources carried in Engine/lib, built as static targets and
+# aggregated into torque::vendored.
 
 set(_torque_vendored_targets "")
 
@@ -44,8 +37,7 @@ function(torque_add_vendored_lib name)
         target_link_libraries(${name} PUBLIC ${ARG_LINK})
     endif()
 
-    # 2012-era C against a C23-default compiler. Implicit declarations and
-    # K&R-isms are errors now; these libraries are not ours to modernise.
+    # 2012-era C against a C23-default compiler.
     target_compile_options(${name} PRIVATE
         -Wno-implicit-function-declaration
         -Wno-deprecated-non-prototype
@@ -59,8 +51,7 @@ torque_add_vendored_lib(torque_zlib
     DIRS     zlib
     INCLUDES zlib)
 
-# pnggccrd.c and pngvcrd.c are libpng 1.2's hand-written 32-bit x86 MMX paths.
-# They cannot assemble on x86_64 and the portable C fallbacks replace them.
+# pnggccrd.c/pngvcrd.c are libpng's 32-bit x86 MMX paths; the C fallbacks replace them.
 torque_add_vendored_lib(torque_lpng
     DIRS     lpng
     INCLUDES lpng
@@ -71,9 +62,8 @@ torque_add_vendored_lib(torque_ljpeg
     DIRS     ljpeg
     INCLUDES ljpeg)
 
-# dgif_lib.c/egif_lib.c call open() with O_RDONLY but never include <fcntl.h>;
-# on Windows those came in via <io.h>. Force-included rather than patched
-# because SDL3_image retires this library in Phase 6.
+# Calls open() with O_RDONLY but never includes <fcntl.h>; on Windows that came
+# in via <io.h>. Force-included -- SDL3_image retires this library in Phase 6.
 torque_add_vendored_lib(torque_lungif
     DIRS     lungif
     INCLUDES lungif)
@@ -94,9 +84,8 @@ torque_add_vendored_lib(torque_opcode
     INCLUDES opcode
     DEFINES  ICE_NO_DLL BAN_OPCODE_AUTOLINK)
 
-# NvSimpleTypes.h gates its NxF32/NxU32/NxI32 typedefs on `#elif LINUX` -- an
-# uppercase macro no compiler predefines, which the build system was expected to
-# supply. On Linux none of its branches matched and no types were defined at all.
+# NvSimpleTypes.h gates its typedefs on `#elif LINUX`, an uppercase macro no
+# compiler predefines and the build system was expected to supply.
 torque_add_vendored_lib(torque_convexDecomp
     DIRS     convexDecomp
     INCLUDES convexDecomp
@@ -115,8 +104,7 @@ torque_add_vendored_lib(torque_libvorbis
     INCLUDES libvorbis/include libvorbis/lib
     LINK     torque_libogg)
 
-# x86_vc is MSVC inline assembly; the x86 directory is gcc-syntax MMX that the
-# portable C path in dec/ supersedes. Both stay out of a 64-bit build.
+# dec/x86 and dec/x86_vc are 32-bit asm; the C path in dec/ supersedes them.
 torque_add_vendored_lib(torque_libtheora
     DIRS     libtheora/lib libtheora/lib/dec libtheora/lib/enc
     INCLUDES libtheora/include
@@ -141,9 +129,8 @@ endif()
 add_library(torque_vendored INTERFACE)
 target_link_libraries(torque_vendored INTERFACE ${_torque_vendored_targets})
 
-# The engine includes these headers prefixed with the library directory name --
-# "zlib/zlib.h", "lpng/png.h", "squish/squish.h", "tinyxml/tinyxml.h" -- so
-# Engine/lib itself has to be on the include path, not just each subdirectory.
+# The engine includes these prefixed with the library directory name, e.g.
+# "zlib/zlib.h", so Engine/lib itself must be on the path.
 target_include_directories(torque_vendored INTERFACE "${ENGINE_LIB_DIR}")
 add_library(torque::vendored ALIAS torque_vendored)
 

@@ -49,8 +49,7 @@
 
 #ifndef Offset
 #if defined(TORQUE_COMPILER_GCC) && (__GNUC__ > 3) || ((__GNUC__ == 3) && (__GNUC_MINOR__ >= 1))
-// The cast was to `int`, which truncates the synthesised address on a 64-bit
-// target. dsize_t is pointer-width (see platform/types.posix.h).
+// Was cast to `int`, truncating the synthesised address on 64-bit.
 #define Offset(m,T) ((dsize_t)(&((T *)1)->m) - 1)
 #else
 #define Offset(x, cls) ((dsize_t)((const char *)&(((cls *)0)->x)-(const char *)0))

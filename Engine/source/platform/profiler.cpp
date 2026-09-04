@@ -110,10 +110,7 @@ U32 endHighResolutionTimer(U32 time[2])
 
 #elif defined(TORQUE_CPU_X86) || defined(TORQUE_CPU_X86_64)
 
-// Was hand-written 32-bit inline assembly. The end-timer variant bound the
-// `time` pointer to %ecx and dereferenced it as 4-byte offsets, which silently
-// truncates the pointer on x86_64. __rdtsc() is the compiler intrinsic for the
-// same instruction and is correct on both widths.
+// Was 32-bit inline asm binding the `time` pointer to %ecx.
 #include <x86intrin.h>
 
 void startHighResolutionTimer(U32 time[2])
