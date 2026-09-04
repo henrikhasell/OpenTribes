@@ -99,7 +99,9 @@ void GFXGLDevice::init(const GFXVideoMode& mode, PlatformWindow* window)
    }
 
    mContext = context;
-   SDL_GL_MakeCurrent(sdlWindow->getSDLWindow(), context);
+
+   if (!SDL_GL_MakeCurrent(sdlWindow->getSDLWindow(), context))
+      Con::errorf("SDL_GL_MakeCurrent failed: %s", SDL_GetError());
 
    loadGLCore();
    loadGLExtensions(context);

@@ -170,3 +170,4 @@ console.log
 *.cached.dts
 !Engine/bin
 build-asan
+Templates/*/game/shaders/procedural/autogenConditioners.h

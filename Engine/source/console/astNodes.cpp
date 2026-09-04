@@ -61,7 +61,7 @@ namespace Compiler
       return sum;
    }
 
-   U32 compileBlock(StmtNode *block, U32 *codeStream, U32 ip, U32 continuePoint, U32 breakPoint)
+   U32 compileBlock(StmtNode *block, CodeSlot *codeStream, U32 ip, U32 continuePoint, U32 breakPoint)
    {
       for(StmtNode *walk = block; walk; walk = walk->getNext())
          ip = walk->compileStmt(codeStream, ip, continuePoint, breakPoint);
@@ -182,7 +182,7 @@ U32 BreakStmtNode::precompileStmt(U32 loopCount)
    return 0;
 }
 
-U32 BreakStmtNode::compileStmt(U32 *codeStream, U32 ip, U32, U32 breakPoint)
+U32 BreakStmtNode::compileStmt(CodeSlot *codeStream, U32 ip, U32, U32 breakPoint)
 {
    if(breakPoint)
    {
@@ -206,7 +206,7 @@ U32 ContinueStmtNode::precompileStmt(U32 loopCount)
    return 0;
 }
 
-U32 ContinueStmtNode::compileStmt(U32 *codeStream, U32 ip, U32 continuePoint, U32)
+U32 ContinueStmtNode::compileStmt(CodeSlot *codeStream, U32 ip, U32 continuePoint, U32)
 {
    if(continuePoint)
    {
@@ -225,7 +225,7 @@ U32 ExprNode::precompileStmt(U32)
    return precompile(TypeReqNone);
 }
 
-U32 ExprNode::compileStmt(U32 *codeStream, U32 ip, U32, U32)
+U32 ExprNode::compileStmt(CodeSlot *codeStream, U32 ip, U32, U32)
 {
    addBreakLine(ip);
    return compile(codeStream, ip, TypeReqNone);
@@ -239,7 +239,7 @@ U32 ReturnStmtNode::precompileStmt(U32)
    return 1 + (expr ? expr->precompile(TypeReqString) : 0);
 }
 
-U32 ReturnStmtNode::compileStmt(U32 *codeStream, U32 ip, U32, U32)
+U32 ReturnStmtNode::compileStmt(CodeSlot *codeStream, U32 ip, U32, U32)
 {
    addBreakLine(ip);
    if(!expr)
@@ -302,7 +302,7 @@ U32 IfStmtNode::precompileStmt(U32 loopCount)
    return endifOffset;
 }
 
-U32 IfStmtNode::compileStmt(U32 *codeStream, U32 ip, U32 continuePoint, U32 breakPoint)
+U32 IfStmtNode::compileStmt(CodeSlot *codeStream, U32 ip, U32 continuePoint, U32 breakPoint)
 {
    U32 start = ip;
    addBreakLine(ip);
@@ -392,7 +392,7 @@ U32 LoopStmtNode::precompileStmt(U32 loopCount)
    return breakOffset;
 }
 
-U32 LoopStmtNode::compileStmt(U32 *codeStream, U32 ip, U32, U32)
+U32 LoopStmtNode::compileStmt(CodeSlot *codeStream, U32 ip, U32, U32)
 {
    addBreakLine(ip);
    U32 start = ip;
@@ -451,7 +451,7 @@ U32 IterStmtNode::precompileStmt( U32 loopCount )
    ;
 }
 
-U32 IterStmtNode::compileStmt( U32* codeStream, U32 ip, U32 continuePoint, U32 breakPoint )
+U32 IterStmtNode::compileStmt( CodeSlot* codeStream, U32 ip, U32 continuePoint, U32 breakPoint )
 {
    addBreakLine( ip );
    
@@ -505,7 +505,7 @@ U32 ConditionalExprNode::precompile(TypeReq type)
       falseExpr->precompile(type) + 4;
 }
 
-U32 ConditionalExprNode::compile(U32 *codeStream, U32 ip, TypeReq type)
+U32 ConditionalExprNode::compile(CodeSlot *codeStream, U32 ip, TypeReq type)
 {
    ip = testExpr->compile(codeStream, ip, integer ? TypeReqUInt : TypeReqFloat);
    codeStream[ip++] = integer ? OP_JMPIFNOT : OP_JMPIFFNOT;
@@ -535,7 +535,7 @@ U32 FloatBinaryExprNode::precompile(TypeReq type)
    return addSize;
 }
 
-U32 FloatBinaryExprNode::compile(U32 *codeStream, U32 ip, TypeReq type)
+U32 FloatBinaryExprNode::compile(CodeSlot *codeStream, U32 ip, TypeReq type)
 {
    ip = right->compile(codeStream, ip, TypeReqFloat);
    ip = left->compile(codeStream, ip, TypeReqFloat);
@@ -637,7 +637,7 @@ U32 IntBinaryExprNode::precompile(TypeReq type)
    return addSize;
 }
 
-U32 IntBinaryExprNode::compile(U32 *codeStream, U32 ip, TypeReq type)
+U32 IntBinaryExprNode::compile(CodeSlot *codeStream, U32 ip, TypeReq type)
 {
    if(operand == OP_OR || operand == OP_AND)
    {
@@ -680,7 +680,7 @@ U32 StreqExprNode::precompile(TypeReq type)
    return addSize;
 }
 
-U32 StreqExprNode::compile(U32 *codeStream, U32 ip, TypeReq type)
+U32 StreqExprNode::compile(CodeSlot *codeStream, U32 ip, TypeReq type)
 {
    ip = left->compile(codeStream, ip, TypeReqString);
    codeStream[ip++] = OP_ADVANCE_STR_NUL;
@@ -711,7 +711,7 @@ U32 StrcatExprNode::precompile(TypeReq type)
    return addSize;
 }
 
-U32 StrcatExprNode::compile(U32 *codeStream, U32 ip, TypeReq type)
+U32 StrcatExprNode::compile(CodeSlot *codeStream, U32 ip, TypeReq type)
 {
    ip = left->compile(codeStream, ip, TypeReqString);
    if(!appendChar)
@@ -745,7 +745,7 @@ U32 CommaCatExprNode::precompile(TypeReq type)
    return addSize;
 }
 
-U32 CommaCatExprNode::compile(U32 *codeStream, U32 ip, TypeReq type)
+U32 CommaCatExprNode::compile(CodeSlot *codeStream, U32 ip, TypeReq type)
 {
    ip = left->compile(codeStream, ip, TypeReqString);
    codeStream[ip++] = OP_ADVANCE_STR_COMMA;
@@ -785,7 +785,7 @@ U32 IntUnaryExprNode::precompile(TypeReq type)
       return exprSize + 1;
 }
 
-U32 IntUnaryExprNode::compile(U32 *codeStream, U32 ip, TypeReq type)
+U32 IntUnaryExprNode::compile(CodeSlot *codeStream, U32 ip, TypeReq type)
 {
    ip = expr->compile(codeStream, ip, integer ? TypeReqUInt : TypeReqFloat);
    if(op == '!')
@@ -813,7 +813,7 @@ U32 FloatUnaryExprNode::precompile(TypeReq type)
       return exprSize + 1;
 }
 
-U32 FloatUnaryExprNode::compile(U32 *codeStream, U32 ip, TypeReq type)
+U32 FloatUnaryExprNode::compile(CodeSlot *codeStream, U32 ip, TypeReq type)
 {
    ip = expr->compile(codeStream, ip, TypeReqFloat);
    codeStream[ip++] = OP_NEG;
@@ -851,7 +851,7 @@ U32 VarNode::precompile(TypeReq type)
    return (arrayIndex ? arrayIndex->precompile(TypeReqString) + 6 : 3);
 }
 
-U32 VarNode::compile(U32 *codeStream, U32 ip, TypeReq type)
+U32 VarNode::compile(CodeSlot *codeStream, U32 ip, TypeReq type)
 {
    if(type == TypeReqNone)
       return ip;
@@ -901,7 +901,7 @@ U32 IntNode::precompile(TypeReq type)
    return 2;
 }
 
-U32 IntNode::compile(U32 *codeStream, U32 ip, TypeReq type)
+U32 IntNode::compile(CodeSlot *codeStream, U32 ip, TypeReq type)
 {
    switch(type)
    {
@@ -941,7 +941,7 @@ U32 FloatNode::precompile(TypeReq type)
    return 2;
 }
 
-U32 FloatNode::compile(U32 *codeStream, U32 ip, TypeReq type)
+U32 FloatNode::compile(CodeSlot *codeStream, U32 ip, TypeReq type)
 {
    switch(type)
    {
@@ -995,7 +995,7 @@ U32 StrConstNode::precompile(TypeReq type)
    return 2;
 }
 
-U32 StrConstNode::compile(U32 *codeStream, U32 ip, TypeReq type)
+U32 StrConstNode::compile(CodeSlot *codeStream, U32 ip, TypeReq type)
 {
    // If this is a DOCBLOCK, then process w/ appropriate op...
    if( doc )
@@ -1049,7 +1049,7 @@ U32 ConstantNode::precompile(TypeReq type)
    return 2;
 }
 
-U32 ConstantNode::compile(U32 *codeStream, U32 ip, TypeReq type)
+U32 ConstantNode::compile(CodeSlot *codeStream, U32 ip, TypeReq type)
 {
    switch(type)
    {
@@ -1116,7 +1116,7 @@ U32 AssignExprNode::precompile(TypeReq type)
    return retSize + addSize + (arrayIndex ? arrayIndex->precompile(TypeReqString) + (subType == TypeReqString ? 8 : 6 ) : 3);
 }
 
-U32 AssignExprNode::compile(U32 *codeStream, U32 ip, TypeReq type)
+U32 AssignExprNode::compile(CodeSlot *codeStream, U32 ip, TypeReq type)
 {
    ip = expr->compile(codeStream, ip, subType);
    if(arrayIndex)
@@ -1249,7 +1249,7 @@ U32 AssignOpExprNode::precompile(TypeReq type)
    }
 }
 
-U32 AssignOpExprNode::compile(U32 *codeStream, U32 ip, TypeReq type)
+U32 AssignOpExprNode::compile(CodeSlot *codeStream, U32 ip, TypeReq type)
 {
    ip = expr->compile(codeStream, ip, subType);
    if(!arrayIndex)
@@ -1290,7 +1290,7 @@ U32 TTagSetStmtNode::precompileStmt(U32 loopCount)
    return 0;
 }
 
-U32 TTagSetStmtNode::compileStmt(U32*, U32 ip, U32, U32)
+U32 TTagSetStmtNode::compileStmt(CodeSlot*, U32 ip, U32, U32)
 {
    return ip;
 }
@@ -1302,7 +1302,7 @@ U32 TTagDerefNode::precompile(TypeReq)
    return 0;
 }
 
-U32 TTagDerefNode::compile(U32*, U32 ip, TypeReq)
+U32 TTagDerefNode::compile(CodeSlot*, U32 ip, TypeReq)
 {
    return ip;
 }
@@ -1319,7 +1319,7 @@ U32 TTagExprNode::precompile(TypeReq)
    return 0;
 }
 
-U32 TTagExprNode::compile(U32*, U32 ip, TypeReq)
+U32 TTagExprNode::compile(CodeSlot*, U32 ip, TypeReq)
 {
    return ip;
 }
@@ -1352,7 +1352,7 @@ U32 FuncCallExprNode::precompile(TypeReq type)
    return size + 5;
 }
 
-U32 FuncCallExprNode::compile(U32 *codeStream, U32 ip, TypeReq type)
+U32 FuncCallExprNode::compile(CodeSlot *codeStream, U32 ip, TypeReq type)
 {
    codeStream[ip++] = OP_PUSH_FRAME;
    for(ExprNode *walk = args; walk; walk = (ExprNode *) walk->getNext())
@@ -1399,7 +1399,7 @@ U32 AssertCallExprNode::precompile( TypeReq type )
    #endif
 }
 
-U32 AssertCallExprNode::compile( U32 *codeStream, U32 ip, TypeReq type )
+U32 AssertCallExprNode::compile( CodeSlot *codeStream, U32 ip, TypeReq type )
 {
    #ifdef TORQUE_ENABLE_SCRIPTASSERTS
 
@@ -1442,7 +1442,7 @@ U32 SlotAccessNode::precompile(TypeReq type)
    return size + 1;
 }
 
-U32 SlotAccessNode::compile(U32 *codeStream, U32 ip, TypeReq type)
+U32 SlotAccessNode::compile(CodeSlot *codeStream, U32 ip, TypeReq type)
 {
    if(type == TypeReqNone)
       return ip;
@@ -1507,7 +1507,7 @@ U32 InternalSlotAccessNode::precompile(TypeReq type)
    return size;
 }
 
-U32 InternalSlotAccessNode::compile(U32 *codeStream, U32 ip, TypeReq type)
+U32 InternalSlotAccessNode::compile(CodeSlot *codeStream, U32 ip, TypeReq type)
 {
    if(type == TypeReqNone)
       return ip;
@@ -1585,7 +1585,7 @@ U32 SlotAssignNode::precompile(TypeReq type)
    return size + 1;
 }
 
-U32 SlotAssignNode::compile(U32 *codeStream, U32 ip, TypeReq type)
+U32 SlotAssignNode::compile(CodeSlot *codeStream, U32 ip, TypeReq type)
 {
    ip = valueExpr->compile(codeStream, ip, TypeReqString);
    codeStream[ip++] = OP_ADVANCE_STR;
@@ -1667,7 +1667,7 @@ U32 SlotAssignOpNode::precompile(TypeReq type)
       return size + 6 + objectExpr->precompile(TypeReqString);
 }
 
-U32 SlotAssignOpNode::compile(U32 *codeStream, U32 ip, TypeReq type)
+U32 SlotAssignOpNode::compile(CodeSlot *codeStream, U32 ip, TypeReq type)
 {
    ip = valueExpr->compile(codeStream, ip, subType);
    if(arrayExpr)
@@ -1764,7 +1764,7 @@ U32 ObjectDeclNode::precompile(TypeReq type)
    return ret;
 }
 
-U32 ObjectDeclNode::compileSubObject(U32 *codeStream, U32 ip, bool root)
+U32 ObjectDeclNode::compileSubObject(CodeSlot *codeStream, U32 ip, bool root)
 {
    U32 start = ip;
    codeStream[ip++] = OP_PUSH_FRAME;
@@ -1799,7 +1799,7 @@ U32 ObjectDeclNode::compileSubObject(U32 *codeStream, U32 ip, bool root)
    return ip;
 }
 
-U32 ObjectDeclNode::compile(U32 *codeStream, U32 ip, TypeReq type)
+U32 ObjectDeclNode::compile(CodeSlot *codeStream, U32 ip, TypeReq type)
 {
    codeStream[ip++] = OP_LOADIMMED_UINT;
    codeStream[ip++] = 0;
@@ -1852,7 +1852,7 @@ U32 FunctionDeclStmtNode::precompileStmt(U32)
    return endOffset;
 }
 
-U32 FunctionDeclStmtNode::compileStmt(U32 *codeStream, U32 ip, U32, U32)
+U32 FunctionDeclStmtNode::compileStmt(CodeSlot *codeStream, U32 ip, U32, U32)
 {
    U32 start = ip;
    codeStream[ip++] = OP_FUNC_DECL;
