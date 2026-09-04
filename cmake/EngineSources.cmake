@@ -1,23 +1,10 @@
-# Engine source set.
-#
-# Replaces Tools/projectGenerator/modules/*.inc. The directory lists below are
-# transcribed from core.inc, T3D.inc, advancedLighting.inc, basicLighting.inc,
-# theora.inc, collada.inc and tools.inc, minus everything the migration drops.
-#
-# Corrections made while transcribing -- the generator asked for directories
-# that do not exist in this tree, and nobody noticed because the Linux target
-# was never built:
-#
-#   core.inc:135  gfx/D3D              -> does not exist (only gfx/D3D9 does)
-#   core.inc:153  shaderGen/glsl       -> directory is shaderGen/GLSL
-#   core.inc:138  shaderGen/hlsl       -> directory is shaderGen/HLSL
-#   core.inc      windowManager/torque -> does not exist
-#   T3D.inc       physics              -> does not exist (it is T3D/physics)
-#
-# Case matters here in a way it never did for the Windows and macOS builds.
+# Replaces Tools/projectGenerator/modules/*.inc, minus everything the migration
+# drops. The generator also asked for four directories that do not exist
+# (gfx/D3D, windowManager/torque, physics) or differ only in case
+# (shaderGen/glsl, shaderGen/hlsl); those are corrected below.
 
 set(_engine_dirs
-    # --- core.inc ---------------------------------------------------------
+    # core.inc
     app
     app/net
     cinterface
@@ -65,13 +52,13 @@ set(_engine_dirs
     util/messaging
     windowManager
 
-    # --- GL-only render path (D3D9/HLSL dropped) --------------------------
+    # GL-only render path
     gfx/gl
     gfx/gl/ggl
     gfx/gl/ggl/generated
     shaderGen/GLSL
 
-    # --- T3D.inc ----------------------------------------------------------
+    # T3D.inc
     T3D
     T3D/decal
     T3D/examples
@@ -104,18 +91,17 @@ set(_engine_dirs
     ts
     ts/arch
 
-    # --- advancedLighting.inc / basicLighting.inc -------------------------
+    # advancedLighting.inc / basicLighting.inc
     lighting/advanced
     lighting/advanced/glsl
     lighting/basic
     lighting/shadowMap
 
-    # --- theora.inc -------------------------------------------------------
+    # theora.inc
     core/ogg
     gui/theora)
 
-# T3D/gameBase/hifi is the alternative networking model, off by default in the
-# original build ($TORQUE_HIFI_NET = false in project.conf).
+# T3D/gameBase/hifi is off by default ($TORQUE_HIFI_NET in project.conf).
 
 if(TORQUE_TOOLS)
     list(APPEND _engine_dirs
@@ -147,10 +133,7 @@ endif()
 set(TORQUE_ENGINE_SOURCES "")
 foreach(dir IN LISTS _engine_dirs)
     if(NOT IS_DIRECTORY "${ENGINE_SOURCE_DIR}/${dir}")
-        message(FATAL_ERROR
-            "engine source directory '${dir}' does not exist. If this is a "
-            "case mismatch, note that the original build only ever ran on "
-            "case-insensitive filesystems.")
+        message(FATAL_ERROR "engine source directory '${dir}' does not exist")
     endif()
     file(GLOB _found
         "${ENGINE_SOURCE_DIR}/${dir}/*.cpp"
@@ -159,13 +142,12 @@ foreach(dir IN LISTS _engine_dirs)
     list(APPEND TORQUE_ENGINE_SOURCES ${_found})
 endforeach()
 
-# Excluded by filename rather than by directory. The original build did this
-# with setDontCompilePatterns() in btargets/targets.inc; the Windows-only and
-# macOS-only translation units live alongside portable ones.
+# Windows- and macOS-only translation units living alongside portable ones.
+# The original build did this with setDontCompilePatterns() in targets.inc.
 set(_engine_exclude
     "/gfx/gl/ggl/mac/"
     "/gfx/gl/ggl/win32/"
-    "/gfx/gl/ggl/x11/"       # Phase 4 replaces GLX binding with SDL_GL_GetProcAddress
+    "/gfx/gl/ggl/x11/"       # Phase 4: SDL_GL_GetProcAddress replaces GLX
     "\\.win\\.cpp$"
     "\\.mac\\.cpp$"
     "win32.*\\.cpp$"

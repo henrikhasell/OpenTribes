@@ -283,10 +283,8 @@ public:
 
    struct Entry
    {
-      // Dictionary::exportVariables() and friends read the protected union
-      // below directly. A nested class has access to its enclosing class, but
-      // not the reverse -- that access was never legal, older compilers simply
-      // did not enforce it.
+      // Dictionary reads the protected union below; an enclosing class has no
+      // implicit access to a nested one.
       friend class Dictionary;
 
       enum

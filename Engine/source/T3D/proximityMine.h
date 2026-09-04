@@ -70,11 +70,9 @@ class ProximityMine: public Item
    typedef Item Parent;
 
 protected:
-   // The 32-bit netmask budget is exhausted by the parent chain -- see the
-   // "we're running out of maskbits" note in turretShape.h. Parent::NextFreeMask
-   // is already the top bit, so shifting it left is undefined; older compilers
-   // silently wrapped it to 0. Stated explicitly here. Neither class has
-   // subclasses, so nothing consumes NextFreeMask.
+   // Parent::NextFreeMask is already the top bit -- the 32-bit netmask budget is
+   // exhausted (see turretShape.h). Shifting it left is UB; older compilers
+   // wrapped to 0. No subclasses, so nothing consumes NextFreeMask.
    enum MaskBits : U32 {
       DeployedMask   = U32(Parent::NextFreeMask),
       ExplosionMask  = U32(Parent::NextFreeMask) << 1,

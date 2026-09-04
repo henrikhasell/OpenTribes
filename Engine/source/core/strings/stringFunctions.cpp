@@ -393,8 +393,6 @@ void dPrintf(const char *format, ...)
 
 S32 dVprintf(const char *format, va_list arglist)
 {
-   // Was (char*)arglist: true only on 32-bit x86, where va_list was char*.
-   // On x86_64 va_list is __va_list_tag[1] and the cast is meaningless.
    return vprintf(format, arglist);
 }
 

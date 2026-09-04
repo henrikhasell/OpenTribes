@@ -6,25 +6,21 @@ project(OpenTribes
     LANGUAGES C CXX)
 
 if(CMAKE_SIZEOF_VOID_P LESS 8)
-    message(FATAL_ERROR
-        "OpenTribes is 64-bit only. The 32-bit assumptions of the original "
-        "Torque3D tree were removed deliberately; do not re-add -m32.")
+    message(FATAL_ERROR "OpenTribes is 64-bit only.")
 endif()
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 
 set(TORQUE_APP_NAME "OpenTribes" CACHE STRING "Executable and application name")
 option(TORQUE_TOOLS    "Build the in-engine world/GUI editors" ON)
-# ON to match the original build (Torque3D.php:122 enabled it for every target).
-# It cannot simply be switched off yet: ts/tsShapeConstruct.h needs
-# ColladaUtils::ImportOptions, and colladaUtils.h pulls the entire COLLADA DOM
-# in with it. Splitting ImportOptions out belongs with the COLLADA removal.
+# Cannot be switched off yet: ts/tsShapeConstruct.h needs
+# ColladaUtils::ImportOptions and colladaUtils.h pulls in the whole COLLADA DOM.
 option(TORQUE_COLLADA  "Build in-engine COLLADA import (pulls collada_dom, pcre, tinyxml)" ON)
 option(TORQUE_TESTS    "Build the engine's in-tree unit tests" OFF)
 
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_CXX_EXTENSIONS ON)   # types.gcc.h dispatches on the bare `linux` macro
+set(CMAKE_CXX_EXTENSIONS ON)
 set(CMAKE_C_STANDARD 17)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_C_EXTENSIONS ON)
@@ -66,8 +62,6 @@ target_compile_definitions(${TORQUE_APP_NAME} PRIVATE
     $<$<NOT:$<BOOL:${TORQUE_TOOLS}>>:TORQUE_PLAYER>
     $<$<BOOL:${TORQUE_COLLADA}>:TORQUE_COLLADA>)
 
-# The 2012 tree predates -Wall being survivable. Silence what is merely noisy and
-# keep what actually catches 64-bit defects.
 target_compile_options(${TORQUE_APP_NAME} PRIVATE
     -Wno-multichar
     -Wno-invalid-offsetof
