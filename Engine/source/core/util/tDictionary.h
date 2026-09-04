@@ -95,7 +95,11 @@ namespace DictHash
 
    inline U32 hash(const void *data)
    {
-      return (U32)data;
+      // Was (U32)data, which discarded the upper half of a 64-bit address and
+      // collapsed every pointer sharing a low word into one bucket. Fold both
+      // halves in so the whole address contributes.
+      const uintptr_t value = reinterpret_cast<uintptr_t>(data);
+      return U32(value) ^ U32(U64(value) >> 32);
    }
 
    template<class A, class B>

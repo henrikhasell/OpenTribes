@@ -24,18 +24,26 @@
 #define _TYPESPOSIX_H_
 
 
+#include <stdint.h>
+
 #define FN_CDECL     ///< Calling convention
 
-// size_t is needed to overload new
-// size_t tends to be OS and compiler specific and may need to 
-// be if/def'ed in the future
-typedef unsigned int  dsize_t;      
+/// Allocation and pointer-difference size type. Used to overload operator new
+/// and to size every allocation in the engine.
+///
+/// This was `unsigned int` -- 32 bits regardless of target. On a 64-bit build
+/// that silently truncates every allocation size and every pointer arithmetic
+/// result that passes through it, across the 55 files that name the type.
+typedef uintptr_t dsize_t;
 
 
 /** Platform dependent file date-time structure.  The defination of this structure
   * will likely be different for each OS platform.
   */
-typedef S32 FileTime;
+/// Was S32, which truncates a 64-bit time_t and breaks outright in 2038.
+/// Spelled as the fixed-width type rather than S64 so this header does not
+/// depend on being included after the S*/U* typedefs in types.gcc.h.
+typedef int64_t FileTime;
 
 
 #ifndef NULL

@@ -416,7 +416,7 @@ namespace _Private {
 
 
 #define _DECLARE_TYPE( type )                                                                \
-   template<> extern const EngineTypeInfo* TYPE< type >();                                   \
+   template<> const EngineTypeInfo* TYPE< type >();                                   \
    template<> struct _SCOPE< type > {                                                        \
       EngineExportScope& operator()() const {                                                \
          return *reinterpret_cast< EngineExportScope* >(                                     \
@@ -575,7 +575,7 @@ namespace _Private {
    
 ///
 #define FIELDOFFSET( fieldName ) \
-   U32( ( ( const char* ) &( ( ( ThisType* ) 16 )->fieldName ) ) - 16 ) // Artificial offset to avoid compiler warnings.
+   U32( ( dsize_t ) ( ( const char* ) &( ( ( ThisType* ) 16 )->fieldName ) ) - 16 ) // Artificial offset to avoid compiler warnings.
    
 ///
 #define CLASSDOC( className, doc ) \

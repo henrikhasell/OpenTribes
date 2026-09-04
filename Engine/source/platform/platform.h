@@ -523,13 +523,15 @@ template<class T,class S> void dCopyArray(T *dst, const S *src, dsize_t size)
       dst[i] = (T)src[i];
 }
 
-// Special case of the above function when the arrays are the same type (use memcpy)
+extern void* dMemcpy(void *dst, const void *src, dsize_t size);
+
+// Special case of the above function when the arrays are the same type (use memcpy).
+// The declaration above must precede this template: the call to dMemcpy is not
+// dependent on T, so it is bound at definition time, not instantiation time.
 template<class T> void dCopyArray(T *dst, const T *src, dsize_t size)
 {
    dMemcpy(dst, src, size * sizeof(T));
 }
-
-extern void* dMemcpy(void *dst, const void *src, dsize_t size);
 extern void* dMemmove(void *dst, const void *src, dsize_t size);
 extern void* dMemset(void *dst, int c, dsize_t size);
 extern int   dMemcmp(const void *ptr1, const void *ptr2, dsize_t size);

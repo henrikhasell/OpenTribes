@@ -164,7 +164,7 @@ void Interior::renderZoneNode( SceneRenderState *state,
 
    // Sort by the material then the normal map or vertex buffer!
    ri->defaultKey = matInst->getStateHint();
-   ri->defaultKey2 = ri->lightmap ? (U32)ri->lightmap : (U32)ri->vertBuff;
+   ri->defaultKey2 = ri->lightmap ? (U32)(uintptr_t)ri->lightmap : (U32)(uintptr_t)ri->vertBuff;
 
    state->getRenderPass()->addInst( ri );
 }
@@ -206,7 +206,7 @@ void Interior::renderReflectNode( SceneRenderState *state,
 
    // Sort by the material then the normal map or vertex buffer!
    ri->defaultKey = matInst->getStateHint();
-   ri->defaultKey2 = ri->lightmap ? (U32)ri->lightmap : (U32)ri->vertBuff;
+   ri->defaultKey2 = ri->lightmap ? (U32)(uintptr_t)ri->lightmap : (U32)(uintptr_t)ri->vertBuff;
 
    state->getRenderPass()->addInst( ri );
 }

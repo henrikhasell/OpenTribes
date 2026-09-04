@@ -35,12 +35,25 @@
 #  error No intrinsics implemented for compiler.
 #endif
 
-//TODO: 64bit safe
+// This carried a "TODO: 64bit safe" from the original authors. It reinterpreted
+// the pointer slot as a volatile U32 and truncated both comparands, so on a
+// 64-bit target the compare-and-swap operated on half a pointer -- it would
+// have succeeded against a stale value whose low word happened to match.
+// Dispatches on pointer width; both U32 and U64 overloads exist in
+// platformIntrinsics.gcc.h.
 
 template< typename T >
 inline bool dCompareAndSwap( T* volatile& refPtr, T* oldPtr, T* newPtr )
 {
-   return dCompareAndSwap( *reinterpret_cast< volatile U32* >( &refPtr ), ( U32 ) oldPtr, ( U32 ) newPtr );
+#if defined(TORQUE_CPU_X86_64) || defined(TORQUE_CPU_ARM64)
+   return dCompareAndSwap( *reinterpret_cast< volatile U64* >( &refPtr ),
+                           ( U64 ) ( uintptr_t ) oldPtr,
+                           ( U64 ) ( uintptr_t ) newPtr );
+#else
+   return dCompareAndSwap( *reinterpret_cast< volatile U32* >( &refPtr ),
+                           ( U32 ) ( uintptr_t ) oldPtr,
+                           ( U32 ) ( uintptr_t ) newPtr );
+#endif
 }
 
 // Test-And-Set

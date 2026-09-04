@@ -26,6 +26,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
+#include <stdarg.h>
 
 #ifndef _TORQUE_TYPES_H_
 #include "platform/types.h"
@@ -219,9 +220,9 @@ char* dStripPath(const char* filename);
 // standard I/O functions [defined in platformString.cpp]
 
 extern void   dPrintf(const char *format, ...);
-extern int    dVprintf(const char *format, void *arglist);
+extern int    dVprintf(const char *format, va_list arglist);
 extern int    dSprintf(char *buffer, U32 bufferSize, const char *format, ...);
-extern int    dVsprintf(char *buffer, U32 bufferSize, const char *format, void *arglist);
+extern int    dVsprintf(char *buffer, U32 bufferSize, const char *format, va_list arglist);
 extern int    dSscanf(const char *buffer, const char *format, ...);
 
 #endif

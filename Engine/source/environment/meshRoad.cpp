@@ -863,7 +863,7 @@ void MeshRoad::prepRenderImage( SceneRenderState* state )
 
          // We sort by the material then vertex buffer.
          ri->defaultKey = matInst->getStateHint();
-         ri->defaultKey2 = (U32)ri->vertBuff; // Not 64bit safe!
+         ri->defaultKey2 = (U32)(uintptr_t)ri->vertBuff; // Not 64bit safe!
 
          renderPass->addInst( ri );  
       }
