@@ -55,69 +55,54 @@ typedef unsigned long long  U64;
 
 //--------------------------------------
 // Identify the Operating System
-#if defined(__WIN32__) || defined(_WIN32)
-#  define TORQUE_OS_STRING "Win32"
-#  define TORQUE_OS_WIN32
-#  define TORQUE_SUPPORTS_NASM
-#  define TORQUE_SUPPORTS_GCC_INLINE_X86_ASM
-#  include "platform/types.win32.h"
-
-#elif defined(SN_TARGET_PS3)
-#  define TORQUE_OS_STRING "PS3"
-#  define TORQUE_OS_PS3
-#  include "platform/types.posix.h"
-
-#elif defined(linux)
+// The Win32, PS3 and macOS branches went with their platform layers. Detection
+// now uses __linux__ rather than the bare `linux` macro, which only exists in
+// GNU dialects and vanishes under a strict -std=c++NN.
+#if defined(__linux__)
 #  define TORQUE_OS_STRING "Linux"
 #  define TORQUE_OS_LINUX
-#  define TORQUE_SUPPORTS_NASM
-#  define TORQUE_SUPPORTS_GCC_INLINE_X86_ASM
 #  include "platform/types.posix.h"
 
 #elif defined(__OpenBSD__)
 #  define TORQUE_OS_STRING "OpenBSD"
 #  define TORQUE_OS_OPENBSD
-#  define TORQUE_SUPPORTS_NASM
-#  define TORQUE_SUPPORTS_GCC_INLINE_X86_ASM
 #  include "platform/types.posix.h"
 
 #elif defined(__FreeBSD__)
 #  define TORQUE_OS_STRING "FreeBSD"
 #  define TORQUE_OS_FREEBSD
-#  define TORQUE_SUPPORTS_NASM
-#  define TORQUE_SUPPORTS_GCC_INLINE_X86_ASM
 #  include "platform/types.posix.h"
 
-#elif defined(__APPLE__)
-#  define TORQUE_OS_STRING "MacOS X"
-#  define TORQUE_OS_MAC
-#  include "platform/types.mac.h"
-#  if defined(i386)
-// Disabling ASM on XCode for shared library build code relocation issues
-// This could be reconfigured for static builds, though minimal impact
-//#     define TORQUE_SUPPORTS_NASM
-#  endif
-#else 
+#else
 #  error "GCC: Unsupported Operating System"
 #endif
 
 
 //--------------------------------------
 // Identify the CPU
-#if defined(i386)
+//
+// There was no x86_64 case here at all. `i386` is not defined on a 64-bit
+// target, so every 64-bit build fell through to the #error below -- the
+// original tree could not be compiled for x86_64 even in principle.
+//
+// TORQUE_SUPPORTS_NASM is deliberately not defined on any target: the .asm
+// sources it gated (math/mMathSSE.cpp, math/mMathAMD.cpp) are 32-bit.
+#if defined(__x86_64__) || defined(_M_X64)
+#  define TORQUE_CPU_STRING "x86_64"
+#  define TORQUE_CPU_X86_64
+#  define TORQUE_LITTLE_ENDIAN
+#  define TORQUE_SUPPORTS_GCC_INLINE_X86_ASM
+
+#elif defined(__i386__) || defined(i386)
 #  define TORQUE_CPU_STRING "Intel x86"
 #  define TORQUE_CPU_X86
 #  define TORQUE_LITTLE_ENDIAN
+#  define TORQUE_SUPPORTS_GCC_INLINE_X86_ASM
 
-#elif defined(__ppc__)
-#  define TORQUE_CPU_STRING "PowerPC"
-#  define TORQUE_CPU_PPC
-#  define TORQUE_BIG_ENDIAN
-
-#elif defined(SN_TARGET_PS3)
-#  define TORQUE_CPU_STRING "PowerPC"
-#  define TORQUE_CPU_PPC
-#  define TORQUE_BIG_ENDIAN
+#elif defined(__aarch64__)
+#  define TORQUE_CPU_STRING "ARM64"
+#  define TORQUE_CPU_ARM64
+#  define TORQUE_LITTLE_ENDIAN
 
 #else
 #  error "GCC: Unsupported Target CPU"

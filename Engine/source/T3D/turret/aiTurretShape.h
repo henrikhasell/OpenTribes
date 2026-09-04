@@ -157,9 +157,14 @@ class AITurretShape: public TurretShape
 
 protected:
 
-   enum MaskBits {
-      TurretStateMask   = Parent::NextFreeMask,
-      NextFreeMask      = Parent::NextFreeMask << 1
+   // The 32-bit netmask budget is exhausted by the parent chain -- see the
+   // "we're running out of maskbits" note in turretShape.h. Parent::NextFreeMask
+   // is already the top bit, so shifting it left is undefined; older compilers
+   // silently wrapped it to 0. Stated explicitly here. Neither class has
+   // subclasses, so nothing consumes NextFreeMask.
+   enum MaskBits : U32 {
+      TurretStateMask   = U32(Parent::NextFreeMask),
+      NextFreeMask      = 0
    };
 
    struct TargetInfo

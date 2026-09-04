@@ -86,26 +86,22 @@ static const F32 F32_MAX = F32(3.402823466e+38F);                 ///< Constant 
 
 // define all the variants of Offset that we might use
 #define _Offset_Normal(x, cls) ((dsize_t)((const char *)&(((cls *)1)->x)-(const char *)1))
-#define _Offset_Variant_1(x, cls) ((int)(&((cls *)1)->x) - 1)
+// Was cast to `int`, truncating the synthesised address on 64-bit targets.
+// This feeds OffsetNonConst on every GCC branch in types.gcc.h.
+#define _Offset_Variant_1(x, cls) ((dsize_t)(&((cls *)1)->x) - 1)
 #define _Offset_Variant_2(x, cls) offsetof(cls, x) // also requires #include <stddef.h>
 
 //--------------------------------------
 // Identify the compiler being used
 
-// PC-lint
+// The CodeWarrior and Visual C++ variants went with the Win32 and macOS
+// platform layers. GCC and Clang both satisfy __GNUC__.
 #if defined(_lint)
 #  include "platform/types.lint.h"
-// Metrowerks CodeWarrior
-#elif defined(__MWERKS__)
-#  include "platform/types.codewarrior.h"
-// Microsoft Visual C++/Visual.NET
-#elif defined(_MSC_VER)
-#  include "platform/types.visualc.h"
-// GNU GCC
 #elif defined(__GNUC__)
 #  include "platform/types.gcc.h"
 #else
-#  error "Unknown Compiler"
+#  error "Unsupported compiler -- OpenTribes targets GCC and Clang."
 #endif
 
 /// Integral type matching the host's memory address width.

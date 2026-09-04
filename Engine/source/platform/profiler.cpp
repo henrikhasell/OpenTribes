@@ -108,27 +108,25 @@ U32 endHighResolutionTimer(U32 time[2])
    return ticks;
 }
 
-#elif defined(TORQUE_SUPPORTS_GCC_INLINE_X86_ASM)
+#elif defined(TORQUE_CPU_X86) || defined(TORQUE_CPU_X86_64)
 
-// platform specific get hires times...
+// Was hand-written 32-bit inline assembly. The end-timer variant bound the
+// `time` pointer to %ecx and dereferenced it as 4-byte offsets, which silently
+// truncates the pointer on x86_64. __rdtsc() is the compiler intrinsic for the
+// same instruction and is correct on both widths.
+#include <x86intrin.h>
+
 void startHighResolutionTimer(U32 time[2])
 {
-   __asm__ __volatile__(
-      "rdtsc\n"
-      : "=a" (time[0]), "=d" (time[1])
-      );
+   const U64 ticks = __rdtsc();
+   time[0] = U32(ticks & 0xFFFFFFFFu);
+   time[1] = U32(ticks >> 32);
 }
 
 U32 endHighResolutionTimer(U32 time[2])
 {
-   U32 ticks;
-   __asm__ __volatile__(
-      "rdtsc\n"
-      "sub  0x4(%%ecx),  %%edx\n"
-      "sbb  (%%ecx),  %%eax\n"
-      : "=a" (ticks) : "c" (time)
-      );
-   return ticks;
+   const U64 start = (U64(time[1]) << 32) | U64(time[0]);
+   return U32(__rdtsc() - start);
 }
 
 #elif defined(TORQUE_OS_MAC)

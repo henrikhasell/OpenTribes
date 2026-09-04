@@ -227,9 +227,16 @@ NPAPI and ActiveX are dead browser technology.
 
 Do this before mass compilation; it changes types that everything downstream depends on.
 
-- `platform/typesX86UNIX.h:50` defines `typedef unsigned int dsize_t;` — 32 bits. `dsize_t`
+- **There is no x86_64 case in the CPU detection at all.** `platform/types.gcc.h` tested
+  `i386`, `__ppc__` and `SN_TARGET_PS3`, then `#error "GCC: Unsupported Target CPU"`. Since
+  `i386` is undefined on a 64-bit target, the original tree could not be compiled for x86_64
+  even in principle. This blocks everything else in this phase.
+- `platform/types.posix.h:32` defines `typedef unsigned int dsize_t;` — 32 bits. `dsize_t`
   appears in 55 files and is the engine's pointer/allocation-size type. Redefine as
-  `uintptr_t`/`size_t`.
+  `uintptr_t`. (Note: `typesX86UNIX.h` carries the same bug but is *dead* — `types.gcc.h`
+  includes `types.posix.h` on Linux, never the X86UNIX header.)
+- `platform/types.gcc.h` dispatched on the bare `linux` macro, which only exists in GNU
+  dialects and disappears under a strict `-std=c++NN`. Use `__linux__`.
 - Collapse the type headers. `platform/` carries `typesX86UNIX.h`, `typesWin32.h`,
   `typesPPC.h`, `types.mac.h`, `types.posix.h`, `types.ppc.h`, `types.xenon.h`,
   `types.codewarrior.h`, `types.visualc.h`, `types.gcc.h`, `typesLinux.h`. Reduce to one
@@ -238,7 +245,14 @@ Do this before mass compilation; it changes types that everything downstream dep
   a full audit needs `-Wpointer-to-int-cast` on a compiling tree).
 - Remove 32-bit inline asm. `platform/profiler.cpp`, `platform/platformCPUCount.cpp`,
   `platform/platform.h` and `core/ogg/oggTheoraDecoder.cpp` contain asm blocks that survive
-  the platform-directory deletion. Replace with intrinsics or portable C.
+  the platform-directory deletion. Replace with intrinsics or portable C. The worst is
+  `profiler.cpp`'s `endHighResolutionTimer`, which binds the `time` pointer to `%ecx` and
+  dereferences it at 4-byte offsets — it truncates the pointer on x86_64 rather than failing
+  loudly. `__rdtsc()` from `<x86intrin.h>` is correct on both widths.
+- Drop `TORQUE_SUPPORTS_NASM`. The `.asm` sources it gated (`math/mMathSSE.cpp`,
+  `math/mMathAMD.cpp`) are 32-bit.
+- Exclude libpng's `pnggccrd.c` and `pngvcrd.c` from the build — libpng 1.2's hand-written
+  32-bit x86 MMX paths, which cannot assemble on x86_64. The portable C fallbacks replace them.
 - Repair OPCODE's pointer packing. `Engine/lib/opcode/OPC_OptimizedTree.cpp` stores node
   pointers in `udword` (32-bit) in three places, and `OPC_SweepAndPrune.cpp` once more. This
   must be fixed whether or not OPCODE is later replaced.

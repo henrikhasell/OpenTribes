@@ -34,6 +34,10 @@
 #endif
 #ifndef _SIMBASE_H_
 #include "console/simBase.h"
+// EngineMarshallData() is used by the addArgs() template below. It is found by
+// ADL only when an argument has an associated namespace, so fundamental types
+// missed it entirely; the declaration has to be visible here.
+#include "console/engineAPI.h"
 #endif
 #ifndef _COLLADA_UTILS_H_
 #include "ts/collada/colladaUtils.h"

@@ -23,6 +23,7 @@
 
 #include "platform/platform.h"
 #include "platform/platformCPUCount.h"
+#include <cpuid.h>
 
 // Consoles don't need this
 #if defined(TORQUE_OS_XENON) || defined(TORQUE_OS_PS3)
@@ -97,295 +98,91 @@ namespace CPUInfo {
       // CpuIDSupported will return 0 if CPUID instruction is unavailable. Otherwise, it will return 
       // the maximum supported standard function.
       //
+      // The five routines below were hand-written 32-bit inline assembly, and were
+      // broken in more than one way. MaxCorePerPhysicalProc() split a single cpuid
+      // sequence across three separate asm statements, relying on register state
+      // surviving between them and on assembler labels crossing statement
+      // boundaries -- neither of which GCC has ever guaranteed -- and popped %ebx
+      // before the cpuid whose result it wanted. find_maskwidth() did the same with
+      // a "next:" label defined in one statement and jumped to from another.
+      //
+      // All of it is now expressed with the <cpuid.h> intrinsics, which are correct
+      // on both 32- and 64-bit and let the compiler handle %ebx (which is the PIC
+      // register on 32-bit x86, the reason for all the pushing and popping).
+
       static unsigned int CpuIDSupported(void)
       {
-         unsigned int MaxInputValue;
-         // If CPUID instruction is supported
-#ifdef TORQUE_COMPILER_GCC
-         try    
-         {		
-            MaxInputValue = 0;
-            // call cpuid with eax = 0
-            asm
-               (
-               "pushl %%ebx\n\t"
-               "xorl %%eax,%%eax\n\t"
-               "cpuid\n\t"
-               "popl %%ebx\n\t"
-               : "=a" (MaxInputValue)
-               : 
-               : "%ecx", "%edx"
-               );		
-         }
-         catch (...)
-         {
-            return(0);                   // cpuid instruction is unavailable
-         }
-#elif defined( TORQUE_COMPILER_VISUALC )
-         try
-         {
-            MaxInputValue = 0;
-            // call cpuid with eax = 0
-            __asm
-            {
-               xor eax, eax
-                  cpuid
-                  mov MaxInputValue, eax
-            }
-         }
-         catch (...)
-         {
-            return(0);                   // cpuid instruction is unavailable
-         }
-#else
-#  error Not implemented.
-#endif
-
-         return MaxInputValue;
-
+         // Returns the maximum supported standard CPUID leaf, or 0 if unsupported.
+         return __get_cpuid_max(0, NULL);
       }
 
+      static unsigned int HWD_MTSupported(void)
+      {
+         if (CpuIDSupported() < 1)
+            return 0;
 
+         unsigned int eax = 0, ebx = 0, ecx = 0, edx = 0;
+         if (!__get_cpuid(1, &eax, &ebx, &ecx, &edx))
+            return 0;
 
-      //
-      // Function returns the maximum cores per physical package. Note that the number of 
-      // AVAILABLE cores per physical to be used by an application might be less than this
-      // maximum value.
-      //
+         return (edx & HWD_MT_BIT);
+      }
 
       static unsigned int MaxCorePerPhysicalProc(void)
       {
+         if (!HWD_MTSupported())
+            return 1;                  // Single core
 
-         unsigned int Regeax        = 0;
+         if (CpuIDSupported() < 4)
+            return 1;                  // Leaf 4 unavailable
 
-         if (!HWD_MTSupported()) return (unsigned int) 1;  // Single core
-#ifdef TORQUE_COMPILER_GCC
-         {
-            asm
-               (
-               "pushl %ebx\n\t"
-               "xorl %eax, %eax\n\t"
-               "cpuid\n\t"
-               "cmpl $4, %eax\n\t"			// check if cpuid supports leaf 4
-               "jl .single_core\n\t"		// Single core
-               "movl $4, %eax\n\t"		
-               "movl $0, %ecx\n\t"			// start with index = 0; Leaf 4 reports
-               "popl %ebx\n\t"
-               );								// at least one valid cache level
-            asm
-               (
-               "cpuid"
-               : "=a" (Regeax)
-               :
-               : "%ecx", "%edx"
-               );		
-            asm
-               (
-               "jmp .multi_core\n"
-               ".single_core:\n\t"
-               "xor %eax, %eax\n"
-               ".multi_core:"
-               );		
-         }
-#elif defined( TORQUE_COMPILER_VISUALC )
-         __asm
-         {
-            xor eax, eax
-               cpuid
-               cmp eax, 4			// check if cpuid supports leaf 4
-               jl single_core		// Single core
-               mov eax, 4			
-               mov ecx, 0			// start with index = 0; Leaf 4 reports
-               cpuid				// at least one valid cache level
-               mov Regeax, eax
-               jmp multi_core
+         unsigned int eax = 0, ebx = 0, ecx = 0, edx = 0;
+         if (!__get_cpuid_count(4, 0, &eax, &ebx, &ecx, &edx))
+            return 1;
 
-single_core:
-            xor eax, eax		
-
-multi_core:
-
-         }
-#else
-#  error Not implemented.
-#endif
-         return (unsigned int)((Regeax & NUM_CORE_BITS) >> 26)+1;
-
+         return (unsigned int) ((eax & NUM_CORE_BITS) >> 26) + 1;
       }
 
-
-
-      //
-      // The function returns 0 when the hardware multi-threaded bit is not set.
-      //
-      static unsigned int HWD_MTSupported(void)
-      {
-
-
-         unsigned int Regedx      = 0;
-
-
-         if ((CpuIDSupported() >= 1))
-         {
-#ifdef TORQUE_COMPILER_GCC
-            asm 
-               (
-               "pushl %%ebx\n\t"
-               "movl $1,%%eax\n\t"
-               "cpuid\n\t"
-               "popl %%ebx\n\t"
-               : "=d" (Regedx)
-               :
-               : "%eax","%ecx"
-               );
-#elif defined( TORQUE_COMPILER_VISUALC )
-            __asm
-            {
-               mov eax, 1
-                  cpuid
-                  mov Regedx, edx
-            }		
-#else
-#  error Not implemented.
-#endif
-         }
-
-         return (Regedx & HWD_MT_BIT);  
-
-
-      }
-
-
-
-      //
-      // Function returns the maximum logical processors per physical package. Note that the number of 
-      // AVAILABLE logical processors per physical to be used by an application might be less than this
-      // maximum value.
-      //
       static unsigned int MaxLogicalProcPerPhysicalProc(void)
       {
+         if (!HWD_MTSupported())
+            return 1;
 
-         unsigned int Regebx = 0;
+         unsigned int eax = 0, ebx = 0, ecx = 0, edx = 0;
+         if (!__get_cpuid(1, &eax, &ebx, &ecx, &edx))
+            return 1;
 
-         if (!HWD_MTSupported()) return (unsigned int) 1;
-#ifdef TORQUE_COMPILER_GCC
-         asm 
-            (
-            "movl $1,%%eax\n\t"
-            "cpuid"
-            : "=b" (Regebx)
-            :
-            : "%eax","%ecx","%edx"
-            );
-#elif defined( TORQUE_COMPILER_VISUALC )
-         __asm
-         {
-            mov eax, 1
-               cpuid
-               mov Regebx, ebx
-         }
-#else
-#  error Not implemented.
-#endif
-         return (unsigned int) ((Regebx & NUM_LOGICAL_BITS) >> 16);
-
+         return (unsigned int) ((ebx & NUM_LOGICAL_BITS) >> 16);
       }
-
 
       static unsigned char GetAPIC_ID(void)
       {
+         unsigned int eax = 0, ebx = 0, ecx = 0, edx = 0;
+         if (!__get_cpuid(1, &eax, &ebx, &ecx, &edx))
+            return 0;
 
-         unsigned int Regebx = 0;
-#ifdef TORQUE_COMPILER_GCC
-         asm
-            (
-            "movl $1, %%eax\n\t"	
-            "cpuid"
-            : "=b" (Regebx) 
-            :
-            : "%eax","%ecx","%edx" 
-            );
-
-#elif defined( TORQUE_COMPILER_VISUALC )
-         __asm
-         {
-            mov eax, 1
-               cpuid
-               mov Regebx, ebx
-         }
-#else
-#  error Not implemented.
-#endif                                
-
-         return (unsigned char) ((Regebx & INITIAL_APIC_ID_BITS) >> 24);
-
+         return (unsigned char) ((ebx & INITIAL_APIC_ID_BITS) >> 24);
       }
 
       //
-      // Determine the width of the bit field that can represent the value count_item. 
+      // Determine the width of the bit field that can represent the value count_item.
       //
       unsigned int find_maskwidth(unsigned int CountItem)
       {
-         unsigned int MaskWidth,
-            count = CountItem;
-#ifdef TORQUE_COMPILER_GCC
-         asm
-            (
-#ifdef __x86_64__		// define constant to compile  
-            "push %%rcx\n\t"		// under 64-bit Linux
-            "push %%rax\n\t"
-#else
-            "pushl %%ecx\n\t"
-            "pushl %%eax\n\t"
-#endif
-            //		"movl $count, %%eax\n\t" //done by Assembler below
-            "xorl %%ecx, %%ecx"
-            //		"movl %%ecx, MaskWidth\n\t" //done by Assembler below
-            : "=c" (MaskWidth)
-            : "a" (count)
-            //		: "%ecx", "%eax" We don't list these as clobbered because we don't want the assembler
-            //to put them back when we are done
-            );
-         asm
-            (
-            "decl %%eax\n\t"
-            "bsrw %%ax,%%cx\n\t"
-            "jz next\n\t"
-            "incw %%cx\n\t"
-            //		"movl %%ecx, MaskWidth\n" //done by Assembler below
-            : "=c" (MaskWidth)
-            :
-         );
-         asm
-            (
-            "next:\n\t"
-#ifdef __x86_64__
-            "pop %rax\n\t"
-            "pop %rcx"		
-#else
-            "popl %eax\n\t"
-            "popl %ecx"		
-#endif
-            );
+         // Equivalent to the original bsr-based routine: the number of bits needed
+         // to represent (CountItem - 1), i.e. ceil(log2(CountItem)).
+         if (CountItem <= 1)
+            return 0;
 
-#elif defined( TORQUE_COMPILER_VISUALC )
-         __asm
+         unsigned int count = CountItem - 1;
+         unsigned int maskWidth = 0;
+         while (count)
          {
-            mov eax, count
-               mov ecx, 0
-               mov MaskWidth, ecx
-               dec eax
-               bsr cx, ax
-               jz next
-               inc cx
-               mov MaskWidth, ecx
-next:
-
+            ++maskWidth;
+            count >>= 1;
          }
-#else
-#  error Not implemented.
-#endif
-         return MaskWidth;
+
+         return maskWidth;
       }
 
 

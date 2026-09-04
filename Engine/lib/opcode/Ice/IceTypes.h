@@ -42,6 +42,11 @@
 
 	#define null				0														//!< our own NULL pointer
 
+	// uintptr_t, for the tagged pointers in OPC_OptimizedTree.h. Those node
+	// fields were udword (always 32 bits), which truncates a pointer on any
+	// 64-bit target.
+	#include <stdint.h>
+
 	// Custom types used in ICE
 	typedef signed char			sbyte;		//!< sizeof(sbyte)	must be 1
 	typedef unsigned char		ubyte;		//!< sizeof(ubyte)	must be 1

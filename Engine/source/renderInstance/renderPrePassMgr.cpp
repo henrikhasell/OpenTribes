@@ -29,7 +29,6 @@
 #include "materials/materialFeatureTypes.h"
 #include "core/util/safeDelete.h"
 #include "shaderGen/featureMgr.h"
-#include "shaderGen/HLSL/depthHLSL.h"
 #include "shaderGen/GLSL/depthGLSL.h"
 #include "shaderGen/conditionerFeature.h"
 #include "shaderGen/shaderGenVars.h"

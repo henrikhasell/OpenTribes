@@ -1170,7 +1170,7 @@ void TSShape::assembleShape()
          skip = true;
       TSMesh * mesh = TSMesh::assembleMesh(meshType,skip);
       if (ptr32)
-         ptr32[i] = skip ?  0 : (S32)mesh;
+         ptr32[i] = skip ?  0 : (S32)(uintptr_t)mesh;
 
       // fill in location of verts, tverts, and normals for detail levels
       if (mesh && meshType!=TSMesh::DecalMeshType)

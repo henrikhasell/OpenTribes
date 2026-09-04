@@ -71,7 +71,7 @@ void PathedInteriorData::packData(BitStream *stream)
    for (S32 i = 0; i < MaxSounds; i++)
    {
       if (stream->writeFlag(sound[i]))
-         stream->writeRangedU32(packed? SimObjectId(sound[i]):
+         stream->writeRangedU32(packed? SimObjectId((uintptr_t)sound[i]):
                                 sound[i]->getId(),DataBlockObjectIdFirst,DataBlockObjectIdLast);
    }
    Parent::packData(stream);
@@ -98,7 +98,7 @@ bool PathedInteriorData::preload(bool server, String &errorStr)
    {
       for (S32 i = 0; i < MaxSounds; i++)
          if (sound[i])
-            Sim::findObject(SimObjectId(sound[i]),sound[i]);
+            Sim::findObject(SimObjectId((uintptr_t)sound[i]),sound[i]);
    }
    return true;
 }
