@@ -10,6 +10,7 @@ function(torque_add_vendored_lib name)
     foreach(dir IN LISTS ARG_DIRS)
         file(GLOB _found
             "${ENGINE_LIB_DIR}/${dir}/*.c"
+            "${ENGINE_LIB_DIR}/${dir}/*.cc"
             "${ENGINE_LIB_DIR}/${dir}/*.cpp")
         list(APPEND _sources ${_found})
     endforeach()

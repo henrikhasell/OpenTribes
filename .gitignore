@@ -169,3 +169,4 @@ pip-log.txt
 console.log
 *.cached.dts
 !Engine/bin
+build-asan
