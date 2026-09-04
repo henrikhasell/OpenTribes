@@ -19,35 +19,9 @@
 namespace GL
 {
 
-// SDL_GL_GetProcAddress only reliably returns extensions; core GL 1.1 entry
-// points come back NULL on most drivers and have to be looked up in the GL
-// library itself.
-static SDL_SharedObject* getGLLibrary()
-{
-   static SDL_SharedObject* library = NULL;
-   static bool tried = false;
-
-   if (!tried)
-   {
-      tried = true;
-      library = SDL_LoadObject("libGL.so.1");
-      if (!library)
-         library = SDL_LoadObject("libGL.so");
-   }
-
-   return library;
-}
-
 static bool bindEntry(void*& fnAddress, const char* name)
 {
    fnAddress = reinterpret_cast<void*>(SDL_GL_GetProcAddress(name));
-
-   if (!fnAddress)
-   {
-      if (SDL_SharedObject* library = getGLLibrary())
-         fnAddress = reinterpret_cast<void*>(SDL_LoadFunction(library, name));
-   }
-
    return fnAddress != NULL;
 }
 
