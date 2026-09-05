@@ -1,7 +1,7 @@
 // SDL3 half of the GL device, replacing gfxGLDevice.win.cpp's WGL code.
 
 #include "platform/platform.h"
-#include "platform/sdl/sdlWindow.h"
+#include "platform/sdl/sdlWindowMgr.h"
 #include "gfx/gl/gfxGLDevice.h"
 #include "gfx/gl/gfxGLWindowTarget.h"
 #include "gfx/gl/gfxGLEnumTranslate.h"

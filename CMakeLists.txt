@@ -74,6 +74,7 @@ target_compile_options(${TORQUE_APP_NAME} PRIVATE
 target_link_libraries(${TORQUE_APP_NAME} PRIVATE
     torque::vendored
     SDL3::SDL3
+    SDL3_ttf::SDL3_ttf
     ${CMAKE_DL_LIBS}
     Threads::Threads)
 
@@ -84,6 +85,9 @@ configure_file(
 
 set_target_properties(${TORQUE_APP_NAME} PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/game")
+
+file(GLOB _torque_fonts "${TORQUE_FONT_DIR}/*.ttf")
+file(COPY ${_torque_fonts} DESTINATION "${CMAKE_BINARY_DIR}/game/fonts")
 
 message(STATUS "")
 message(STATUS "OpenTribes ${PROJECT_VERSION}")

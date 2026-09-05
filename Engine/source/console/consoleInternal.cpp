@@ -814,10 +814,11 @@ void Namespace::Entry::clear()
       mCode = NULL;
    }
 
-   // Clean up usage strings generated for script functions.
+   // Clean up usage strings generated for script functions. These come from
+   // dStrdup in compiledEval.cpp, so they need dFree rather than delete.
    if( ( mType == Namespace::Entry::ConsoleFunctionType ) && mUsage )
    {
-      delete mUsage;
+      dFree( const_cast<char*>( mUsage ) );
       mUsage = NULL;
    }
 }
@@ -843,7 +844,7 @@ Namespace::~Namespace()
    clearEntries();
    if( mUsage && mCleanUpUsage )
    {
-      delete mUsage;
+      dFree( const_cast<char*>( mUsage ) );
       mUsage = NULL;
       mCleanUpUsage = false;
    }

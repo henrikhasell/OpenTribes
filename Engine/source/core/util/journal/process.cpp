@@ -61,8 +61,11 @@ Process &Process::get()
    {
       ~Cleanup()
       {
-         if( _theOneProcess )
-            delete _theOneProcess;
+         // Must be nulled: objects destroyed after this one still call
+         // Process::remove() from their destructors, and get() would hand
+         // them back the freed instance.
+         delete _theOneProcess;
+         _theOneProcess = NULL;
       }
    };
    static Cleanup cleanup;

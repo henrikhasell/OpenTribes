@@ -81,6 +81,8 @@ public:
    void*             getPlatformDrawable() const { return mSDLWindow; }
    SDL_Window*       getSDLWindow() const { return mSDLWindow; }
 
+   PlatformWindowManagerSDL* mOwner;
+
 private:
    SDL_Window*        mSDLWindow;
    GFXDevice*         mDevice;
