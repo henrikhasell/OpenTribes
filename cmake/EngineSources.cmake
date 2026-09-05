@@ -45,6 +45,7 @@ set(_engine_dirs
     sfx
     sfx/media
     sfx/null
+    sfx/openal
     shaderGen
     sim
     unit
