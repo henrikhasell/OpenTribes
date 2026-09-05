@@ -1159,7 +1159,14 @@ void TSShape::assembleShape()
    }
 
    // read in the meshes (sans skins)...straightforward read one at a time
-   ptr32 = tsalloc.allocShape32(numMeshes + numSkins*numDetails); // leave room for skins on old shapes
+   //
+   // This array holds TSMesh pointers, not 32-bit data, so it needs one slot
+   // per pointer-width rather than one per S32. Storing pointers in the 32-bit
+   // slots truncated every mesh address, and meshes.set() below then read them
+   // back at the wrong stride -- no shape in the game would load.
+   const S32 meshPtrSlots = sizeof( TSMesh* ) / sizeof( S32 );
+   ptr32 = tsalloc.allocShape32( ( numMeshes + numSkins*numDetails ) * meshPtrSlots ); // leave room for skins on old shapes
+   TSMesh** ptrMesh = reinterpret_cast< TSMesh** >( ptr32 );
    S32 curObject = 0; // for tracking skipped meshes
    for (i=0; i<numMeshes; i++)
    {
@@ -1169,8 +1176,8 @@ void TSShape::assembleShape()
          // decal mesh deprecated
          skip = true;
       TSMesh * mesh = TSMesh::assembleMesh(meshType,skip);
-      if (ptr32)
-         ptr32[i] = skip ?  0 : (S32)(uintptr_t)mesh;
+      if (ptrMesh)
+         ptrMesh[i] = skip ? NULL : mesh;
 
       // fill in location of verts, tverts, and normals for detail levels
       if (mesh && meshType!=TSMesh::DecalMeshType)
@@ -1193,7 +1200,7 @@ void TSShape::assembleShape()
          }
       }
    }
-   meshes.set(ptr32,numMeshes);
+   meshes.set(ptrMesh,numMeshes);
 
    tsalloc.checkGuard();
 
