@@ -74,11 +74,11 @@ public:
    F64 *functionFloats;
 
    U32 codeSize;
-   U32 *code;
+   CodeSlot *code;
 
    U32 refCount;
    U32 lineBreakPairCount;
-   U32 *lineBreakPairs;
+   CodeSlot *lineBreakPairs;
    U32 breakListSize;
    U32 *breakList;
    CodeBlock *nextFile;

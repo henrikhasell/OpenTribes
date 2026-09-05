@@ -1,4 +1,4 @@
-#include "platform/sdl/sdlWindow.h"
+#include "platform/sdl/sdlWindowMgr.h"
 #include "platform/platform.h"
 #include "gfx/gfxDevice.h"
 #include "console/console.h"
@@ -20,6 +20,9 @@ PlatformWindowSDL::PlatformWindowSDL()
 
 PlatformWindowSDL::~PlatformWindowSDL()
 {
+   if (mOwner)
+      mOwner->_unlinkWindow(this);
+
    if (mSDLWindow)
       SDL_DestroyWindow(mSDLWindow);
 }

@@ -135,7 +135,7 @@ void CodeBlock::clearAllBreaks()
       return;
    for(U32 i = 0; i < lineBreakPairCount; i++)
    {
-      U32 *p = lineBreakPairs + i * 2;
+      CodeSlot *p = lineBreakPairs + i * 2;
       code[p[1]] = p[0] & 0xFF;
    }
 }
@@ -146,7 +146,7 @@ void CodeBlock::clearBreakpoint(U32 lineNumber)
       return;
    for(U32 i = 0; i < lineBreakPairCount; i++)
    {
-      U32 *p = lineBreakPairs + i * 2;
+      CodeSlot *p = lineBreakPairs + i * 2;
       if((p[0] >> 8) == lineNumber)
       {
          code[p[1]] = p[0] & 0xFF;
@@ -161,7 +161,7 @@ void CodeBlock::setAllBreaks()
       return;
    for(U32 i = 0; i < lineBreakPairCount; i++)
    {
-      U32 *p = lineBreakPairs + i * 2;
+      CodeSlot *p = lineBreakPairs + i * 2;
       code[p[1]] = OP_BREAK;
    }
 }
@@ -173,7 +173,7 @@ bool CodeBlock::setBreakpoint(U32 lineNumber)
 
    for(U32 i = 0; i < lineBreakPairCount; i++)
    {
-      U32 *p = lineBreakPairs + i * 2;
+      CodeSlot *p = lineBreakPairs + i * 2;
       if((p[0] >> 8) == lineNumber)
       {
          code[p[1]] = OP_BREAK;
@@ -191,7 +191,7 @@ U32 CodeBlock::findFirstBreakLine(U32 lineNumber)
 
    for(U32 i = 0; i < lineBreakPairCount; i++)
    {
-      U32 *p = lineBreakPairs + i * 2;
+      CodeSlot *p = lineBreakPairs + i * 2;
       U32 line = (p[0] >> 8);
 
       if( lineNumber <= line )
@@ -331,7 +331,7 @@ void CodeBlock::calcBreakList()
 
    for(i = 0; i < lineBreakPairCount; i++)
    {
-      U32 *p = lineBreakPairs + i * 2;
+      CodeSlot *p = lineBreakPairs + i * 2;
       p[0] = (p[0] << 8) | code[p[1]];
    }
 
@@ -408,20 +408,28 @@ bool CodeBlock::read(StringTableEntry fileName, Stream &st)
    st.read(&lineBreakPairCount);
 
    U32 totSize = codeSize + lineBreakPairCount * 2;
-   code = new U32[totSize];
+   code = new CodeSlot[totSize];
 
    for(i = 0; i < codeSize; i++)
    {
       U8 b;
       st.read(&b);
       if(b == 0xFF)
-         st.read(&code[i]);
+      {
+         U32 slot;
+         st.read(&slot);
+         code[i] = slot;
+      }
       else
          code[i] = b;
    }
 
    for(i = codeSize; i < totSize; i++)
-      st.read(&code[i]);
+   {
+      U32 slot;
+      st.read(&slot);
+      code[i] = slot;
+   }
 
    lineBreakPairs = code + codeSize;
 
@@ -443,7 +451,7 @@ bool CodeBlock::read(StringTableEntry fileName, Stream &st)
       {
          U32 ip;
          st.read(&ip);
-         code[ip] = *((U32 *) &ste);
+         code[ip] = reinterpret_cast<CodeSlot>(ste);
       }
    }
 
@@ -506,7 +514,7 @@ bool CodeBlock::compile(const char *codeFileName, StringTableEntry fileName, con
       codeSize = 1;
 
    lineBreakPairCount = smBreakLineCount;
-   code = new U32[codeSize + smBreakLineCount * 2];
+   code = new CodeSlot[codeSize + smBreakLineCount * 2];
    lineBreakPairs = code + codeSize;
 
    // Write string table data...
@@ -541,13 +549,13 @@ bool CodeBlock::compile(const char *codeFileName, StringTableEntry fileName, con
       else
       {
          st.write(U8(0xFF));
-         st.write(code[i]);
+         st.write(U32(code[i]));
       }
    }
 
    // Write the break info...
    for(i = codeSize; i < totSize; i++)
-      st.write(code[i]);
+      st.write(U32(code[i]));
 
    getIdentTable().write(st);
 
@@ -633,7 +641,7 @@ const char *CodeBlock::compileExec(StringTableEntry fileName, const char *inStri
    globalFloats    = getGlobalFloatTable().build();
    functionFloats  = getFunctionFloatTable().build();
 
-   code = new U32[codeSize + lineBreakPairCount * 2];
+   code = new CodeSlot[codeSize + lineBreakPairCount * 2];
    lineBreakPairs = code + codeSize;
 
    smBreakLineCount = 0;

@@ -71,19 +71,19 @@ namespace Compiler
 
    //------------------------------------------------------------
 
-   U32 evalSTEtoU32(StringTableEntry ste, U32)
+   CodeSlot evalSTEtoU32(StringTableEntry ste, U32)
    {
-      return *((U32 *) &ste);
+      return reinterpret_cast<CodeSlot>(ste);
    }
 
-   U32 compileSTEtoU32(StringTableEntry ste, U32 ip)
+   CodeSlot compileSTEtoU32(StringTableEntry ste, U32 ip)
    {
       if(ste)
          getIdentTable().add(ste, ip);
       return 0;
    }
 
-   U32 (*STEtoU32)(StringTableEntry ste, U32 ip) = evalSTEtoU32;
+   CodeSlot (*STEtoU32)(StringTableEntry ste, U32 ip) = evalSTEtoU32;
 
    //------------------------------------------------------------
 

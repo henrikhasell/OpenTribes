@@ -25,6 +25,13 @@ void Platform::init()
    if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS))
       Con::errorf("SDL_Init failed: %s", SDL_GetError());
 
+   // GFXGLDevice's constructor binds the core GL entry points, which happens
+   // well before any window or context exists. SDL_GL_GetProcAddress can only
+   // resolve them once SDL has loaded the driver, so do that up front and let
+   // SDL pick the library name for the platform.
+   if (!SDL_GL_LoadLibrary(NULL))
+      Con::errorf("SDL_GL_LoadLibrary failed: %s", SDL_GetError());
+
    Processor::init();
 }
 

@@ -154,7 +154,10 @@ inline U32 getBinLog2(U32 num, bool knownPow2 = false)
       num = (num >> 1) + 1;
    }
    
-   return MultiplyDeBruijnBitPosition[(num * 0x077CB531UL) >> 27];
+   // The multiply must wrap modulo 2^32 for the DeBruijn sequence to index
+   // the table. 0x077CB531UL is unsigned long, which is 64-bit on LP64, so it
+   // did not wrap and the shift ran off the end of the 32-entry table.
+   return MultiplyDeBruijnBitPosition[(U32)(num * 0x077CB531U) >> 27];
 }
 
 ///   Determines if the given U32 is some 2^n

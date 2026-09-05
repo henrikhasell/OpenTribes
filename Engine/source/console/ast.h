@@ -23,6 +23,11 @@
 #ifndef _AST_H_
 #define _AST_H_
 
+/// One slot of the compiled code stream. The VM stores StringTableEntry
+/// pointers inline in the stream, so a slot has to be pointer-wide; it was U32,
+/// which truncated every interned string pointer on a 64-bit target.
+typedef uintptr_t CodeSlot;
+
 class ExprEvalState;
 class Namespace;
 class SimObject;
@@ -85,7 +90,7 @@ struct StmtNode
    /// @{
 
    virtual U32 precompileStmt(U32 loopCount) = 0;
-   virtual U32 compileStmt(U32 *codeStream, U32 ip, U32 continuePoint, U32 breakPoint) = 0;
+   virtual U32 compileStmt(CodeSlot *codeStream, U32 ip, U32 continuePoint, U32 breakPoint) = 0;
    virtual void setPackage(StringTableEntry packageName);
    /// @}
 };
@@ -102,7 +107,7 @@ struct BreakStmtNode : StmtNode
    static BreakStmtNode *alloc( S32 lineNumber );
 
    U32 precompileStmt(U32 loopCount);
-   U32 compileStmt(U32 *codeStream, U32 ip, U32 continuePoint, U32 breakPoint);
+   U32 compileStmt(CodeSlot *codeStream, U32 ip, U32 continuePoint, U32 breakPoint);
    DBG_STMT_TYPE(BreakStmtNode);
 };
 
@@ -110,7 +115,7 @@ struct ContinueStmtNode : StmtNode
 {
    static ContinueStmtNode *alloc( S32 lineNumber );
    U32 precompileStmt(U32 loopCount);
-   U32 compileStmt(U32 *codeStream, U32 ip, U32 continuePoint, U32 breakPoint);
+   U32 compileStmt(CodeSlot *codeStream, U32 ip, U32 continuePoint, U32 breakPoint);
    DBG_STMT_TYPE(ContinueStmtNode);
 };
 
@@ -118,10 +123,10 @@ struct ContinueStmtNode : StmtNode
 struct ExprNode : StmtNode
 {
    U32 precompileStmt(U32 loopCount);
-   U32 compileStmt(U32 *codeStream, U32 ip, U32 continuePoint, U32 breakPoint);
+   U32 compileStmt(CodeSlot *codeStream, U32 ip, U32 continuePoint, U32 breakPoint);
 
    virtual U32 precompile(TypeReq type) = 0;
-   virtual U32 compile(U32 *codeStream, U32 ip, TypeReq type) = 0;
+   virtual U32 compile(CodeSlot *codeStream, U32 ip, TypeReq type) = 0;
    virtual TypeReq getPreferredType() = 0;
 };
 
@@ -131,7 +136,7 @@ struct ReturnStmtNode : StmtNode
 
    static ReturnStmtNode *alloc( S32 lineNumber, ExprNode *expr );
    U32 precompileStmt(U32 loopCount);
-   U32 compileStmt(U32 *codeStream, U32 ip, U32 continuePoint, U32 breakPoint);
+   U32 compileStmt(CodeSlot *codeStream, U32 ip, U32 continuePoint, U32 breakPoint);
    DBG_STMT_TYPE(ReturnStmtNode);
 };
 
@@ -148,7 +153,7 @@ struct IfStmtNode : StmtNode
    void propagateSwitchExpr(ExprNode *left, bool string);
    ExprNode *getSwitchOR(ExprNode *left, ExprNode *list, bool string);
    U32 precompileStmt(U32 loopCount);
-   U32 compileStmt(U32 *codeStream, U32 ip, U32 continuePoint, U32 breakPoint);
+   U32 compileStmt(CodeSlot *codeStream, U32 ip, U32 continuePoint, U32 breakPoint);
    DBG_STMT_TYPE(IfStmtNode);
 };
 
@@ -166,7 +171,7 @@ struct LoopStmtNode : StmtNode
 
    static LoopStmtNode *alloc( S32 lineNumber, ExprNode *testExpr, ExprNode *initExpr, ExprNode *endLoopExpr, StmtNode *loopBlock, bool isDoLoop );
    U32 precompileStmt(U32 loopCount);
-   U32 compileStmt(U32 *codeStream, U32 ip, U32 continuePoint, U32 breakPoint);
+   U32 compileStmt(CodeSlot *codeStream, U32 ip, U32 continuePoint, U32 breakPoint);
    DBG_STMT_TYPE(LoopStmtNode);
 };
 
@@ -191,7 +196,7 @@ struct IterStmtNode : StmtNode
    static IterStmtNode* alloc( S32 lineNumber, StringTableEntry varName, ExprNode* containerExpr, StmtNode* body, bool isStringIter );
    
    U32 precompileStmt( U32 loopCount );
-   U32 compileStmt( U32* codeStream, U32 ip, U32 continuePoint, U32 breakPoint );
+   U32 compileStmt( CodeSlot* codeStream, U32 ip, U32 continuePoint, U32 breakPoint );
 };
 
 /// A binary mathematical expression (ie, left op right).
@@ -206,7 +211,7 @@ struct FloatBinaryExprNode : BinaryExprNode
 {
    static FloatBinaryExprNode *alloc( S32 lineNumber, S32 op, ExprNode *left, ExprNode *right );
    U32 precompile(TypeReq type);
-   U32 compile(U32 *codeStream, U32 ip, TypeReq type);
+   U32 compile(CodeSlot *codeStream, U32 ip, TypeReq type);
    TypeReq getPreferredType();
    DBG_STMT_TYPE(FloatBinaryExprNode);
 };
@@ -219,7 +224,7 @@ struct ConditionalExprNode : ExprNode
    bool integer;
    static ConditionalExprNode *alloc( S32 lineNumber, ExprNode *testExpr, ExprNode *trueExpr, ExprNode *falseExpr );
    virtual U32 precompile(TypeReq type);
-   virtual U32 compile(U32 *codeStream, U32 ip, TypeReq type);
+   virtual U32 compile(CodeSlot *codeStream, U32 ip, TypeReq type);
    virtual TypeReq getPreferredType();
    DBG_STMT_TYPE(ConditionalExprNode);
 };
@@ -233,7 +238,7 @@ struct IntBinaryExprNode : BinaryExprNode
 
    void getSubTypeOperand();
    U32 precompile(TypeReq type);
-   U32 compile(U32 *codeStream, U32 ip, TypeReq type);
+   U32 compile(CodeSlot *codeStream, U32 ip, TypeReq type);
    TypeReq getPreferredType();
    DBG_STMT_TYPE(IntBinaryExprNode);
 };
@@ -243,7 +248,7 @@ struct StreqExprNode : BinaryExprNode
    bool eq;
    static StreqExprNode *alloc( S32 lineNumber, ExprNode *left, ExprNode *right, bool eq );
    U32 precompile(TypeReq type);
-   U32 compile(U32 *codeStream, U32 ip, TypeReq type);
+   U32 compile(CodeSlot *codeStream, U32 ip, TypeReq type);
    TypeReq getPreferredType();
    DBG_STMT_TYPE(StreqExprNode);
 };
@@ -253,7 +258,7 @@ struct StrcatExprNode : BinaryExprNode
    int appendChar;
    static StrcatExprNode *alloc( S32 lineNumber, ExprNode *left, ExprNode *right, int appendChar );
    U32 precompile(TypeReq type);
-   U32 compile(U32 *codeStream, U32 ip, TypeReq type);
+   U32 compile(CodeSlot *codeStream, U32 ip, TypeReq type);
    TypeReq getPreferredType();
    DBG_STMT_TYPE(StrcatExprNode);
 };
@@ -263,7 +268,7 @@ struct CommaCatExprNode : BinaryExprNode
    static CommaCatExprNode *alloc( S32 lineNumber, ExprNode *left, ExprNode *right );
 
    U32 precompile(TypeReq type);
-   U32 compile(U32 *codeStream, U32 ip, TypeReq type);
+   U32 compile(CodeSlot *codeStream, U32 ip, TypeReq type);
    TypeReq getPreferredType();
    DBG_STMT_TYPE(CommaCatExprNode);
 };
@@ -276,7 +281,7 @@ struct IntUnaryExprNode : ExprNode
 
    static IntUnaryExprNode *alloc( S32 lineNumber, S32 op, ExprNode *expr );
    U32 precompile(TypeReq type);
-   U32 compile(U32 *codeStream, U32 ip, TypeReq type);
+   U32 compile(CodeSlot *codeStream, U32 ip, TypeReq type);
    TypeReq getPreferredType();
    DBG_STMT_TYPE(IntUnaryExprNode);
 };
@@ -288,7 +293,7 @@ struct FloatUnaryExprNode : ExprNode
 
    static FloatUnaryExprNode *alloc( S32 lineNumber, S32 op, ExprNode *expr );
    U32 precompile(TypeReq type);
-   U32 compile(U32 *codeStream, U32 ip, TypeReq type);
+   U32 compile(CodeSlot *codeStream, U32 ip, TypeReq type);
    TypeReq getPreferredType();
    DBG_STMT_TYPE(FloatUnaryExprNode);
 };
@@ -300,7 +305,7 @@ struct VarNode : ExprNode
 
    static VarNode *alloc( S32 lineNumber, StringTableEntry varName, ExprNode *arrayIndex );
    U32 precompile(TypeReq type);
-   U32 compile(U32 *codeStream, U32 ip, TypeReq type);
+   U32 compile(CodeSlot *codeStream, U32 ip, TypeReq type);
    TypeReq getPreferredType();
    DBG_STMT_TYPE(VarNode);
 };
@@ -312,7 +317,7 @@ struct IntNode : ExprNode
 
    static IntNode *alloc( S32 lineNumber, S32 value );
    U32 precompile(TypeReq type);
-   U32 compile(U32 *codeStream, U32 ip, TypeReq type);
+   U32 compile(CodeSlot *codeStream, U32 ip, TypeReq type);
    TypeReq getPreferredType();
    DBG_STMT_TYPE(IntNode);
 };
@@ -324,7 +329,7 @@ struct FloatNode : ExprNode
 
    static FloatNode *alloc( S32 lineNumber, F64 value );
    U32 precompile(TypeReq type);
-   U32 compile(U32 *codeStream, U32 ip, TypeReq type);
+   U32 compile(CodeSlot *codeStream, U32 ip, TypeReq type);
    TypeReq getPreferredType();
    DBG_STMT_TYPE(FloatNode);
 };
@@ -339,7 +344,7 @@ struct StrConstNode : ExprNode
 
    static StrConstNode *alloc( S32 lineNumber, char *str, bool tag, bool doc = false );
    U32 precompile(TypeReq type);
-   U32 compile(U32 *codeStream, U32 ip, TypeReq type);
+   U32 compile(CodeSlot *codeStream, U32 ip, TypeReq type);
    TypeReq getPreferredType();
    DBG_STMT_TYPE(StrConstNode);
 };
@@ -352,7 +357,7 @@ struct ConstantNode : ExprNode
 
    static ConstantNode *alloc( S32 lineNumber, StringTableEntry value );
    U32 precompile(TypeReq type);
-   U32 compile(U32 *codeStream, U32 ip, TypeReq type);
+   U32 compile(CodeSlot *codeStream, U32 ip, TypeReq type);
    TypeReq getPreferredType();
    DBG_STMT_TYPE(ConstantNode);
 };
@@ -366,7 +371,7 @@ struct AssignExprNode : ExprNode
 
    static AssignExprNode *alloc( S32 lineNumber, StringTableEntry varName, ExprNode *arrayIndex, ExprNode *expr );
    U32 precompile(TypeReq type);
-   U32 compile(U32 *codeStream, U32 ip, TypeReq type);
+   U32 compile(CodeSlot *codeStream, U32 ip, TypeReq type);
    TypeReq getPreferredType();
    DBG_STMT_TYPE(AssignExprNode);
 };
@@ -390,7 +395,7 @@ struct AssignOpExprNode : ExprNode
 
    static AssignOpExprNode *alloc( S32 lineNumber, StringTableEntry varName, ExprNode *arrayIndex, ExprNode *expr, S32 op );
    U32 precompile(TypeReq type);
-   U32 compile(U32 *codeStream, U32 ip, TypeReq type);
+   U32 compile(CodeSlot *codeStream, U32 ip, TypeReq type);
    TypeReq getPreferredType();
    DBG_STMT_TYPE(AssignOpExprNode);
 };
@@ -403,7 +408,7 @@ struct TTagSetStmtNode : StmtNode
 
    static TTagSetStmtNode *alloc( S32 lineNumber, StringTableEntry tag, ExprNode *valueExpr, ExprNode *stringExpr );
    U32 precompileStmt(U32 loopCount);
-   U32 compileStmt(U32 *codeStream, U32 ip, U32 continuePoint, U32 breakPoint);
+   U32 compileStmt(CodeSlot *codeStream, U32 ip, U32 continuePoint, U32 breakPoint);
    DBG_STMT_TYPE(TTagSetStmtNode);
 };
 
@@ -413,7 +418,7 @@ struct TTagDerefNode : ExprNode
 
    static TTagDerefNode *alloc( S32 lineNumber, ExprNode *expr );
    U32 precompile(TypeReq type);
-   U32 compile(U32 *codeStream, U32 ip, TypeReq type);
+   U32 compile(CodeSlot *codeStream, U32 ip, TypeReq type);
    TypeReq getPreferredType();
    DBG_STMT_TYPE(TTagDerefNode);
 };
@@ -424,7 +429,7 @@ struct TTagExprNode : ExprNode
 
    static TTagExprNode *alloc( S32 lineNumber, StringTableEntry tag );
    U32 precompile(TypeReq type);
-   U32 compile(U32 *codeStream, U32 ip, TypeReq type);
+   U32 compile(CodeSlot *codeStream, U32 ip, TypeReq type);
    TypeReq getPreferredType();
    DBG_STMT_TYPE(TTagExprNode);
 };
@@ -443,7 +448,7 @@ struct FuncCallExprNode : ExprNode
 
    static FuncCallExprNode *alloc( S32 lineNumber, StringTableEntry funcName, StringTableEntry nameSpace, ExprNode *args, bool dot );
    U32 precompile(TypeReq type);
-   U32 compile(U32 *codeStream, U32 ip, TypeReq type);
+   U32 compile(CodeSlot *codeStream, U32 ip, TypeReq type);
    TypeReq getPreferredType();
    DBG_STMT_TYPE(FuncCallExprNode);
 };
@@ -456,7 +461,7 @@ struct AssertCallExprNode : ExprNode
 
    static AssertCallExprNode *alloc( S32 lineNumber, ExprNode *testExpr, const char *message );
    U32 precompile(TypeReq type);
-   U32 compile(U32 *codeStream, U32 ip, TypeReq type);
+   U32 compile(CodeSlot *codeStream, U32 ip, TypeReq type);
    TypeReq getPreferredType();
    DBG_STMT_TYPE(AssertCallExprNode);
 };
@@ -476,7 +481,7 @@ struct SlotAccessNode : ExprNode
 
    static SlotAccessNode *alloc( S32 lineNumber, ExprNode *objectExpr, ExprNode *arrayExpr, StringTableEntry slotName );
    U32 precompile(TypeReq type);
-   U32 compile(U32 *codeStream, U32 ip, TypeReq type);
+   U32 compile(CodeSlot *codeStream, U32 ip, TypeReq type);
    TypeReq getPreferredType();
    DBG_STMT_TYPE(SlotAccessNode);
 };
@@ -496,7 +501,7 @@ struct InternalSlotAccessNode : ExprNode
 
    static InternalSlotAccessNode *alloc( S32 lineNumber, ExprNode *objectExpr, ExprNode *slotExpr, bool recurse );
    U32 precompile(TypeReq type);
-   U32 compile(U32 *codeStream, U32 ip, TypeReq type);
+   U32 compile(CodeSlot *codeStream, U32 ip, TypeReq type);
    TypeReq getPreferredType();
    DBG_STMT_TYPE(InternalSlotAccessNode);
 };
@@ -510,7 +515,7 @@ struct SlotAssignNode : ExprNode
 
    static SlotAssignNode *alloc( S32 lineNumber, ExprNode *objectExpr, ExprNode *arrayExpr, StringTableEntry slotName, ExprNode *valueExpr, U32 typeID = -1 );
    U32 precompile(TypeReq type);
-   U32 compile(U32 *codeStream, U32 ip, TypeReq type);
+   U32 compile(CodeSlot *codeStream, U32 ip, TypeReq type);
    TypeReq getPreferredType();
    DBG_STMT_TYPE(SlotAssignNode);
 };
@@ -526,7 +531,7 @@ struct SlotAssignOpNode : ExprNode
 
    static SlotAssignOpNode *alloc( S32 lineNumber, ExprNode *objectExpr, StringTableEntry slotName, ExprNode *arrayExpr, S32 op, ExprNode *valueExpr );
    U32 precompile(TypeReq type);
-   U32 compile(U32 *codeStream, U32 ip, TypeReq type);
+   U32 compile(CodeSlot *codeStream, U32 ip, TypeReq type);
    TypeReq getPreferredType();
    DBG_STMT_TYPE(SlotAssignOpNode);
 };
@@ -547,8 +552,8 @@ struct ObjectDeclNode : ExprNode
    static ObjectDeclNode *alloc( S32 lineNumber, ExprNode *classNameExpr, ExprNode *objectNameExpr, ExprNode *argList, StringTableEntry parentObject, SlotAssignNode *slotDecls, ObjectDeclNode *subObjects, bool isDatablock, bool classNameInternal, bool isSingleton );
    U32 precompile(TypeReq type);
    U32 precompileSubObject(bool);
-   U32 compile(U32 *codeStream, U32 ip, TypeReq type);
-   U32 compileSubObject(U32 *codeStream, U32 ip, bool);
+   U32 compile(CodeSlot *codeStream, U32 ip, TypeReq type);
+   U32 compileSubObject(CodeSlot *codeStream, U32 ip, bool);
    TypeReq getPreferredType();
    DBG_STMT_TYPE(ObjectDeclNode);
 };
@@ -571,7 +576,7 @@ struct FunctionDeclStmtNode : StmtNode
 
    static FunctionDeclStmtNode *alloc( S32 lineNumber, StringTableEntry fnName, StringTableEntry nameSpace, VarNode *args, StmtNode *stmts );
    U32 precompileStmt(U32 loopCount);
-   U32 compileStmt(U32 *codeStream, U32 ip, U32 continuePoint, U32 breakPoint);
+   U32 compileStmt(CodeSlot *codeStream, U32 ip, U32 continuePoint, U32 breakPoint);
    void setPackage(StringTableEntry packageName);
    DBG_STMT_TYPE(FunctionDeclStmtNode);
 };

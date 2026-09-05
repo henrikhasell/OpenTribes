@@ -319,7 +319,14 @@ namespace CPUInfo {
                tblPkgID[j] = apicID & PackageIDMask;
                sprintf(tmp,"  AffinityMask = %d; Initial APIC = %d; Physical ID = %d, Core ID = %d,  SMT ID = %d\n",
                   dwAffinityMask, apicID, tblPkgID[j], tblCoreID[j], tblSMTID[j]);
-               strcat(g_s3Levels, tmp);
+               // One line per logical processor into a fixed 2048-byte buffer.
+               // Unbounded strcat here overflows on any machine with more than
+               // roughly 20 logical CPUs.
+               {
+                  const size_t used = strlen(g_s3Levels);
+                  if (used + 1 < sizeof(g_s3Levels))
+                     strncat(g_s3Levels, tmp, sizeof(g_s3Levels) - used - 1);
+               }
 
                numLPEnabled ++;   // Number of available logical processors in the system.
 

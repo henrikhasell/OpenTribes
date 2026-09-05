@@ -1437,12 +1437,19 @@ S32 String::StrFormat::format( const char *format, void *args )
 
 S32 String::StrFormat::formatAppend( const char *format, void *args )
 {
-   // Format into the fixed buffer first.
+   // Every vsnprintf here needs its own va_copy. vsnprintf consumes the list,
+   // and this function calls it up to three times. On 32-bit x86 va_list was a
+   // bare char* and reuse happened to work; on x86_64 it is a struct that
+   // vsnprintf mutates, so the second call reads a spent list.
    S32 startLen = _len;
    if (_dynamicBuffer == NULL)
    {
-      _len += vsnprintf(_fixedBuffer + _len, sizeof(_fixedBuffer) - _len, format, *(va_list*)args);
-      if (_len >= 0 && _len < sizeof(_fixedBuffer))
+      va_list tmp;
+      va_copy(tmp, *(va_list*)args);
+      _len += vsnprintf(_fixedBuffer + _len, sizeof(_fixedBuffer) - _len, format, tmp);
+      va_end(tmp);
+
+      if (_len >= 0 && _len < S32(sizeof(_fixedBuffer)))
          return _len;
 
       // Start off the dynamic buffer at twice fixed buffer size
@@ -1455,12 +1462,22 @@ S32 String::StrFormat::formatAppend( const char *format, void *args )
    // Format into the dynamic buffer, if the buffer is not large enough, then
    // keep doubling it's size until it is.  The buffer is not reallocated
    // using reallocate() to avoid unnecessary buffer copying.
-   _len += vsnprintf(_dynamicBuffer + _len, _dynamicSize - _len, format, *(va_list*)args);
-   while (_len < 0 || _len >= _dynamicSize)
+   {
+      va_list tmp;
+      va_copy(tmp, *(va_list*)args);
+      _len += vsnprintf(_dynamicBuffer + _len, _dynamicSize - _len, format, tmp);
+      va_end(tmp);
+   }
+
+   while (_len < 0 || _len >= S32(_dynamicSize))
    {
       _len = startLen;
       _dynamicBuffer = (char*)dRealloc(_dynamicBuffer, _dynamicSize *= 2);
-      _len += vsnprintf(_dynamicBuffer + _len, _dynamicSize - _len, format, *(va_list*)args);
+
+      va_list tmp;
+      va_copy(tmp, *(va_list*)args);
+      _len += vsnprintf(_dynamicBuffer + _len, _dynamicSize - _len, format, tmp);
+      va_end(tmp);
    }
 
    return _len;
@@ -1532,7 +1549,10 @@ String String::ToString(const char *str, ...)
 
 String String::VToString(const char* str, void* args)
 {
-   StrFormat format(str,&args);
+   // args already points at the caller's va_list; passing &args here handed
+   // formatAppend the address of this local instead. That read back the right
+   // value only while va_list was a bare char*, as it was on 32-bit x86.
+   StrFormat format(str,args);
 
    // Copy it into a string
    U32         len = format.length();

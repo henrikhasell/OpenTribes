@@ -170,3 +170,12 @@ console.log
 *.cached.dts
 !Engine/bin
 build-asan
+Templates/*/game/shaders/procedural/autogenConditioners.h
+Templates/*/game/core/fonts/*.uft
+Templates/*/game/fonts/
+Templates/*/game/console.log
+Templates/*/game/OpenTribes
+Templates/*/game/core/prefs.cs
+Templates/*/game/scripts/client/prefs.cs
+Templates/*/game/scripts/server/prefs.cs
+Templates/*/game/scripts/server/banlist.cs

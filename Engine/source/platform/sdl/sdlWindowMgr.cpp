@@ -1,43 +1,9 @@
-#include "platform/sdl/sdlWindow.h"
-#include "windowManager/platformWindowMgr.h"
+#include "platform/sdl/sdlWindowMgr.h"
 #include "gfx/gfxDevice.h"
 #include "core/util/journal/process.h"
 #include "console/console.h"
 
 #include <SDL3/SDL.h>
-
-class PlatformWindowManagerSDL : public PlatformWindowManager
-{
-public:
-   PlatformWindowManagerSDL();
-   virtual ~PlatformWindowManagerSDL();
-
-   RectI          getPrimaryDesktopArea();
-   S32            getDesktopBitDepth();
-   Point2I        getDesktopResolution();
-   void           getMonitorRegions(Vector<RectI>& regions);
-
-   PlatformWindow* createWindow(GFXDevice* device, const GFXVideoMode& mode);
-   void            getWindows(VectorPtr<PlatformWindow*>& windows);
-   PlatformWindow* getFocusedWindow();
-   PlatformWindow* getWindowById(WindowId id);
-   PlatformWindow* getFirstWindow();
-
-   void  setParentWindow(void* newParent) { mParentWindow = newParent; }
-   void* getParentWindow()                { return mParentWindow; }
-
-   void  lowerCurtain() {}
-   void  raiseCurtain() {}
-
-   void  _processCmdLineArgs(const S32 argc, const char** argv);
-
-protected:
-   void  _handleEvents();
-
-   PlatformWindowSDL* mWindowListHead;
-   void*              mParentWindow;
-   WindowId           mNextWindowId;
-};
 
 PlatformWindowManagerSDL::PlatformWindowManagerSDL()
    : mWindowListHead(NULL), mParentWindow(NULL), mNextWindowId(1)
@@ -49,11 +15,22 @@ PlatformWindowManagerSDL::~PlatformWindowManagerSDL()
 {
    Process::remove(this, &PlatformWindowManagerSDL::_handleEvents);
 
-   while (mWindowListHead)
+   // The windows are not ours to delete; GuiCanvas owns the one it created and
+   // each unlinks itself here as it goes.
+   mWindowListHead = NULL;
+}
+
+void PlatformWindowManagerSDL::_unlinkWindow(PlatformWindowSDL* window)
+{
+   PlatformWindowSDL** walk = &mWindowListHead;
+   while (*walk)
    {
-      PlatformWindowSDL* next = static_cast<PlatformWindowSDL*>(mWindowListHead->getNextWindow());
-      delete mWindowListHead;
-      mWindowListHead = next;
+      if (*walk == window)
+      {
+         *walk = static_cast<PlatformWindowSDL*>(window->getNextWindow());
+         return;
+      }
+      walk = reinterpret_cast<PlatformWindowSDL**>(&(*walk)->mNextWindow);
    }
 }
 
@@ -125,6 +102,7 @@ PlatformWindow* PlatformWindowManagerSDL::createWindow(GFXDevice* device, const 
    window->mDevice    = device;
    window->mTarget    = device ? device->allocWindowTarget(window) : NULL;
 
+   window->mOwner      = this;
    window->mNextWindow = mWindowListHead;
    mWindowListHead = window;
 
