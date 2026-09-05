@@ -183,3 +183,4 @@ Templates/*/game/shaders/procedural/
 Templates/*/game/art/terrains/*_basetex.dds
 Templates/*/game/levels/*.ml
 Templates/*/game/art/**/*.cached.dts
+Templates/*/game/levels/*.mis.decals
