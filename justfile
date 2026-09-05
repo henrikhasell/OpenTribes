@@ -26,6 +26,7 @@ run config="linux-release": (_build config)
     cp {{builddir}}/{{config}}/game/OpenTribes {{gamedir}}/OpenTribes
     rm -rf {{gamedir}}/fonts
     cp -r {{builddir}}/{{config}}/game/fonts {{gamedir}}/fonts
+    rm -f "{{gamedir}}/core/fonts/"*.uft
     cd {{gamedir}} && ./OpenTribes
 
 # Stage the binary and fonts without launching, for running by hand.
@@ -33,6 +34,7 @@ stage config="linux-release": (_build config)
     cp {{builddir}}/{{config}}/game/OpenTribes {{gamedir}}/OpenTribes
     rm -rf {{gamedir}}/fonts
     cp -r {{builddir}}/{{config}}/game/fonts {{gamedir}}/fonts
+    rm -f "{{gamedir}}/core/fonts/"*.uft
     @echo "staged in {{gamedir}} -- run ./OpenTribes there"
 
 _build config:

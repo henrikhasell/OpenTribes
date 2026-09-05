@@ -127,9 +127,15 @@ PlatformFont::CharInfo& PlatformFontSDL::getCharInfo(const UTF16 ch) const
    if (!TTF_GetGlyphMetrics(mFont, ch, &minx, &maxx, &miny, &maxy, &advance))
       return info;
 
+   // TTF_RenderGlyph_Blended returns the full glyph cell: the surface spans the
+   // whole advance width and the entire font height, with the ink already
+   // positioned inside it. So the bitmap is drawn straight at the pen position,
+   // and its top edge sits on the ascent line. Taking xOrigin/yOrigin from the
+   // per-glyph minx/maxy instead offsets every character differently, which
+   // staggers the text on both axes.
    info.xIncrement = advance;
-   info.xOrigin    = minx;
-   info.yOrigin    = maxy;
+   info.xOrigin    = 0;
+   info.yOrigin    = S32(mBaseline);
 
    SDL_Color white = { 255, 255, 255, 255 };
    SDL_Surface* glyph = TTF_RenderGlyph_Blended(mFont, ch, white);
