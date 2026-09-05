@@ -42,7 +42,7 @@ inline void dFetchAndAdd( volatile U32& ref, U32 val )
    #if defined(TORQUE_OS_PS3)
       cellAtomicAdd32( (std::uint32_t *)&ref, val );
    #elif !defined(TORQUE_OS_MAC)
-      __sync_fetch_and_add( ( volatile long* ) &ref, val );
+      __sync_fetch_and_add( &ref, val );
    #else
       OSAtomicAdd32( val, (int32_t* ) &ref);
    #endif
@@ -53,7 +53,7 @@ inline void dFetchAndAdd( volatile S32& ref, S32 val )
    #if defined(TORQUE_OS_PS3)
       cellAtomicAdd32( (std::uint32_t *)&ref, val );
    #elif !defined(TORQUE_OS_MAC)
-      __sync_fetch_and_add( ( volatile long* ) &ref, val );
+      __sync_fetch_and_add( &ref, val );
    #else
       OSAtomicAdd32( val, (int32_t* ) &ref);
    #endif
@@ -68,7 +68,7 @@ inline bool dCompareAndSwap( volatile U32& ref, U32 oldVal, U32 newVal )
    #if defined(TORQUE_OS_PS3)
       return ( cellAtomicCompareAndSwap32( (std::uint32_t *)&ref, newVal, oldVal ) == oldVal );
    #elif !defined(TORQUE_OS_MAC)
-      return ( __sync_val_compare_and_swap( ( volatile long* ) &ref, oldVal, newVal ) == oldVal );
+      return ( __sync_val_compare_and_swap( &ref, oldVal, newVal ) == oldVal );
    #else
       return OSAtomicCompareAndSwap32(oldVal, newVal, (int32_t *) &ref);
    #endif
@@ -92,7 +92,7 @@ inline U32 dAtomicRead( volatile U32 &ref )
    #if defined(TORQUE_OS_PS3)
       return cellAtomicAdd32( (std::uint32_t *)&ref, 0 );
    #elif !defined(TORQUE_OS_MAC)
-      return __sync_fetch_and_add( ( volatile long* ) &ref, 0 );
+      return __sync_fetch_and_add( &ref, 0 );
    #else
       return OSAtomicAdd32( 0, (int32_t* ) &ref);
    #endif

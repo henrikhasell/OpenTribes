@@ -262,9 +262,14 @@ void Dictionary::deleteVariables(const char *varString)
    }
 }
 
-S32 HashPointer(StringTableEntry ptr)
+U32 HashPointer(StringTableEntry ptr)
 {
-   return (S32)(((dsize_t)ptr) >> 2);
+   // Must be unsigned: this was cast to S32, which on a 64-bit target
+   // truncates the pointer to a frequently negative value, and every call
+   // site feeds it straight into "% tableSize". A negative modulus indexes
+   // before the bucket array.
+   const uintptr_t value = ((uintptr_t)ptr) >> 2;
+   return U32(value) ^ U32(U64(value) >> 32);
 }
 
 Dictionary::Entry *Dictionary::lookup(StringTableEntry name)
@@ -809,10 +814,11 @@ void Namespace::Entry::clear()
       mCode = NULL;
    }
 
-   // Clean up usage strings generated for script functions.
+   // Clean up usage strings generated for script functions. These come from
+   // dStrdup in compiledEval.cpp, so they need dFree rather than delete.
    if( ( mType == Namespace::Entry::ConsoleFunctionType ) && mUsage )
    {
-      delete mUsage;
+      dFree( const_cast<char*>( mUsage ) );
       mUsage = NULL;
    }
 }
@@ -838,7 +844,7 @@ Namespace::~Namespace()
    clearEntries();
    if( mUsage && mCleanUpUsage )
    {
-      delete mUsage;
+      dFree( const_cast<char*>( mUsage ) );
       mUsage = NULL;
       mCleanUpUsage = false;
    }

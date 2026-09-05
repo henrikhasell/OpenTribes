@@ -94,7 +94,8 @@ them both to 0; an emulation function will be used. */
 /* Define to 1 if you have the `strtoq' function. */
 /* Both Mac and Linux support strtoq - Andrew Galante, GG 8/2/2009 */
 #ifdef __GNUC__
-#define HAVE_STRTOQ 1
+/* strtoq/strtouq are glibc-only; strtoll/strtoull are C99 and portable. */
+#define HAVE_STRTOLL 1
 #endif
 
 /* Define to 1 if you have the <sys/stat.h> header file. */

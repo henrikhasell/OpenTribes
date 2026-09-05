@@ -1,7 +1,7 @@
 // SDL3 half of the GL device, replacing gfxGLDevice.win.cpp's WGL code.
 
 #include "platform/platform.h"
-#include "platform/sdl/sdlWindow.h"
+#include "platform/sdl/sdlWindowMgr.h"
 #include "gfx/gl/gfxGLDevice.h"
 #include "gfx/gl/gfxGLWindowTarget.h"
 #include "gfx/gl/gfxGLEnumTranslate.h"
@@ -99,7 +99,9 @@ void GFXGLDevice::init(const GFXVideoMode& mode, PlatformWindow* window)
    }
 
    mContext = context;
-   SDL_GL_MakeCurrent(sdlWindow->getSDLWindow(), context);
+
+   if (!SDL_GL_MakeCurrent(sdlWindow->getSDLWindow(), context))
+      Con::errorf("SDL_GL_MakeCurrent failed: %s", SDL_GetError());
 
    loadGLCore();
    loadGLExtensions(context);

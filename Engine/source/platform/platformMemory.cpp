@@ -235,7 +235,11 @@ struct HeapIterator
          mCurrentHeader = mCurrentPage->headerList;
          while( !mCurrentHeader && mCurrentPage )
          {
+            // prevPage can be null at the end of the list; operator++ checks
+            // for that, this loop dereferenced it unconditionally.
             mCurrentPage = mCurrentPage->prevPage;
+            if( !mCurrentPage )
+               break;
             mCurrentHeader = mCurrentPage->headerList;
          }
 

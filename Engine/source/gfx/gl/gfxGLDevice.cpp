@@ -88,6 +88,14 @@ void GFXGLDevice::initGLState()
    mCardProfiler->init(); 
    glGetIntegerv(GL_MAX_TEXTURE_IMAGE_UNITS, (GLint*)&mMaxShaderTextures);
    glGetIntegerv(GL_MAX_TEXTURE_UNITS, (GLint*)&mMaxFFTextures);
+
+   // Per-stage state lives in fixed TEXTURE_STAGE_COUNT arrays such as
+   // mActiveTextureType, and getNumSamplers() hands these counts out as the
+   // upper bound for indexing them. Modern drivers report far more units than
+   // the engine has slots for -- 32 against 16 here -- which walked straight
+   // off the end of mActiveTextureType and into the member following it.
+   mMaxShaderTextures = getMin( mMaxShaderTextures, (U32)TEXTURE_STAGE_COUNT );
+   mMaxFFTextures     = getMin( mMaxFFTextures,     (U32)TEXTURE_STAGE_COUNT );
    
    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
    

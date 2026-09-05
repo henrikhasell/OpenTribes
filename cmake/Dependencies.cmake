@@ -22,7 +22,35 @@ FetchContent_Declare(SDL3
 
 FetchContent_MakeAvailable(SDL3)
 
-# Arriving with the phase that consumes them: SDL3_ttf (5), SDL3_image (6),
+# --- SDL3_ttf ---------------------------------------------------------------
+set(SDLTTF_VENDORED   ON  CACHE BOOL "" FORCE)
+set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
+set(SDLTTF_SAMPLES    OFF CACHE BOOL "" FORCE)
+set(SDLTTF_INSTALL    OFF CACHE BOOL "" FORCE)
+set(SDLTTF_HARFBUZZ   OFF CACHE BOOL "" FORCE)
+set(SDLTTF_PLUTOSVG   OFF CACHE BOOL "" FORCE)
+
+FetchContent_Declare(SDL3_ttf
+    GIT_REPOSITORY https://github.com/libsdl-org/SDL_ttf.git
+    GIT_TAG        release-3.2.2
+    GIT_SHALLOW    TRUE
+    EXCLUDE_FROM_ALL)
+
+FetchContent_MakeAvailable(SDL3_ttf)
+
+# The engine asks for "Arial", which SDL3_ttf cannot resolve -- it has no font
+# discovery, and reaching for fontconfig would put platform knowledge back into
+# the platform layer. Ship a font instead and map requested names onto it.
+FetchContent_Declare(dejavu
+    URL      https://github.com/dejavu-fonts/dejavu-fonts/releases/download/version_2_37/dejavu-fonts-ttf-2.37.tar.bz2
+    URL_HASH SHA256=fa9ca4d13871dd122f61258a80d01751d603b4d3ee14095d65453b4e846e17d7
+    DOWNLOAD_EXTRACT_TIMESTAMP TRUE)
+
+FetchContent_MakeAvailable(dejavu)
+
+set(TORQUE_FONT_DIR "${dejavu_SOURCE_DIR}/ttf" CACHE INTERNAL "")
+
+# Arriving with the phase that consumes them: SDL3_image (6),
 # SDL3_net (7), openal-soft (8), zlib and the Xiph libraries when their
 # vendored copies retire. SDL3_image vendors its own libpng and zlib -- pick a
 # single owner in Phase 6 or the targets collide.

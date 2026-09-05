@@ -22,6 +22,10 @@
 
 #ifdef TORQUE_DEBUG
 #  define TORQUE_GATHER_METRICS 0
+// TORQUE_ENABLE_PROFILE_PATH needs the profiler itself; without it gProfiler
+// is never declared and every PROFILE_START call site fails to compile.
+#  define TORQUE_ENABLE_PROFILER
+#  define TORQUE_ENABLE_SCRIPTASSERTS
 #  define TORQUE_ENABLE_PROFILE_PATH
 #  ifndef TORQUE_DEBUG_GUARD
 #     define TORQUE_DEBUG_GUARD
