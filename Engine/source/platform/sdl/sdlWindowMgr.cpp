@@ -75,7 +75,7 @@ static U16 sdlToTorqueKey( SDL_Scancode code )
 }
 
 PlatformWindowManagerSDL::PlatformWindowManagerSDL()
-   : mWindowListHead(NULL), mParentWindow(NULL), mNextWindowId(1)
+   : mWindowListHead(NULL), mParentWindow(NULL), mNextWindowId(1), mLastFocusState(false)
 {
    Process::notify(this, &PlatformWindowManagerSDL::_handleEvents, PROCESS_INPUT_ORDER);
 }
@@ -218,6 +218,24 @@ void PlatformWindowManagerSDL::_processCmdLineArgs(const S32 argc, const char** 
 
 void PlatformWindowManagerSDL::_handleEvents()
 {
+   // WindowInputGenerator drops every event unless it believes the window is
+   // focused, and it only learns that from GainFocus/LoseFocus. Tracking those
+   // transitions alone leaves it stale if one is missed -- which happened here,
+   // leaving the engine convinced it was unfocused while SDL reported focus.
+   // Reconcile against SDL's own flag each pump instead.
+   if( PlatformWindowSDL* window = static_cast< PlatformWindowSDL* >( getFirstWindow() ) )
+   {
+      if( SDL_Window* sdlWindow = window->getSDLWindow() )
+      {
+         const bool focused = ( SDL_GetWindowFlags( sdlWindow ) & SDL_WINDOW_INPUT_FOCUS ) != 0;
+         if( focused != mLastFocusState )
+         {
+            mLastFocusState = focused;
+            window->appEvent.trigger( window->getWindowId(), focused ? GainFocus : LoseFocus );
+         }
+      }
+   }
+
    SDL_Event event;
    while (SDL_PollEvent(&event))
    {
@@ -237,22 +255,6 @@ void PlatformWindowManagerSDL::_handleEvents()
             if (window)
                window->resizeEvent.trigger(window->getWindowId(),
                                            event.window.data1, event.window.data2);
-            break;
-         }
-
-         case SDL_EVENT_WINDOW_FOCUS_GAINED:
-         {
-            PlatformWindow* window = getFirstWindow();
-            if (window)
-               window->appEvent.trigger(window->getWindowId(), GainFocus);
-            break;
-         }
-
-         case SDL_EVENT_WINDOW_FOCUS_LOST:
-         {
-            PlatformWindow* window = getFirstWindow();
-            if (window)
-               window->appEvent.trigger(window->getWindowId(), LoseFocus);
             break;
          }
 
@@ -284,7 +286,11 @@ void PlatformWindowManagerSDL::_handleEvents()
                break;
 
             const U32 action = ( event.type == SDL_EVENT_MOUSE_BUTTON_DOWN ) ? SI_MAKE : SI_BREAK;
-            const U16 button = U16( KEY_BUTTON0 + ( event.button.button - 1 ) );
+
+            // WindowInputGenerator::handleMouseButton adds KEY_BUTTON0 itself,
+            // so this passes the zero-based index. Sending the offset code here
+            // made the engine compute KEY_BUTTON0 + 256, which is no button.
+            const U16 button = U16( event.button.button - 1 );
 
             window->buttonEvent.trigger( window->getWindowId(), sdlModifiers(), action, button );
             break;

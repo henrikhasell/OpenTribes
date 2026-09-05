@@ -39,6 +39,7 @@ protected:
    PlatformWindowSDL* mWindowListHead;
    void*              mParentWindow;
    WindowId           mNextWindowId;
+   bool               mLastFocusState;
 };
 
 #endif // _SDL_WINDOWMGR_H_
