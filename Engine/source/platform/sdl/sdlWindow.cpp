@@ -183,6 +183,21 @@ void PlatformWindowSDL::show()     { if (mSDLWindow) SDL_ShowWindow(mSDLWindow);
 void PlatformWindowSDL::restore()  { if (mSDLWindow) SDL_RestoreWindow(mSDLWindow); }
 void PlatformWindowSDL::setFocus() { if (mSDLWindow) SDL_RaiseWindow(mSDLWindow); }
 
+// SDL3 does not deliver SDL_EVENT_TEXT_INPUT until text input is started, so
+// the engine's translation flag has to drive it.
+void PlatformWindowSDL::setKeyboardTranslation(const bool enabled)
+{
+   PlatformWindow::setKeyboardTranslation(enabled);
+
+   if (!mSDLWindow)
+      return;
+
+   if (enabled)
+      SDL_StartTextInput(mSDLWindow);
+   else
+      SDL_StopTextInput(mSDLWindow);
+}
+
 void PlatformWindowSDL::close()
 {
    if (mSDLWindow)
