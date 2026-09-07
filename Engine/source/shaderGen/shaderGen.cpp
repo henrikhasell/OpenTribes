@@ -133,6 +133,20 @@ void ShaderGen::initShaderGen()
    Torque::FS::Remove( "shadergen:/" + ConditionerFeature::ConditionerIncludeFileName );
 }
 
+
+void ShaderGen::_recordSamplerBindings()
+{
+   // The HLSL printer writes each sampler's unit into the source as
+   // register(SN). GLSL has no equivalent before 4.20, so collect the same
+   // assignment here and hand it to the shader in getShader().
+   for( U32 i = 0; i < LangElement::elementList.size(); i++ )
+   {
+      Var *var = dynamic_cast<Var*>( LangElement::elementList[i] );
+      if( var && var->uniform && var->sampler )
+         mSamplerBindings[ String( (char*)var->name ) ] = var->constNum;
+   }
+}
+
 void ShaderGen::generateShader( const MaterialFeatureData &featureData,
                                 char *vertFile, 
                                 char *pixFile, 
@@ -145,6 +159,7 @@ void ShaderGen::generateShader( const MaterialFeatureData &featureData,
 
    mFeatureData = featureData;
    mVertexFormat = vertexFormat;
+   mSamplerBindings.clear();
 
    _uninit();
    _init();
@@ -189,6 +204,8 @@ void ShaderGen::generateShader( const MaterialFeatureData &featureData,
    _printVertShader( *s );
    delete s;
    
+   _recordSamplerBindings();
+
    ((ShaderConnector*)mComponents[C_CONNECTOR])->reset();
    LangElement::deleteElements();
 
@@ -206,6 +223,8 @@ void ShaderGen::generateShader( const MaterialFeatureData &featureData,
    _printPixShader( *s );
 
    delete s;
+
+   _recordSamplerBindings();
    LangElement::deleteElements();
 }
 
@@ -488,6 +507,7 @@ GFXShader* ShaderGen::getShader( const MaterialFeatureData &featureData, const G
 
    GFXShader *shader = GFX->createShader();
    shader->mInstancingFormat.copy( mInstancingFormat ); // TODO: Move to init() below!
+   shader->setSamplerBindings( mSamplerBindings );
    if ( !shader->init( vertFile, pixFile, pixVersion, shaderMacros ) )
    {
       delete shader;

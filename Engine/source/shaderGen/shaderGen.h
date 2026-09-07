@@ -220,6 +220,12 @@ protected:
    void _printPixShader( Stream &stream );
 
    void _processVertFeatures( Vector<GFXShaderMacro> &macros, bool macrosOnly = false );
+
+   /// Records the texture unit the generator gave each sampler, keyed by name.
+   void _recordSamplerBindings();
+
+   /// Sampler name to texture unit for the shader currently being generated.
+   Map<String, U32> mSamplerBindings;
    void _printVertShader( Stream &stream );
 
    // For ManagedSingleton.

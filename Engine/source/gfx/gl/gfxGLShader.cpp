@@ -547,6 +547,15 @@ void GFXGLShader::initHandles()
    // Loop through all ConstantDescriptions, 
    // if they aren't in the HandleMap add them, if they are reinitialize them.
    S32 assignedSamplerNum = 0;
+
+   // Fallback units start past anything the generator assigned.
+   U32 firstFreeUnit = 0;
+   for ( Map<String, U32>::Iterator b = mSamplerBindings.begin(); b != mSamplerBindings.end(); ++b )
+      firstFreeUnit = getMax( firstFreeUnit, b->value + 1 );
+
+   Vector<S32> usedUnits;
+
+
    for ( U32 i = 0; i < mConstants.size(); i++ )
    {
       GFXShaderConstDesc &desc = mConstants[i];            
@@ -555,8 +564,36 @@ void GFXGLShader::initHandles()
       U32 loc = glGetUniformLocation(mProgram, &desc.name.c_str()[1]);
 
       HandleMap::Iterator handle = mHandles.find(desc.name);
-      S32 sampler = (desc.constType == GFXSCT_Sampler || desc.constType == GFXSCT_SamplerCube) ?
-         assignedSamplerNum++ : -1;
+
+      // Samplers take the unit the shader generator assigned, looked up by
+      // name. The order glGetActiveUniform reports uniforms in is not specified
+      // by GL, so numbering them as they arrive would not reliably match the
+      // slot index the material binds its textures to.
+      S32 sampler = -1;
+      if ( desc.constType == GFXSCT_Sampler || desc.constType == GFXSCT_SamplerCube )
+      {
+         const String bareName( &desc.name.c_str()[1] );
+         Map<String, U32>::Iterator binding = mSamplerBindings.find( bareName );
+
+         if ( binding != mSamplerBindings.end() )
+            sampler = binding->value;
+         else
+         {
+            // Hand written shaders carry no generated bindings; their materials
+            // ask the shader which register a sampler got, so any consistent
+            // numbering serves. Start past the generated units so the two
+            // schemes cannot collide.
+            AssertWarn( mSamplerBindings.isEmpty(),
+               avar( "GFXGLShader::initHandles - no generated binding for sampler '%s' in %s",
+                     bareName.c_str(), mPixelFile.getFullPath().c_str() ) );
+
+            sampler = firstFreeUnit + assignedSamplerNum++;
+         }
+
+         AssertFatal( !usedUnits.contains( sampler ),
+            "GFXGLShader::initHandles - two samplers assigned the same texture unit" );
+         usedUnits.push_back( sampler );
+      }
       if ( handle != mHandles.end() )
       {
          handle->value->reinit( desc, loc, sampler );         
@@ -598,8 +635,9 @@ void GFXGLShader::initHandles()
       {
          // Set sampler number on our program.
          glUniform1i(handle->mLocation, handle->mSamplerNum);
-         // Set sampler in constant buffer so it does not get unset later.
-         dMemcpy(mConstBuffer + handle->mOffset, &handle->mLocation, handle->getSize());
+         // Set sampler in constant buffer so it does not get unset later. This
+         // is the texture unit, not the uniform's location.
+         dMemcpy(mConstBuffer + handle->mOffset, &handle->mSamplerNum, handle->getSize());
       }
    }
    glUseProgram(0);
@@ -803,6 +841,7 @@ char* GFXGLShader::_handleIncludes( const Torque::Path& path, FileStream *s )
    
    return buffer;
 }
+
 
 bool GFXGLShader::_loadShaderFromStream(  GLuint shader, 
                                           const Torque::Path &path, 
