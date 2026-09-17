@@ -44,16 +44,10 @@ void main()
 {
    gl_Position = vPosition;
 
-   // The scene was rendered into a texture, and GL stores that bottom up, so
-   // the row order has to be inverted when sampling it back. Flipping the quad
-   // instead collapses it, since the effect chain also feeds these coords to
-   // the targets it writes.
-   vec2 uv = vec2( vTexCoord0.s, 1.0 - vTexCoord0.t );
-
-   uv0 = viewportCoordToRenderTarget( uv, rtParams0 ); 
-   uv1 = viewportCoordToRenderTarget( uv, rtParams1 ); 
-   uv2 = viewportCoordToRenderTarget( uv, rtParams2 ); 
-   uv3 = viewportCoordToRenderTarget( uv, rtParams3 ); 
+   uv0 = viewportCoordToRenderTarget( vTexCoord0.st, rtParams0 ); 
+   uv1 = viewportCoordToRenderTarget( vTexCoord0.st, rtParams1 ); 
+   uv2 = viewportCoordToRenderTarget( vTexCoord0.st, rtParams2 ); 
+   uv3 = viewportCoordToRenderTarget( vTexCoord0.st, rtParams3 ); 
    
    wsEyeRay = vTexCoord1.xyz;
 }

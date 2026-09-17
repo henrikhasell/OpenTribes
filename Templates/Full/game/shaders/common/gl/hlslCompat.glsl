@@ -96,10 +96,9 @@ mat4 mat4FromRow( float r0c0, float r0c1, float r0c2, float r0c3,
 
 #define inversesqrt( n ) inversesqrt( n )
 
-// Master flips clip space Y here to match how it orients render targets. This
-// branch renders the way the original did, so the flip must not happen -- doing
-// it collapses the post effect quad. See the PR notes on the orientation of the
-// post effect chain, which is why these effects ship disabled.
+// Master flips clip space Y because it stores render targets the way D3D does
+// and inverts once when presenting. This branch renders the right way up
+// throughout and inverts nothing, so the flip must not happen.
 #define correctSSP(vec)
 
 #ifdef TORQUE_PIXEL_SHADER

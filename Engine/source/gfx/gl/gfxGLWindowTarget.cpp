@@ -25,9 +25,20 @@
 #include "gfx/gl/gfxGLWindowTarget.h"
 #include "gfx/gl/gfxGLTextureObject.h"
 #include "gfx/gl/gfxGLUtils.h"
+#include "postFx/postEffect.h"
+
+// The depth attachment for the scene FBO. Lifted from the master branch.
+GFX_ImplementTextureProfile( BackBufferDepthProfile,
+                             GFXTextureProfile::DiffuseMap,
+                             GFXTextureProfile::PreserveSize |
+                             GFXTextureProfile::NoMipmap |
+                             GFXTextureProfile::ZTarget |
+                             GFXTextureProfile::Pooled,
+                             GFXTextureProfile::None );
 
 GFXGLWindowTarget::GFXGLWindowTarget(PlatformWindow *win, GFXDevice *d)
-      : GFXWindowTarget(win), mDevice(d), mContext(NULL), mFullscreenContext(NULL)
+      : GFXWindowTarget(win), mBackBufferFBO(0), mCopyFBO(0),
+        mDevice(d), mContext(NULL), mFullscreenContext(NULL)
 {      
    win->appEvent.notify(this, &GFXGLWindowTarget::_onAppSignal);
 }
@@ -54,26 +65,68 @@ void GFXGLWindowTarget::_onAppSignal(WindowId wnd, S32 event)
    static_cast<GFXGLDevice*>(mDevice)->mVolatileVBs.clear();
 }
 
+void GFXGLWindowTarget::_setupAttachments()
+{
+   glBindFramebuffer( GL_FRAMEBUFFER, mBackBufferFBO );
+
+   const Point2I dstSize = getSize();
+
+   mBackBufferColorTex.set( dstSize.x, dstSize.y, getFormat(),
+                            &PostFxTargetProfile, "backBufferColor" );
+   GFXGLTextureObject *color =
+      static_cast< GFXGLTextureObject* >( mBackBufferColorTex.getPointer() );
+   glFramebufferTexture2D( GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
+                           GL_TEXTURE_2D, color->getHandle(), 0 );
+
+   mBackBufferDepthTex.set( dstSize.x, dstSize.y, GFXFormatD24S8,
+                            &BackBufferDepthProfile, "backBufferDepth" );
+   GFXGLTextureObject *depth =
+      static_cast< GFXGLTextureObject* >( mBackBufferDepthTex.getPointer() );
+   glFramebufferTexture2D( GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT,
+                           GL_TEXTURE_2D, depth->getHandle(), 0 );
+
+   const GLenum status = glCheckFramebufferStatus( GL_FRAMEBUFFER );
+   if ( status != GL_FRAMEBUFFER_COMPLETE )
+      Con::errorf( "GFXGLWindowTarget - scene framebuffer incomplete (0x%x)", status );
+}
+
 void GFXGLWindowTarget::resolveTo(GFXTextureObject* obj)
 {
    AssertFatal(dynamic_cast<GFXGLTextureObject*>(obj), "GFXGLTextureTarget::resolveTo - Incorrect type of texture, expected a GFXGLTextureObject");
    GFXGLTextureObject* glTexture = static_cast<GFXGLTextureObject*>(obj);
 
+   // The scene is in our framebuffer's colour attachment, not the window's, so
+   // this is a texture to texture copy. Reading the window back would also
+   // arrive flipped, since present() inverts on the way out.
+   GFXGLTextureObject *source =
+      static_cast< GFXGLTextureObject* >( mBackBufferColorTex.getPointer() );
+   if ( !source )
+      return;
+
+   if ( GLAD_GL_ARB_copy_image
+        && source->getWidth()  == glTexture->getWidth()
+        && source->getHeight() == glTexture->getHeight()
+        && source->getFormat() == glTexture->getFormat() )
+   {
+      glCopyImageSubData( source->getHandle(),    GL_TEXTURE_2D, 0, 0, 0, 0,
+                          glTexture->getHandle(), GL_TEXTURE_2D, 0, 0, 0, 0,
+                          getSize().x, getSize().y, 1 );
+      return;
+   }
+
    PRESERVE_FRAMEBUFFER();
-   
-   GLuint dest;
-   
-   glGenFramebuffersEXT(1, &dest);
-   
-   glBindFramebufferEXT(GL_DRAW_FRAMEBUFFER_EXT, dest);
-   glFramebufferTexture2DEXT(GL_DRAW_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT0_EXT, GL_TEXTURE_2D, glTexture->getHandle(), 0);
-   
-   glBindFramebufferEXT(GL_READ_FRAMEBUFFER_EXT, 0);
-   
-   glBlitFramebufferEXT(0, 0, getSize().x, getSize().y,
-      0, 0, glTexture->getWidth(), glTexture->getHeight(), GL_COLOR_BUFFER_BIT, GL_NEAREST);
-   
-   glBindFramebufferEXT(GL_DRAW_FRAMEBUFFER_EXT, 0);
-   
-   glDeleteFramebuffersEXT(1, &dest);
+
+   if ( !mCopyFBO )
+      glGenFramebuffers( 1, &mCopyFBO );
+
+   glBindFramebuffer( GL_DRAW_FRAMEBUFFER, mCopyFBO );
+   glFramebufferTexture2D( GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
+                           GL_TEXTURE_2D, glTexture->getHandle(), 0 );
+
+   glBindFramebuffer( GL_READ_FRAMEBUFFER, mBackBufferFBO );
+   glReadBuffer( GL_COLOR_ATTACHMENT0 );
+
+   glBlitFramebuffer( 0, 0, getSize().x, getSize().y,
+                      0, 0, glTexture->getWidth(), glTexture->getHeight(),
+                      GL_COLOR_BUFFER_BIT, GL_NEAREST );
 }

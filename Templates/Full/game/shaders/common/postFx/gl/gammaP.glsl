@@ -25,9 +25,6 @@
 #include "shadergen:/autogenConditioners.h"
 
 uniform sampler2D backBuffer;
-// The ramp is a 2D image, and GL returns black for a 2D texture bound to a
-// 1D sampler. D3D9's loosely typed samplers let the HLSL get away with tex1D.
-uniform sampler2D colorCorrectionTex;
 
 uniform float OneOverGamma;
 in vec2 uv0;
@@ -38,10 +35,9 @@ void main()
 {
     vec4 color = texture(backBuffer, uv0.xy);
 
-   // Apply the color correction.
-   color.r = texture( colorCorrectionTex, vec2( color.r, 0.0 ) ).r;
-   color.g = texture( colorCorrectionTex, vec2( color.g, 0.0 ) ).g;
-   color.b = texture( colorCorrectionTex, vec2( color.b, 0.0 ) ).b;
+   // The colour correction ramp is left out. This branch ships only the
+   // identity ramp and has no way to set another, and the LUT lookup does not
+   // reproduce on GL -- it bands the sky. Gamma alone is what the pass is for.
 
    // Apply gamma correction
    color.rgb = pow( clamp(color.rgb, vec3(0.0),vec3(1.0)), vec3(OneOverGamma) );

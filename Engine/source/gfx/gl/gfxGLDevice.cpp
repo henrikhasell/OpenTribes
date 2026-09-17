@@ -108,7 +108,7 @@ void GFXGLDevice::initGLState()
    // Shader Model 3 in every respect the engine asks about, and PostEffect
    // rejects any shader whose pixVersion exceeds this -- which is most of them.
    if(mCardProfiler->queryProfile("GL::suppFragmentShader") && mMaxShaderTextures >= 16)
-      mPixelShaderVersion = 2.0f; //BISECT
+      mPixelShaderVersion = 3.0f;
    else
       mPixelShaderVersion = 0.0f;
       

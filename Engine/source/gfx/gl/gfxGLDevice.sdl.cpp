@@ -4,6 +4,7 @@
 #include "platform/sdl/sdlWindowMgr.h"
 #include "gfx/gl/gfxGLDevice.h"
 #include "gfx/gl/gfxGLWindowTarget.h"
+#include "gfx/gl/gfxGLUtils.h"
 #include "gfx/gl/gfxGLEnumTranslate.h"
 #include "gfx/gfxCardProfile.h"
 #include "gfx/gfxStringEnumTranslate.h"
@@ -150,6 +151,19 @@ void GFXGLWindowTarget::makeActive()
    PlatformWindowSDL* window = dynamic_cast<PlatformWindowSDL*>(getWindow());
    if (window && mContext)
       SDL_GL_MakeCurrent(window->getSDLWindow(), static_cast<SDL_GLContext>(mContext));
+
+   // The scene is drawn into our own framebuffer, not the window's. PostEffect
+   // reads the result back out of the colour attachment, and present() puts it
+   // on screen.
+   if (mBackBufferFBO)
+   {
+      glBindFramebuffer(GL_FRAMEBUFFER, mBackBufferFBO);
+   }
+   else
+   {
+      glGenFramebuffers(1, &mBackBufferFBO);
+      _setupAttachments();
+   }
 }
 
 bool GFXGLWindowTarget::present()
@@ -157,6 +171,33 @@ bool GFXGLWindowTarget::present()
    PlatformWindowSDL* window = dynamic_cast<PlatformWindowSDL*>(getWindow());
    if (!window)
       return false;
+   if (mBackBufferFBO)
+   {
+      PRESERVE_FRAMEBUFFER();
+
+      const Point2I srcSize = mBackBufferColorTex.getWidthHeight();
+      const Point2I dstSize = getSize();
+
+      glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+      glBindFramebuffer(GL_READ_FRAMEBUFFER, mBackBufferFBO);
+
+      // Everything is rendered with clip space Y flipped so that render targets
+      // are stored the way D3D stores them. That gets undone once, here.
+      // Straight copy. Master inverts here because it renders everything with
+      // clip space Y flipped; this branch renders the way the original did, so
+      // the framebuffer already holds the image the right way up.
+      glBlitFramebuffer(0, 0, srcSize.x, srcSize.y,
+                        0, 0, dstSize.x, dstSize.y,
+                        GL_COLOR_BUFFER_BIT, GL_NEAREST);
+
+      SDL_GL_SwapWindow(window->getSDLWindow());
+
+      // Follow a window resize.
+      if (srcSize != dstSize || mBackBufferDepthTex.getWidthHeight() != dstSize)
+         _setupAttachments();
+
+      return true;
+   }
 
    SDL_GL_SwapWindow(window->getSDLWindow());
    return true;
