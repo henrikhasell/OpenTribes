@@ -92,6 +92,19 @@ FetchContent_Declare(SDL3_image
 
 FetchContent_MakeAvailable(SDL3_image)
 
+# --- SDL3_net ---------------------------------------------------------------
+set(SDLNET_SAMPLES OFF CACHE BOOL "" FORCE)
+set(SDLNET_TESTS   OFF CACHE BOOL "" FORCE)
+set(SDLNET_INSTALL OFF CACHE BOOL "" FORCE)
+
+FetchContent_Declare(SDL3_net
+    GIT_REPOSITORY https://github.com/libsdl-org/SDL_net.git
+    GIT_TAG        release-3.2.0
+    GIT_SHALLOW    TRUE
+    EXCLUDE_FROM_ALL)
+
+FetchContent_MakeAvailable(SDL3_net)
+
 # --- glad -------------------------------------------------------------------
 # The GL loader, generated at build time rather than checked in. REPRODUCIBLE
 # makes it read the gl.xml and khrplatform.h packaged inside glad instead of
@@ -117,7 +130,5 @@ FetchContent_MakeAvailable(glad)
 
 unset(CMAKE_POLICY_VERSION_MINIMUM)
 
-# Arriving with the phase that consumes them: SDL3_image (6),
-# SDL3_net (7), openal-soft (8), zlib and the Xiph libraries when their
-# vendored copies retire. SDL3_image vendors its own libpng and zlib -- pick a
-# single owner in Phase 6 or the targets collide.
+# Still to arrive: zlib and the Xiph libraries when their vendored copies
+# retire.

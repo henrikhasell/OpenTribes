@@ -77,6 +77,7 @@ target_link_libraries(${TORQUE_APP_NAME} PRIVATE
     SDL3::SDL3
     SDL3_image::SDL3_image
     SDL3_ttf::SDL3_ttf
+    SDL3_net::SDL3_net
     OpenAL::OpenAL
     ${CMAKE_DL_LIBS}
     Threads::Threads)
