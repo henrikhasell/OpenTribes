@@ -1165,8 +1165,8 @@ void TSShape::assembleShape()
    // slots truncated every mesh address, and meshes.set() below then read them
    // back at the wrong stride -- no shape in the game would load.
    const S32 meshPtrSlots = sizeof( TSMesh* ) / sizeof( S32 );
-   ptr32 = tsalloc.allocShape32( ( numMeshes + numSkins*numDetails ) * meshPtrSlots ); // leave room for skins on old shapes
-   TSMesh** ptrMesh = reinterpret_cast< TSMesh** >( ptr32 );
+   TSMesh** ptrMesh = reinterpret_cast< TSMesh** >(
+      tsalloc.allocShape32( ( numMeshes + numSkins*numDetails ) * meshPtrSlots ) ); // leave room for skins on old shapes
    S32 curObject = 0; // for tracking skipped meshes
    for (i=0; i<numMeshes; i++)
    {
