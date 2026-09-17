@@ -28,5 +28,8 @@ new ShaderData(BlurDepthShader)
    
    OGLVertexShaderFile = "shaders/common/lighting/shadowMap/gl/boxFilterV.glsl";
    OGLPixelShaderFile = "shaders/common/lighting/shadowMap/gl/boxFilterP.glsl";
+
+   // Texture unit per sampler; HLSL states this inline as register(SN).
+   samplerNames[0] = "diffuseMap0";
    pixVersion = 2.0;
 };

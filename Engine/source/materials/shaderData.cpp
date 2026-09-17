@@ -80,6 +80,13 @@ void ShaderData::initPersistFields()
 	   "shader. It can be either an HLSL or assembly level shader. HLSL's "
 	   "must have a filename extension of .hlsl, otherwise its assumed to be an assembly file.");
 
+   addField("samplerNames", TypeRealString, Offset(mSamplerNames, ShaderData), NumTextures,
+      "@brief Sampler names in texture unit order.\n\n"
+      "GLSL cannot state a sampler's texture unit in the shader source before "
+      "4.20, so the unit each sampler uses is declared here instead: the name "
+      "at index N is bound to texture unit N. The HLSL counterpart of a shader "
+      "states the same thing inline as register(SN).");
+
    addField("OGLVertexShaderFile",  TypeStringFilename,  Offset(mOGLVertexShaderName,   ShaderData),
 	   "@brief %Path to an OpenGL vertex shader file to use for this ShaderData.\n\n"
 	   "It must contain only one program and no pixel shader, just the vertex shader.");
@@ -206,6 +213,19 @@ GFXShader* ShaderData::_createShader( const Vector<GFXShaderMacro> &macros )
 
    GFXShader *shader = GFX->createShader();
    bool success = false;
+
+   // Existing content spells these both with and without the '$' prefix that
+   // shader constants carry, so accept either.
+   Map<String, U32> samplerBindings;
+   for ( U32 i = 0; i < NumTextures; i++ )
+   {
+      if ( mSamplerNames[i].isEmpty() )
+         continue;
+
+      const char *name = mSamplerNames[i].c_str();
+      samplerBindings[ String( name[0] == '$' ? name + 1 : name ) ] = i;
+   }
+   shader->setSamplerBindings( samplerBindings );
 
    // Initialize the right shader type.
    switch( GFX->getAdapterType() )

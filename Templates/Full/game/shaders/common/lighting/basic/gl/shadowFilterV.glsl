@@ -22,6 +22,9 @@
 
 #include "../../../../../../shaders/common/gl/torque.glsl"
 
+in vec4 vPosition;
+in vec4 vTexCoord0;
+
 uniform vec2 oneOverTargetSize;
 uniform vec4 rtParams0;
 
@@ -29,6 +32,6 @@ varying vec2 uv;
 
 void main()
 {
-	gl_Position = gl_Vertex;   
-   uv = viewportCoordToRenderTarget( gl_MultiTexCoord0.st, rtParams0 ); 
+	gl_Position = vPosition;   
+   uv = viewportCoordToRenderTarget( vTexCoord0.st, rtParams0 ); 
 }

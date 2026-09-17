@@ -26,6 +26,7 @@
 #include "gfx/gl/gfxGLDevice.h"
 #include "gfx/gl/gfxGLEnumTranslate.h"
 #include "gfx/gl/gfxGLUtils.h"
+#include "gfx/gl/gfxGLVertexAttribLocation.h"
 
 
 GFXGLVertexBuffer::GFXGLVertexBuffer(  GFXDevice *device, 
@@ -88,35 +89,35 @@ void GFXGLVertexBuffer::prepare()
    for ( U32 i=0; i < mVertexFormat.getElementCount(); i++ )
    {
       const GFXVertexElement &element = mVertexFormat.getElement( i );
-      
-      if ( element.isSemantic( GFXSemantic::POSITION ) )
-      {
-         glEnableClientState( GL_VERTEX_ARRAY );
-         glVertexPointer( element.getSizeInBytes() / 4, GL_FLOAT, mVertexSize, buffer );
-         buffer += element.getSizeInBytes();
-      }
-      else if ( element.isSemantic( GFXSemantic::NORMAL ) )
-      {
-         glEnableClientState( GL_NORMAL_ARRAY );
-         glNormalPointer( GL_FLOAT, mVertexSize, buffer );
-         buffer += element.getSizeInBytes();
-      }
-      else if ( element.isSemantic( GFXSemantic::COLOR ) )
-      {
-         glEnableClientState( GL_COLOR_ARRAY );
-         glColorPointer( element.getSizeInBytes(), GL_UNSIGNED_BYTE, mVertexSize, buffer );
-         buffer += element.getSizeInBytes();
-      }
-      else // Everything else is a texture coordinate.
-      {
-         glClientActiveTexture( GL_TEXTURE0 + texCoordIndex );
-         glEnableClientState( GL_TEXTURE_COORD_ARRAY );
-         glTexCoordPointer( element.getSizeInBytes() / 4, GL_FLOAT, mVertexSize, buffer );
-         buffer += element.getSizeInBytes();
-         ++texCoordIndex;
-      }
-      
+      const U32 attrib = _getAttributeLocation( element, texCoordIndex );
+      const U32 size = element.getSizeInBytes();
+
+      glEnableVertexAttribArray( attrib );
+
+      if ( element.isSemantic( GFXSemantic::COLOR ) )
+         glVertexAttribPointer( attrib, size, GL_UNSIGNED_BYTE, GL_TRUE, mVertexSize, buffer );
+      else
+         glVertexAttribPointer( attrib, size / 4, GL_FLOAT, GL_FALSE, mVertexSize, buffer );
+
+      buffer += size;
    }
+}
+
+/// Position, normal and colour have dedicated locations; everything else takes
+/// a texture coordinate slot in the order the format declares it, which is the
+/// order the shader generator assigns them in.
+U32 GFXGLVertexBuffer::_getAttributeLocation( const GFXVertexElement &element, U32 &texCoordIndex )
+{
+   if ( element.isSemantic( GFXSemantic::POSITION ) )
+      return Torque::GL_VertexAttrib_Position;
+
+   if ( element.isSemantic( GFXSemantic::NORMAL ) )
+      return Torque::GL_VertexAttrib_Normal;
+
+   if ( element.isSemantic( GFXSemantic::COLOR ) )
+      return Torque::GL_VertexAttrib_Color;
+
+   return Torque::GL_VertexAttrib_TexCoord0 + texCoordIndex++;
 }
 
 void GFXGLVertexBuffer::finish()
@@ -127,19 +128,7 @@ void GFXGLVertexBuffer::finish()
    for ( U32 i=0; i < mVertexFormat.getElementCount(); i++ )
    {
       const GFXVertexElement &element = mVertexFormat.getElement( i );
-
-      if ( element.isSemantic( GFXSemantic::POSITION ) )
-         glDisableClientState( GL_VERTEX_ARRAY );
-      else if ( element.isSemantic( GFXSemantic::NORMAL ) )
-         glDisableClientState( GL_NORMAL_ARRAY );
-      else if ( element.isSemantic( GFXSemantic::COLOR ) )
-         glDisableClientState( GL_COLOR_ARRAY );
-      else
-      {
-         glClientActiveTexture( GL_TEXTURE0 + texCoordIndex );
-         glDisableClientState(GL_TEXTURE_COORD_ARRAY);
-         ++texCoordIndex;
-      }
+      glDisableVertexAttribArray( _getAttributeLocation( element, texCoordIndex ) );
    }
 }
 

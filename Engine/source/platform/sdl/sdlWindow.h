@@ -77,6 +77,7 @@ public:
    void              close();
    void              restore();
    void              setFocus();
+   void              setKeyboardTranslation(const bool enabled);
 
    void*             getPlatformDrawable() const { return mSDLWindow; }
    SDL_Window*       getSDLWindow() const { return mSDLWindow; }

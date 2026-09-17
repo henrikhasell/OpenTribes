@@ -20,6 +20,9 @@
 // IN THE SOFTWARE.
 //-----------------------------------------------------------------------------
 
+in vec4 vPosition;
+in vec4 vTexCoord0;
+
 /// The vertex shader used in the generation and caching of the
 /// base terrain texture.
 
@@ -30,7 +33,7 @@ uniform vec2 texScale;
 
 void main()
 {
-   gl_Position = vec4(gl_Vertex.xyz, 1.0);
-   layerCoord = gl_MultiTexCoord0.st;
-   texCoord = gl_MultiTexCoord0.st * texScale;
+   gl_Position = vec4(vPosition.xyz, 1.0);
+   layerCoord = vTexCoord0.st;
+   texCoord = vTexCoord0.st * texScale;
 }

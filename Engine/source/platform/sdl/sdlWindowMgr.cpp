@@ -5,6 +5,75 @@
 
 #include <SDL3/SDL.h>
 
+static U32 sdlModifiers()
+{
+   const SDL_Keymod mod = SDL_GetModState();
+   U32 out = 0;
+
+   if( mod & SDL_KMOD_LSHIFT ) out |= SI_LSHIFT;
+   if( mod & SDL_KMOD_RSHIFT ) out |= SI_RSHIFT;
+   if( mod & SDL_KMOD_LCTRL )  out |= SI_LCTRL;
+   if( mod & SDL_KMOD_RCTRL )  out |= SI_RCTRL;
+   if( mod & SDL_KMOD_LALT )   out |= SI_LALT;
+   if( mod & SDL_KMOD_RALT )   out |= SI_RALT;
+
+   return out;
+}
+
+/// SDL scancode to the engine's key codes. The letter and digit runs are
+/// contiguous in both, so those map arithmetically.
+static U16 sdlToTorqueKey( SDL_Scancode code )
+{
+   if( code >= SDL_SCANCODE_A && code <= SDL_SCANCODE_Z )
+      return U16( KEY_A + ( code - SDL_SCANCODE_A ) );
+
+   if( code >= SDL_SCANCODE_1 && code <= SDL_SCANCODE_9 )
+      return U16( KEY_1 + ( code - SDL_SCANCODE_1 ) );
+
+   if( code >= SDL_SCANCODE_F1 && code <= SDL_SCANCODE_F12 )
+      return U16( KEY_F1 + ( code - SDL_SCANCODE_F1 ) );
+
+   switch( code )
+   {
+      case SDL_SCANCODE_0:            return KEY_0;
+      case SDL_SCANCODE_BACKSPACE:    return KEY_BACKSPACE;
+      case SDL_SCANCODE_TAB:          return KEY_TAB;
+      case SDL_SCANCODE_RETURN:       return KEY_RETURN;
+      case SDL_SCANCODE_ESCAPE:       return KEY_ESCAPE;
+      case SDL_SCANCODE_SPACE:        return KEY_SPACE;
+      case SDL_SCANCODE_PAGEDOWN:     return KEY_PAGE_DOWN;
+      case SDL_SCANCODE_PAGEUP:       return KEY_PAGE_UP;
+      case SDL_SCANCODE_END:          return KEY_END;
+      case SDL_SCANCODE_HOME:         return KEY_HOME;
+      case SDL_SCANCODE_LEFT:         return KEY_LEFT;
+      case SDL_SCANCODE_UP:           return KEY_UP;
+      case SDL_SCANCODE_RIGHT:        return KEY_RIGHT;
+      case SDL_SCANCODE_DOWN:         return KEY_DOWN;
+      case SDL_SCANCODE_INSERT:       return KEY_INSERT;
+      case SDL_SCANCODE_DELETE:       return KEY_DELETE;
+      case SDL_SCANCODE_LSHIFT:
+      case SDL_SCANCODE_RSHIFT:       return KEY_SHIFT;
+      case SDL_SCANCODE_LCTRL:
+      case SDL_SCANCODE_RCTRL:        return KEY_CONTROL;
+      case SDL_SCANCODE_LALT:
+      case SDL_SCANCODE_RALT:         return KEY_ALT;
+      case SDL_SCANCODE_CAPSLOCK:     return KEY_CAPSLOCK;
+      case SDL_SCANCODE_PAUSE:        return KEY_PAUSE;
+      case SDL_SCANCODE_MINUS:        return KEY_MINUS;
+      case SDL_SCANCODE_EQUALS:       return KEY_EQUALS;
+      case SDL_SCANCODE_LEFTBRACKET:  return KEY_LBRACKET;
+      case SDL_SCANCODE_RIGHTBRACKET: return KEY_RBRACKET;
+      case SDL_SCANCODE_BACKSLASH:    return KEY_BACKSLASH;
+      case SDL_SCANCODE_SEMICOLON:    return KEY_SEMICOLON;
+      case SDL_SCANCODE_APOSTROPHE:   return KEY_APOSTROPHE;
+      case SDL_SCANCODE_COMMA:        return KEY_COMMA;
+      case SDL_SCANCODE_PERIOD:       return KEY_PERIOD;
+      case SDL_SCANCODE_SLASH:        return KEY_SLASH;
+      case SDL_SCANCODE_GRAVE:        return KEY_TILDE;
+      default:                        return 0;
+   }
+}
+
 PlatformWindowManagerSDL::PlatformWindowManagerSDL()
    : mWindowListHead(NULL), mParentWindow(NULL), mNextWindowId(1)
 {
@@ -162,6 +231,22 @@ void PlatformWindowManagerSDL::_handleEvents()
             Process::requestShutdown();
             break;
 
+         case SDL_EVENT_WINDOW_FOCUS_GAINED:
+         case SDL_EVENT_WINDOW_FOCUS_LOST:
+         {
+            PlatformWindow* window = getWindowById( event.window.windowID );
+            if( !window )
+               window = getFirstWindow();
+            if( !window )
+               break;
+
+            const ApplicationMessage action =
+               ( event.type == SDL_EVENT_WINDOW_FOCUS_GAINED ) ? GainFocus : LoseFocus;
+
+            window->appEvent.trigger( window->getWindowId(), action );
+            break;
+         }
+
          case SDL_EVENT_WINDOW_RESIZED:
          {
             PlatformWindow* window = getFirstWindow();
@@ -171,19 +256,91 @@ void PlatformWindowManagerSDL::_handleEvents()
             break;
          }
 
-         case SDL_EVENT_WINDOW_FOCUS_GAINED:
+         case SDL_EVENT_MOUSE_MOTION:
          {
-            PlatformWindow* window = getFirstWindow();
-            if (window)
-               window->appEvent.trigger(window->getWindowId(), GainFocus);
+            PlatformWindow* window = getWindowById( event.motion.windowID );
+            if( !window )
+               window = getFirstWindow();
+            if( !window )
+               break;
+
+            // Relative mode reports deltas, which is what the engine wants
+            // while the mouse is locked for camera control.
+            const bool relative = window->isMouseLocked();
+            const S32 x = relative ? S32( event.motion.xrel ) : S32( event.motion.x );
+            const S32 y = relative ? S32( event.motion.yrel ) : S32( event.motion.y );
+
+            window->mouseEvent.trigger( window->getWindowId(), sdlModifiers(), x, y, relative );
             break;
          }
 
-         case SDL_EVENT_WINDOW_FOCUS_LOST:
+         case SDL_EVENT_MOUSE_BUTTON_DOWN:
+         case SDL_EVENT_MOUSE_BUTTON_UP:
          {
-            PlatformWindow* window = getFirstWindow();
-            if (window)
-               window->appEvent.trigger(window->getWindowId(), LoseFocus);
+            PlatformWindow* window = getWindowById( event.button.windowID );
+            if( !window )
+               window = getFirstWindow();
+            if( !window )
+               break;
+
+            const U32 action = ( event.type == SDL_EVENT_MOUSE_BUTTON_DOWN ) ? SI_MAKE : SI_BREAK;
+
+            // WindowInputGenerator::handleMouseButton adds KEY_BUTTON0 itself,
+            // so this passes the zero-based index. Sending the offset code here
+            // made the engine compute KEY_BUTTON0 + 256, which is no button.
+            const U16 button = U16( event.button.button - 1 );
+
+            window->buttonEvent.trigger( window->getWindowId(), sdlModifiers(), action, button );
+            break;
+         }
+
+         case SDL_EVENT_MOUSE_WHEEL:
+         {
+            PlatformWindow* window = getWindowById( event.wheel.windowID );
+            if( !window )
+               window = getFirstWindow();
+            if( !window )
+               break;
+
+            // The engine expects wheel deltas in notches of WheelDelta.
+            const S32 dx = S32( event.wheel.x ) * 120;
+            const S32 dy = S32( event.wheel.y ) * 120;
+
+            window->wheelEvent.trigger( window->getWindowId(), sdlModifiers(), dx, dy );
+            break;
+         }
+
+         case SDL_EVENT_KEY_DOWN:
+         case SDL_EVENT_KEY_UP:
+         {
+            PlatformWindow* window = getWindowById( event.key.windowID );
+            if( !window )
+               window = getFirstWindow();
+            if( !window )
+               break;
+
+            const U16 key = sdlToTorqueKey( event.key.scancode );
+            if( !key )
+               break;
+
+            U32 action = ( event.type == SDL_EVENT_KEY_DOWN ) ? SI_MAKE : SI_BREAK;
+            if( event.type == SDL_EVENT_KEY_DOWN && event.key.repeat )
+               action = SI_REPEAT;
+
+            window->keyEvent.trigger( window->getWindowId(), sdlModifiers(), action, key );
+            break;
+         }
+
+         case SDL_EVENT_TEXT_INPUT:
+         {
+            PlatformWindow* window = getWindowById( event.text.windowID );
+            if( !window )
+               window = getFirstWindow();
+            if( !window || !window->getKeyboardTranslation() )
+               break;
+
+            for( const char* c = event.text.text; c && *c; ++ c )
+               window->charEvent.trigger( window->getWindowId(), sdlModifiers(), U16( U8( *c ) ) );
             break;
          }
 

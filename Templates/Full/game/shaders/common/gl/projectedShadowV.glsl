@@ -20,6 +20,10 @@
 // IN THE SOFTWARE.
 //-----------------------------------------------------------------------------
 
+in vec4 vColor;
+in vec4 vPosition;
+in vec4 vTexCoord1;
+
 //*****************************************************************************
 // Precipitation vertex shader
 //*****************************************************************************
@@ -34,11 +38,11 @@ uniform vec3 shadowCasterPosition;
 
 void main()
 {
-   gl_Position = modelview * vec4(gl_Vertex.xyz, 1.0);
+   gl_Position = modelview * vec4(vPosition.xyz, 1.0);
    
-   color = gl_Color;
-   texCoord = gl_MultiTexCoord1.st;
+   color = vColor;
+   texCoord = vTexCoord1.st;
    
-   float fromCasterDist = length(gl_Vertex.xyz - shadowCasterPosition) - shadowLength;
+   float fromCasterDist = length(vPosition.xyz - shadowCasterPosition) - shadowLength;
    fade = 1.0 - clamp(fromCasterDist/shadowLength, 0.0, 1.0);
 }

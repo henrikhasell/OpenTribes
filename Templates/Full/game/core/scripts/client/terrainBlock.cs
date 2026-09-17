@@ -28,6 +28,10 @@ singleton ShaderData( TerrainBlendShader )
    
    OGLVertexShaderFile = "shaders/common/terrain/gl/blendV.glsl";
    OGLPixelShaderFile = "shaders/common/terrain/gl/blendP.glsl";
+
+   // Texture unit per sampler; HLSL states this inline as register(SN).
+   samplerNames[0] = "layerTex";
+   samplerNames[1] = "textureMap";
    
    pixVersion = 2.0;
 };

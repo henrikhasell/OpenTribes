@@ -29,6 +29,7 @@
 #include "math/mPoint2.h"
 #include "gfx/gfxStructs.h"
 #include "console/console.h"
+#include "gfx/gl/gfxGLVertexAttribLocation.h"
 
 
 class GFXGLShaderConstHandle : public GFXShaderConstHandle
@@ -409,6 +410,22 @@ bool GFXGLShader::_init()
       return false;
 
    // Link it!
+   // Bind the generic vertex attribute locations before linking so the vertex
+   // buffer and the shader agree without querying. Names the shader does not
+   // use are simply ignored.
+   glBindAttribLocation( mProgram, Torque::GL_VertexAttrib_Position, "vPosition" );
+   glBindAttribLocation( mProgram, Torque::GL_VertexAttrib_Normal,   "vNormal" );
+   glBindAttribLocation( mProgram, Torque::GL_VertexAttrib_Color,    "vColor" );
+   glBindAttribLocation( mProgram, Torque::GL_VertexAttrib_Tangent,  "vTangent" );
+   glBindAttribLocation( mProgram, Torque::GL_VertexAttrib_TangentW, "vTangentW" );
+   glBindAttribLocation( mProgram, Torque::GL_VertexAttrib_Binormal, "vBinormal" );
+   for( U32 i = 0; i <= Torque::GL_VertexAttrib_TexCoord9 - Torque::GL_VertexAttrib_TexCoord0; i++ )
+   {
+      char attribName[16];
+      dSprintf( attribName, sizeof(attribName), "vTexCoord%d", i );
+      glBindAttribLocation( mProgram, Torque::GL_VertexAttrib_TexCoord0 + i, attribName );
+   }
+
    glLinkProgram( mProgram );
 
    GLint linkStatus;
@@ -546,7 +563,6 @@ void GFXGLShader::initHandles()
 
    // Loop through all ConstantDescriptions, 
    // if they aren't in the HandleMap add them, if they are reinitialize them.
-   S32 assignedSamplerNum = 0;
    for ( U32 i = 0; i < mConstants.size(); i++ )
    {
       GFXShaderConstDesc &desc = mConstants[i];            
@@ -555,8 +571,24 @@ void GFXGLShader::initHandles()
       U32 loc = glGetUniformLocation(mProgram, &desc.name.c_str()[1]);
 
       HandleMap::Iterator handle = mHandles.find(desc.name);
-      S32 sampler = (desc.constType == GFXSCT_Sampler || desc.constType == GFXSCT_SamplerCube) ?
-         assignedSamplerNum++ : -1;
+
+      // Every sampler takes the unit declared for it by name: the shader
+      // generator records it, hand written shaders declare samplerNames on
+      // their ShaderData. The order glGetActiveUniform reports uniforms in is
+      // not specified by GL, so it cannot be used to infer one.
+      S32 sampler = -1;
+      if ( desc.constType == GFXSCT_Sampler || desc.constType == GFXSCT_SamplerCube )
+      {
+         const String bareName( &desc.name.c_str()[1] );
+         Map<String, U32>::Iterator binding = mSamplerBindings.find( bareName );
+
+         if ( binding != mSamplerBindings.end() )
+            sampler = binding->value;
+         else if ( smLogErrors )
+            Con::errorf( "GFXGLShader::initHandles - sampler '%s' in %s declares no texture "
+                         "unit; add it to samplerNames on the ShaderData.",
+                         bareName.c_str(), mPixelFile.getFullPath().c_str() );
+      }
       if ( handle != mHandles.end() )
       {
          handle->value->reinit( desc, loc, sampler );         
@@ -598,8 +630,9 @@ void GFXGLShader::initHandles()
       {
          // Set sampler number on our program.
          glUniform1i(handle->mLocation, handle->mSamplerNum);
-         // Set sampler in constant buffer so it does not get unset later.
-         dMemcpy(mConstBuffer + handle->mOffset, &handle->mLocation, handle->getSize());
+         // Set sampler in constant buffer so it does not get unset later. This
+         // is the texture unit, not the uniform's location.
+         dMemcpy(mConstBuffer + handle->mOffset, &handle->mSamplerNum, handle->getSize());
       }
    }
    glUseProgram(0);
@@ -804,6 +837,7 @@ char* GFXGLShader::_handleIncludes( const Torque::Path& path, FileStream *s )
    return buffer;
 }
 
+
 bool GFXGLShader::_loadShaderFromStream(  GLuint shader, 
                                           const Torque::Path &path, 
                                           FileStream *s, 
@@ -813,7 +847,7 @@ bool GFXGLShader::_loadShaderFromStream(  GLuint shader,
    Vector<U32> lengths;
    
    // The GLSL version declaration must go first!
-   const char *versionDecl = "#version 120\r\n\r\n";
+   const char *versionDecl = "#version 150 compatibility\r\n\r\n";
    buffers.push_back( dStrdup( versionDecl ) );
    lengths.push_back( dStrlen( versionDecl ) );
 

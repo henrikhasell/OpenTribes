@@ -54,6 +54,9 @@ public:
    virtual void sortVars();
    
    virtual void print( Stream &stream );
+
+   /// Declares the generic vertex attributes this shader reads.
+   void printAttributes( Stream &stream );
 };
 
 

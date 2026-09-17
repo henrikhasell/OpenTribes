@@ -29,7 +29,7 @@
 #include "gfx/gfxInit.h"
 
 #ifndef GL_GGL_H
-#include "gfx/gl/ggl/ggl.h"
+#include "gfx/gl/tGL/tGL.h"
 #endif
 
 #include "windowManager/platformWindow.h"
@@ -132,6 +132,11 @@ public:
    GFXGLStateBlockRef getCurrentStateBlock() { return mCurrentGLStateBlock; }
    
    virtual void setupGenericShaders( GenericShaderType type = GSColor );
+
+   /// Shaders standing in for the fixed function pipeline when drawing 2D.
+   GFXShaderRef mGenericShader[GS_COUNT];
+   GFXShaderConstBufferRef mGenericShaderBuffer[GS_COUNT];
+   GFXShaderConstHandle *mModelViewProjSC[GS_COUNT];
    
    ///
    bool supportsAnisotropic() const { return mSupportsAnisotropic; }

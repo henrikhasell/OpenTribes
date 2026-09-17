@@ -22,7 +22,9 @@
 
 // These are the uniforms used by most lighting shaders.
 
-uniform vec3 inLightPos[4];
+// SoA order, as uploaded by LightManager::_update4LightConsts: inLightPos[0]
+// holds the x coord of all four lights, [1] the y, [2] the z.
+uniform vec4 inLightPos[3];
 uniform vec4 inLightInvRadiusSq;
 uniform vec4 inLightColor[4];
 uniform vec4 ambient;
@@ -56,7 +58,8 @@ void compute4Lights( vec3 wsView,
 
    for ( i = 0; i < C4L_MAX_LIGHTS; ++i )
    {
-      vec3 lightVector = inLightPos[i] - wsPosition;
+      vec3 lightPos = vec3( inLightPos[0][i], inLightPos[1][i], inLightPos[2][i] );
+      vec3 lightVector = lightPos - wsPosition;
       vec3 lightDirection = normalize( lightVector );
 
       nDotL[i] = max( dot( lightDirection, wsNormal ), 0.0 );

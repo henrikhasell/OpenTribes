@@ -1159,7 +1159,7 @@ void TSShape::assembleShape()
    }
 
    // read in the meshes (sans skins)...straightforward read one at a time
-   ptr32 = tsalloc.allocShape32(numMeshes + numSkins*numDetails); // leave room for skins on old shapes
+   TSMesh **ptrmesh = (TSMesh**)tsalloc.allocShape32((numMeshes + numSkins*numDetails) * (sizeof(TSMesh*) / 4)); // leave room for skins on old shapes
    S32 curObject = 0; // for tracking skipped meshes
    for (i=0; i<numMeshes; i++)
    {
@@ -1169,8 +1169,8 @@ void TSShape::assembleShape()
          // decal mesh deprecated
          skip = true;
       TSMesh * mesh = TSMesh::assembleMesh(meshType,skip);
-      if (ptr32)
-         ptr32[i] = skip ?  0 : (S32)(uintptr_t)mesh;
+      if (ptrmesh)
+         ptrmesh[i] = skip ?  0 : mesh;
 
       // fill in location of verts, tverts, and normals for detail levels
       if (mesh && meshType!=TSMesh::DecalMeshType)
@@ -1193,7 +1193,7 @@ void TSShape::assembleShape()
          }
       }
    }
-   meshes.set(ptr32,numMeshes);
+   meshes.set(ptrmesh,numMeshes);
 
    tsalloc.checkGuard();
 

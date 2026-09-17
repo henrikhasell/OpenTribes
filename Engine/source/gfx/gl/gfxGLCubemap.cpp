@@ -58,7 +58,6 @@ void GFXGLCubemap::fillCubeTextures(GFXTexHandle* faces)
 {
    glActiveTexture(GL_TEXTURE0);
    glBindTexture(GL_TEXTURE_CUBE_MAP, mCubemap);
-   glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_GENERATE_MIPMAP, GL_TRUE);
    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
@@ -89,7 +88,10 @@ void GFXGLCubemap::fillCubeTextures(GFXTexHandle* faces)
          0, GFXGLTextureFormat[faceFormat], GFXGLTextureType[faceFormat], buf);
       delete[] buf;
    }
-   
+
+   // GL_GENERATE_MIPMAP built these on upload and is gone from core.
+   glGenerateMipmap(GL_TEXTURE_CUBE_MAP);
+
    glBindTexture(GL_TEXTURE_CUBE_MAP, 0);
    glBindBuffer(GL_PIXEL_UNPACK_BUFFER_ARB, 0);
 }
@@ -130,7 +132,6 @@ void GFXGLCubemap::initStatic( DDSFile *dds )
 
    glActiveTexture(GL_TEXTURE0);
    glBindTexture(GL_TEXTURE_CUBE_MAP, mCubemap);
-   glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_GENERATE_MIPMAP, GL_TRUE);
    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
@@ -162,7 +163,9 @@ void GFXGLCubemap::initStatic( DDSFile *dds )
       glCompressedTexImage2D( faceList[i], 0, GFXGLTextureInternalFormat[mFaceFormat], 
                               mWidth, mHeight, 0, surfaceSize, buffer );
    }
-   
+
+   glGenerateMipmap(GL_TEXTURE_CUBE_MAP);
+
    glBindTexture(GL_TEXTURE_CUBE_MAP, 0);
    glBindBuffer(GL_PIXEL_UNPACK_BUFFER_ARB, 0);
 }
@@ -236,7 +239,7 @@ void GFXGLCubemap::bind(U32 textureUnit) const
    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GFXGLTextureAddress[ssd.addressModeV]);
    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GFXGLTextureAddress[ssd.addressModeW]);
 
-   glTexEnvf(GL_TEXTURE_FILTER_CONTROL, GL_TEXTURE_LOD_BIAS, ssd.mipLODBias);
+   glTexParameterf(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_LOD_BIAS, ssd.mipLODBias);
 }
 
 void GFXGLCubemap::_onTextureEvent( GFXTexCallbackCode code )

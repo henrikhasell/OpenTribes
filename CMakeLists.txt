@@ -73,6 +73,7 @@ target_compile_options(${TORQUE_APP_NAME} PRIVATE
 
 target_link_libraries(${TORQUE_APP_NAME} PRIVATE
     torque::vendored
+    glad
     SDL3::SDL3
     SDL3_ttf::SDL3_ttf
     OpenAL::OpenAL

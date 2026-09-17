@@ -38,7 +38,7 @@ Var * AppVertConnectorGLSL::getElement(   RegisterType type,
       {
          Var *newVar = new Var;
          mElementList.push_back( newVar );
-         newVar->setConnectName( "gl_Vertex" );
+         newVar->setConnectName( "vPosition" );
          return newVar;
       }
 
@@ -46,7 +46,7 @@ Var * AppVertConnectorGLSL::getElement(   RegisterType type,
       {
          Var *newVar = new Var;
          mElementList.push_back( newVar );
-         newVar->setConnectName( "gl_Normal" );
+         newVar->setConnectName( "vNormal" );
          return newVar;
       }
       
@@ -55,7 +55,7 @@ Var * AppVertConnectorGLSL::getElement(   RegisterType type,
       {
          Var *newVar = new Var;
          mElementList.push_back( newVar );
-         newVar->setConnectName( "gl_Color" );
+         newVar->setConnectName( "vColor" );
          return newVar;
       }
 
@@ -67,7 +67,7 @@ Var * AppVertConnectorGLSL::getElement(   RegisterType type,
          mElementList.push_back( newVar );
          
          char out[32];
-         dSprintf( (char*)out, sizeof(out), "gl_MultiTexCoord%d", mCurTexElem );
+         dSprintf( (char*)out, sizeof(out), "vTexCoord%d", mCurTexElem );
          newVar->setConnectName( out );
          newVar->constNum = mCurTexElem;
          newVar->arraySize = numElements;
@@ -129,6 +129,37 @@ void AppVertConnectorGLSL::print( Stream &stream )
       // built in vars.  There is no cleaner way to do this.
       dSprintf( (char*)output, sizeof(output), "#define %s %s.%s\r\n", var->name, var->connectName, swizzle );
 
+      stream.write( dStrlen((char*)output), output );
+   }
+}
+
+void AppVertConnectorGLSL::printAttributes( Stream &stream )
+{
+   // Generic vertex attributes, replacing gl_Vertex and friends. Everything is
+   // declared vec4 and swizzled by the #defines above, so a buffer supplying
+   // fewer components still works.
+   Vector<String> declared;
+
+   for( U32 i=0; i<mElementList.size(); i++ )
+   {
+      Var *var = mElementList[i];
+      const String name( (const char*)var->connectName );
+
+      bool done = false;
+      for( U32 d=0; d<declared.size(); d++ )
+         if( declared[d].equal( name ) )
+         {
+            done = true;
+            break;
+         }
+
+      if( done )
+         continue;
+
+      declared.push_back( name );
+
+      U8 output[256];
+      dSprintf( (char*)output, sizeof(output), "in vec4 %s;\r\n", var->connectName );
       stream.write( dStrlen((char*)output), output );
    }
 }

@@ -32,6 +32,9 @@
 #ifndef _TVECTOR_H_
 #include "core/util/tVector.h"
 #endif
+#ifndef _TDICTIONARY_H_
+#include "core/util/tDictionary.h"
+#endif
 #ifndef _ALIGNEDARRAY_H_
 #include "core/util/tAlignedArray.h"
 #endif
@@ -237,6 +240,11 @@ protected:
    /// The macros to be passed to the shader.      
    Vector<GFXShaderMacro> mMacros;
 
+   /// Texture unit for each sampler, by name, as assigned by the shader
+   /// generator. HLSL writes this into the source as register(SN); APIs that
+   /// cannot express it there read it from here instead.
+   Map<String, U32> mSamplerBindings;
+
    /// The pixel version this is compiled for.
    F32 mPixVersion;
 
@@ -299,6 +307,11 @@ public:
 
    /// Reloads the shader from disk.
    bool reload();
+
+   /// Supplies the sampler-to-texture-unit assignment the shader generator
+   /// made. Must be called before init(). Backends that take the binding from
+   /// the shader source itself can ignore it.
+   void setSamplerBindings( const Map<String, U32> &bindings ) { mSamplerBindings = bindings; }
 
    Signal<void()> getReloadSignal() { return mReloadSignal; }
 

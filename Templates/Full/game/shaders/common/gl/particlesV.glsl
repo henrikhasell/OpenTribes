@@ -20,6 +20,10 @@
 // IN THE SOFTWARE.
 //-----------------------------------------------------------------------------
 
+in vec4 vColor;
+in vec4 vPosition;
+in vec4 vTexCoord0;
+
 varying vec4 color;
 varying vec2 uv0;
 varying vec4 pos;
@@ -29,9 +33,9 @@ uniform mat4 fsModelViewProj;
 
 void main()
 {
-   gl_Position = modelViewProj * gl_Vertex;
-   pos = fsModelViewProj * gl_Vertex;
-   color = gl_Color;
-   uv0 = gl_MultiTexCoord0.st;
+   gl_Position = modelViewProj * vPosition;
+   pos = fsModelViewProj * vPosition;
+   color = vColor;
+   uv0 = vTexCoord0.st;
 }
 

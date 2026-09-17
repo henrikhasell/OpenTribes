@@ -22,6 +22,11 @@
 
 #include "../../gl/hlslCompat.glsl"
 
+in vec4 vNormal;
+in vec4 vPosition;
+in vec4 vTexCoord0;
+in vec4 vTexCoord1;
+
 //-----------------------------------------------------------------------------
 // Defines                                                                  
 //-----------------------------------------------------------------------------
@@ -68,10 +73,10 @@ uniform float    undulateMaxDist;
 //-----------------------------------------------------------------------------
 void main()
 {	
-   vec4 position = gl_Vertex;
-   vec3 normal = gl_Normal;
-   vec2 undulateData = gl_MultiTexCoord0.st;
-   vec4 horizonFactor = gl_MultiTexCoord1;
+   vec4 position = vPosition;
+   vec3 normal = vNormal;
+   vec2 undulateData = vTexCoord0.st;
+   vec4 horizonFactor = vTexCoord1;
    
    // use projection matrix for reflection / refraction texture coords
    mat4 texGen = mat4(0.5, 0.0, 0.0, 0.0,

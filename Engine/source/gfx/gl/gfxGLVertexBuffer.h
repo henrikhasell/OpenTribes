@@ -27,7 +27,7 @@
 #include "gfx/gfxVertexBuffer.h"
 #endif
 #ifndef GL_GGL_H
-#include "gfx/gl/ggl/ggl.h"
+#include "gfx/gl/tGL/tGL.h"
 #endif
 
 /// This is a vertex buffer which uses GL_ARB_vertex_buffer_object.
@@ -45,6 +45,9 @@ public:
 	virtual void lock(U32 vertexStart, U32 vertexEnd, void **vertexPtr); ///< calls glMapBuffer and offsets the pointer by vertex start
 	virtual void unlock(); ///< calls glUnmapBuffer, unbinds the buffer
 	virtual void prepare(); ///< Binds the buffer
+
+   /// Attribute location for a vertex format element.
+   static U32 _getAttributeLocation( const GFXVertexElement &element, U32 &texCoordIndex );
    virtual void finish(); ///< We're done here
 
 	GLvoid* getBuffer(); ///< returns NULL

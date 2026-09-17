@@ -31,6 +31,9 @@ singleton ShaderData( CloudLayerShader )
    
    OGLVertexShaderFile = "shaders/common/gl/cloudLayerV.glsl";
    OGLPixelShaderFile = "shaders/common/gl/cloudLayerP.glsl";
+
+   // Texture unit per sampler; HLSL states this inline as register(SN).
+   samplerNames[0] = "normalHeightMap";
       
    pixVersion = 2.0;   
 };

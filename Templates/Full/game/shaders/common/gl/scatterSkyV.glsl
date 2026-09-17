@@ -20,6 +20,10 @@
 // IN THE SOFTWARE.
 //-----------------------------------------------------------------------------
 
+in vec4 vNormal;
+in vec4 vPosition;
+in vec4 vTexCoord0;
+
 const int nSamples = 4;
 const float fSamples = 4.0;
 
@@ -57,9 +61,9 @@ uniform vec4 invWaveLength;
  
 void main()        
 {
-   vec4 position = gl_Vertex.xyzw;
-   vec3 normal = gl_Normal.xyz;
-   vec4 color = gl_MultiTexCoord0.xyzw;
+   vec4 position = vPosition.xyzw;
+   vec3 normal = vNormal.xyz;
+   vec4 color = vTexCoord0.xyzw;
 
    // Pull some variables out:
    float camHeight = misc.x;

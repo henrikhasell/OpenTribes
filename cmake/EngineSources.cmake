@@ -55,8 +55,6 @@ set(_engine_dirs
 
     # GL-only render path
     gfx/gl
-    gfx/gl/ggl
-    gfx/gl/ggl/generated
     shaderGen/GLSL
 
     # T3D.inc
@@ -146,9 +144,6 @@ endforeach()
 # Windows- and macOS-only translation units living alongside portable ones.
 # The original build did this with setDontCompilePatterns() in targets.inc.
 set(_engine_exclude
-    "/gfx/gl/ggl/mac/"
-    "/gfx/gl/ggl/win32/"
-    "/gfx/gl/ggl/x11/"       # Phase 4: SDL_GL_GetProcAddress replaces GLX
     "\\.win\\.cpp$"
     "\\.mac\\.cpp$"
     "win32.*\\.cpp$"
