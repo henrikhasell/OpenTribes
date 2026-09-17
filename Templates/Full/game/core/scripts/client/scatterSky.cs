@@ -43,6 +43,9 @@ singleton ShaderData( ScatterSkyShaderData )
    
    OGLVertexShaderFile     = "shaders/common/gl/scatterSkyV.glsl";
    OGLPixelShaderFile      = "shaders/common/gl/scatterSkyP.glsl";   
+
+   // Texture unit per sampler; HLSL states this inline as register(SN).
+   samplerNames[0] = "nightSky";
    
    pixVersion = 2.0;
 };

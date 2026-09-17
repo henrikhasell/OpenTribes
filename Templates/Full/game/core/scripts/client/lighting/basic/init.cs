@@ -45,6 +45,9 @@ singleton ShaderData( BL_ProjectedShadowShaderData )
    
    OGLVertexShaderFile     = "shaders/common/gl/projectedShadowV.glsl";
    OGLPixelShaderFile      = "shaders/common/gl/projectedShadowP.glsl";   
+
+   // Texture unit per sampler; HLSL states this inline as register(SN).
+   samplerNames[0] = "inputTex";
       
    pixVersion = 2.0;
 };

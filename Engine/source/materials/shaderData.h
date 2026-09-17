@@ -72,6 +72,11 @@ protected:
    ///
    String mDefines;
 
+   /// Sampler names in texture unit order. GLSL cannot state a sampler's unit
+   /// in the source before 4.20, so hand written shaders declare it here.
+   enum { NumTextures = 8 };
+   String mSamplerNames[NumTextures];
+
    /// The shader macros built from mDefines.
    /// @see _getMacros()
    Vector<GFXShaderMacro> mShaderMacros;

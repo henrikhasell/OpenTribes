@@ -60,6 +60,10 @@ new ShaderData( AL_VectorLightShader )
 
    OGLVertexShaderFile = "shaders/common/lighting/advanced/gl/farFrustumQuadV.glsl";
    OGLPixelShaderFile  = "shaders/common/lighting/advanced/gl/vectorLightP.glsl";
+
+   // Texture unit per sampler; HLSL states this inline as register(SN).
+   samplerNames[0] = "prePassBuffer";
+   samplerNames[1] = "ShadowMap";
    
    pixVersion = 3.0;
 };
@@ -121,6 +125,11 @@ new ShaderData( AL_PointLightShader )
    OGLVertexShaderFile = "shaders/common/lighting/advanced/gl/convexGeometryV.glsl";
    OGLPixelShaderFile  = "shaders/common/lighting/advanced/gl/pointLightP.glsl";
 
+   // Texture unit per sampler; HLSL states this inline as register(SN).
+   samplerNames[0] = "prePassBuffer";
+   samplerNames[1] = "shadowMap";
+   samplerNames[2] = "scratchTarget";
+
    pixVersion = 3.0;
 };
 
@@ -146,6 +155,11 @@ new ShaderData( AL_SpotLightShader )
 
    OGLVertexShaderFile = "shaders/common/lighting/advanced/gl/convexGeometryV.glsl";
    OGLPixelShaderFile  = "shaders/common/lighting/advanced/gl/spotLightP.glsl";
+
+   // Texture unit per sampler; HLSL states this inline as register(SN).
+   samplerNames[0] = "prePassBuffer";
+   samplerNames[1] = "shadowMap";
+   samplerNames[2] = "scratchTarget";
    
    pixVersion = 3.0;
 };
@@ -210,6 +224,11 @@ new ShaderData( AL_ParticlePointLightShader )
 
    OGLVertexShaderFile = "shaders/common/lighting/advanced/gl/convexGeometryV.glsl";
    OGLPixelShaderFile  = "shaders/common/lighting/advanced/gl/pointLightP.glsl";
+
+   // Texture unit per sampler; HLSL states this inline as register(SN).
+   samplerNames[0] = "prePassBuffer";
+   samplerNames[1] = "shadowMap";
+   samplerNames[2] = "scratchTarget";
       
    pixVersion = 3.0;
 };

@@ -546,16 +546,6 @@ void GFXGLShader::initHandles()
 
    // Loop through all ConstantDescriptions, 
    // if they aren't in the HandleMap add them, if they are reinitialize them.
-   S32 assignedSamplerNum = 0;
-
-   // Fallback units start past anything the generator assigned.
-   U32 firstFreeUnit = 0;
-   for ( Map<String, U32>::Iterator b = mSamplerBindings.begin(); b != mSamplerBindings.end(); ++b )
-      firstFreeUnit = getMax( firstFreeUnit, b->value + 1 );
-
-   Vector<S32> usedUnits;
-
-
    for ( U32 i = 0; i < mConstants.size(); i++ )
    {
       GFXShaderConstDesc &desc = mConstants[i];            
@@ -565,10 +555,10 @@ void GFXGLShader::initHandles()
 
       HandleMap::Iterator handle = mHandles.find(desc.name);
 
-      // Samplers take the unit the shader generator assigned, looked up by
-      // name. The order glGetActiveUniform reports uniforms in is not specified
-      // by GL, so numbering them as they arrive would not reliably match the
-      // slot index the material binds its textures to.
+      // Every sampler takes the unit declared for it by name: the shader
+      // generator records it, hand written shaders declare samplerNames on
+      // their ShaderData. The order glGetActiveUniform reports uniforms in is
+      // not specified by GL, so it cannot be used to infer one.
       S32 sampler = -1;
       if ( desc.constType == GFXSCT_Sampler || desc.constType == GFXSCT_SamplerCube )
       {
@@ -577,22 +567,10 @@ void GFXGLShader::initHandles()
 
          if ( binding != mSamplerBindings.end() )
             sampler = binding->value;
-         else
-         {
-            // Hand written shaders carry no generated bindings; their materials
-            // ask the shader which register a sampler got, so any consistent
-            // numbering serves. Start past the generated units so the two
-            // schemes cannot collide.
-            AssertWarn( mSamplerBindings.isEmpty(),
-               avar( "GFXGLShader::initHandles - no generated binding for sampler '%s' in %s",
-                     bareName.c_str(), mPixelFile.getFullPath().c_str() ) );
-
-            sampler = firstFreeUnit + assignedSamplerNum++;
-         }
-
-         AssertFatal( !usedUnits.contains( sampler ),
-            "GFXGLShader::initHandles - two samplers assigned the same texture unit" );
-         usedUnits.push_back( sampler );
+         else if ( smLogErrors )
+            Con::errorf( "GFXGLShader::initHandles - sampler '%s' in %s declares no texture "
+                         "unit; add it to samplerNames on the ShaderData.",
+                         bareName.c_str(), mPixelFile.getFullPath().c_str() );
       }
       if ( handle != mHandles.end() )
       {

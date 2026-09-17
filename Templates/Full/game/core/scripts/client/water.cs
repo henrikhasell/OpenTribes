@@ -33,6 +33,14 @@ singleton ShaderData( WaterShader )
    
    OGLVertexShaderFile = "shaders/common/water/gl/waterV.glsl";
    OGLPixelShaderFile = "shaders/common/water/gl/waterP.glsl";
+
+   // Texture unit per sampler; HLSL states this inline as register(SN).
+   samplerNames[0] = "bumpMap";
+   samplerNames[1] = "prepassTex";
+   samplerNames[2] = "reflectMap";
+   samplerNames[3] = "refractBuff";
+   samplerNames[4] = "skyMap";
+   samplerNames[5] = "foamMap";
    
    pixVersion = 3.0;
 };
@@ -92,6 +100,14 @@ singleton ShaderData( UnderWaterShader )
    
    OGLVertexShaderFile 	= "shaders/common/water/gl/waterV.glsl";
    OGLPixelShaderFile 	= "shaders/common/water/gl/waterP.glsl"; 
+
+   // Texture unit per sampler; HLSL states this inline as register(SN).
+   samplerNames[0] = "bumpMap";
+   samplerNames[1] = "prepassTex";
+   samplerNames[2] = "reflectMap";
+   samplerNames[3] = "refractBuff";
+   samplerNames[4] = "skyMap";
+   samplerNames[5] = "foamMap";
    
    defines = "UNDERWATER";   
    pixVersion = 3.0;
@@ -127,6 +143,14 @@ singleton ShaderData( WaterBasicShader )
    
    OGLVertexShaderFile 	= "shaders/common/water/gl/waterBasicV.glsl";
    OGLPixelShaderFile 	= "shaders/common/water/gl/waterBasicP.glsl"; 
+
+   // Texture unit per sampler; HLSL states this inline as register(SN).
+   samplerNames[0] = "bumpMap";
+   samplerNames[1] = "prepassTex";
+   samplerNames[2] = "reflectMap";
+   samplerNames[3] = "refractBuff";
+   samplerNames[4] = "skyMap";
+   samplerNames[5] = "foamMap";
    
    pixVersion = 2.0;
 };
@@ -177,6 +201,14 @@ singleton ShaderData( UnderWaterBasicShader )
    
    OGLVertexShaderFile 	= "shaders/common/water/gl/waterBasicV.glsl";
    OGLPixelShaderFile 	= "shaders/common/water/gl/waterBasicP.glsl";
+
+   // Texture unit per sampler; HLSL states this inline as register(SN).
+   samplerNames[0] = "bumpMap";
+   samplerNames[1] = "prepassTex";
+   samplerNames[2] = "reflectMap";
+   samplerNames[3] = "refractBuff";
+   samplerNames[4] = "skyMap";
+   samplerNames[5] = "foamMap";
    
    defines = "UNDERWATER";   
    pixVersion = 2.0;

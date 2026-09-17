@@ -27,6 +27,10 @@ new ShaderData( AL_ShadowVisualizeShader )
    
    OGLVertexShaderFile = "shaders/common/gl/guiMaterialV.glsl";
    OGLPixelShaderFile  = "shaders/common/lighting/advanced/gl/dbgShadowVisualizeP.glsl";
+
+   // Texture unit per sampler; HLSL states this inline as register(SN).
+   samplerNames[0] = "shadowMap";
+   samplerNames[1] = "depthViz";
    
    pixVersion = 2.0;
 };
