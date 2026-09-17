@@ -323,9 +323,12 @@ The smallest phase, since the backend already works and is already portable.
 
 ## Phase 9 — Shaders and finish
 
-58 HLSL shaders have no GLSL counterpart. The core path is already covered — `common/`
-is 30 HLSL against 30 GLSL in `common/gl/`, and basic/shadowMap lighting are 2/2. The gap is
-overwhelmingly post-processing:
+The 58 missing GLSL shaders were taken from the master branch rather than translated, and
+the post effect chain now composites: gamma, FXAA and chromatic aberration render correctly.
+SSAO, depth of field and light rays do not, for the reason under Known issues below — they
+need the deferred prepass, not a different shader.
+
+The gap as it stood:
 
 | Area | Missing |
 |---|---:|
@@ -339,15 +342,15 @@ overwhelmingly post-processing:
 | `common` | 3 |
 | `postFx/lightRay`, `postFx/fxaa`, `lighting/advanced` | 2 each |
 
-Ship with post-effects disabled, then port by area. Finish with a `justfile` wrapping the
-working configure/build/run sequence.
+The `justfile` that this phase ends with already exists. What remains of Phase 9 is the
+deferred path, tracked under Known issues rather than here.
 
 ---
 
 ## Known issues
 
-Found while landing Phase 4. None block the remaining phases, but all three are real and
-none has an owner yet.
+Found while landing Phase 4 and sharpened during Phase 9. None blocks the remaining phases,
+but all three are real and none has an owner yet.
 
 ### The engine crashes on shutdown
 
@@ -361,16 +364,48 @@ crashes in Phases 6 and 7. Worth fixing before them for that reason alone.
 
 ### Advanced Lighting does not work
 
-`GFXGLDevice::initGLState` pins `mPixelShaderVersion` to 2.0, and
-`AdvancedLightManager::isCompatible` requires 3.0, so the deferred path cannot be selected;
-the game runs on Basic Lighting. Setting `$pref::machax::enableAdvancedLighting` forces 3.0
-and gets further, but the generated shaders then fail to compile —
-`atan2` reaching GLSL unchanged, duplicate `specularPower`/`specularColor` declarations, and
-an empty `#define` from `smShadowTypeMacro[]` were the ones seen before the work was
-deprioritised.
+This is what blocks SSAO, depth of field and light rays, and it is worth being precise about
+why, because the obvious reading is wrong.
 
-Its two missing GLSL shaders are part of the Phase 9 count above, so this belongs with that
-phase rather than on its own.
+**Those three effects are not missing a port.** Their GLSL compiles. They ask for the
+`#prepass` named target, which only `RenderPrePassMgr` registers
+(`renderPrePassMgr.cpp:92`). Basic Lighting *can* create that bin, and the code that would is
+commented out — in this tree and, byte for byte, in the master branch too:
+
+```cpp
+/*
+// If you would like to use forward shading, and have a linear depth pre-pass
+// than un-comment this code block.
+if ( !prePassBin ) { ... }
+*/
+```
+
+So master does not implement these effects differently. They are deferred-only there as well;
+master simply has a working deferred path. Anyone looking to master for a different technique
+will not find one.
+
+**The gate has now moved.** `AdvancedLightManager::isCompatible` requires pixel shader 3.0
+(master also checks `R16F` render target support). The GL device reported 2.0 until Phase 9
+raised it, so the deferred path could never be selected. It can be now:
+`setLightManager("Advanced Lighting")` returns 1 and the mode switches.
+
+What it then hits, in order:
+
+- **`atan2` reaches GLSL unchanged.** Emitted only by the `Spherical` normal storage path in
+  `gBufferConditionerGLSL.cpp:253`. Which path runs depends entirely on the prepass buffer
+  format: `R8G8B8A8` and both 16 bit formats select Spherical, `R32G32B32A32F` selects
+  `CartesianXYZ`, which has no `atan2`. Master emits the same text at its line 312 and its own
+  comment three lines below reads "We need work around atan2() above to fix this issue
+  correctly", so this is latent there too and avoided only by which format gets chosen. Two
+  ways out: map `atan2` to `atan` in `hlslCompat.glsl`, which is the general fix, or force the
+  prepass to a format that takes the Cartesian path.
+- **`prepassUncondition` is undefined** in shaders that sample the prepass — the conditioner's
+  companion function is not reaching them.
+- **`specularPower` is declared twice** in the generated shader.
+- **A segfault behind all of the above**, so expect a fourth problem once the shaders compile.
+
+Sequenced after Phase 9 rather than inside it: the shader work is done, and what remains is
+the deferred path itself.
 
 ### Shaders still ask for the compatibility profile
 
@@ -379,13 +414,15 @@ Everything GL now goes through a core-profile loader, but the shaders are still
 Dropping `compatibility` is the last step to being genuinely core, and it is not a one-line
 change:
 
-- roughly 48 hand-written shaders use `varying`, `gl_FragColor` and `texture2D()`, which
-  become `in`/`out`, a declared fragment output, and `texture()`
+- of 114 GLSL files, 45 still use `varying`, 28 write `gl_FragColor` and 17 call
+  `texture2D()`; these become `in`/`out`, a declared fragment output, and `texture()`. The
+  shaders taken from master in Phase 9 are already written the core way, so the remainder is
+  what this branch wrote or inherited
 - the GLSL shader generator emits the same constructs and has to change with them
 - a core profile requires a vertex array object bound for every draw, and nothing binds one
 
-Best done as its own phase after the post-effect shaders land, so both passes over the shader
-tree happen together.
+The post effect shaders have landed, so this no longer has to wait on them. Worth pairing
+with the deferred path work instead, since both walk the same tree.
 
 ---
 
