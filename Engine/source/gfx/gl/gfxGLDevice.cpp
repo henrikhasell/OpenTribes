@@ -644,7 +644,9 @@ void GFXGLDevice::setupGenericShaders( GenericShaderType type )
       shaderData = new ShaderData();
       shaderData->setField( "OGLVertexShaderFile", "shaders/common/fixedFunction/gl/modColorTextureV.glsl" );
       shaderData->setField( "OGLPixelShaderFile", "shaders/common/fixedFunction/gl/modColorTextureP.glsl" );
-      shaderData->setField( "samplerNames[0]", "diffuseMap" );
+      // setField takes the whole string as the field name, so an array element
+      // has to go through setDataField to reach samplerNames[0].
+      shaderData->setDataField( StringTable->insert( "samplerNames" ), "0", "diffuseMap" );
       shaderData->setField( "pixVersion", "2.0" );
       shaderData->registerObject();
       mGenericShader[GSModColorTexture] = shaderData->getShader();
