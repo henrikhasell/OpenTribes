@@ -11,11 +11,6 @@ class SDLTimer : public PlatformTimer
 public:
    SDLTimer() : mLast(SDL_GetTicks()) {}
 
-   // Elapsed since the last reset(), not since the last call. TimeManager reads
-   // this twice per frame -- once to decide how long to sleep, once for the
-   // frame delta -- and resets explicitly afterwards. Consuming the time on
-   // read made the second read return only the sleep, so the frame delta
-   // collapsed to near zero and the whole game ran in slow motion.
    const S32 getElapsedMs()
    {
       return S32( SDL_GetTicks() - mLast );
