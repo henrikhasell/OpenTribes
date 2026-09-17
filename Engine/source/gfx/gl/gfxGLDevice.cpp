@@ -88,9 +88,6 @@ void GFXGLDevice::initGLState()
    mCardProfiler = new GFXGLCardProfiler();
    mCardProfiler->init(); 
    glGetIntegerv(GL_MAX_TEXTURE_IMAGE_UNITS, (GLint*)&mMaxShaderTextures);
-
-   // GL_MAX_TEXTURE_UNITS counted fixed function stages and went with it. Every
-   // unit is a shader unit now.
    mMaxFFTextures = mMaxShaderTextures;
 
    // Per-stage state lives in fixed TEXTURE_STAGE_COUNT arrays such as
