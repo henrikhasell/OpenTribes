@@ -52,30 +52,6 @@ torque_add_vendored_lib(torque_zlib
     DIRS     zlib
     INCLUDES zlib)
 
-# pnggccrd.c/pngvcrd.c are libpng's 32-bit x86 MMX paths; the C fallbacks replace them.
-torque_add_vendored_lib(torque_lpng
-    DIRS     lpng
-    INCLUDES lpng
-    EXCLUDE  "pnggccrd\\.c$" "pngvcrd\\.c$"
-    LINK     torque_zlib)
-
-torque_add_vendored_lib(torque_ljpeg
-    DIRS     ljpeg
-    INCLUDES ljpeg)
-
-# Calls open() with O_RDONLY but never includes <fcntl.h>; on Windows that came
-# in via <io.h>. Force-included -- SDL3_image retires this library in Phase 6.
-torque_add_vendored_lib(torque_lungif
-    DIRS     lungif
-    INCLUDES lungif)
-target_compile_options(torque_lungif PRIVATE -include fcntl.h)
-
-torque_add_vendored_lib(torque_lmng
-    DIRS     lmng
-    INCLUDES lmng
-    DEFINES  MNG_BUILD_SO MNG_SUPPORT_READ MNG_SUPPORT_DISPLAY MNG_SUPPORT_WRITE
-    LINK     torque_zlib torque_ljpeg)
-
 torque_add_vendored_lib(torque_squish
     DIRS     squish
     INCLUDES squish)
