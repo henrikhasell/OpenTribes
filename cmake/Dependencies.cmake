@@ -66,6 +66,32 @@ FetchContent_Declare(openal
 
 FetchContent_MakeAvailable(openal)
 
+# --- SDL3_image -------------------------------------------------------------
+# STB backend rather than vendored libpng/libjpeg: it decodes everything the
+# content uses without pulling in a second zlib and libpng alongside the ones
+# Engine/lib already carries for the zip reader and the Xiph libraries.
+set(SDLIMAGE_VENDORED    OFF CACHE BOOL "" FORCE)
+set(SDLIMAGE_DEPS_SHARED OFF CACHE BOOL "" FORCE)
+set(SDLIMAGE_BACKEND_STB ON  CACHE BOOL "" FORCE)
+set(SDLIMAGE_SAMPLES     OFF CACHE BOOL "" FORCE)
+set(SDLIMAGE_TESTS       OFF CACHE BOOL "" FORCE)
+set(SDLIMAGE_INSTALL     OFF CACHE BOOL "" FORCE)
+
+# These four are the only backends that reach outside the checkout, and they
+# would come from the system. Nothing in the content is AVIF, TIFF, WebP or JXL.
+set(SDLIMAGE_AVIF        OFF CACHE BOOL "" FORCE)
+set(SDLIMAGE_TIF         OFF CACHE BOOL "" FORCE)
+set(SDLIMAGE_WEBP        OFF CACHE BOOL "" FORCE)
+set(SDLIMAGE_JXL         OFF CACHE BOOL "" FORCE)
+
+FetchContent_Declare(SDL3_image
+    GIT_REPOSITORY https://github.com/libsdl-org/SDL_image.git
+    GIT_TAG        release-3.2.4
+    GIT_SHALLOW    TRUE
+    EXCLUDE_FROM_ALL)
+
+FetchContent_MakeAvailable(SDL3_image)
+
 # --- glad -------------------------------------------------------------------
 # The GL loader, generated at build time rather than checked in. REPRODUCIBLE
 # makes it read the gl.xml and khrplatform.h packaged inside glad instead of
