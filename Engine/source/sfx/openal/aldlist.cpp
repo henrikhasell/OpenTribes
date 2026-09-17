@@ -26,9 +26,9 @@
 
 #include "aldlist.h"
 #if defined(TORQUE_OS_MAC)
-#include <OpenAL/alc.h>
+#include <AL/alc.h>
 #else
-#include <al/alc.h>
+#include <AL/alc.h>
 #endif
 
 /* 

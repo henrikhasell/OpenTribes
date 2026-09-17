@@ -50,6 +50,22 @@ FetchContent_MakeAvailable(dejavu)
 
 set(TORQUE_FONT_DIR "${dejavu_SOURCE_DIR}/ttf" CACHE INTERNAL "")
 
+# --- openal-soft ------------------------------------------------------------
+set(ALSOFT_UTILS         OFF CACHE BOOL "" FORCE)
+set(ALSOFT_EXAMPLES      OFF CACHE BOOL "" FORCE)
+set(ALSOFT_TESTS         OFF CACHE BOOL "" FORCE)
+set(ALSOFT_INSTALL       OFF CACHE BOOL "" FORCE)
+set(ALSOFT_INSTALL_CONFIG OFF CACHE BOOL "" FORCE)
+set(LIBTYPE              "STATIC" CACHE STRING "" FORCE)
+
+FetchContent_Declare(openal
+    GIT_REPOSITORY https://github.com/kcat/openal-soft.git
+    GIT_TAG        1.24.3
+    GIT_SHALLOW    TRUE
+    EXCLUDE_FROM_ALL)
+
+FetchContent_MakeAvailable(openal)
+
 # Arriving with the phase that consumes them: SDL3_image (6),
 # SDL3_net (7), openal-soft (8), zlib and the Xiph libraries when their
 # vendored copies retire. SDL3_image vendors its own libpng and zlib -- pick a

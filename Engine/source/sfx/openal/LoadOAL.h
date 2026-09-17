@@ -27,13 +27,8 @@
 #  include "platform/platform.h"
 #endif
 
-#if defined(TORQUE_OS_MAC)
-#  include <OpenAL/al.h>
-#  include <OpenAL/alc.h>
-#else
-#  include <al/al.h>
-#  include <al/alc.h>
-#endif
+#include <AL/al.h>
+#include <AL/alc.h>
 
 #ifndef ALAPIENTRY
 #define ALAPIENTRY
