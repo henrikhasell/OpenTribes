@@ -323,7 +323,7 @@ The smallest phase, since the backend already works and is already portable.
 
 ## Phase 9 — Shaders and finish
 
-62 HLSL shaders have no GLSL counterpart. The core path is already covered — `common/`
+58 HLSL shaders have no GLSL counterpart. The core path is already covered — `common/`
 is 30 HLSL against 30 GLSL in `common/gl/`, and basic/shadowMap lighting are 2/2. The gap is
 overwhelmingly post-processing:
 
@@ -332,15 +332,60 @@ overwhelmingly post-processing:
 | `postFx/dof` | 11 |
 | `postFx/hdr` | 10 |
 | `postFx` | 9 |
-| `fixedFunction` | 8 |
 | `postFx/mlaa` | 6 |
 | `postFx/ssao` | 5 |
 | `postFx/edgeaa` | 4 |
-| `postFx/lightRay`, `postFx/fxaa`, `lighting/advanced` | 2 each |
+| `fixedFunction` | 4 |
 | `common` | 3 |
+| `postFx/lightRay`, `postFx/fxaa`, `lighting/advanced` | 2 each |
 
 Ship with post-effects disabled, then port by area. Finish with a `justfile` wrapping the
 working configure/build/run sequence.
+
+---
+
+## Known issues
+
+Found while landing Phase 4. None block the remaining phases, but all three are real and
+none has an owner yet.
+
+### The engine crashes on shutdown
+
+Every exit ends in `pure virtual method called` / `terminate called without an active
+exception`, after prefs are written and with the exit code set to 134. It predates the GL
+work — reproduced by stashing the Phase 4 changes, rebuilding and running the base branch —
+so it is most likely a destruction-order problem among the statically owned singletons.
+
+The practical cost is that every automated run looks like a failure, which will hide real
+crashes in Phases 6 and 7. Worth fixing before them for that reason alone.
+
+### Advanced Lighting does not work
+
+`GFXGLDevice::initGLState` pins `mPixelShaderVersion` to 2.0, and
+`AdvancedLightManager::isCompatible` requires 3.0, so the deferred path cannot be selected;
+the game runs on Basic Lighting. Setting `$pref::machax::enableAdvancedLighting` forces 3.0
+and gets further, but the generated shaders then fail to compile —
+`atan2` reaching GLSL unchanged, duplicate `specularPower`/`specularColor` declarations, and
+an empty `#define` from `smShadowTypeMacro[]` were the ones seen before the work was
+deprioritised.
+
+Its two missing GLSL shaders are part of the Phase 9 count above, so this belongs with that
+phase rather than on its own.
+
+### Shaders still ask for the compatibility profile
+
+Everything GL now goes through a core-profile loader, but the shaders are still
+`#version 150 compatibility` and the context SDL hands us is whatever the driver defaults to.
+Dropping `compatibility` is the last step to being genuinely core, and it is not a one-line
+change:
+
+- roughly 48 hand-written shaders use `varying`, `gl_FragColor` and `texture2D()`, which
+  become `in`/`out`, a declared fragment output, and `texture()`
+- the GLSL shader generator emits the same constructs and has to change with them
+- a core profile requires a vertex array object bound for every draw, and nothing binds one
+
+Best done as its own phase after the post-effect shaders land, so both passes over the shader
+tree happen together.
 
 ---
 
