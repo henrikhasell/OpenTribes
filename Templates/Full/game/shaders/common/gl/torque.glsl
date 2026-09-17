@@ -68,9 +68,8 @@ float computeSceneFog( float dist, float fogDensity, float fogDensityOffset )
 vec2 viewportCoordToRenderTarget( vec4 inCoord, vec4 rtParams )
 {   
    vec2 outCoord = inCoord.xy / inCoord.w;
-   // A render target is a GL texture, whose rows run the opposite way to the
-   // viewport coordinates the effect chain hands out. Every post effect vertex
-   // shader arrives here, so the inversion belongs in one place.
+   // Diverges from master, which flips clip space Y instead. A render target is
+   // a GL texture, so its rows run opposite to these viewport coordinates.
    outCoord.y = 1.0 - outCoord.y;
    outCoord = ( outCoord * rtParams.zw ) + rtParams.xy;  
    return outCoord;
@@ -80,7 +79,7 @@ vec2 viewportCoordToRenderTarget( vec4 inCoord, vec4 rtParams )
 /// Convert a vec2 uv in viewport space to render target space.
 vec2 viewportCoordToRenderTarget( vec2 inCoord, vec4 rtParams )
 {   
-   vec2 flipped = vec2( inCoord.x, 1.0 - inCoord.y );
+   vec2 flipped = vec2( inCoord.x, 1.0 - inCoord.y ); // see above
    vec2 outCoord = ( flipped * rtParams.zw ) + rtParams.xy;  
    return outCoord;
 }

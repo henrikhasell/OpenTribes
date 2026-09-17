@@ -27,7 +27,6 @@
 #include "gfx/gl/gfxGLUtils.h"
 #include "postFx/postEffect.h"
 
-// The depth attachment for the scene FBO. Lifted from the master branch.
 GFX_ImplementTextureProfile( BackBufferDepthProfile,
                              GFXTextureProfile::DiffuseMap,
                              GFXTextureProfile::PreserveSize |
@@ -95,9 +94,6 @@ void GFXGLWindowTarget::resolveTo(GFXTextureObject* obj)
    AssertFatal(dynamic_cast<GFXGLTextureObject*>(obj), "GFXGLTextureTarget::resolveTo - Incorrect type of texture, expected a GFXGLTextureObject");
    GFXGLTextureObject* glTexture = static_cast<GFXGLTextureObject*>(obj);
 
-   // The scene is in our framebuffer's colour attachment, not the window's, so
-   // this is a texture to texture copy. Reading the window back would also
-   // arrive flipped, since present() inverts on the way out.
    GFXGLTextureObject *source =
       static_cast< GFXGLTextureObject* >( mBackBufferColorTex.getPointer() );
    if ( !source )

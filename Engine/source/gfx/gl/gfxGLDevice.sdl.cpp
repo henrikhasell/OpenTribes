@@ -152,9 +152,6 @@ void GFXGLWindowTarget::makeActive()
    if (window && mContext)
       SDL_GL_MakeCurrent(window->getSDLWindow(), static_cast<SDL_GLContext>(mContext));
 
-   // The scene is drawn into our own framebuffer, not the window's. PostEffect
-   // reads the result back out of the colour attachment, and present() puts it
-   // on screen.
    if (mBackBufferFBO)
    {
       glBindFramebuffer(GL_FRAMEBUFFER, mBackBufferFBO);
@@ -181,18 +178,14 @@ bool GFXGLWindowTarget::present()
       glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
       glBindFramebuffer(GL_READ_FRAMEBUFFER, mBackBufferFBO);
 
-      // Everything is rendered with clip space Y flipped so that render targets
-      // are stored the way D3D stores them. That gets undone once, here.
-      // Straight copy. Master inverts here because it renders everything with
-      // clip space Y flipped; this branch renders the way the original did, so
-      // the framebuffer already holds the image the right way up.
+      // Master inverts the rows here, pairing this with a clip space Y flip in
+      // every vertex shader. This branch renders the right way up instead.
       glBlitFramebuffer(0, 0, srcSize.x, srcSize.y,
                         0, 0, dstSize.x, dstSize.y,
                         GL_COLOR_BUFFER_BIT, GL_NEAREST);
 
       SDL_GL_SwapWindow(window->getSDLWindow());
 
-      // Follow a window resize.
       if (srcSize != dstSize || mBackBufferDepthTex.getWidthHeight() != dstSize)
          _setupAttachments();
 

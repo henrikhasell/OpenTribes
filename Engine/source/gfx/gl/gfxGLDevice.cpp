@@ -103,12 +103,9 @@ void GFXGLDevice::initGLState()
    // Apple's drivers lie and claim that everything supports fragment shaders.  Conveniently they don't lie about the number
    // of supported image units.  Checking for 16 or more image units ensures that we don't try and use pixel shaders on
    // cards which don't support them.
-   // 2.0 was as high as this went while the GL path was fixed function with a
-   // 2005 loader. It is a core profile against GLSL 150 now, which is past
-   // Shader Model 3 in every respect the engine asks about, and PostEffect
-   // rejects any shader whose pixVersion exceeds this -- which is most of them.
+   // Setting mPixelShaderVersion to 3.0 will allow Advanced Lighting to run.   
    if(mCardProfiler->queryProfile("GL::suppFragmentShader") && mMaxShaderTextures >= 16)
-      mPixelShaderVersion = 3.0f;
+      mPixelShaderVersion = 3.0;
    else
       mPixelShaderVersion = 0.0f;
       

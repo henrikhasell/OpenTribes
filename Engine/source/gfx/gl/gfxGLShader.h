@@ -80,9 +80,8 @@ protected:
    void initHandles();
    void setConstantsFromBuffer(GFXGLShaderConstBuffer* buffer);
    
-   /// Splices #include directives into the source. `included` carries the files
-   /// already spliced in so a file cannot be included twice; without it a self
-   /// reference recurses until the stack runs out.
+   /// `included` carries the files already spliced in, so a file that includes
+   /// itself cannot recurse forever.
    static char* _handleIncludes( const Torque::Path &path, FileStream *s,
                                  Vector<String> *included = NULL );
 

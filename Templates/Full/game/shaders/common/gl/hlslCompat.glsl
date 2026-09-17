@@ -96,9 +96,8 @@ mat4 mat4FromRow( float r0c0, float r0c1, float r0c2, float r0c3,
 
 #define inversesqrt( n ) inversesqrt( n )
 
-// Master flips clip space Y because it stores render targets the way D3D does
-// and inverts once when presenting. This branch renders the right way up
-// throughout and inverts nothing, so the flip must not happen.
+// Diverges from master, which defines this as vec.y *= -1 to match how it
+// orients render targets. This branch renders the right way up throughout.
 #define correctSSP(vec)
 
 #ifdef TORQUE_PIXEL_SHADER

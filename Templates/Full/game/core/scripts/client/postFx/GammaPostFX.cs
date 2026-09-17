@@ -26,7 +26,7 @@ singleton ShaderData( GammaShader )
    samplerNames[0] = "$backBuffer";
    samplerNames[1] = "$colorCorrectionTex";
    DXVertexShaderFile 	= "shaders/common/postFx/postFxV.hlsl";
-   OGLVertexShaderFile 	= "shaders/common/postFx/postFxV.glsl";
+   OGLVertexShaderFile 	= "shaders/common/postFx/gl/postFxV.glsl";
    DXPixelShaderFile 	= "shaders/common/postFx/gammaP.hlsl";
    OGLPixelShaderFile 	= "shaders/common/postFx/gl/gammaP.glsl";
 

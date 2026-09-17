@@ -155,7 +155,7 @@ singleton ShaderData( SSAOShader )
    samplerNames[1] = "$randNormalTex";
    samplerNames[2] = "$powTable";
    DXVertexShaderFile 	= "shaders/common/postFx/postFxV.hlsl";
-   OGLVertexShaderFile 	= "shaders/common/postFx/postFxV.glsl";
+   OGLVertexShaderFile 	= "shaders/common/postFx/gl/postFxV.glsl";
    DXPixelShaderFile 	= "shaders/common/postFx/ssao/SSAO_P.hlsl";            
    OGLPixelShaderFile 	= "shaders/common/postFx/ssao/gl/SSAO_P.glsl";
    pixVersion = 3.0;

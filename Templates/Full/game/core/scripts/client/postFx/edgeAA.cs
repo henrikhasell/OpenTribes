@@ -35,7 +35,7 @@ singleton GFXStateBlockData( PFX_DefaultEdgeAAStateBlock )
 singleton ShaderData( PFX_EdgeAADetectShader )
 {   
    DXVertexShaderFile 	= "shaders/common/postFx/postFxV.hlsl";
-   OGLVertexShaderFile 	= "shaders/common/postFx/postFxV.glsl";
+   OGLVertexShaderFile 	= "shaders/common/postFx/gl/postFxV.glsl";
    DXPixelShaderFile 	= "shaders/common/postFx/edgeaa/edgeDetectP.hlsl";
    OGLPixelShaderFile 	= "shaders/common/postFx/edgeaa/gl/edgeDetectP.glsl";
          
@@ -61,7 +61,7 @@ singleton ShaderData( PFX_EdgeAAShader )
 singleton ShaderData( PFX_EdgeAADebugShader )
 {   
    DXVertexShaderFile 	= "shaders/common/postFx/postFxV.hlsl";
-   OGLVertexShaderFile 	= "shaders/common/postFx/postFxV.glsl";
+   OGLVertexShaderFile 	= "shaders/common/postFx/gl/postFxV.glsl";
    DXPixelShaderFile 	= "shaders/common/postFx/edgeaa/dbgEdgeDisplayP.hlsl";
    OGLPixelShaderFile 	= "shaders/common/postFx/edgeaa/gl/dbgEdgeDisplayP.glsl";
          

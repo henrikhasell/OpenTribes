@@ -51,17 +51,12 @@ public:
    
    void _onAppSignal(WindowId wnd, S32 event);
 
-   /// The colour attachment the scene is rendered into. PostEffect resolves the
-   /// back buffer out of this rather than off the window.
    GFXTexHandle& getBackBufferTex() { return mBackBufferColorTex; }
    GLuint getBackBufferFBO() const { return mBackBufferFBO; }
 
 private:
    friend class GFXGLDevice;
 
-   /// The scene is rendered into this rather than straight to the window, so
-   /// that post effects have something to read and the result can be flipped
-   /// once on the way out. Taken from the master branch.
    GLuint mBackBufferFBO;
    GLuint mCopyFBO;
    GFXTexHandle mBackBufferColorTex;

@@ -48,7 +48,7 @@ singleton ShaderData( PFX_ChromaticLensShader )
 
    samplerNames[0] = "$backBuffer";
    DXVertexShaderFile 	= "shaders/common/postFx/postFxV.hlsl";
-   OGLVertexShaderFile 	= "shaders/common/postFx/postFxV.glsl";
+   OGLVertexShaderFile 	= "shaders/common/postFx/gl/postFxV.glsl";
    DXPixelShaderFile 	= "shaders/common/postFx/chromaticLens.hlsl"; 
    OGLPixelShaderFile 	= "shaders/common/postFx/gl/chromaticLens.glsl";
    pixVersion = 3.0;

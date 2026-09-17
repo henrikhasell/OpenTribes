@@ -20,8 +20,7 @@ GBitmap* ScreenShotGL::_captureBackBuffer()
 
    GBitmap *bitmap = new GBitmap( size.x, size.y, false, GFXFormatR8G8B8 );
 
-   // The scene lives in the window target's framebuffer, not the window's own,
-   // so read from there. Reading GL_BACK gets whatever the last blit left.
+   // The scene lives in the window target's framebuffer, not the window's own.
    if ( GFXGLWindowTarget *wt = dynamic_cast< GFXGLWindowTarget* >( target ) )
    {
       glBindFramebuffer( GL_READ_FRAMEBUFFER, wt->getBackBufferFBO() );
@@ -34,8 +33,7 @@ GBitmap* ScreenShotGL::_captureBackBuffer()
    glPixelStorei( GL_PACK_ALIGNMENT, 1 );
    glReadPixels( 0, 0, size.x, size.y, GL_RGB, GL_UNSIGNED_BYTE, bitmap->getWritableBits() );
 
-   // Reproduce what present() puts on screen: it blits the scene framebuffer
-   // to the window with the rows inverted, so the capture inverts them too.
+   // glReadPixels hands rows back bottom up relative to how GBitmap stores them.
    const bool needsFlip = true;
 
    const U32 stride = size.x * 3;

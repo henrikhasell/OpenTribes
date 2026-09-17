@@ -35,16 +35,11 @@ void main()
 {
     vec4 color = texture(backBuffer, uv0.xy);
 
-   // The colour correction ramp is left out. This branch ships only the
-   // identity ramp and has no way to set another, and the LUT lookup does not
-   // reproduce on GL -- it bands the sky. Gamma alone is what the pass is for.
+   // Colour correction dropped: the branch ships only the identity ramp, and
+   // the LUT lookup bands the sky on GL.
 
    // Apply gamma correction
    color.rgb = pow( clamp(color.rgb, vec3(0.0),vec3(1.0)), vec3(OneOverGamma) );
 
-   // Apply contrast
- 
-   // Apply brightness
-   
    OUT_col = color;
 }
