@@ -27,7 +27,9 @@
 #include "core/frameAllocator.h"
 
 #include "core/util/str.h"
+#include "core/util/tDictionary.h"
 #include "core/strings/stringFunctions.h"
+#include "console/console.h"
 
 #include "platform/platformVolume.h"
 #include "platform/sdl/sdlVolume.h"
@@ -140,6 +142,84 @@ static void copyStatAttributes(const struct stat& info, FileNode::Attributes* at
 
 //-----------------------------------------------------------------------------
 
+// The content was authored on Windows, where the filesystem ignores case, so
+// script references and the files they name disagree freely. Every mismatch is
+// a hard miss here, so on a miss each component is matched against the real
+// directory entries instead.
+//
+// Listings are cached because asset loading misses on purpose -- extension
+// probing, fallback paths -- and each miss would otherwise enumerate a
+// directory.
+static Map< String, Map< String, String > > sCaseFoldCache;
+
+static const Map< String, String >& _directoryEntries( const String &dir )
+{
+   Map< String, Map< String, String > >::Iterator cached = sCaseFoldCache.find( dir );
+   if ( cached != sCaseFoldCache.end() )
+      return cached->value;
+
+   Map< String, String > &entries = sCaseFoldCache[ dir ];
+
+   if ( DIR *handle = opendir( dir.c_str() ) )
+   {
+      while ( const struct dirent *entry = readdir( handle ) )
+      {
+         const String folded = String::ToLower( entry->d_name );
+
+         // Two entries differing only by case have no unique match. Keep the
+         // first so the choice is at least stable, and say so once.
+         Map< String, String >::Iterator clash = entries.find( folded );
+         if ( clash != entries.end() )
+            Con::warnf( "PosixFileSystem - '%s' and '%s' in '%s' differ only by case; using '%s'.",
+                        clash->value.c_str(), entry->d_name, dir.c_str(), clash->value.c_str() );
+         else
+            entries[ folded ] = entry->d_name;
+      }
+
+      closedir( handle );
+   }
+
+   return entries;
+}
+
+static bool _resolveIgnoringCase( const String &volume, const Path &path, String &out )
+{
+   const String relative = Path::Join( path.getPath(), '/', path.getFullFileName() );
+   String resolved = volume;
+
+   for ( String::SizeType start = 0; start < relative.length(); )
+   {
+      String::SizeType end = relative.find( '/', start );
+      if ( end == String::NPos )
+         end = relative.length();
+
+      const String component = relative.substr( start, end - start );
+      start = end + 1;
+
+      if ( component.isEmpty() )
+         continue;
+
+      String candidate = Path::Join( resolved, '/', component );
+
+      struct stat info;
+      if ( stat( candidate.c_str(), &info ) != 0 )
+      {
+         String actual;
+         if ( !_directoryEntries( resolved ).tryGetValue( String::ToLower( component ), actual ) )
+            return false;
+
+         candidate = Path::Join( resolved, '/', actual );
+      }
+
+      resolved = candidate;
+   }
+
+   out = resolved;
+   return true;
+}
+
+//-----------------------------------------------------------------------------
+
 PosixFileSystem::PosixFileSystem(String volume)
 {
    _volume = volume;
@@ -153,16 +233,19 @@ FileNodeRef PosixFileSystem::resolve(const Path& path)
 {
    String file = buildFileName(_volume,path);
    struct stat info;
+   if (stat(file.c_str(),&info) != 0 && !_resolveIgnoringCase(_volume,path,file))
+      return 0;
+
    if (stat(file.c_str(),&info) == 0)
    {
       // Construct the appropriate object
       if (S_ISREG(info.st_mode))
          return new PosixFile(path,file);
-         
+
       if (S_ISDIR(info.st_mode))
          return new PosixDirectory(path,file);
    }
-   
+
    return 0;
 }
 

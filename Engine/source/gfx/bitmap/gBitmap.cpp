@@ -178,13 +178,7 @@ bool GBitmap::sFindFile( const Path &path, Path *outPath )
 
          tryPath.setExtension( extensions[j] );
          if ( !Torque::FS::IsFile( tryPath ) )
-         {
-            // Assets authored on Windows carry mixed-case extensions -- this
-            // content has 37 .PNG files against a lower-case registration list.
-            tryPath.setExtension( String::ToUpper( extensions[j] ) );
-            if ( !Torque::FS::IsFile( tryPath ) )
-               continue;
-         }
+            continue;
 
          if ( outPath )
             *outPath = tryPath;

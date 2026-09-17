@@ -703,10 +703,6 @@ GFXTextureObject *GFXTextureManager::createTexture( const Torque::Path &path, GF
          tryDDSPath.setFileName( tryDDSPath.getFullFileName() );
       tryDDSPath.setExtension( sDDSExt );
 
-      // Same mixed-case problem as GBitmap::sFindFile; try .DDS as well.
-      if( !Torque::FS::IsFile( tryDDSPath ) )
-         tryDDSPath.setExtension( String::ToUpper( sDDSExt ) );
-
       if( Torque::FS::IsFile( tryDDSPath ) )
       {
          dds = DDSFile::load( tryDDSPath, scalePower );

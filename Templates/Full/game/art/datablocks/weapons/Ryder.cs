@@ -26,21 +26,21 @@
 
 datablock SFXProfile(RyderFireSound)
 {
-   filename = "art/sound/weapons/wpn_ryder_fire";
+   filename = "art/sound/weapons/wpn_Ryder_fire";
    description = AudioClose3D;
    preload = true;
 };
 
 datablock SFXProfile(RyderReloadSound)
 {
-   filename = "art/sound/weapons/wpn_ryder_reload";
+   filename = "art/sound/weapons/wpn_Ryder_reload";
    description = AudioClose3D;
    preload = true;
 };
 
 datablock SFXProfile(RyderSwitchinSound)
 {
-   filename = "art/sound/weapons/wpn_ryder_switchin";
+   filename = "art/sound/weapons/wpn_Ryder_switchin";
    description = AudioClose3D;
    preload = true;
 };
