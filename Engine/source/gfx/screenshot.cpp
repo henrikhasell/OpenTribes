@@ -143,7 +143,7 @@ void ScreenShot::capture( GuiCanvas *canvas )
          mCurrTile.set( tx, mTiles - ty - 1 );
 
          // Let the canvas render the scene.
-         canvas->renderFrame( false );
+         canvas->renderFrame( false, false );
 
          // Now grab the current back buffer.
          GBitmap *gb = _captureBackBuffer();
@@ -217,8 +217,9 @@ void ScreenShot::capture( GuiCanvas *canvas )
 
 void ScreenShot::_singleCapture( GuiCanvas *canvas )
 {
-   // Let the canvas render the scene.
-   canvas->renderFrame( false );
+   // Let the canvas render the scene. Don't swap -- the back buffer's contents
+   // are undefined once it has been presented.
+   canvas->renderFrame( false, false );
 
    // Now grab the current back buffer.
    GBitmap *bitmap = _captureBackBuffer();
