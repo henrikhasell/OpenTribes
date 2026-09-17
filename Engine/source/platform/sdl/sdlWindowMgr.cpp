@@ -75,7 +75,7 @@ static U16 sdlToTorqueKey( SDL_Scancode code )
 }
 
 PlatformWindowManagerSDL::PlatformWindowManagerSDL()
-   : mWindowListHead(NULL), mParentWindow(NULL), mNextWindowId(1), mSeedFocus(false)
+   : mWindowListHead(NULL), mParentWindow(NULL), mNextWindowId(1)
 {
    Process::notify(this, &PlatformWindowManagerSDL::_handleEvents, PROCESS_INPUT_ORDER);
 }
@@ -175,8 +175,6 @@ PlatformWindow* PlatformWindowManagerSDL::createWindow(GFXDevice* device, const 
    window->mNextWindow = mWindowListHead;
    mWindowListHead = window;
 
-   mSeedFocus = true;
-
    return window;
 }
 
@@ -220,19 +218,6 @@ void PlatformWindowManagerSDL::_processCmdLineArgs(const S32 argc, const char** 
 
 void PlatformWindowManagerSDL::_handleEvents()
 {
-   // WindowInputGenerator starts out unfocused and drops every event until it
-   // sees a GainFocus, which never arrives for a window that was already
-   // focused when it was created.
-   if( mSeedFocus )
-   {
-      if( PlatformWindowSDL* window = static_cast< PlatformWindowSDL* >( getFirstWindow() ) )
-      {
-         mSeedFocus = false;
-         window->appEvent.trigger( window->getWindowId(),
-                                   window->isFocused() ? GainFocus : LoseFocus );
-      }
-   }
-
    SDL_Event event;
    while (SDL_PollEvent(&event))
    {
