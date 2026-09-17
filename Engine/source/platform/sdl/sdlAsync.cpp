@@ -1,13 +1,3 @@
-//-----------------------------------------------------------------------------
-// Async update threads, replacing platformWin32/winAsync.cpp and its macOS
-// counterpart.
-//
-// The Win32 version used an auto-reset event plus a waitable timer. An SDL
-// semaphore is the same thing: signalling releases it, waiting acquires and
-// resets it, and the periodic variant just waits with a timeout instead of
-// blocking indefinitely.
-//-----------------------------------------------------------------------------
-
 #include "platform/platform.h"
 #include "platform/async/asyncUpdate.h"
 

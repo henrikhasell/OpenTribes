@@ -27,8 +27,6 @@
 #  include "platform/platform.h"
 #endif
 
-// openal-soft's own layout, replacing the per-platform header copies that used
-// to live in Engine/lib/openal.
 #include <AL/al.h>
 #include <AL/alc.h>
 

@@ -1,11 +1,3 @@
-//-----------------------------------------------------------------------------
-// Fills the OpenAL dispatch table from the linked openal-soft.
-//
-// This replaced the win32 and macOS LoadOAL implementations, which dlopened the
-// driver by name at runtime. openal-soft is fetched and linked by CMake now, so
-// the entries are just the linked symbols and nothing here is platform aware.
-//-----------------------------------------------------------------------------
-
 #include "platform/platform.h"
 #include "sfx/openal/LoadOAL.h"
 
