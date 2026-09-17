@@ -39,7 +39,11 @@ protected:
    PlatformWindowSDL* mWindowListHead;
    void*              mParentWindow;
    WindowId           mNextWindowId;
-   bool               mLastFocusState;
+
+   /// A window created already focused delivers no FOCUS_GAINED, and the
+   /// listeners attach after createWindow returns, so the first pump seeds the
+   /// state instead.
+   bool               mSeedFocus;
 };
 
 #endif // _SDL_WINDOWMGR_H_

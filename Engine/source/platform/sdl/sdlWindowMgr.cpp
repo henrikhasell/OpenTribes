@@ -75,7 +75,7 @@ static U16 sdlToTorqueKey( SDL_Scancode code )
 }
 
 PlatformWindowManagerSDL::PlatformWindowManagerSDL()
-   : mWindowListHead(NULL), mParentWindow(NULL), mNextWindowId(1), mLastFocusState(false)
+   : mWindowListHead(NULL), mParentWindow(NULL), mNextWindowId(1), mSeedFocus(false)
 {
    Process::notify(this, &PlatformWindowManagerSDL::_handleEvents, PROCESS_INPUT_ORDER);
 }
@@ -175,6 +175,8 @@ PlatformWindow* PlatformWindowManagerSDL::createWindow(GFXDevice* device, const 
    window->mNextWindow = mWindowListHead;
    mWindowListHead = window;
 
+   mSeedFocus = true;
+
    return window;
 }
 
@@ -218,21 +220,16 @@ void PlatformWindowManagerSDL::_processCmdLineArgs(const S32 argc, const char** 
 
 void PlatformWindowManagerSDL::_handleEvents()
 {
-   // WindowInputGenerator drops every event unless it believes the window is
-   // focused, and it only learns that from GainFocus/LoseFocus. Tracking those
-   // transitions alone leaves it stale if one is missed -- which happened here,
-   // leaving the engine convinced it was unfocused while SDL reported focus.
-   // Reconcile against SDL's own flag each pump instead.
-   if( PlatformWindowSDL* window = static_cast< PlatformWindowSDL* >( getFirstWindow() ) )
+   // WindowInputGenerator starts out unfocused and drops every event until it
+   // sees a GainFocus, which never arrives for a window that was already
+   // focused when it was created.
+   if( mSeedFocus )
    {
-      if( SDL_Window* sdlWindow = window->getSDLWindow() )
+      if( PlatformWindowSDL* window = static_cast< PlatformWindowSDL* >( getFirstWindow() ) )
       {
-         const bool focused = ( SDL_GetWindowFlags( sdlWindow ) & SDL_WINDOW_INPUT_FOCUS ) != 0;
-         if( focused != mLastFocusState )
-         {
-            mLastFocusState = focused;
-            window->appEvent.trigger( window->getWindowId(), focused ? GainFocus : LoseFocus );
-         }
+         mSeedFocus = false;
+         window->appEvent.trigger( window->getWindowId(),
+                                   window->isFocused() ? GainFocus : LoseFocus );
       }
    }
 
@@ -248,6 +245,22 @@ void PlatformWindowManagerSDL::_handleEvents()
          case SDL_EVENT_WINDOW_CLOSE_REQUESTED:
             Process::requestShutdown();
             break;
+
+         case SDL_EVENT_WINDOW_FOCUS_GAINED:
+         case SDL_EVENT_WINDOW_FOCUS_LOST:
+         {
+            PlatformWindow* window = getWindowById( event.window.windowID );
+            if( !window )
+               window = getFirstWindow();
+            if( !window )
+               break;
+
+            const ApplicationMessage action =
+               ( event.type == SDL_EVENT_WINDOW_FOCUS_GAINED ) ? GainFocus : LoseFocus;
+
+            window->appEvent.trigger( window->getWindowId(), action );
+            break;
+         }
 
          case SDL_EVENT_WINDOW_RESIZED:
          {
