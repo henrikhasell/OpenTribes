@@ -29,6 +29,7 @@
 #include "math/mPoint2.h"
 #include "gfx/gfxStructs.h"
 #include "console/console.h"
+#include "gfx/gl/gfxGLVertexAttribLocation.h"
 
 
 class GFXGLShaderConstHandle : public GFXShaderConstHandle
@@ -409,6 +410,22 @@ bool GFXGLShader::_init()
       return false;
 
    // Link it!
+   // Bind the generic vertex attribute locations before linking so the vertex
+   // buffer and the shader agree without querying. Names the shader does not
+   // use are simply ignored.
+   glBindAttribLocation( mProgram, Torque::GL_VertexAttrib_Position, "vPosition" );
+   glBindAttribLocation( mProgram, Torque::GL_VertexAttrib_Normal,   "vNormal" );
+   glBindAttribLocation( mProgram, Torque::GL_VertexAttrib_Color,    "vColor" );
+   glBindAttribLocation( mProgram, Torque::GL_VertexAttrib_Tangent,  "vTangent" );
+   glBindAttribLocation( mProgram, Torque::GL_VertexAttrib_TangentW, "vTangentW" );
+   glBindAttribLocation( mProgram, Torque::GL_VertexAttrib_Binormal, "vBinormal" );
+   for( U32 i = 0; i <= Torque::GL_VertexAttrib_TexCoord9 - Torque::GL_VertexAttrib_TexCoord0; i++ )
+   {
+      char attribName[16];
+      dSprintf( attribName, sizeof(attribName), "vTexCoord%d", i );
+      glBindAttribLocation( mProgram, Torque::GL_VertexAttrib_TexCoord0 + i, attribName );
+   }
+
    glLinkProgram( mProgram );
 
    GLint linkStatus;

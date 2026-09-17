@@ -20,6 +20,9 @@
 // IN THE SOFTWARE.
 //-----------------------------------------------------------------------------
 
+in vec4 vPosition;
+in vec4 vTexCoord0;
+
 //*****************************************************************************
 // Glow shader
 //*****************************************************************************
@@ -31,9 +34,9 @@ varying vec2 texc0, texc1, texc2, texc3;
 
 void main()
 {
-   gl_Position = modelview * gl_Vertex;
+   gl_Position = modelview * vPosition;
    
-   vec2 tc = gl_MultiTexCoord0.st;
+   vec2 tc = vTexCoord0.st;
    tc.y = 1.0 - tc.y;
    
    texc0 = tc + offset0;

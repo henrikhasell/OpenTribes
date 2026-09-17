@@ -20,14 +20,17 @@
 // IN THE SOFTWARE.
 //-----------------------------------------------------------------------------
 
+in vec4 vPosition;
+in vec4 vTexCoord0;
+
 uniform mat4 modelview;
 
 varying vec2 TEX0;
 
 void main()
 {
-   gl_Position = modelview * gl_Vertex;
-   TEX0 = gl_MultiTexCoord0.st;
+   gl_Position = modelview * vPosition;
+   TEX0 = vTexCoord0.st;
 }
 
 

@@ -20,6 +20,8 @@
 // IN THE SOFTWARE.
 //-----------------------------------------------------------------------------
 
+in vec4 vPosition;
+
 uniform mat4 modelViewProj;
 uniform mat4 targetModelViewProj;
 
@@ -28,8 +30,8 @@ varying vec4 backbufferPos;
 
 void main()
 {
-   gl_Position = modelViewProj * gl_Vertex;
+   gl_Position = modelViewProj * vPosition;
    backbufferPos = gl_Position;
-   offscreenPos = targetModelViewProj * gl_Vertex;
+   offscreenPos = targetModelViewProj * vPosition;
 }
 

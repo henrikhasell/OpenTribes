@@ -21,6 +21,15 @@
 //-----------------------------------------------------------------------------
 
 #include "platform/platform.h"
+
+// Core since GL 3.3, absent from the generated headers in this tree. Set per
+// component because glTexParameteriv is not among the bound entry points.
+#ifndef GL_TEXTURE_SWIZZLE_R
+#define GL_TEXTURE_SWIZZLE_R 0x8E42
+#define GL_TEXTURE_SWIZZLE_G 0x8E43
+#define GL_TEXTURE_SWIZZLE_B 0x8E44
+#define GL_TEXTURE_SWIZZLE_A 0x8E45
+#endif
 #include "gfx/gl/gfxGLTextureManager.h"
 #include "gfx/gl/gfxGLEnumTranslate.h"
 #include "gfx/gfxCardProfile.h"
@@ -145,6 +154,19 @@ void GFXGLTextureManager::innerCreateTexture( GFXGLTextureObject *retTex,
    else
       glTexImage3D(GL_TEXTURE_3D, 0, GFXGLTextureInternalFormat[format], width, height, depth, 0, GFXGLTextureFormat[format], GFXGLTextureType[format], NULL);
    
+   // A8 was GL_ALPHA8, where the fixed function modulate mode passed the
+   // fragment colour through untouched and multiplied only alpha -- which is
+   // what font rendering relies on. GL_ALPHA is gone from core GL, so the data
+   // lives in red and is swizzled back into alpha with rgb forced to one,
+   // giving the shader that replaced the texture environment the same result.
+   if( format == GFXFormatA8 )
+   {
+      glTexParameteri( binding, GL_TEXTURE_SWIZZLE_R, GL_ONE );
+      glTexParameteri( binding, GL_TEXTURE_SWIZZLE_G, GL_ONE );
+      glTexParameteri( binding, GL_TEXTURE_SWIZZLE_B, GL_ONE );
+      glTexParameteri( binding, GL_TEXTURE_SWIZZLE_A, GL_RED );
+   }
+
    // Complete the texture
    glTexParameteri(binding, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
    glTexParameteri(binding, GL_TEXTURE_MAG_FILTER, GL_LINEAR);

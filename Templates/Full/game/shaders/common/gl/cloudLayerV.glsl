@@ -41,13 +41,19 @@ uniform vec3  texScale;
 //-----------------------------------------------------------------------------
 // Main                                                                        
 //-----------------------------------------------------------------------------
+
+in vec4 vNormal;
+in vec4 vPosition;
+in vec4 vTexCoord0;
+in vec4 vTexCoord1;
+in vec4 vTexCoord2;
 void main()
 {   
-   vec4 pos = gl_Vertex;
-   vec3 normal = gl_Normal;
-   vec3 binormal = gl_MultiTexCoord0.xyz;
-   vec3 tangent = gl_MultiTexCoord1.xyz;
-   vec2 uv0 = gl_MultiTexCoord2.st;
+   vec4 pos = vPosition;
+   vec3 normal = vNormal;
+   vec3 binormal = vTexCoord0.xyz;
+   vec3 tangent = vTexCoord1.xyz;
+   vec2 uv0 = vTexCoord2.st;
 
    gl_Position = modelview * pos;
    

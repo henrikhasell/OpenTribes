@@ -22,6 +22,7 @@
 
 #include "platform/platform.h"
 #include "shaderGen/shaderGen.h"
+#include "shaderGen/GLSL/shaderCompGLSL.h"
 
 #include "shaderGen/conditionerFeature.h"
 #include "core/stream/fileStream.h"
@@ -428,6 +429,9 @@ void ShaderGen::_printVertShader( Stream &stream )
    _printFeatureList(stream);
 
    // print out structures
+   if( AppVertConnectorGLSL *appVert = dynamic_cast<AppVertConnectorGLSL*>( mComponents[C_VERT_STRUCT] ) )
+      appVert->printAttributes( stream );
+
    mComponents[C_VERT_STRUCT]->print( stream );
    mComponents[C_CONNECTOR]->print( stream );
 

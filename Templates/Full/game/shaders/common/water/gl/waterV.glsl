@@ -22,6 +22,11 @@
 
 #include "shadergen:/autogenConditioners.h"
 
+in vec4 vNormal;
+in vec4 vPosition;
+in vec4 vTexCoord0;
+in vec4 vTexCoord1;
+
 //-----------------------------------------------------------------------------
 // Defines                                                                  
 //-----------------------------------------------------------------------------
@@ -82,10 +87,10 @@ uniform float    undulateMaxDist;
 void main()
 {
    // Copy incoming attributes into locals so we can modify them in place.
-   vec4 position = gl_Vertex.xyzw;
-   vec3 normal = gl_Normal.xyz;
-   vec2 undulateData = gl_MultiTexCoord0.st;
-   vec4 horizonFactor = gl_MultiTexCoord1.xyzw;
+   vec4 position = vPosition.xyzw;
+   vec3 normal = vNormal.xyz;
+   vec2 undulateData = vTexCoord0.st;
+   vec4 horizonFactor = vTexCoord1.xyzw;
    
    // use projection matrix for reflection / refraction texture coords
    mat4 texGen = { 0.5, 0.0, 0.0, 0.5, //+ 0.5 / reflectTexSize.x,

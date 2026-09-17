@@ -21,6 +21,11 @@
 //-----------------------------------------------------------------------------
 
 #include "platform/platform.h"
+
+// Core since GL 3.0, absent from the generated headers in this tree.
+#ifndef GL_R8
+#define GL_R8 0x8229
+#endif
 #include "gfx/gl/gfxGLEnumTranslate.h"
  
 GLenum GFXGLPrimType[GFXPT_COUNT];
@@ -118,7 +123,7 @@ void GFXGLEnumTranslate::init()
    
    
    // Texture formats
-   GFXGLTextureInternalFormat[GFXFormatA8] = GL_ALPHA8;
+   GFXGLTextureInternalFormat[GFXFormatA8] = GL_R8;
    GFXGLTextureInternalFormat[GFXFormatL8] = GL_LUMINANCE8;
    GFXGLTextureInternalFormat[GFXFormatR5G6B5] = GL_RGB5_A1;  // OpenGL has no R5G6B5 format.
    GFXGLTextureInternalFormat[GFXFormatR5G5B5A1] = GL_RGB5_A1;
@@ -145,7 +150,7 @@ void GFXGLEnumTranslate::init()
    GFXGLTextureInternalFormat[GFXFormatDXT4] = GL_ZERO;
    GFXGLTextureInternalFormat[GFXFormatDXT5] = GL_COMPRESSED_RGBA_S3TC_DXT5_EXT;
    
-   GFXGLTextureFormat[GFXFormatA8] = GL_ALPHA;
+   GFXGLTextureFormat[GFXFormatA8] = GL_RED;
    GFXGLTextureFormat[GFXFormatL8] = GL_LUMINANCE;
    GFXGLTextureFormat[GFXFormatR5G6B5] = GL_RGBA;
    GFXGLTextureFormat[GFXFormatR5G5B5A1] = GL_RGBA;

@@ -25,6 +25,9 @@
 
 #include "gfx/gfxCubemap.h"
 #include "gfx/screenshot.h"
+#include "materials/shaderData.h"
+#include "console/sim.h"
+#include "console/simSet.h"
 #include "gfx/gfxDrawUtil.h"
 
 #include "gfx/gl/gfxGLEnumTranslate.h"
@@ -506,42 +509,18 @@ void GFXGLDevice::setCubemapInternal(U32 textureUnit, const GFXGLCubemap* textur
 
 void GFXGLDevice::setMatrix( GFXMatrixType mtype, const MatrixF &mat )
 {
-   MatrixF modelview;
+   // Drawing goes through shaders now, which take their matrices as constants,
+   // so there is no fixed function matrix stack left to load.
    switch (mtype)
    {
-      case GFXMatrixWorld :
-         {
-            glMatrixMode(GL_MODELVIEW);
-            m_mCurrentWorld = mat;
-            modelview = m_mCurrentWorld;
-            modelview *= m_mCurrentView;
-            modelview.transpose();
-            glLoadMatrixf((F32*) modelview);
-         }
+      case GFXMatrixWorld:
+         m_mCurrentWorld = mat;
          break;
-      case GFXMatrixView :
-         {
-            glMatrixMode(GL_MODELVIEW);
-            m_mCurrentView = mat;
-            modelview = m_mCurrentView;
-            modelview *= m_mCurrentWorld;
-            modelview.transpose();
-            glLoadMatrixf((F32*) modelview);
-         }
+      case GFXMatrixView:
+         m_mCurrentView = mat;
          break;
-      case GFXMatrixProjection :
-         {        
-            glMatrixMode(GL_PROJECTION);
-            MatrixF t(mat);
-            t.transpose();
-            glLoadMatrixf((F32*) t);
-            glMatrixMode(GL_MODELVIEW);
-         }
-         break;
-      // CodeReview - Add support for texture transform matrix types
       default:
-         AssertFatal(false, "GFXGLDevice::setMatrix - Unknown matrix mode!");
-         return;
+         break;
    }
 }
 
@@ -646,9 +625,43 @@ GFXOcclusionQuery* GFXGLDevice::createOcclusionQuery()
 
 void GFXGLDevice::setupGenericShaders( GenericShaderType type ) 
 {
-   TORQUE_UNUSED(type);
-   // We have FF support, use that.
-   disableShaders();
+   // Stands in for the fixed function pipeline, the way the master branch does
+   // it: 2D drawing goes through a shader rather than glTexEnv and friends.
+   if( mGenericShader[GSColor].isNull() )
+   {
+      ShaderData *shaderData;
+
+      shaderData = new ShaderData();
+      shaderData->setField( "OGLVertexShaderFile", "shaders/common/fixedFunction/gl/colorV.glsl" );
+      shaderData->setField( "OGLPixelShaderFile", "shaders/common/fixedFunction/gl/colorP.glsl" );
+      shaderData->setField( "pixVersion", "2.0" );
+      shaderData->registerObject();
+      mGenericShader[GSColor] = shaderData->getShader();
+      mGenericShaderBuffer[GSColor] = mGenericShader[GSColor]->allocConstBuffer();
+      mModelViewProjSC[GSColor] = mGenericShader[GSColor]->getShaderConstHandle( "$modelview" );
+      Sim::getRootGroup()->addObject( shaderData );
+
+      shaderData = new ShaderData();
+      shaderData->setField( "OGLVertexShaderFile", "shaders/common/fixedFunction/gl/modColorTextureV.glsl" );
+      shaderData->setField( "OGLPixelShaderFile", "shaders/common/fixedFunction/gl/modColorTextureP.glsl" );
+      shaderData->setField( "samplerNames[0]", "diffuseMap" );
+      shaderData->setField( "pixVersion", "2.0" );
+      shaderData->registerObject();
+      mGenericShader[GSModColorTexture] = shaderData->getShader();
+      mGenericShaderBuffer[GSModColorTexture] = mGenericShader[GSModColorTexture]->allocConstBuffer();
+      mModelViewProjSC[GSModColorTexture] = mGenericShader[GSModColorTexture]->getShaderConstHandle( "$modelview" );
+      Sim::getRootGroup()->addObject( shaderData );
+   }
+
+   // Anything we have no dedicated shader for falls back to the textured one.
+   if( mGenericShader[type].isNull() )
+      type = mGenericShader[GSModColorTexture].isNull() ? GSColor : GSModColorTexture;
+
+   MatrixF tempMatrix = mProjectionMatrix * mViewMatrix * mWorldMatrix[mWorldStackSize];
+   mGenericShaderBuffer[type]->setSafe( mModelViewProjSC[type], tempMatrix );
+
+   setShader( mGenericShader[type] );
+   setShaderConstBuffer( mGenericShaderBuffer[type] );
 }
 
 GFXShader* GFXGLDevice::createShader()

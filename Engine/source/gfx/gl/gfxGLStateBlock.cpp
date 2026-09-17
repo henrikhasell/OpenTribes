@@ -140,27 +140,12 @@ void GFXGLStateBlock::activate(const GFXGLStateBlock* oldState)
       const GFXSamplerStateDesc &ssd = mDesc.samplers[i];
       bool updateTexParam = true;
       glActiveTexture(GL_TEXTURE0 + i);
-      switch (ssd.textureColorOp)
-      {
-      case GFXTOPDisable :
-         if(!tex)
-            break;
-         glDisable(GL_TEXTURE_2D);
+      // The texture environment was the fixed function way of combining a
+      // sampler with the fragment colour; shaders do that themselves now. Only
+      // the disable case still carries meaning, as a signal to skip the
+      // per-texture parameters below.
+      if( ssd.textureColorOp == GFXTOPDisable && tex )
          updateTexParam = false;
-         break;
-      case GFXTOPModulate :
-         glEnable(GL_TEXTURE_2D);
-         glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
-         break;
-      case GFXTOPAdd :
-         glEnable(GL_TEXTURE_2D);
-         glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_ADD);
-         break;
-      default :
-         glEnable(GL_TEXTURE_2D);
-         glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
-         break;
-      }
 
 #define SSF(state, enum, value, tex) if(!oldState || oldState->mDesc.samplers[i].state != mDesc.samplers[i].state) glTexParameteri(tex->getBinding(), enum, value)
 #define SSW(state, enum, value, tex) if(!oldState || oldState->mDesc.samplers[i].state != mDesc.samplers[i].state) glTexParameteri(tex->getBinding(), enum, !tex->mIsNPoT2 ? value : GL_CLAMP_TO_EDGE)

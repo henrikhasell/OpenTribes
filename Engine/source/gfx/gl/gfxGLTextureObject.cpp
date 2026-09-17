@@ -134,7 +134,6 @@ void GFXGLTextureObject::bind(U32 textureUnit) const
 {
    glActiveTexture(GL_TEXTURE0 + textureUnit);
    glBindTexture(mBinding, mHandle);
-   glEnable(mBinding);
   
    GFXGLStateBlockRef sb = mGLDevice->getCurrentStateBlock();
    AssertFatal(sb, "GFXGLTextureObject::bind - No active stateblock!");

@@ -20,6 +20,9 @@
 // IN THE SOFTWARE.
 //-----------------------------------------------------------------------------
 
+in vec4 vPosition;
+in vec4 vTexCoord0;
+
 uniform mat4x4 modelview;
 
 varying vec4 hpos;
@@ -28,8 +31,8 @@ varying vec2 uv0;
 
 void main()
 {
-   hpos = vec4( modelview * gl_Vertex );
+   hpos = vec4( modelview * vPosition );
    gl_Position = hpos;
 
-   uv0 = gl_MultiTexCoord0.st;
+   uv0 = vTexCoord0.st;
 }

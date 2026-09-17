@@ -20,6 +20,8 @@
 // IN THE SOFTWARE.
 //-----------------------------------------------------------------------------
 
+in vec4 vPosition;
+
 varying vec4 wsEyeDir;
 varying vec4 ssPos;
 
@@ -29,7 +31,7 @@ uniform vec3 eyePosWorld;
 
 void main()
 {
-   gl_Position = modelview * gl_Vertex;
-   wsEyeDir = objTrans * gl_Vertex - vec4( eyePosWorld, 0.0 );
+   gl_Position = modelview * vPosition;
+   wsEyeDir = objTrans * vPosition - vec4( eyePosWorld, 0.0 );
    ssPos = gl_Position;
 }
