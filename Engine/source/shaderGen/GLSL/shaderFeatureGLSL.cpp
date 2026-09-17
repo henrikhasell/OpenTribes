@@ -2074,15 +2074,9 @@ void VisibilityFeatGLSL::setTexData( Material::StageData &stageDat,
 void AlphaTestGLSL::processPix(  Vector<ShaderComponent*> &componentList,
                                  const MaterialFeatureData &fd )
 {
-   // If we're below SM3 and don't have a depth output
-   // feature then don't waste an instruction here.
-   if ( GFX->getPixelShaderVersion() < 3.0 &&
-        !fd.features[ MFT_EyeSpaceDepthOut ]  &&
-        !fd.features[ MFT_DepthOut ] )
-   {
-      output = NULL;
-      return;
-   }
+   // Upstream skipped the discard below SM3 because the fixed function alpha
+   // test covered it. There is no fixed function alpha test under a core
+   // profile, so the shader has to do it at every version.
 
    // If we don't have a color var then we cannot do an alpha test.
    Var *color = (Var*)LangElement::find( "col" );

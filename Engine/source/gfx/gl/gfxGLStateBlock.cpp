@@ -72,10 +72,8 @@ void GFXGLStateBlock::activate(const GFXGLStateBlock* oldState)
    if(STATE_CHANGE(blendOp))
       glBlendEquation(GFXGLBlendOp[mDesc.blendOp]);
 
-   // Alpha testing
-   CHECK_TOGGLE_STATE(alphaTestEnable, GL_ALPHA_TEST);      
-   if(STATE_CHANGE(alphaTestFunc) || STATE_CHANGE(alphaTestRef))
-      glAlphaFunc(GFXGLCmpFunc[mDesc.alphaTestFunc], (F32) mDesc.alphaTestRef * 1.0f/255.0f);
+   // Alpha testing is the MFT_AlphaTest shader feature's job now; a core
+   // profile has no fixed function alpha test to enable.
 
    // Color write masks
    if(STATE_CHANGE(colorWriteRed) || STATE_CHANGE(colorWriteBlue) || STATE_CHANGE(colorWriteGreen) || STATE_CHANGE(colorWriteAlpha))
@@ -119,10 +117,8 @@ void GFXGLStateBlock::activate(const GFXGLStateBlock* oldState)
       glStencilMask(mDesc.stencilWriteMask);
 
    // "Misc"
-   CHECK_TOGGLE_STATE(ffLighting, GL_LIGHTING);
-
-   glColorMaterial(GL_FRONT_AND_BACK, GL_AMBIENT_AND_DIFFUSE);
-   CHECK_TOGGLE_STATE(vertexColorEnable, GL_COLOR_MATERIAL);
+   // ffLighting and vertexColorEnable drove the fixed function lighting and
+   // colour material state, neither of which exists under a core profile.
 
    if(STATE_CHANGE(fillMode))
       glPolygonMode(GL_FRONT_AND_BACK, GFXGLFillMode[mDesc.fillMode]);
@@ -140,27 +136,12 @@ void GFXGLStateBlock::activate(const GFXGLStateBlock* oldState)
       const GFXSamplerStateDesc &ssd = mDesc.samplers[i];
       bool updateTexParam = true;
       glActiveTexture(GL_TEXTURE0 + i);
-      switch (ssd.textureColorOp)
-      {
-      case GFXTOPDisable :
-         if(!tex)
-            break;
-         glDisable(GL_TEXTURE_2D);
+      // The texture environment was the fixed function way of combining a
+      // sampler with the fragment colour; shaders do that themselves now. Only
+      // the disable case still carries meaning, as a signal to skip the
+      // per-texture parameters below.
+      if( ssd.textureColorOp == GFXTOPDisable && tex )
          updateTexParam = false;
-         break;
-      case GFXTOPModulate :
-         glEnable(GL_TEXTURE_2D);
-         glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
-         break;
-      case GFXTOPAdd :
-         glEnable(GL_TEXTURE_2D);
-         glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_ADD);
-         break;
-      default :
-         glEnable(GL_TEXTURE_2D);
-         glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
-         break;
-      }
 
 #define SSF(state, enum, value, tex) if(!oldState || oldState->mDesc.samplers[i].state != mDesc.samplers[i].state) glTexParameteri(tex->getBinding(), enum, value)
 #define SSW(state, enum, value, tex) if(!oldState || oldState->mDesc.samplers[i].state != mDesc.samplers[i].state) glTexParameteri(tex->getBinding(), enum, !tex->mIsNPoT2 ? value : GL_CLAMP_TO_EDGE)
@@ -179,7 +160,7 @@ void GFXGLStateBlock::activate(const GFXGLStateBlock* oldState)
             glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, ssd.maxAnisotropy);
 
          if( ( !oldState || oldState->mDesc.samplers[i].mipLODBias != ssd.mipLODBias ) )
-            glTexEnvf(GL_TEXTURE_FILTER_CONTROL_EXT, GL_TEXTURE_LOD_BIAS_EXT, ssd.mipLODBias);
+            glTexParameterf(tex->getBinding(), GL_TEXTURE_LOD_BIAS, ssd.mipLODBias);
       }     
    }
 #undef SSF

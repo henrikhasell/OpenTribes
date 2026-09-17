@@ -13,10 +13,7 @@ public:
 
    const S32 getElapsedMs()
    {
-      const U64 now = SDL_GetTicks();
-      const S32 elapsed = S32(now - mLast);
-      mLast = now;
-      return elapsed;
+      return S32( SDL_GetTicks() - mLast );
    }
 
    void reset() { mLast = SDL_GetTicks(); }

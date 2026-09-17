@@ -21,6 +21,7 @@
 //-----------------------------------------------------------------------------
 
 #include "platform/platform.h"
+
 #include "gfx/gl/gfxGLTextureManager.h"
 #include "gfx/gl/gfxGLEnumTranslate.h"
 #include "gfx/gfxCardProfile.h"
@@ -111,9 +112,9 @@ void GFXGLTextureManager::innerCreateTexture( GFXGLTextureObject *retTex,
    
    // Create it
    // TODO: Reenable mipmaps on render targets when Apple fixes their drivers
+   // mMipLevels of 0 means the chain is generated rather than supplied.
    if(forceMips && !retTex->mIsNPoT2)
    {
-      glTexParameteri(binding, GL_GENERATE_MIPMAP_SGIS, GL_TRUE);
       retTex->mMipLevels = 0;
    }
    else if(profile->testFlag(GFXTextureProfile::NoMipmap) || profile->testFlag(GFXTextureProfile::RenderTarget) || numMipLevels == 1 || retTex->mIsNPoT2)
@@ -122,7 +123,6 @@ void GFXGLTextureManager::innerCreateTexture( GFXGLTextureObject *retTex,
    }
    else
    {
-      glTexParameteri(binding, GL_GENERATE_MIPMAP_SGIS, GL_TRUE);
       retTex->mMipLevels = 0;
    }
 
@@ -145,6 +145,19 @@ void GFXGLTextureManager::innerCreateTexture( GFXGLTextureObject *retTex,
    else
       glTexImage3D(GL_TEXTURE_3D, 0, GFXGLTextureInternalFormat[format], width, height, depth, 0, GFXGLTextureFormat[format], GFXGLTextureType[format], NULL);
    
+   // The formats a core profile dropped are stored in red and put back where
+   // they belong here.
+   if( GFXGLTextureSwizzle[format] )
+      glTexParameteriv( binding, GL_TEXTURE_SWIZZLE_RGBA, GFXGLTextureSwizzle[format] );
+
+   // Only level 0 was allocated above. GL_GENERATE_MIPMAP used to build the
+   // rest of the chain on every upload to it, which is what the DDS loader
+   // relies on when it writes levels 1..n with glTexSubImage2D. Build the chain
+   // here so that storage exists, and the load paths regenerate its contents
+   // once they have the data.
+   if( retTex->mMipLevels == 0 )
+      glGenerateMipmap( binding );
+
    // Complete the texture
    glTexParameteri(binding, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
    glTexParameteri(binding, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
@@ -214,7 +227,10 @@ bool GFXGLTextureManager::_loadTexture(GFXTextureObject *aTexture, GBitmap *pDL)
       _fastTextureLoad(texture, pDL);
    else
       _slowTextureLoad(texture, pDL);
-   
+
+   if(texture->mMipLevels == 0)
+      glGenerateMipmap(texture->getBinding());
+
    glBindTexture(texture->getBinding(), 0);
    
    return true;
@@ -266,6 +282,11 @@ bool GFXGLTextureManager::_loadTexture(GFXTextureObject *aTexture, DDSFile *dds)
       else
          glTexSubImage2D(texture->getBinding(), i, 0, 0, dds->getWidth(i), dds->getHeight(i), GFXGLTextureFormat[dds->mFormat], GFXGLTextureType[dds->mFormat], dds->mSurfaces[0]->mMips[i]);
    }
+
+   // A DDS with a single surface still wants the rest of the chain built.
+   if(numMips == 1 && texture->mMipLevels == 0)
+      glGenerateMipmap(texture->getBinding());
+
    glBindTexture(texture->getBinding(), 0);
    
    return true;

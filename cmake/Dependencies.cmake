@@ -66,6 +66,31 @@ FetchContent_Declare(openal
 
 FetchContent_MakeAvailable(openal)
 
+# --- glad -------------------------------------------------------------------
+# The GL loader, generated at build time rather than checked in. REPRODUCIBLE
+# makes it read the gl.xml and khrplatform.h packaged inside glad instead of
+# fetching whatever is at the head of the Khronos registry, so GIT_TAG pins the
+# generated bindings the same way it pins everything else here.
+set(GLAD_PROFILE        "core"    CACHE STRING "" FORCE)
+set(GLAD_API            "gl=4.5"  CACHE STRING "" FORCE)
+set(GLAD_GENERATOR      "c"       CACHE STRING "" FORCE)
+set(GLAD_REPRODUCIBLE   ON  CACHE BOOL "" FORCE)
+set(GLAD_ALL_EXTENSIONS ON  CACHE BOOL "" FORCE)
+set(GLAD_INSTALL        OFF CACHE BOOL "" FORCE)
+
+# glad 0.1 asks for CMake 3.0, which CMake 4 refuses outright.
+set(CMAKE_POLICY_VERSION_MINIMUM 3.5)
+
+FetchContent_Declare(glad
+    GIT_REPOSITORY https://github.com/Dav1dde/glad.git
+    GIT_TAG        v0.1.36
+    GIT_SHALLOW    TRUE
+    EXCLUDE_FROM_ALL)
+
+FetchContent_MakeAvailable(glad)
+
+unset(CMAKE_POLICY_VERSION_MINIMUM)
+
 # Arriving with the phase that consumes them: SDL3_image (6),
 # SDL3_net (7), openal-soft (8), zlib and the Xiph libraries when their
 # vendored copies retire. SDL3_image vendors its own libpng and zlib -- pick a
