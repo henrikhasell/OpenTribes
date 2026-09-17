@@ -395,13 +395,22 @@ bool GFXGLShader::_init()
    macros.last().name = "TORQUE_SM";
    macros.last().value = String::ToString( mjVer * 10 + mnVer );
 
+   // Which stage is being compiled, as the master branch does it. hlslCompat
+   // only defines clip() for the pixel stage, since discard has no meaning in
+   // a vertex shader.
+   macros.increment();
+   macros.last().name = "TORQUE_VERTEX_SHADER";
+   macros.last().value = "";
+
    // Default to true so we're "successful" if a vertex/pixel shader wasn't specified.
    bool compiledVertexShader = true;
    bool compiledPixelShader = true;
-   
+
    // Compile the vertex and pixel shaders if specified.
    if(!mVertexFile.isEmpty())
       compiledVertexShader = initShader(mVertexFile, true, macros);
+
+   macros.last().name = "TORQUE_PIXEL_SHADER";
    if(!mPixelFile.isEmpty())
       compiledPixelShader = initShader(mPixelFile, false, macros);
       
@@ -725,8 +734,18 @@ void GFXGLShader::zombify()
    dMemset(mConstBuffer, 0, mConstBufferSize);
 }
 
-char* GFXGLShader::_handleIncludes( const Torque::Path& path, FileStream *s )
+char* GFXGLShader::_handleIncludes( const Torque::Path& path, FileStream *s,
+                                    Vector<String> *included )
 {
+   // The set of files already spliced in, so nothing is included twice. The
+   // parser has no idea what a comment is, and Fxaa3_11.h documents its own
+   // usage with a literal #include of itself -- without this that recurses
+   // until the stack runs out.
+   Vector<String> includedHere;
+   if ( !included )
+      included = &includedHere;
+   included->push_back( Torque::Path::CompressPath( path ) );
+
    // TODO:  The #line pragma on GLSL takes something called a
    // "source-string-number" which it then never explains.
    //
@@ -788,7 +807,18 @@ char* GFXGLShader::_handleIncludes( const Torque::Path& path, FileStream *s )
             }
          }
 
-         char* includedText = _handleIncludes(includePath, &includeStream);
+         // Already spliced in higher up; splice nothing and carry on.
+         bool seen = false;
+         const String includeKey = Torque::Path::CompressPath( includePath );
+         for ( U32 i = 0; i < included->size(); i++ )
+            if ( (*included)[i].equal( includeKey, String::NoCase ) )
+            {
+               seen = true;
+               break;
+            }
+
+         char* includedText = seen ? dStrdup( "" )
+                                   : _handleIncludes( includePath, &includeStream, included );
          
          // If a sub-include fails... cleanup and return.
          if ( !includedText )

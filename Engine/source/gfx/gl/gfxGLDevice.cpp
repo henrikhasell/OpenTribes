@@ -103,15 +103,14 @@ void GFXGLDevice::initGLState()
    // Apple's drivers lie and claim that everything supports fragment shaders.  Conveniently they don't lie about the number
    // of supported image units.  Checking for 16 or more image units ensures that we don't try and use pixel shaders on
    // cards which don't support them.
+   // 2.0 was as high as this went while the GL path was fixed function with a
+   // 2005 loader. It is a core profile against GLSL 150 now, which is past
+   // Shader Model 3 in every respect the engine asks about, and PostEffect
+   // rejects any shader whose pixVersion exceeds this -- which is most of them.
    if(mCardProfiler->queryProfile("GL::suppFragmentShader") && mMaxShaderTextures >= 16)
-      mPixelShaderVersion = 2.0f;
+      mPixelShaderVersion = 2.0f; //BISECT
    else
       mPixelShaderVersion = 0.0f;
-   
-   // MACHAX - Setting mPixelShaderVersion to 3.0 will allow Advanced Lighting
-   // to run.  At the time of writing (6/18) it doesn't quite work yet.
-   if(Con::getBoolVariable("$pref::machax::enableAdvancedLighting", false))
-      mPixelShaderVersion = 3.0f;
       
    mSupportsAnisotropic = mCardProfiler->queryProfile( "GL::suppAnisotropic" );
 }

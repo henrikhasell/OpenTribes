@@ -37,7 +37,9 @@ singleton GFXStateBlockData( FXAA_StateBlock : PFX_DefaultStateBlock )
 singleton ShaderData( FXAA_ShaderData )
 {   
    DXVertexShaderFile 	= "shaders/common/postFx/fxaa/fxaaV.hlsl";
+   OGLVertexShaderFile 	= "shaders/common/postFx/fxaa/gl/fxaaV.glsl";
    DXPixelShaderFile 	= "shaders/common/postFx/fxaa/fxaaP.hlsl";
+   OGLPixelShaderFile 	= "shaders/common/postFx/fxaa/gl/fxaaP.glsl";
    
    samplerNames[0] = "$colorTex";
 

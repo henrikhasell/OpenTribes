@@ -22,8 +22,12 @@
 
 singleton ShaderData( PFX_FlashShader )
 {
+
+   samplerNames[0] = "$backBuffer";
    DXVertexShaderFile 	= "shaders/common/postFx/postFxV.hlsl";
+   OGLVertexShaderFile 	= "shaders/common/postFx/postFxV.glsl";
    DXPixelShaderFile 	= "shaders/common/postFx/flashP.hlsl";
+   OGLPixelShaderFile 	= "shaders/common/postFx/gl/flashP.glsl";
 
    defines = "WHITE_COLOR=float4(1.0,1.0,1.0,0.0);MUL_COLOR=float4(1.0,0.25,0.25,0.0)";
 

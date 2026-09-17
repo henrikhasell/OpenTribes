@@ -35,10 +35,10 @@ singleton GFXStateBlockData( PFX_DefaultEdgeAAStateBlock )
 singleton ShaderData( PFX_EdgeAADetectShader )
 {   
    DXVertexShaderFile 	= "shaders/common/postFx/postFxV.hlsl";
+   OGLVertexShaderFile 	= "shaders/common/postFx/postFxV.glsl";
    DXPixelShaderFile 	= "shaders/common/postFx/edgeaa/edgeDetectP.hlsl";
+   OGLPixelShaderFile 	= "shaders/common/postFx/edgeaa/gl/edgeDetectP.glsl";
          
-   //OGLVertexShaderFile  = "shaders/common/postFx/gl//postFxV.glsl";
-   //OGLPixelShaderFile   = "shaders/common/postFx/gl/passthruP.glsl";
       
    samplerNames[0] = "$inputTex";
    
@@ -48,10 +48,10 @@ singleton ShaderData( PFX_EdgeAADetectShader )
 singleton ShaderData( PFX_EdgeAAShader )
 {   
    DXVertexShaderFile 	= "shaders/common/postFx/edgeaa/edgeAAV.hlsl";
+   OGLVertexShaderFile 	= "shaders/common/postFx/edgeaa/gl/edgeAAV.glsl";
    DXPixelShaderFile 	= "shaders/common/postFx/edgeaa/edgeAAP.hlsl";
+   OGLPixelShaderFile 	= "shaders/common/postFx/edgeaa/gl/edgeAAP.glsl";
          
-   //OGLVertexShaderFile  = "shaders/common/postFx/gl//postFxV.glsl";
-   //OGLPixelShaderFile   = "shaders/common/postFx/gl/passthruP.glsl";
       
    samplerNames[0] = "$inputTex";
    
@@ -61,10 +61,10 @@ singleton ShaderData( PFX_EdgeAAShader )
 singleton ShaderData( PFX_EdgeAADebugShader )
 {   
    DXVertexShaderFile 	= "shaders/common/postFx/postFxV.hlsl";
+   OGLVertexShaderFile 	= "shaders/common/postFx/postFxV.glsl";
    DXPixelShaderFile 	= "shaders/common/postFx/edgeaa/dbgEdgeDisplayP.hlsl";
+   OGLPixelShaderFile 	= "shaders/common/postFx/edgeaa/gl/dbgEdgeDisplayP.glsl";
          
-   //OGLVertexShaderFile  = "shaders/common/postFx/gl//postFxV.glsl";
-   //OGLPixelShaderFile   = "shaders/common/postFx/gl/passthruP.glsl";
       
    samplerNames[0] = "$inputTex";
    

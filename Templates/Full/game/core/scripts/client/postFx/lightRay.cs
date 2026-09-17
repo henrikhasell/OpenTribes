@@ -32,16 +32,26 @@ $LightRayPostFX::resolutionScale = 1.0;
 
 singleton ShaderData( LightRayOccludeShader )
 {
+
+   samplerNames[0] = "$backBuffer";
+   samplerNames[1] = "$prepassTex";
    DXVertexShaderFile 	= "shaders/common/postFx/postFxV.hlsl";
+   OGLVertexShaderFile 	= "shaders/common/postFx/postFxV.glsl";
    DXPixelShaderFile 	= "shaders/common/postFx/lightRay/lightRayOccludeP.hlsl";
+   OGLPixelShaderFile 	= "shaders/common/postFx/lightRay/gl/lightRayOccludeP.glsl";
 
    pixVersion = 3.0;   
 };
 
 singleton ShaderData( LightRayShader )
 {
+
+   samplerNames[0] = "$frameSampler";
+   samplerNames[1] = "$backBuffer";
    DXVertexShaderFile 	= "shaders/common/postFx/postFxV.hlsl";
+   OGLVertexShaderFile 	= "shaders/common/postFx/postFxV.glsl";
    DXPixelShaderFile 	= "shaders/common/postFx/lightRay/lightRayP.hlsl";
+   OGLPixelShaderFile 	= "shaders/common/postFx/lightRay/gl/lightRayP.glsl";
 
    pixVersion = 3.0;   
 };

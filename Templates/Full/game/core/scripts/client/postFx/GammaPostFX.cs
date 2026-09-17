@@ -22,8 +22,19 @@
 
 singleton ShaderData( GammaShader )
 {
+
+   samplerNames[0] = "$backBuffer";
+   samplerNames[1] = "$colorCorrectionTex";
    DXVertexShaderFile 	= "shaders/common/postFx/postFxV.hlsl";
+   // Ported but not wired up: with the colour correction ramp bound to unit 1
+   // the pass washes the frame out. Gamma is the only effect enabled by
+   // default, so it stays on the D3D path until that is understood.
+   //OGLVertexShaderFile 	= "shaders/common/postFx/postFxV.glsl";
    DXPixelShaderFile 	= "shaders/common/postFx/gammaP.hlsl";
+   // Ported but not wired up: with the colour correction ramp bound to unit 1
+   // the pass washes the frame out. Gamma is the only effect enabled by
+   // default, so it stays on the D3D path until that is understood.
+   //OGLPixelShaderFile 	= "shaders/common/postFx/gl/gammaP.glsl";
 
    pixVersion = 2.0;   
 };

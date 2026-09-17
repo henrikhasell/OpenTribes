@@ -80,7 +80,11 @@ protected:
    void initHandles();
    void setConstantsFromBuffer(GFXGLShaderConstBuffer* buffer);
    
-   static char* _handleIncludes( const Torque::Path &path, FileStream *s );
+   /// Splices #include directives into the source. `included` carries the files
+   /// already spliced in so a file cannot be included twice; without it a self
+   /// reference recurses until the stack runs out.
+   static char* _handleIncludes( const Torque::Path &path, FileStream *s,
+                                 Vector<String> *included = NULL );
 
    static bool _loadShaderFromStream(  GLuint shader, 
                                        const Torque::Path& path, 
