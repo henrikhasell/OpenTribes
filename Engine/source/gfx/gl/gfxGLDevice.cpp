@@ -483,8 +483,13 @@ void GFXGLDevice::setMatrix( GFXMatrixType mtype, const MatrixF &mat )
       case GFXMatrixView:
          m_mCurrentView = mat;
          break;
-      default:
+      case GFXMatrixProjection:
+         // Held by GFXDevice; setupGenericShaders reads it back from there.
          break;
+      // CodeReview - Add support for texture transform matrix types
+      default:
+         AssertFatal(false, "GFXGLDevice::setMatrix - Unknown matrix mode!");
+         return;
    }
 }
 
