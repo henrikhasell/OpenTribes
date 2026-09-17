@@ -80,6 +80,13 @@ torque_add_vendored_lib(torque_squish
     DIRS     squish
     INCLUDES squish)
 
+# The GL loader, replacing the ggl generator whose registry snapshot stopped at
+# OpenGL 1.5. Core profile, so it carries no fixed function entry points.
+torque_add_vendored_lib(torque_glad
+    DIRS     glad/src
+    INCLUDES glad/include
+    LINK     ${CMAKE_DL_LIBS})
+
 torque_add_vendored_lib(torque_opcode
     DIRS     opcode opcode/Ice
     INCLUDES opcode

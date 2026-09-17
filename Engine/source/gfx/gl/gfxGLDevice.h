@@ -29,7 +29,7 @@
 #include "gfx/gfxInit.h"
 
 #ifndef GL_GGL_H
-#include "gfx/gl/ggl/ggl.h"
+#include "gfx/gl/tGL/tGL.h"
 #endif
 
 #include "windowManager/platformWindow.h"

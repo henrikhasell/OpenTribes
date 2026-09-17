@@ -250,8 +250,11 @@ void _GFXGLTextureTargetAUXBufferImpl::applyState()
 
 void _GFXGLTextureTargetAUXBufferImpl::makeActive()
 {
-   glDrawBuffer(GL_AUX0);
-   glReadBuffer(GL_AUX0);
+   // This path renders alongside the window's own depth buffer and copies the
+   // result out in finish(). It used AUX0, which GL 3.1 removed and current
+   // drivers report none of, so it draws to the back buffer instead.
+   glDrawBuffer(GL_BACK);
+   glReadBuffer(GL_BACK);
 }
 
 void _GFXGLTextureTargetAUXBufferImpl::finish()

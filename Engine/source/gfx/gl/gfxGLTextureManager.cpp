@@ -22,14 +22,6 @@
 
 #include "platform/platform.h"
 
-// Core since GL 3.3, absent from the generated headers in this tree. Set per
-// component because glTexParameteriv is not among the bound entry points.
-#ifndef GL_TEXTURE_SWIZZLE_R
-#define GL_TEXTURE_SWIZZLE_R 0x8E42
-#define GL_TEXTURE_SWIZZLE_G 0x8E43
-#define GL_TEXTURE_SWIZZLE_B 0x8E44
-#define GL_TEXTURE_SWIZZLE_A 0x8E45
-#endif
 #include "gfx/gl/gfxGLTextureManager.h"
 #include "gfx/gl/gfxGLEnumTranslate.h"
 #include "gfx/gfxCardProfile.h"
@@ -120,9 +112,9 @@ void GFXGLTextureManager::innerCreateTexture( GFXGLTextureObject *retTex,
    
    // Create it
    // TODO: Reenable mipmaps on render targets when Apple fixes their drivers
+   // mMipLevels of 0 means the chain is generated rather than supplied.
    if(forceMips && !retTex->mIsNPoT2)
    {
-      glTexParameteri(binding, GL_GENERATE_MIPMAP_SGIS, GL_TRUE);
       retTex->mMipLevels = 0;
    }
    else if(profile->testFlag(GFXTextureProfile::NoMipmap) || profile->testFlag(GFXTextureProfile::RenderTarget) || numMipLevels == 1 || retTex->mIsNPoT2)
@@ -131,7 +123,6 @@ void GFXGLTextureManager::innerCreateTexture( GFXGLTextureObject *retTex,
    }
    else
    {
-      glTexParameteri(binding, GL_GENERATE_MIPMAP_SGIS, GL_TRUE);
       retTex->mMipLevels = 0;
    }
 
@@ -154,18 +145,18 @@ void GFXGLTextureManager::innerCreateTexture( GFXGLTextureObject *retTex,
    else
       glTexImage3D(GL_TEXTURE_3D, 0, GFXGLTextureInternalFormat[format], width, height, depth, 0, GFXGLTextureFormat[format], GFXGLTextureType[format], NULL);
    
-   // A8 was GL_ALPHA8, where the fixed function modulate mode passed the
-   // fragment colour through untouched and multiplied only alpha -- which is
-   // what font rendering relies on. GL_ALPHA is gone from core GL, so the data
-   // lives in red and is swizzled back into alpha with rgb forced to one,
-   // giving the shader that replaced the texture environment the same result.
-   if( format == GFXFormatA8 )
-   {
-      glTexParameteri( binding, GL_TEXTURE_SWIZZLE_R, GL_ONE );
-      glTexParameteri( binding, GL_TEXTURE_SWIZZLE_G, GL_ONE );
-      glTexParameteri( binding, GL_TEXTURE_SWIZZLE_B, GL_ONE );
-      glTexParameteri( binding, GL_TEXTURE_SWIZZLE_A, GL_RED );
-   }
+   // The formats a core profile dropped are stored in red and put back where
+   // they belong here.
+   if( GFXGLTextureSwizzle[format] )
+      glTexParameteriv( binding, GL_TEXTURE_SWIZZLE_RGBA, GFXGLTextureSwizzle[format] );
+
+   // Only level 0 was allocated above. GL_GENERATE_MIPMAP used to build the
+   // rest of the chain on every upload to it, which is what the DDS loader
+   // relies on when it writes levels 1..n with glTexSubImage2D. Build the chain
+   // here so that storage exists, and the load paths regenerate its contents
+   // once they have the data.
+   if( retTex->mMipLevels == 0 )
+      glGenerateMipmap( binding );
 
    // Complete the texture
    glTexParameteri(binding, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
@@ -236,7 +227,10 @@ bool GFXGLTextureManager::_loadTexture(GFXTextureObject *aTexture, GBitmap *pDL)
       _fastTextureLoad(texture, pDL);
    else
       _slowTextureLoad(texture, pDL);
-   
+
+   if(texture->mMipLevels == 0)
+      glGenerateMipmap(texture->getBinding());
+
    glBindTexture(texture->getBinding(), 0);
    
    return true;
@@ -288,6 +282,11 @@ bool GFXGLTextureManager::_loadTexture(GFXTextureObject *aTexture, DDSFile *dds)
       else
          glTexSubImage2D(texture->getBinding(), i, 0, 0, dds->getWidth(i), dds->getHeight(i), GFXGLTextureFormat[dds->mFormat], GFXGLTextureType[dds->mFormat], dds->mSurfaces[0]->mMips[i]);
    }
+
+   // A DDS with a single surface still wants the rest of the chain built.
+   if(numMips == 1 && texture->mMipLevels == 0)
+      glGenerateMipmap(texture->getBinding());
+
    glBindTexture(texture->getBinding(), 0);
    
    return true;

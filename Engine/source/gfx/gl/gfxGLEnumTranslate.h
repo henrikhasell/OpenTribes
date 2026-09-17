@@ -44,6 +44,9 @@ extern GLenum GFXGLTextureInternalFormat[GFXFormat_COUNT];
 extern GLenum GFXGLTextureFormat[GFXFormat_COUNT];
 extern GLenum GFXGLTextureType[GFXFormat_COUNT];
 
+/// Per-format channel remap, or NULL where the format needs none.
+extern const GLint* GFXGLTextureSwizzle[GFXFormat_COUNT];
+
 extern GLenum GFXGLBufferType[GFXBufferType_COUNT];
 extern GLenum GFXGLCullMode[GFXCull_COUNT];
 

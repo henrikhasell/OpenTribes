@@ -21,11 +21,6 @@
 //-----------------------------------------------------------------------------
 
 #include "platform/platform.h"
-
-// Core since GL 3.0, absent from the generated headers in this tree.
-#ifndef GL_R8
-#define GL_R8 0x8229
-#endif
 #include "gfx/gl/gfxGLEnumTranslate.h"
  
 GLenum GFXGLPrimType[GFXPT_COUNT];
@@ -39,6 +34,7 @@ GLenum GFXGLStencilOp[GFXStencilOp_COUNT];
 GLenum GFXGLTextureInternalFormat[GFXFormat_COUNT];
 GLenum GFXGLTextureFormat[GFXFormat_COUNT];
 GLenum GFXGLTextureType[GFXFormat_COUNT];
+const GLint* GFXGLTextureSwizzle[GFXFormat_COUNT];
 GLenum GFXGLBufferType[GFXBufferType_COUNT];
 GLenum GFXGLCullMode[GFXCull_COUNT];
 GLenum GFXGLFillMode[GFXFill_COUNT];
@@ -124,11 +120,11 @@ void GFXGLEnumTranslate::init()
    
    // Texture formats
    GFXGLTextureInternalFormat[GFXFormatA8] = GL_R8;
-   GFXGLTextureInternalFormat[GFXFormatL8] = GL_LUMINANCE8;
+   GFXGLTextureInternalFormat[GFXFormatL8] = GL_R8;
    GFXGLTextureInternalFormat[GFXFormatR5G6B5] = GL_RGB5_A1;  // OpenGL has no R5G6B5 format.
    GFXGLTextureInternalFormat[GFXFormatR5G5B5A1] = GL_RGB5_A1;
    GFXGLTextureInternalFormat[GFXFormatR5G5B5X1] = GL_RGB5_A1;
-   GFXGLTextureInternalFormat[GFXFormatL16] = GL_LUMINANCE16;
+   GFXGLTextureInternalFormat[GFXFormatL16] = GL_R16;
    GFXGLTextureInternalFormat[GFXFormatR16F] = GL_ZERO;
    GFXGLTextureInternalFormat[GFXFormatD16] = GL_DEPTH_COMPONENT;
    GFXGLTextureInternalFormat[GFXFormatR8G8B8] = GL_RGB8;
@@ -151,11 +147,11 @@ void GFXGLEnumTranslate::init()
    GFXGLTextureInternalFormat[GFXFormatDXT5] = GL_COMPRESSED_RGBA_S3TC_DXT5_EXT;
    
    GFXGLTextureFormat[GFXFormatA8] = GL_RED;
-   GFXGLTextureFormat[GFXFormatL8] = GL_LUMINANCE;
+   GFXGLTextureFormat[GFXFormatL8] = GL_RED;
    GFXGLTextureFormat[GFXFormatR5G6B5] = GL_RGBA;
    GFXGLTextureFormat[GFXFormatR5G5B5A1] = GL_RGBA;
    GFXGLTextureFormat[GFXFormatR5G5B5X1] = GL_RGBA;
-   GFXGLTextureFormat[GFXFormatL16] = GL_LUMINANCE;
+   GFXGLTextureFormat[GFXFormatL16] = GL_RED;
    GFXGLTextureFormat[GFXFormatR16F] = GL_ZERO;
    GFXGLTextureFormat[GFXFormatD16] = GL_DEPTH_COMPONENT;
    GFXGLTextureFormat[GFXFormatR8G8B8] = GL_RGB;
@@ -213,4 +209,17 @@ void GFXGLEnumTranslate::init()
    GFXGLFillMode[GFXFillPoint] = GL_POINT;
    GFXGLFillMode[GFXFillWireframe] = GL_LINE;
    GFXGLFillMode[GFXFillSolid] = GL_FILL;
+
+   // A core profile has no GL_ALPHA or GL_LUMINANCE, so both are stored in red
+   // and swizzled back into the channels the old formats delivered.
+   //
+   // Alpha reads as white rather than master's GL_NONE: the generic textured
+   // shader multiplies colour by the sample, and rgb of zero takes text to
+   // black. One reproduces what GL_MODULATE did for an alpha texture.
+   static const GLint sSwizzleA8[] = { GL_ONE, GL_ONE, GL_ONE, GL_RED };
+   static const GLint sSwizzleL[]  = { GL_RED, GL_RED, GL_RED, GL_ONE };
+
+   GFXGLTextureSwizzle[GFXFormatA8]  = sSwizzleA8;
+   GFXGLTextureSwizzle[GFXFormatL8]  = sSwizzleL;
+   GFXGLTextureSwizzle[GFXFormatL16] = sSwizzleL;
 }

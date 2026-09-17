@@ -4,7 +4,7 @@
 #include "gfx/gfxDevice.h"
 #include "gfx/gfxTarget.h"
 #include "gfx/bitmap/gBitmap.h"
-#include "gfx/gl/ggl/ggl.h"
+#include "gfx/gl/tGL/tGL.h"
 
 
 GBitmap* ScreenShotGL::_captureBackBuffer()

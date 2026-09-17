@@ -21,7 +21,7 @@
 //-----------------------------------------------------------------------------
 
 #include "console/console.h"
-#include "gfx/gl/ggl/ggl.h"
+#include "gfx/gl/tGL/tGL.h"
 #include "math/mRect.h"
 #include "gfx/gl/gfxGLTextureObject.h"
 #include "gfx/gfxDevice.h"
@@ -148,7 +148,7 @@ void GFXGLTextureObject::bind(U32 textureUnit) const
    if(mBinding == GL_TEXTURE_3D)
       glTexParameteri(mBinding, GL_TEXTURE_WRAP_R, GFXGLTextureAddress[ssd.addressModeW]);
 
-   glTexEnvf(GL_TEXTURE_FILTER_CONTROL, GL_TEXTURE_LOD_BIAS, ssd.mipLODBias);
+   glTexParameterf(mBinding, GL_TEXTURE_LOD_BIAS, ssd.mipLODBias);
 }
 
 U8* GFXGLTextureObject::getTextureData()

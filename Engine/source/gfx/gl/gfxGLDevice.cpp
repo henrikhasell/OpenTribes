@@ -40,7 +40,7 @@
 #include "gfx/gl/screenshotGL.h"
 #include "gfx/gl/gfxGLCardProfiler.h"
 #include "gfx/gl/gfxGLWindowTarget.h"
-#include "gfx/gl/ggl/ggl.h" 
+#include "gfx/gl/tGL/tGL.h" 
 #include "platform/platformDlibrary.h"
 #include "gfx/gl/gfxGLShader.h"
 #include "gfx/primBuilder.h"
@@ -56,29 +56,26 @@ GFXDevice *GFXGLDevice::createInstance( U32 adapterIndex )
 
 namespace GL
 {
-   extern void gglPerformBinds();
-   extern void gglPerformExtensionBinds(void *context);
+   extern void loadGLProcs();
 }
 
 void loadGLCore()
 {
-   static bool coreLoaded = false; // Guess what this is for.
-   if(coreLoaded)
-      return;
-   coreLoaded = true;
-   
-   // Make sure we've got our GL bindings.
-   GL::gglPerformBinds();
+   // glad resolves core and extension entry points in one pass and needs a
+   // current context to do it, so the work happens in loadGLExtensions. This is
+   // called from the device constructor, before any context exists.
 }
 
 void loadGLExtensions(void *context)
 {
+   TORQUE_UNUSED(context);
+
    static bool extensionsLoaded = false;
    if(extensionsLoaded)
       return;
    extensionsLoaded = true;
-   
-   GL::gglPerformExtensionBinds(context);
+
+   GL::loadGLProcs();
 }
 
 void GFXGLDevice::initGLState()
@@ -91,7 +88,10 @@ void GFXGLDevice::initGLState()
    mCardProfiler = new GFXGLCardProfiler();
    mCardProfiler->init(); 
    glGetIntegerv(GL_MAX_TEXTURE_IMAGE_UNITS, (GLint*)&mMaxShaderTextures);
-   glGetIntegerv(GL_MAX_TEXTURE_UNITS, (GLint*)&mMaxFFTextures);
+
+   // GL_MAX_TEXTURE_UNITS counted fixed function stages and went with it. Every
+   // unit is a shader unit now.
+   mMaxFFTextures = mMaxShaderTextures;
 
    // Per-stage state lives in fixed TEXTURE_STAGE_COUNT arrays such as
    // mActiveTextureType, and getNumSamplers() hands these counts out as the
@@ -403,60 +403,24 @@ void GFXGLDevice::setPB(GFXGLPrimitiveBuffer* pb)
    mCurrentPB = pb;
 }
 
+// The three below drove the fixed function lighting state, which no longer
+// exists. Lighting reaches the shaders as constants instead.
+
 void GFXGLDevice::setLightInternal(U32 lightStage, const GFXLightInfo light, bool lightEnable)
 {
-   if(!lightEnable)
-   {
-      glDisable(GL_LIGHT0 + lightStage);
-      return;
-   }
-
-   if(light.mType == GFXLightInfo::Ambient)
-   {
-      AssertFatal(false, "Instead of setting an ambient light you should set the global ambient color.");
-      return;
-   }
-
-   GLenum lightEnum = GL_LIGHT0 + lightStage;
-   glLightfv(lightEnum, GL_AMBIENT, (GLfloat*)&light.mAmbient);
-   glLightfv(lightEnum, GL_DIFFUSE, (GLfloat*)&light.mColor);
-   glLightfv(lightEnum, GL_SPECULAR, (GLfloat*)&light.mColor);
-
-   F32 pos[4];
-
-   if(light.mType != GFXLightInfo::Vector)
-   {
-      dMemcpy(pos, &light.mPos, sizeof(light.mPos));
-      pos[3] = 1.0;
-   }
-   else
-   {
-      dMemcpy(pos, &light.mDirection, sizeof(light.mDirection));
-      pos[3] = 0.0;
-   }
-   // Harcoded attenuation
-   glLightf(lightEnum, GL_CONSTANT_ATTENUATION, 1.0f);
-   glLightf(lightEnum, GL_LINEAR_ATTENUATION, 0.1f);
-   glLightf(lightEnum, GL_QUADRATIC_ATTENUATION, 0.0f);
-
-   glLightfv(lightEnum, GL_POSITION, (GLfloat*)&pos);
-   glEnable(lightEnum);
+   TORQUE_UNUSED(lightStage);
+   TORQUE_UNUSED(light);
+   TORQUE_UNUSED(lightEnable);
 }
 
 void GFXGLDevice::setLightMaterialInternal(const GFXLightMaterial mat)
 {
-   // CodeReview - Setting these for front and back is unnecessary.  We should consider
-   // checking what faces we're culling and setting this only for the unculled faces.
-   glMaterialfv(GL_FRONT_AND_BACK, GL_AMBIENT, (GLfloat*)&mat.ambient);
-   glMaterialfv(GL_FRONT_AND_BACK, GL_DIFFUSE, (GLfloat*)&mat.diffuse);
-   glMaterialfv(GL_FRONT_AND_BACK, GL_SPECULAR, (GLfloat*)&mat.specular);
-   glMaterialfv(GL_FRONT_AND_BACK, GL_EMISSION, (GLfloat*)&mat.emissive);
-   glMaterialf(GL_FRONT_AND_BACK, GL_SHININESS, mat.shininess);
+   TORQUE_UNUSED(mat);
 }
 
 void GFXGLDevice::setGlobalAmbientInternal(ColorF color)
 {
-   glLightModelfv(GL_LIGHT_MODEL_AMBIENT, (GLfloat*)&color);
+   TORQUE_UNUSED(color);
 }
 
 void GFXGLDevice::setTextureInternal(U32 textureUnit, const GFXTextureObject*texture)

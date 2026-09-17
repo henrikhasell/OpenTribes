@@ -72,10 +72,8 @@ void GFXGLStateBlock::activate(const GFXGLStateBlock* oldState)
    if(STATE_CHANGE(blendOp))
       glBlendEquation(GFXGLBlendOp[mDesc.blendOp]);
 
-   // Alpha testing
-   CHECK_TOGGLE_STATE(alphaTestEnable, GL_ALPHA_TEST);      
-   if(STATE_CHANGE(alphaTestFunc) || STATE_CHANGE(alphaTestRef))
-      glAlphaFunc(GFXGLCmpFunc[mDesc.alphaTestFunc], (F32) mDesc.alphaTestRef * 1.0f/255.0f);
+   // Alpha testing is the MFT_AlphaTest shader feature's job now; a core
+   // profile has no fixed function alpha test to enable.
 
    // Color write masks
    if(STATE_CHANGE(colorWriteRed) || STATE_CHANGE(colorWriteBlue) || STATE_CHANGE(colorWriteGreen) || STATE_CHANGE(colorWriteAlpha))
@@ -119,10 +117,8 @@ void GFXGLStateBlock::activate(const GFXGLStateBlock* oldState)
       glStencilMask(mDesc.stencilWriteMask);
 
    // "Misc"
-   CHECK_TOGGLE_STATE(ffLighting, GL_LIGHTING);
-
-   glColorMaterial(GL_FRONT_AND_BACK, GL_AMBIENT_AND_DIFFUSE);
-   CHECK_TOGGLE_STATE(vertexColorEnable, GL_COLOR_MATERIAL);
+   // ffLighting and vertexColorEnable drove the fixed function lighting and
+   // colour material state, neither of which exists under a core profile.
 
    if(STATE_CHANGE(fillMode))
       glPolygonMode(GL_FRONT_AND_BACK, GFXGLFillMode[mDesc.fillMode]);
@@ -164,7 +160,7 @@ void GFXGLStateBlock::activate(const GFXGLStateBlock* oldState)
             glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, ssd.maxAnisotropy);
 
          if( ( !oldState || oldState->mDesc.samplers[i].mipLODBias != ssd.mipLODBias ) )
-            glTexEnvf(GL_TEXTURE_FILTER_CONTROL_EXT, GL_TEXTURE_LOD_BIAS_EXT, ssd.mipLODBias);
+            glTexParameterf(tex->getBinding(), GL_TEXTURE_LOD_BIAS, ssd.mipLODBias);
       }     
    }
 #undef SSF

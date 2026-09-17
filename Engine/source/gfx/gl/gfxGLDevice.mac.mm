@@ -23,7 +23,7 @@
 // Don't include Apple's GL header
 #define __gl_h_
 // Include our GL header before Apple headers.
-#include "gfx/gl/ggl/ggl.h"
+#include "gfx/gl/tGL/tGL.h"
 
 #include "platform/tmm_off.h"
 #include <Cocoa/Cocoa.h>
