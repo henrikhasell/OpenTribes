@@ -64,6 +64,8 @@ new ShaderData( AL_VectorLightShader )
    // Texture unit per sampler; HLSL states this inline as register(SN).
    samplerNames[0] = "prePassBuffer";
    samplerNames[1] = "ShadowMap";
+   samplerNames[2] = "ssaoMask";
+   samplerNames[3] = "gTapRotationTex";
    
    pixVersion = 3.0;
 };
@@ -129,6 +131,7 @@ new ShaderData( AL_PointLightShader )
    samplerNames[0] = "prePassBuffer";
    samplerNames[1] = "shadowMap";
    samplerNames[2] = "scratchTarget";
+   samplerNames[3] = "gTapRotationTex";
 
    pixVersion = 3.0;
 };
@@ -160,6 +163,7 @@ new ShaderData( AL_SpotLightShader )
    samplerNames[0] = "prePassBuffer";
    samplerNames[1] = "shadowMap";
    samplerNames[2] = "scratchTarget";
+   samplerNames[3] = "gTapRotationTex";
    
    pixVersion = 3.0;
 };
@@ -229,6 +233,7 @@ new ShaderData( AL_ParticlePointLightShader )
    samplerNames[0] = "prePassBuffer";
    samplerNames[1] = "shadowMap";
    samplerNames[2] = "scratchTarget";
+   samplerNames[3] = "gTapRotationTex";
       
    pixVersion = 3.0;
 };

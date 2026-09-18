@@ -75,9 +75,9 @@ AdvancedLightManager::~AdvancedLightManager()
 
 bool AdvancedLightManager::isCompatible() const
 {
-   // The deferred path does not compile its shaders on this branch yet -- see
-   // the known issues in SDL3_MIGRATION_PLAN.md. It is tried before Basic
-   // Lighting, so until it works, saying yes here costs the game its renderer.
+   // The deferred path draws an unlit scene on this branch -- see the known
+   // issues in SDL3_MIGRATION_PLAN.md. It is tried before Basic Lighting, so
+   // until it works, saying yes here costs the game its renderer.
    return false;
 
    // TODO: We need at least 3.0 shaders at the moment
