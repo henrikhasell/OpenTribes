@@ -1436,8 +1436,16 @@ void ReflectCubeFeatGLSL::processVert( Vector<ShaderComponent*> &componentList,
    cubeNormal->setType( "vec3" );
    LangElement *cubeNormDecl = new DecOp( cubeNormal );
 
-   meta->addStatement( new GenOp( "   @ = normalize( @ * normalize(@).xyz );\r\n", 
+   // SkyBox zeroes its vertex normals so that the reflect() below returns the
+   // view vector unreflected -- it is viewed from the inside, where a real
+   // reflection would turn the cubemap upside down (environment/skyBox.cpp:380).
+   // normalize() of a zero vector is undefined, and the NaN reaches the cubemap
+   // lookup, so skip it when there is no normal to normalize.
+   meta->addStatement( new GenOp( "   @ = @ * @.xyz;\r\n",
                        cubeNormDecl, cubeTrans, inNormal ) );
+
+   meta->addStatement( new GenOp( "   @ = bool(length(@)) ? normalize(@) : @;\r\n",
+                       cubeNormal, cubeNormal, cubeNormal, cubeNormal ) );
 
    // eye to vert
    Var * eyeToVert = new Var;
