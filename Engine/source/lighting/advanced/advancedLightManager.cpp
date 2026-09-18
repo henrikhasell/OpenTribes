@@ -75,6 +75,11 @@ AdvancedLightManager::~AdvancedLightManager()
 
 bool AdvancedLightManager::isCompatible() const
 {
+   // The deferred path is not fit to ship on this branch. It is tried before
+   // Basic Lighting, so until it is either fixed or removed outright, saying
+   // yes here costs the game its renderer.
+   return false;
+
    // TODO: We need at least 3.0 shaders at the moment
    // but this should be relaxed to 2.0 soon.
    if ( GFX->getPixelShaderVersion() < 3.0 )
