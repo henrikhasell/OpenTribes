@@ -108,18 +108,20 @@ void DeferredRTLightingFeatGLSL::processPix( Vector<ShaderComponent*> &component
    uvScene->setName( "uvScene" );
    LangElement *uvSceneDecl = new DecOp( uvScene );
 
-   Var *rtParams = (Var*) LangElement::find( "renderTargetParams" );
+   String rtParamName = String::ToString( "rtParams%d", mLastTexIndex );
+   Var *rtParams = (Var*) LangElement::find( rtParamName );
    if( !rtParams )
    {
       rtParams = new Var;
       rtParams->setType( "vec4" );
-      rtParams->setName( "renderTargetParams" );
+      rtParams->setName( rtParamName );
       rtParams->uniform = true;
       rtParams->constSortPos = cspPass;
    }
 
    meta->addStatement( new GenOp( "   @ = @.xy / @.w;\r\n", uvSceneDecl, ssPos, ssPos ) ); // get the screen coord... its -1 to +1
    meta->addStatement( new GenOp( "   @ = ( @ + 1.0 ) / 2.0;\r\n", uvScene, uvScene ) ); // get the screen coord to 0 to 1
+   meta->addStatement( new GenOp( "   @.y = 1.0 - @.y;\r\n", uvScene, uvScene ) ); // flip the y axis 
    meta->addStatement( new GenOp( "   @ = ( @ * @.zw ) + @.xy;\r\n", uvScene, uvScene, rtParams, rtParams) ); // scale it down and offset it to the rt size
 
    Var *lightInfoSamp = new Var;
@@ -165,6 +167,9 @@ ShaderFeature::Resources DeferredRTLightingFeatGLSL::getResources( const Materia
       return Parent::getResources( fd );
    */
 
+   // HACK: See DeferredRTLightingFeatGLSL::setTexData.
+   mLastTexIndex = 0;
+
    Resources res; 
    res.numTex = 1;
    res.numTexReg = 1;
@@ -190,6 +195,10 @@ void DeferredRTLightingFeatGLSL::setTexData( Material::StageData &stageDat,
    NamedTexTarget *texTarget = NamedTexTarget::find( AdvancedLightBinManager::smBufferName );
    if( texTarget )
    {
+      // HACK: We store this for use in DeferredRTLightingFeatGLSL::processPix()
+      // which cannot deduce the texture unit itself.
+      mLastTexIndex = texIndex;
+
       passData.mTexType[ texIndex ] = Material::TexTarget;
       passData.mTexSlot[ texIndex++ ].texTarget = texTarget;
    }
@@ -388,7 +397,7 @@ void DeferredBumpFeatGLSL::processPix( Vector<ShaderComponent*> &componentList,
       Parent::processPix( componentList, fd );
       return;
    }
-   else if ( fd.features[MFT_PixSpecular] )
+   else if ( fd.features[MFT_PixSpecular] && !fd.features[MFT_SpecularMap] )
    {
       Var *bumpSample = (Var *)LangElement::find( "bumpSample" );
       if( bumpSample == NULL )

@@ -120,7 +120,7 @@ uniform sampler2D prePassBuffer;
    uniform sampler2D scratchTarget;
 #endif
 
-uniform vec4 renderTargetParams;
+uniform vec4 rtParams0;
 
 uniform vec3 lightPosition;
 uniform vec4 lightColor;
@@ -143,7 +143,7 @@ void main()
 {
    // Compute scene UV
    vec3 ssPosP = ssPos.xyz / ssPos.w;
-   vec2 uvScene = getUVFromSSPos( ssPosP, renderTargetParams );
+   vec2 uvScene = getUVFromSSPos( ssPosP, rtParams0 );
    
    // Sample/unpack the normal/z data
    vec4 prepassSample = prepassUncondition( prePassBuffer, uvScene );

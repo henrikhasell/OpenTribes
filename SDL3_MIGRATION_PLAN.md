@@ -362,7 +362,7 @@ so it is most likely a destruction-order problem among the statically owned sing
 The practical cost is that every automated run looks like a failure, which will hide real
 crashes in Phases 6 and 7. Worth fixing before them for that reason alone.
 
-### Advanced Lighting does not work
+### Advanced Lighting
 
 This is what blocks SSAO, depth of field and light rays, and it is worth being precise about
 why, because the obvious reading is wrong.
@@ -384,28 +384,40 @@ So master does not implement these effects differently. They are deferred-only t
 master simply has a working deferred path. Anyone looking to master for a different technique
 will not find one.
 
-**The gate has now moved.** `AdvancedLightManager::isCompatible` requires pixel shader 3.0
-(master also checks `R16F` render target support). The GL device reported 2.0 until Phase 9
-raised it, so the deferred path could never be selected. It can be now:
-`setLightManager("Advanced Lighting")` returns 1 and the mode switches.
+**The deferred path now works.** `AdvancedLightManager::isCompatible` requires pixel shader
+3.0 (master also checks `R16F` render target support). The GL device reported 2.0 until Phase
+9 raised it, so the deferred path could never be selected. Four bugs stood between that and a
+correct frame, all of them in GL-only code that the 2012 tree shipped half finished and that
+the D3D9 sibling next to it gets right:
 
-What it then hits, in order:
+- **`gTapRotationTex` had no texture unit.** `softShadow.glsl` declares it and the HLSL pins
+  it to `register(S3)`, but the Advanced Lighting `ShaderData` blocks never listed it in
+  `samplerNames` — the only thing that assigns a unit in GL. The handle reported register -1,
+  which `ProcessedCustomMaterial` passed to `GFXDevice::setTexture`, whose only bounds check
+  is an `AssertFatal` that compiles out in release. That was the segfault.
+- **`DeferredRTLightingFeatGLSL` named its screen-space uniform `renderTargetParams`.**
+  Nothing in the engine sets that name; it sets `$rtParams<N>`, indexed by the material's
+  texture slot. `DeferredRTLightingFeatHLSL` keeps that index in `mLastTexIndex` and builds
+  the name from it; the GLSL copy hardcoded a literal instead, so the uniform stayed zero and
+  every sample of the light buffer collapsed to uv (0,0). The same feature also dropped the
+  `uv.y = 1 - uv.y` line its HLSL sibling and master both have.
+- **`DeferredBumpFeatGLSL::processPix` dropped `&& !fd.features[MFT_SpecularMap]`** from the
+  condition its `setTexData` still carries. A material with both a specular and a normal map
+  therefore declared a `bumpMap` sampler that nothing bound, and every sampler after it —
+  `lightInfoBuffer` included — was off by one. Terrain lit correctly, shapes did not.
+- **`getUVFromSSPos` in `farFrustumQuad.glsl` had its Y flip commented out**, and in the wrong
+  position relative to the rtParams scale. The HLSL beside it and master's GLSL both flip
+  before scaling.
 
-- **`atan2` reaches GLSL unchanged.** Emitted only by the `Spherical` normal storage path in
-  `gBufferConditionerGLSL.cpp:253`. Which path runs depends entirely on the prepass buffer
-  format: `R8G8B8A8` and both 16 bit formats select Spherical, `R32G32B32A32F` selects
-  `CartesianXYZ`, which has no `atan2`. Master emits the same text at its line 312 and its own
-  comment three lines below reads "We need work around atan2() above to fix this issue
-  correctly", so this is latent there too and avoided only by which format gets chosen. Two
-  ways out: map `atan2` to `atan` in `hlslCompat.glsl`, which is the general fix, or force the
-  prepass to a format that takes the Cartesian path.
-- **`prepassUncondition` is undefined** in shaders that sample the prepass — the conditioner's
-  companion function is not reaching them.
-- **`specularPower` is declared twice** in the generated shader.
-- **A segfault behind all of the above**, so expect a fourth problem once the shaders compile.
+With those fixed the deferred path renders a frame indistinguishable from Basic Lighting, and
+`isCompatible` no longer refuses.
 
-Sequenced after Phase 9 rather than inside it: the shader work is done, and what remains is
-the deferred path itself.
+**Shadows are the remaining gap.** The PSSM pass runs and the shadow map is a correct 2x2
+atlas of terrain depth, every shadow constant handle on the vector light shader resolves, and
+switching `$pref::Shadows::disable` does change the light buffer. But the change is faint
+self-shadow acne rather than a cast shadow, so the lookup is landing in the wrong depth range.
+That is what to pick up next, along with SSAO, depth of field and light rays, which the
+deferred path no longer blocks.
 
 ### Shaders still ask for the compatibility profile
 

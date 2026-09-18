@@ -25,7 +25,7 @@
 in vec4 vPosition;
 in vec4 vTexCoord0;
 
-uniform vec4 renderTargetParams;
+uniform vec4 rtParams0;
 
 varying vec4 hpos;
 varying vec2 uv0;
@@ -39,7 +39,7 @@ void main()
    gl_Position = hpos;
    
    // Get a RT-corrected UV from the SS coord
-   uv0 = getUVFromSSPos( hpos.xyz, renderTargetParams );
+   uv0 = getUVFromSSPos( hpos.xyz, rtParams0 );
    
    // Interpolators will generate eye ray from far-frustum corners
    wsEyeRay = vPosition.xyz;

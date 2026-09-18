@@ -36,6 +36,11 @@ class DeferredRTLightingFeatGLSL : public RTLightingFeatGLSL
 {
    typedef RTLightingFeatGLSL Parent;
 
+protected:
+
+   /// @see DeferredRTLightingFeatGLSL::processPix()
+   U32 mLastTexIndex;
+
 public:
    virtual void processVert( Vector<ShaderComponent*> &componentList,
                               const MaterialFeatureData &fd );
