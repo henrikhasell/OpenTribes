@@ -24,7 +24,13 @@
 #include "torque.glsl"
 
 // With advanced lighting we get soft particles.
-#ifdef TORQUE_LINEAR_DEPTH
+//
+// TORQUE_LINEAR_DEPTH is a global macro, set as soon as the prepass bin exists.
+// prepassUncondition is not: it reaches this shader only through the macros
+// RenderParticleMgr gathers from the prepass target. A shader built before that
+// target existed still recompiles when the global appears, so require both or
+// that recompile has no conditioner to call.
+#if defined( TORQUE_LINEAR_DEPTH ) && defined( prepassUncondition )
    #define SOFTPARTICLES  
 #endif
 
