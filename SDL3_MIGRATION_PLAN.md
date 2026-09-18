@@ -412,12 +412,30 @@ the D3D9 sibling next to it gets right:
 With those fixed the deferred path renders a frame indistinguishable from Basic Lighting, and
 `isCompatible` no longer refuses.
 
-**Shadows are the remaining gap.** The PSSM pass runs and the shadow map is a correct 2x2
-atlas of terrain depth, every shadow constant handle on the vector light shader resolves, and
-switching `$pref::Shadows::disable` does change the light buffer. But the change is faint
-self-shadow acne rather than a cast shadow, so the lookup is landing in the wrong depth range.
-That is what to pick up next, along with SSAO, depth of field and light rays, which the
-deferred path no longer blocks.
+Three more bugs stood between that and correct output, found the same way:
+
+- **The vector light computed specular with the wrong eye ray.** `normal` and
+  `lightDirection` reach the shader in view space (`setLightParameters` runs the direction
+  through the world-to-camera matrix), so the view vector must be too. `vectorLightP.hlsl`
+  passes `IN.vsEyeRay` and master's GLSL does the same, but this branch's GLSL never
+  interpolated `vsEyeRay` at all and handed `wsEyeRay` to `calcSpecular`. The far-frustum
+  quad already carries the view-space corner in its normal element, so the fix is to read it.
+  This is what made terrain brightness swing as the camera turned.
+- **`DeferredBumpFeatGLSL` wrote world-space normals into the G-buffer.** It built its own
+  `worldToTangent` matrix and passed it through three loose `vec3` connectors, where the
+  terrain features, the HLSL sibling and master's GLSL all use the shared
+  `getOutViewToTangent`/`getInViewToTangent` pair. Shapes and terrain therefore disagreed
+  about which space the prepass normals were in.
+- **The PSSM lookup was inert.** The GLSL shadow block was written against a newer PSSM
+  interface: it selected the split from `splitDistStart`, `splitDistEnd` and `splitFade`,
+  three uniforms nothing in this engine sets. With all three zero `finalMask` came out zero
+  for every pixel, collapsing the sample to one fixed texel. `vectorLightP.hlsl` and master's
+  GLSL both select the split by testing the computed shadow coordinate against -0.99..0.99,
+  using the `scaleX`/`offsetX`/`atlasXOffset`/`farPlaneScalePSSM` set that
+  `LightingShaderConstants` actually binds. The same block also had
+  `shadowCoord.y = 1.0 - shadowCoord.y` commented out, which the HLSL and master both apply.
+
+Terrain and shapes now cast and receive PSSM shadows.
 
 ### Shaders still ask for the compatibility profile
 

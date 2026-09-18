@@ -23,6 +23,7 @@
 #include "farFrustumQuad.glsl"
 
 in vec4 vPosition;
+in vec3 vNormal;
 in vec4 vTexCoord0;
 
 uniform vec4 rtParams0;
@@ -30,6 +31,7 @@ uniform vec4 rtParams0;
 varying vec4 hpos;
 varying vec2 uv0;
 varying vec3 wsEyeRay;
+varying vec3 vsEyeRay;
 
 
 void main()
@@ -43,4 +45,5 @@ void main()
    
    // Interpolators will generate eye ray from far-frustum corners
    wsEyeRay = vPosition.xyz;
+   vsEyeRay = vNormal;
 }

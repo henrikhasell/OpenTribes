@@ -27,6 +27,7 @@
 
 varying vec2 uv0;
 varying vec3 wsEyeRay;
+varying vec3 vsEyeRay;
 
 uniform sampler2D prePassBuffer;
 uniform sampler2D ShadowMap;
@@ -54,8 +55,6 @@ uniform vec4 lightTrilight;
 uniform vec3 eyePosWorld;
 
 uniform mat4 worldToLightProj;
-uniform vec4 splitDistStart;
-uniform vec4 splitDistEnd;
 uniform vec4 scaleX;
 uniform vec4 scaleY;
 uniform vec4 offsetX;
@@ -69,7 +68,6 @@ uniform vec4 lightMapParams;
 uniform float constantSpecularPower;
 uniform vec2 fadeStartLength;
 uniform vec4 farPlaneScalePSSM;
-uniform vec4 splitFade;
 uniform vec4 overDarkPSSM;
 uniform float shadowSoftness;
 
@@ -86,7 +84,7 @@ void main()
 
    // Get the light attenuation.
    float dotNL = dot(-lightDirection, normal);
-   
+
    #ifdef NO_SHADOW
 
       // Fully unshadowed.
@@ -97,95 +95,94 @@ void main()
       // Compute shadow map coordinate
       vec4 pxlPosLightProj = worldToLightProj * worldPos;
       vec2 baseShadowCoord = pxlPosLightProj.xy / pxlPosLightProj.w;   
-   
-      float distOffset = 0.0;
-      float shadowed = 0.0;
-      float fadeAmt = 0.0;
-      vec4 zDist = vec4(zNearFarInvNearFar.x + zNearFarInvNearFar.y * depth);
-                    
-      // Calculate things dependant on the shadowmap split
-      for ( int i = 0; i < 2; i++ )
-      {
-         float zDistSplit = zDist.x + distOffset;
-         vec4 mask0;
-         mask0.x = float(zDistSplit >= splitDistStart.x);
-         mask0.y = float(zDistSplit >= splitDistStart.y);
-         mask0.z = float(zDistSplit >= splitDistStart.z);
-         mask0.w = float(zDistSplit >= splitDistStart.w);
+
+      // Distance to light, in shadowmap space
+      float distToLight = pxlPosLightProj.z / pxlPosLightProj.w;
          
-         vec4 mask1;
-         mask1.x = float(zDistSplit < splitDistEnd.x);
-         mask1.y = float(zDistSplit < splitDistEnd.y);
-         mask1.z = float(zDistSplit < splitDistEnd.z);
-         mask1.w = float(zDistSplit < splitDistEnd.w);
+      // Figure out which split to sample from.  Basically, we compute the shadowmap sample coord
+      // for all of the splits and then check if its valid.  
+      vec4 shadowCoordX = vec4( baseShadowCoord.x );
+      vec4 shadowCoordY = vec4( baseShadowCoord.y );
+      vec4 farPlaneDists = vec4( distToLight );      
+      shadowCoordX *= scaleX;
+      shadowCoordY *= scaleY;
+      shadowCoordX += offsetX;
+      shadowCoordY += offsetY;
+      farPlaneDists *= farPlaneScalePSSM;
+      
+      // If the shadow sample is within -1..1 and the distance 
+      // to the light for this pixel is less than the far plane 
+      // of the split, use it.
+      vec4 finalMask;
+      if (  shadowCoordX.x > -0.99 && shadowCoordX.x < 0.99 && 
+            shadowCoordY.x > -0.99 && shadowCoordY.x < 0.99 &&
+            farPlaneDists.x < 1.0 )
+         finalMask = vec4(1, 0, 0, 0);
+
+      else if (   shadowCoordX.y > -0.99 && shadowCoordX.y < 0.99 &&
+                  shadowCoordY.y > -0.99 && shadowCoordY.y < 0.99 && 
+                  farPlaneDists.y < 1.0 )
+         finalMask = vec4(0, 1, 0, 0);
+
+      else if (   shadowCoordX.z > -0.99 && shadowCoordX.z < 0.99 && 
+                  shadowCoordY.z > -0.99 && shadowCoordY.z < 0.99 && 
+                  farPlaneDists.z < 1.0 )
+         finalMask = vec4(0, 0, 1, 0);
          
-         vec4 finalMask = mask0 * mask1;
-         
-         float splitFadeDist = dot( finalMask, splitFade );
+      else
+         finalMask = vec4(0, 0, 0, 1);
 
-         vec2 finalScale;
-         finalScale.x = dot(finalMask, scaleX);
-         finalScale.y = dot(finalMask, scaleY);
+      // Here we know what split we're sampling from, so recompute the texcoord location
+      // Yes, we could just use the result from above, but doing it this way actually saves
+      // shader instructions.
+      vec2 finalScale;
+      finalScale.x = dot(finalMask, scaleX);
+      finalScale.y = dot(finalMask, scaleY);
 
-         vec2 finalOffset;
-         finalOffset.x = dot(finalMask, offsetX);
-         finalOffset.y = dot(finalMask, offsetY);
-           
-         vec2 shadowCoord;
-         shadowCoord = baseShadowCoord * finalScale;
-         shadowCoord += finalOffset;
+      vec2 finalOffset;
+      finalOffset.x = dot(finalMask, offsetX);
+      finalOffset.y = dot(finalMask, offsetY);
 
-         // Convert to texcoord space
-         shadowCoord = 0.5 * shadowCoord + vec2(0.5, 0.5);
-         //shadowCoord.y = 1.0f - shadowCoord.y;
+      vec2 shadowCoord;                  
+      shadowCoord = baseShadowCoord * finalScale;      
+      shadowCoord += finalOffset;
 
-         // Move around inside of atlas 
-         vec2 aOffset;
-         aOffset.x = dot(finalMask, atlasXOffset);
-         aOffset.y = dot(finalMask, atlasYOffset);
+      // Convert to texcoord space
+      shadowCoord = 0.5 * shadowCoord + vec2(0.5, 0.5);
+      shadowCoord.y = 1.0f - shadowCoord.y;
 
-         shadowCoord *= atlasScale;
-         shadowCoord += aOffset;
-                    
-         // Distance to light, in shadowmap space
-         float distToLight = pxlPosLightProj.z / pxlPosLightProj.w;
-         
-         // Each split has a different far plane, take this into account.
-         float farPlaneScale = dot( farPlaneScalePSSM, finalMask );
-         distToLight *= farPlaneScale;
-         
-         #ifdef SOFTSHADOW_SM3
+      // Move around inside of atlas 
+      vec2 aOffset;
+      aOffset.x = dot(finalMask, atlasXOffset);
+      aOffset.y = dot(finalMask, atlasYOffset);
 
-            float esmShadow = softShadow_filter(   ShadowMap,
-                                                   gTapRotationTex,
-                                                   uv0.xy,
-                                                   shadowCoord,
-                                                   farPlaneScale * shadowSoftness,
-                                                   distToLight,
-                                                   dotNL,
-                                                   dot( finalMask, overDarkPSSM ) );
-                                                   
-         #else // !SOFTSHADOW_SM3
+      shadowCoord *= atlasScale;
+      shadowCoord += aOffset;
+              
+      // Each split has a different far plane, take this into account.
+      float farPlaneScale = dot( farPlaneScalePSSM, finalMask );
+      distToLight *= farPlaneScale;
+      
+      #ifdef SOFTSHADOW_SM3
 
-            float occluder = decodeShadowMap( texture2DLod( ShadowMap, shadowCoord, 0.0 ) );
-            float overDark = dot( finalMask, overDarkPSSM );                      
-            float esmShadow = saturate( exp( esmFactor * ( occluder - distToLight ) ) );
+         float shadowed = softShadow_filter(   ShadowMap,
+                                               gTapRotationTex,
+                                               uv0.xy,
+                                               shadowCoord,
+                                               farPlaneScale * shadowSoftness,
+                                               distToLight,
+                                               dotNL,
+                                               dot( finalMask, overDarkPSSM ) );
 
-         #endif
+      #else // !SOFTSHADOW_SM3
 
-         if ( i == 0 )
-         {
-            float endDist = dot(splitDistEnd, finalMask);
-            fadeAmt = smoothstep(endDist - splitFadeDist, endDist, zDist).x;
-            shadowed = esmShadow * ( 1.0 - fadeAmt );
-         }
-         else
-            shadowed += esmShadow * fadeAmt;
+         float occluder = decodeShadowMap( texture2DLod( ShadowMap, shadowCoord, 0.0 ) );
+         float shadowed = saturate( exp( esmFactor * ( occluder - distToLight ) ) );
 
-         distOffset += splitFadeDist;
-      }
-  
+      #endif
+
       // Fade out the shadow at the end of the range.
+      vec4 zDist = vec4(zNearFarInvNearFar.x + zNearFarInvNearFar.y * depth);
       float fadeOutAmt = ( zDist.x - fadeStartLength.x ) * fadeStartLength.y;
       shadowed = mix( shadowed, 1.0, clamp( fadeOutAmt, 0.0, 1.0 ) );
 
@@ -194,7 +191,7 @@ void main()
    // Calc lighting coefficents
    float specular = calcSpecular(   -lightDirection, 
                                     normal, 
-                                    normalize(-wsEyeRay), 
+                                    normalize(-vsEyeRay), 
                                     constantSpecularPower, 
                                     lightColor.a * lightBrightness );
    

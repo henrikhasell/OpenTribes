@@ -214,54 +214,8 @@ void DeferredBumpFeatGLSL::processVert(   Vector<ShaderComponent*> &componentLis
       // to the pixel shader. 
       MultiLine *meta = new MultiLine;
 
-      // setup texture space matrix
-      Var *texSpaceMat = (Var*) LangElement::find( "objToTangentSpace" );
-      if( !texSpaceMat )
-      {
-         LangElement * texSpaceSetup = setupTexSpaceMat( componentList, &texSpaceMat );
-         meta->addStatement( texSpaceSetup );
-         texSpaceMat = (Var*) LangElement::find( "objToTangentSpace" );
-      }
-
-      // turn obj->tangent into world->tangent
-      Var *worldToTangent = new Var;
-      worldToTangent->setType( "mat3" );
-      worldToTangent->setName( "worldToTangent" );
-      LangElement *worldToTangentDecl = new DecOp( worldToTangent );
-
-      // Get the world->obj transform
-      Var *worldToObj = new Var;
-      worldToObj->setType( "mat4" );
-      worldToObj->setName( "worldToObj" );
-      worldToObj->uniform = true;
-      worldToObj->constSortPos = cspPrimitive;
-      
-      Var *mat3Conversion = new Var;
-      mat3Conversion->setType( "mat3" );
-      mat3Conversion->setName( "worldToObjMat3" );
-      LangElement* mat3Lang = new DecOp(mat3Conversion);
-      meta->addStatement( new GenOp( "   @ = mat3(@[0].xyz, @[1].xyz, @[2].xyz);\r\n ", mat3Lang, worldToObj, worldToObj, worldToObj) );
-
-      // assign world->tangent transform
-      meta->addStatement( new GenOp( "   @ = @ * @;\r\n", worldToTangentDecl, texSpaceMat, mat3Conversion ) );
-
-      // send transform to pixel shader
-      ShaderConnector *connectComp = dynamic_cast<ShaderConnector *>( componentList[C_CONNECTOR] );
-
-      Var *worldToTangentR1 = connectComp->getElement( RT_TEXCOORD );
-      worldToTangentR1->setName( "worldToTangentR1" );
-      worldToTangentR1->setType( "vec3" );
-      meta->addStatement( new GenOp( "   @ = @[0];\r\n", worldToTangentR1, worldToTangent ) );
-
-      Var *worldToTangentR2 = connectComp->getElement( RT_TEXCOORD );
-      worldToTangentR2->setName( "worldToTangentR2" );
-      worldToTangentR2->setType( "vec3" );
-      meta->addStatement( new GenOp( "   @ = @[1];\r\n", worldToTangentR2, worldToTangent ) );
-
-      Var *worldToTangentR3 = connectComp->getElement( RT_TEXCOORD );
-      worldToTangentR3->setName( "worldToTangentR3" );
-      worldToTangentR3->setType( "vec3" );
-      meta->addStatement( new GenOp( "   @ = @[2];\r\n", worldToTangentR3, worldToTangent ) );
+      // We need the view to tangent space transform in the pixel shader.
+      getOutViewToTangent( componentList, meta, fd );
 
       // Make sure there are texcoords
       if( !fd.features[MFT_DiffuseMap] )
@@ -321,31 +275,7 @@ void DeferredBumpFeatGLSL::processPix( Vector<ShaderComponent*> &componentList,
    {
       MultiLine *meta = new MultiLine;
 
-      // Pull the world->tangent transform from the vertex shader
-      ShaderConnector *connectComp = dynamic_cast<ShaderConnector *>( componentList[C_CONNECTOR] );
-
-      Var *worldToTangentR1 = connectComp->getElement( RT_TEXCOORD );
-      worldToTangentR1->setName( "worldToTangentR1" );
-      worldToTangentR1->setType( "vec3" );
-
-      Var *worldToTangentR2 = connectComp->getElement( RT_TEXCOORD );
-      worldToTangentR2->setName( "worldToTangentR2" );
-      worldToTangentR2->setType( "vec3" );
-
-      Var *worldToTangentR3 = connectComp->getElement( RT_TEXCOORD );
-      worldToTangentR3->setName( "worldToTangentR3" );
-      worldToTangentR3->setType( "vec3" );
-
-      Var *worldToTangent = new Var;
-      worldToTangent->setType( "mat3" );
-      worldToTangent->setName( "worldToTangent" );
-      LangElement *worldToTangentDecl = new DecOp( worldToTangent );
-
-      // Build world->tangent matrix
-      meta->addStatement( new GenOp( "   @;\r\n", worldToTangentDecl ) );
-      meta->addStatement( new GenOp( "   @[0] = @;\r\n", worldToTangent, worldToTangentR1 ) );
-      meta->addStatement( new GenOp( "   @[1] = @;\r\n", worldToTangent, worldToTangentR2 ) );
-      meta->addStatement( new GenOp( "   @[2] = @;\r\n", worldToTangent, worldToTangentR3 ) );
+      Var *viewToTangent = getInViewToTangent( componentList );
 
       // create texture var
       Var *bumpMap = new Var;
@@ -385,7 +315,7 @@ void DeferredBumpFeatGLSL::processPix( Vector<ShaderComponent*> &componentList,
 
       // Normalize is done later... 
       // Note: The reverse mul order is intentional. Affine matrix.
-      meta->addStatement( new GenOp( "   @ = @.xyz * @;\r\n", gbNormalDecl, bumpNorm, worldToTangent ) );
+      meta->addStatement( new GenOp( "   @ = @.xyz * @;\r\n", gbNormalDecl, bumpNorm, viewToTangent ) );
 
       output = meta;
       return;
