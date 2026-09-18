@@ -1765,9 +1765,19 @@ void RTLightingFeatGLSL::processPix(   Vector<ShaderComponent*> &componentList,
    meta->addStatement( new GenOp( "   @; @;\r\n", 
       new DecOp( rtShading ), new DecOp( specular ) ) );   
 
+   // compute4Lights takes the specular power as a parameter under
+   // TORQUE_SHADERGEN; see lighting.glsl.
+   Var *specularPower = (Var*)LangElement::find( "specularPower" );
+   if ( !specularPower )
+   {
+      specularPower = new Var( "specularPower", "float" );
+      specularPower->uniform = true;
+      specularPower->constSortPos = cspPass;
+   }
+
    // Calculate the diffuse shading and specular powers.
-   meta->addStatement( new GenOp( "   compute4Lights( @, @, @, @, @ );\r\n", 
-      wsView, wsPosition, wsNormal, rtShading, specular ) );
+   meta->addStatement( new GenOp( "   compute4Lights( @, @, @, @, @, @ );\r\n", 
+      wsView, wsPosition, wsNormal, specularPower, rtShading, specular ) );
 
    // Look for a light mask generated from a previous
    // feature (this is done for BL terrain lightmaps).

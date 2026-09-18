@@ -28,8 +28,13 @@ uniform vec4 inLightPos[3];
 uniform vec4 inLightInvRadiusSq;
 uniform vec4 inLightColor[4];
 uniform vec4 ambient;
+// Master guards these with TORQUE_SHADERGEN and passes what it needs into
+// compute4Lights, because the generator declares them itself and GLSL will not
+// take the same uniform twice. Same mechanism, kept to what this file uses.
+#ifndef TORQUE_SHADERGEN
 uniform float specularPower;
 uniform vec4 specularColor;
+#endif
 
 
 // This is used to limit the maximum processed
@@ -43,6 +48,11 @@ uniform vec4 specularColor;
 void compute4Lights( vec3 wsView, 
                      vec3 wsPosition, 
                      vec3 wsNormal, 
+
+                     #ifdef TORQUE_SHADERGEN
+                     float specularPower,
+                     #endif
+
                      out vec4 outDiffuse,
                      out vec4 outSpecular )
 {

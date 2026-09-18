@@ -46,6 +46,10 @@
 
 #define frac fract
 
+// The g-buffer conditioner emits atan2, which GLSL spells atan. Master emits it
+// too and has no mapping, so there is nothing to lift here.
+#define atan2( y, x ) atan( y, x )
+
 #define lerp mix
 
 void tSetMatrixRow(inout float3x3 m, int row, float3 value)

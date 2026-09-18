@@ -109,9 +109,13 @@ void PixelSpecularGLSL::processPix( Vector<ShaderComponent*> &componentList,
    wsView->setType( "float3" );
 
    // Get the specular power and color.
-   Var *specPow = new Var( "specularPower", "float" );
-   specPow->uniform = true;
-   specPow->constSortPos = cspPass;
+   Var *specPow = (Var*)LangElement::find( "specularPower" );
+   if ( specPow == NULL )
+   {
+      specPow = new Var( "specularPower", "float" );
+      specPow->uniform = true;
+      specPow->constSortPos = cspPass;
+   }
    Var *specCol = (Var*)LangElement::find("specularColor");
    if(specCol == NULL)
    {
