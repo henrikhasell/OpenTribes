@@ -27,15 +27,14 @@
 #include "terrain/terrCell.h"
 #include "materials/materialFeatureTypes.h"
 #include "materials/materialManager.h"
+#include "materials/matInstance.h"
 #include "terrain/terrFeatureTypes.h"
 #include "terrain/terrMaterial.h"
-#include "renderInstance/renderPrePassMgr.h"
 #include "shaderGen/shaderGen.h"
 #include "shaderGen/featureMgr.h"
 #include "scene/sceneRenderState.h"
 #include "materials/sceneData.h"
 #include "gfx/util/screenspace.h"
-#include "lighting/advanced/advancedLightBinManager.h"
 
 
 AFTER_MODULE_INIT( MaterialManager )
@@ -49,7 +48,6 @@ Vector<TerrainCellMaterial*> TerrainCellMaterial::smAllMaterials;
 TerrainCellMaterial::TerrainCellMaterial()
    :  mCurrPass( 0 ),
       mTerrain( NULL ),
-      mPrePassMat( NULL ),
       mReflectMat( NULL )
 {
    smAllMaterials.push_back( this );
@@ -57,7 +55,6 @@ TerrainCellMaterial::TerrainCellMaterial()
 
 TerrainCellMaterial::~TerrainCellMaterial()
 {
-   SAFE_DELETE( mPrePassMat );
    SAFE_DELETE( mReflectMat );   
    smAllMaterials.remove( this );
 }
@@ -178,23 +175,12 @@ void TerrainCellMaterial::setTransformAndEye(   const MatrixF &modelXfm,
    }
 }
 
-TerrainCellMaterial* TerrainCellMaterial::getPrePassMat()
-{
-   if ( !mPrePassMat )
-   {
-      mPrePassMat = new TerrainCellMaterial();
-      mPrePassMat->init( mTerrain, mMaterials, true, false, mMaterials == 0 );
-   }
-
-   return mPrePassMat;
-}
-
 TerrainCellMaterial* TerrainCellMaterial::getReflectMat()
 {
    if ( !mReflectMat )
    {
       mReflectMat = new TerrainCellMaterial();
-      mReflectMat->init( mTerrain, mMaterials, false, true, true );
+      mReflectMat->init( mTerrain, mMaterials, true, true );
    }
 
    return mReflectMat;
@@ -202,13 +188,9 @@ TerrainCellMaterial* TerrainCellMaterial::getReflectMat()
 
 void TerrainCellMaterial::init(  TerrainBlock *block,
                                  U64 activeMaterials, 
-                                 bool prePassMat,
                                  bool reflectMat,
                                  bool baseOnly )
 {
-   // This isn't allowed for now.
-   AssertFatal( !( prePassMat && reflectMat ), "TerrainCellMaterial::init - We shouldn't get prepass and reflection in the same material!" );
-
    mTerrain = block;
    mMaterials = activeMaterials;
 
@@ -239,7 +221,6 @@ void TerrainCellMaterial::init(  TerrainBlock *block,
       if ( !_createPass(   &materials, 
                            &mPasses.last(), 
                            mPasses.size() == 1, 
-                           prePassMat,
                            reflectMat,
                            baseOnly ) )
       {
@@ -260,16 +241,13 @@ void TerrainCellMaterial::init(  TerrainBlock *block,
    for_each( materials.begin(), materials.end(), delete_pointer() );
 
    // If we have attached mats then update them too.
-   if ( mPrePassMat )
-      mPrePassMat->init( mTerrain, mMaterials, true, false, baseOnly );
    if ( mReflectMat )
-      mReflectMat->init( mTerrain, mMaterials, false, true, baseOnly );
+      mReflectMat->init( mTerrain, mMaterials, true, baseOnly );
 }
 
 bool TerrainCellMaterial::_createPass( Vector<MaterialInfo*> *materials, 
                                        Pass *pass, 
                                        bool firstPass,
-                                       bool prePassMat,
                                        bool reflectMat,
                                        bool baseOnly )
 {
@@ -300,16 +278,6 @@ bool TerrainCellMaterial::_createPass( Vector<MaterialInfo*> *materials,
    const bool disableParallaxMaps = GFX->getPixelShaderVersion() < 3.0f || 
                                     MATMGR->getExclusionFeatures().hasFeature( MFT_Parallax );
 
-   // Has advanced lightmap support been enabled for prepass.
-   bool advancedLightmapSupport = false;
-   if ( prePassMat )
-   {
-      // This sucks... but it works.
-      AdvancedLightBinManager *lightBin;
-      if ( Sim::findObject( "AL_LightBinMgr", lightBin ) )
-         advancedLightmapSupport = lightBin->MRTLightmapsDuringPrePass();
-   }
-
    // Loop till we create a valid shader!
    while( true )
    {
@@ -317,15 +285,6 @@ bool TerrainCellMaterial::_createPass( Vector<MaterialInfo*> *materials,
       features.addFeature( MFT_VertTransform );
       features.addFeature( MFT_TerrainBaseMap );
 
-      if ( prePassMat )
-      {
-         features.addFeature( MFT_EyeSpaceDepthOut );
-         features.addFeature( MFT_PrePassConditioner );
-
-         if ( advancedLightmapSupport )
-            features.addFeature( MFT_RenderTarget1_Zero );
-      }
-      else
       {
          features.addFeature( MFT_RTLighting );
 
@@ -497,26 +456,9 @@ bool TerrainCellMaterial::_createPass( Vector<MaterialInfo*> *materials,
    {
       desc.setBlend( true, GFXBlendSrcAlpha, GFXBlendInvSrcAlpha );
 
-      // If this is the prepass then we don't want to
-      // write to the last two color channels (where
-      // depth is usually encoded).
-      //
-      // This trick works in combination with the 
-      // MFT_TerrainAdditive feature to lerp the
-      // output normal with the previous pass.
-      //
-      if ( prePassMat )
-         desc.setColorWrites( true, true, false, false );
    }
 
-   // We write to the zbuffer if this is a prepass
-   // material or if the prepass is disabled.
-   // We also write the zbuffer if we're using OpenGL, because in OpenGL the prepass
-   // cannot share the same zbuffer as the backbuffer.
-   desc.setZReadWrite( true,  !MATMGR->getPrePassEnabled() || 
-                              GFX->getAdapterType() == OpenGL ||
-                              prePassMat ||
-                              reflectMat );
+   desc.setZReadWrite( true, true );
 
    desc.samplersDefined = true;
    if ( pass->baseTexMapConst->isValid() )
@@ -597,11 +539,6 @@ bool TerrainCellMaterial::_createPass( Vector<MaterialInfo*> *materials,
          delete matInfo;     
       materials->pop_front();
    }
-
-   // If we're doing prepass it requires some 
-   // special stencil settings for it to work.
-   if ( prePassMat )
-      desc.addDesc( RenderPrePassMgr::getOpaqueStenciWriteDesc( false ) );
 
    // Flip the cull for reflection materials.
    if ( reflectMat )
@@ -763,7 +700,7 @@ BaseMatInstance* TerrainCellMaterial::getShadowMat()
 {
    // Find our material which has some settings
    // defined on it in script.
-   Material *mat = MATMGR->getMaterialDefinitionByName( "AL_DefaultShadowMaterial" );
+   Material *mat = MATMGR->getMaterialDefinitionByName( "DefaultShadowMaterial" );
 
    // Create the material instance adding the feature which
    // handles rendering terrain cut outs.

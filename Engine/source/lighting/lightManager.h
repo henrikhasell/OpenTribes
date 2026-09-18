@@ -49,7 +49,6 @@ class GFXShaderConstBuffer;
 class GFXShaderConstHandle;
 class ShaderConstHandles;
 class SceneRenderState;
-class RenderPrePassMgr;
 class Frustum;
 
 ///
@@ -167,7 +166,6 @@ protected:
    static LightManager *smActiveLM;
 
    /// Find the pre-pass render bin on the scene's default render pass.
-   RenderPrePassMgr* _findPrePassRenderBin();
 
    /// This helper function sets the shader constansts
    /// for the stock 4 light forward lighting code.

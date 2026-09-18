@@ -95,7 +95,7 @@ $pref::lightManager = "";
 
 /// This is the default list of light managers ordered from
 /// most to least desirable for initialization.
-$lightManager::defaults = "Advanced Lighting" NL "Basic Lighting";
+$lightManager::defaults = "Basic Lighting";
 
 /// A scale to apply to the camera view distance
 /// typically used for tuning performance.
@@ -355,7 +355,7 @@ new SimGroup( LightingQualityGroup )
       class = "GraphicsQualityLevel";
       caseSensitive = true;
                   
-      key["$pref::lightManager"] = "Advanced Lighting";
+      key["$pref::lightManager"] = "Basic Lighting";
       key["$pref::Shadows::disable"] = false;
       key["$pref::Shadows::textureScalar"] = 0.5;
       key["$pref::Shadows::filterMode"] = "SoftShadow";     
@@ -366,7 +366,7 @@ new SimGroup( LightingQualityGroup )
       class = "GraphicsQualityLevel";
       caseSensitive = true;
 
-      key["$pref::lightManager"] = "Advanced Lighting";
+      key["$pref::lightManager"] = "Basic Lighting";
       key["$pref::Shadows::disable"] = false;
       key["$pref::Shadows::textureScalar"] = 1.0;
       key["$pref::Shadows::filterMode"] = "SoftShadowHighQuality";     
@@ -377,7 +377,7 @@ new SimGroup( LightingQualityGroup )
       class = "GraphicsQualityLevel";
       caseSensitive = true;
       
-      key["$pref::lightManager"] = "Advanced Lighting";
+      key["$pref::lightManager"] = "Basic Lighting";
       key["$pref::Shadows::disable"] = false;
       key["$pref::Shadows::textureScalar"] = 2.0;
       key["$pref::Shadows::filterMode"] = "SoftShadowHighQuality";          

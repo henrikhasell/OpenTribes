@@ -39,7 +39,6 @@
 #include "materials/materialFeatureTypes.h"
 #include "math/util/frustum.h"
 #include "scene/sceneObject.h"
-#include "renderInstance/renderPrePassMgr.h"
 #include "shaderGen/featureMgr.h"
 #include "lighting/basic/blInteriorSystem.h"
 #include "lighting/basic/blTerrainSystem.h"
@@ -172,37 +171,6 @@ void BasicLightManager::activate( SceneManager *sceneManager )
    FEATUREMGR->unregisterFeature( MFT_MinnaertShading );
    FEATUREMGR->unregisterFeature( MFT_SubSurface );
 
-   // First look for the prepass bin...
-   RenderPrePassMgr *prePassBin = _findPrePassRenderBin();
-
-   /*
-   // If you would like to use forward shading, and have a linear depth pre-pass
-   // than un-comment this code block.
-   if ( !prePassBin )
-   {
-      Vector<GFXFormat> formats;
-      formats.push_back( GFXFormatR32F );
-      formats.push_back( GFXFormatR16F );
-      formats.push_back( GFXFormatR8G8B8A8 );
-      GFXFormat linearDepthFormat = GFX->selectSupportedFormat( &GFXDefaultRenderTargetProfile,
-         formats,
-         true,
-         false );
-
-      // Uncomment this for a no-color-write z-fill pass. 
-      //linearDepthFormat = GFXFormat_COUNT;
-
-      prePassBin = new RenderPrePassMgr( linearDepthFormat != GFXFormat_COUNT, linearDepthFormat );
-      prePassBin->registerObject();
-      rpm->addManager( prePassBin );
-   }
-   */
-   mPrePassRenderBin = prePassBin;
-
-   // If there is a prepass bin
-   MATMGR->setPrePassEnabled( mPrePassRenderBin.isValid() );
-   sceneManager->setPostEffectFog( mPrePassRenderBin.isValid() && mPrePassRenderBin->getTargetChainLength() > 0  );
-
    // Tell the material manager that we don't use prepass.
    MATMGR->setPrePassEnabled( false );
 
@@ -228,10 +196,6 @@ void BasicLightManager::deactivate()
          SAFE_DELETE(i->value);
    }
    mConstantLookup.clear();
-
-   if ( mPrePassRenderBin )
-      mPrePassRenderBin->deleteObject();
-   mPrePassRenderBin = NULL;
 
    GFXShader::removeGlobalMacro( "TORQUE_BASIC_LIGHTING" );
 

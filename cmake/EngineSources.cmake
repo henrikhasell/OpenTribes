@@ -90,11 +90,8 @@ set(_engine_dirs
     ts
     ts/arch
 
-    # advancedLighting.inc / basicLighting.inc
-    lighting/advanced
-    lighting/advanced/glsl
+    # basicLighting.inc
     lighting/basic
-    lighting/shadowMap
 
     # theora.inc
     core/ogg

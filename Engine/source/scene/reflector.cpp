@@ -35,10 +35,28 @@
 #include "ts/tsShapeInstance.h"
 #include "gfx/gfxOcclusionQuery.h"
 #include "lighting/lightManager.h"
-#include "lighting/shadowMap/lightShadowMap.h"
+#include "gfx/gfxTextureManager.h"
 #include "math/mathUtils.h"
 #include "math/util/frustum.h"
 #include "gfx/screenshot.h"
+
+GFX_ImplementTextureProfile( ReflectZProfile,
+                             GFXTextureProfile::DiffuseMap,
+                             GFXTextureProfile::PreserveSize |
+                             GFXTextureProfile::NoMipmap |
+                             GFXTextureProfile::ZTarget |
+                             GFXTextureProfile::Pooled,
+                             GFXTextureProfile::None );
+
+/// A pooled depth target to render a reflection against.
+static GFXTextureObject* _getDepthTarget( U32 width, U32 height )
+{
+   GFXTexHandle depthTex( width, height, GFXFormatD24S8, &ReflectZProfile,
+      "Reflector::_getDepthTarget()" );
+
+   return depthTex;
+}
+
 
 extern ColorI gCanvasClearColor;
 
@@ -319,7 +337,7 @@ void CubeReflector::updateReflection( const ReflectParams &params )
       cubemap->initDynamic( texDim, reflectFormat );
    }
    
-   GFXTexHandle depthBuff = LightShadowMap::_getDepthTarget( texDim, texDim );
+   GFXTexHandle depthBuff = _getDepthTarget( texDim, texDim );
 
    if ( renderTarget.isNull() )
       renderTarget = GFX->allocRenderToTextureTarget();   
@@ -417,7 +435,6 @@ void CubeReflector::updateFace( const ReflectParams &params, U32 faceidx )
 
    reflectRenderState.getMaterialDelegate().bind( REFLECTMGR, &ReflectionManager::getReflectionMaterial );
    reflectRenderState.setDiffuseCameraTransform( params.query->cameraMatrix );
-   reflectRenderState.disableAdvancedLightingBins(true);
 
    // render scene
    LIGHTMGR->registerGlobalLights( &reflectRenderState.getFrustum(), false );
@@ -541,7 +558,7 @@ void PlaneReflector::updateReflection( const ReflectParams &params )
          reflectTex->getFormat() != REFLECTMGR->getReflectFormat() )
       reflectTex = REFLECTMGR->allocRenderTarget( texSize );
 
-   GFXTexHandle depthBuff = LightShadowMap::_getDepthTarget( texSize.x, texSize.y );
+   GFXTexHandle depthBuff = _getDepthTarget( texSize.x, texSize.y );
 
    // store current matrices
    GFXTransformSaver saver;
@@ -620,7 +637,6 @@ void PlaneReflector::updateReflection( const ReflectParams &params )
 
    reflectRenderState.getMaterialDelegate().bind( REFLECTMGR, &ReflectionManager::getReflectionMaterial );
    reflectRenderState.setDiffuseCameraTransform( params.query->cameraMatrix );
-   reflectRenderState.disableAdvancedLightingBins(true);
 
    U32 objTypeFlag = -1;
    LIGHTMGR->registerGlobalLights( &reflectRenderState.getFrustum(), false );

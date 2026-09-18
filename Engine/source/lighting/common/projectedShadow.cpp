@@ -44,14 +44,35 @@
 #include "console/console.h"
 #include "postFx/postEffect.h"
 #include "lighting/basic/basicLightManager.h"
-#include "lighting/shadowMap/shadowMatHook.h"
+#include "core/module.h"
+#include "console/consoleTypes.h"
+#include "lighting/common/shadowMatHook.h"
 #include "materials/materialManager.h"
-#include "lighting/shadowMap/lightShadowMap.h"
 
 
 SimObjectPtr<RenderPassManager> ProjectedShadow::smRenderPass = NULL;
 SimObjectPtr<PostEffect> ProjectedShadow::smShadowFilter = NULL;
 F32 ProjectedShadow::smDepthAdjust = 10.0f;
+
+F32 ProjectedShadow::smShadowTexScalar = 1.0f;
+bool ProjectedShadow::smDisableShadowsPref = false;
+bool ProjectedShadow::smDisableShadowsEditor = false;
+
+AFTER_MODULE_INIT( Sim )
+{
+   Con::addVariable( "$pref::Shadows::textureScalar",
+      TypeF32, &ProjectedShadow::smShadowTexScalar,
+      "@brief Used to scale the shadow texture sizes.\n"
+      "This can reduce the shadow quality and texture memory overhead or increase them.\n" );
+
+   Con::addVariable( "$pref::Shadows::disable",
+      TypeBool, &ProjectedShadow::smDisableShadowsPref,
+      "Used to disable all shadow rendering.\n" );
+
+   Con::addVariable( "$Shadows::disable",
+      TypeBool, &ProjectedShadow::smDisableShadowsEditor,
+      "Used by the editor to disable all shadow rendering.\n" );
+}
 
 float ProjectedShadow::smFadeStartPixelSize = 200.0f;
 float ProjectedShadow::smFadeEndPixelSize = 35.0f;
@@ -488,7 +509,7 @@ void ProjectedShadow::_renderToTexture( F32 camDist, const TSRenderState &rdata 
    // Init or update the shadow texture size.
    if ( mShadowTexture.isNull() || ( data && data->shadowSize != mShadowTexture.getWidth() ) )
    {
-      U32 texSize = getNextPow2( data ? data->shadowSize : 256 * LightShadowMap::smShadowTexScalar );
+      U32 texSize = getNextPow2( data ? data->shadowSize : 256 * ProjectedShadow::smShadowTexScalar );
       mShadowTexture.set( texSize, texSize, GFXFormatR8G8B8A8, &PostFxTargetProfile, "BLShadow" );
    }
 

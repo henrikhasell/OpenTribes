@@ -21,7 +21,7 @@
 //-----------------------------------------------------------------------------
 
 #include "platform/platform.h"
-#include "lighting/shadowMap/shadowMatHook.h"
+#include "lighting/common/shadowMatHook.h"
 
 #include "materials/materialManager.h"
 #include "materials/customMaterialDefinition.h"
@@ -81,7 +81,7 @@ void ShadowMaterialHook::init( BaseMatInstance *inMat )
       // This is a custom material... who knows what it really does, but
       // if it wasn't already filtered out of the shadow render then just
       // give it some default depth out material.
-      shadowMat = MATMGR->getMaterialDefinitionByName( "AL_DefaultShadowMaterial" );
+      shadowMat = MATMGR->getMaterialDefinitionByName( "DefaultShadowMaterial" );
    }
 
    // By default we want to disable some states

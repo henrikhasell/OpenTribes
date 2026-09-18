@@ -28,7 +28,6 @@
 #include "core/stream/bitStream.h"
 #include "sim/netConnection.h"
 #include "lighting/lightManager.h"
-#include "lighting/shadowMap/lightShadowMap.h"
 #include "scene/sceneRenderState.h"
 #include "renderInstance/renderPassManager.h"
 #include "console/engineAPI.h"
@@ -121,11 +120,6 @@ void LightBase::initPersistFields()
    Con::addVariable( "$Light::renderViz", TypeBool, &smRenderViz,
       "Toggles visualization of light object's radius or cone.\n"
 	   "@ingroup Lighting");
-
-   Con::addVariable( "$Light::renderLightFrustums", TypeBool, &LightShadowMap::smDebugRenderFrustums,
-      "Toggles rendering of light frustums when the light is selected in the editor.\n\n"
-      "@note Only works for shadow mapped lights.\n\n"
-      "@ingroup Lighting" );
 }
 
 bool LightBase::onAdd()

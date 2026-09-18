@@ -98,7 +98,6 @@ class SceneRenderState
       bool mUsePostEffects;
 
       /// Disables AdvancedLighting bin draws during rendering with this scene state.
-      bool mDisableAdvancedLightingBins;
 
       /// If true (default) lightmapped meshes should be rendered.
       bool mRenderLightmappedMeshes;
@@ -184,8 +183,6 @@ class SceneRenderState
 
       /// If true then Advanced Lighting bin draws are disabled during rendering with
       /// this scene state.
-      bool disableAdvancedLightingBins() const { return mDisableAdvancedLightingBins; }
-      void disableAdvancedLightingBins(bool enabled) { mDisableAdvancedLightingBins = enabled; }
 
       bool renderLightmappedMeshes() const { return mRenderLightmappedMeshes; }
       void renderLightmappedMeshes( bool enabled ) { mRenderLightmappedMeshes = enabled; }

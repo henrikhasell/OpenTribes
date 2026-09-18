@@ -30,13 +30,13 @@
 #include "lighting/lightInfo.h"
 #include "scene/sceneRenderState.h"
 #include "gfx/gfxDebugEvent.h"
-#include "renderInstance/renderPrePassMgr.h"
 #include "gfx/gfxTransformSaver.h"
 #include "console/consoleTypes.h"
 #include "gfx/util/screenspace.h"
 #include "math/util/matrixSet.h"
 #include "materials/materialManager.h"
 #include "materials/materialFeatureTypes.h"
+#include "materials/sceneData.h"
 
 /*
 GFXImplementVertexFormat( ImposterCorner )
@@ -70,7 +70,6 @@ RenderImposterMgr::RenderImposterMgr( F32 renderOrder, F32 processAddOrder )
    :  RenderBinManager( RIT_Imposter, renderOrder, processAddOrder )
 {
    notifyType( RIT_ImposterBatch );
-   RenderPrePassMgr::getRenderSignal().notify( this, &RenderImposterMgr::_renderPrePass );
 }
 
 void RenderImposterMgr::initPersistFields()
@@ -88,8 +87,6 @@ void RenderImposterMgr::initPersistFields()
 
 RenderImposterMgr::~RenderImposterMgr()
 {
-   RenderPrePassMgr::getRenderSignal().remove( this, &RenderImposterMgr::_renderPrePass );
-
    mIB = NULL;
 }
 
@@ -102,7 +99,7 @@ void RenderImposterMgr::render( SceneRenderState *state )
 
    GFXDEBUGEVENT_SCOPE( RenderImposterMgr_Render, ColorI::RED );
 
-   _innerRender( state, NULL );
+   _innerRender( state );
 }
 
 bool RenderImposterMgr::_clearStats( GFXDevice::GFXDeviceEventType type )
@@ -119,19 +116,7 @@ bool RenderImposterMgr::_clearStats( GFXDevice::GFXDeviceEventType type )
    return true;
 }
 
-void RenderImposterMgr::_renderPrePass( const SceneRenderState *state, RenderPrePassMgr *prePassBin, bool startPrePass )
-{
-   PROFILE_SCOPE( RenderImposterMgr_RenderPrePass );
-
-   if ( !mElementList.size() || !startPrePass )
-      return;
-
-   GFXDEBUGEVENT_SCOPE( RenderImposterMgr_RenderPrePass, ColorI::RED );
-
-   _innerRender( state, prePassBin );
-}
-
-void RenderImposterMgr::_innerRender( const SceneRenderState *state, RenderPrePassMgr *prePassBin )
+void RenderImposterMgr::_innerRender( const SceneRenderState *state )
 {
    PROFILE_SCOPE( RenderImposterMgr_InnerRender );
 
@@ -219,7 +204,7 @@ void RenderImposterMgr::_innerRender( const SceneRenderState *state, RenderPrePa
    // list changes.
 
    SceneData sgData;
-   sgData.init( state, prePassBin ? SceneData::PrePassBin : SceneData::RegularBin );
+   sgData.init( state, SceneData::RegularBin );
    sgData.lights[0] = LIGHTMGR->getDefaultLight();
 
    // TODO: I should rework this loop to generate the VB first then
@@ -232,7 +217,7 @@ void RenderImposterMgr::_innerRender( const SceneRenderState *state, RenderPrePa
    for ( U32 i=0; i < binSize; )
    {
       currMat = static_cast<ImposterBaseRenderInst*>( mElementList[i].inst )->mat;      
-      setupMat = prePassBin ? prePassBin->getPrePassMaterial( currMat ) : currMat;
+      setupMat = currMat;
 
       // TODO: Fix MatInstance to take a const SceneRenderState!
       while ( setupMat->setupPass( (SceneRenderState*)state, sgData ) )

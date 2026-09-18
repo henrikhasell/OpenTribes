@@ -24,8 +24,7 @@
 #include "lighting/basic/basicSceneObjectLightingPlugin.h"
 
 #include "lighting/lightManager.h"
-#include "lighting/shadowMap/shadowMapPass.h"
-#include "lighting/shadowMap/shadowMapManager.h"
+#include "lighting/common/projectedShadow.h"
 #include "lighting/common/projectedShadow.h"
 #include "T3D/shapeBase.h"
 #include "gfx/gfxDevice.h"
@@ -132,14 +131,12 @@ BasicSceneObjectPluginFactory::BasicSceneObjectPluginFactory()
 {
    LightManager::smActivateSignal.notify( this, &BasicSceneObjectPluginFactory::_onLMActivate );
 
-   ShadowMapManager::smShadowDeactivateSignal.notify( this, &BasicSceneObjectPluginFactory::_setEnabled );
 }
 
 BasicSceneObjectPluginFactory::~BasicSceneObjectPluginFactory()
 {
    LightManager::smActivateSignal.remove( this, &BasicSceneObjectPluginFactory::_onLMActivate );
 
-   ShadowMapManager::smShadowDeactivateSignal.remove( this, &BasicSceneObjectPluginFactory::_setEnabled );
 }
 
 void BasicSceneObjectPluginFactory::_onLMActivate( const char *lm, bool enable )
@@ -157,7 +154,7 @@ void BasicSceneObjectPluginFactory::_setEnabled()
       enable = true;
    
    // Disabled if all shadows are explictly disabled.
-   if ( ShadowMapPass::smDisableShadows )
+   if ( ProjectedShadow::disableShadows() )
       enable = false;
 
    // Already at the desired state.

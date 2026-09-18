@@ -22,7 +22,6 @@
 
 #include "platform/platform.h"
 #include "renderInstance/renderParticleMgr.h"
-#include "renderInstance/renderPrePassMgr.h"
 #include "scene/sceneManager.h"
 #include "scene/sceneObject.h"
 #include "scene/sceneRenderState.h"
@@ -576,28 +575,9 @@ void RenderParticleMgr::_onLMActivate( const char*, bool activate )
    if ( !rpm )
       return;
 
-   // Hunt for the pre-pass manager/target
-   RenderPrePassMgr *prePassBin = NULL;
-   for( U32 i = 0; i < rpm->getManagerCount(); i++ )
-   {
-      RenderBinManager *bin = rpm->getManager(i);
-      if( bin->getRenderInstType() == RenderPrePassMgr::RIT_PrePass )
-      {
-         prePassBin = (RenderPrePassMgr*)bin;
-         break;
-      }
-   }
-
-   // If we found the prepass bin, set this bin to render very shortly afterwards
-   // and re-add this render-manager. If there is no pre-pass bin, or it doesn't
-   // have a depth-texture, we can't render offscreen.
-   mOffscreenRenderEnabled = prePassBin && (prePassBin->getTargetChainLength() > 0);
-   if(mOffscreenRenderEnabled)
-   {
-      rpm->removeManager(this);
-      setRenderOrder( prePassBin->getRenderOrder() + 0.011f );
-      rpm->addManager(this);
-   }
+   // Offscreen particle rendering needs the depth the pre-pass used to
+   // supply, so it goes with it.
+   mOffscreenRenderEnabled = false;
 
    // Find the targets we use
    mPrepassTarget = NamedTexTarget::find( "prepass" );

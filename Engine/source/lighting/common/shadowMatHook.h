@@ -20,21 +20,60 @@
 // IN THE SOFTWARE.
 //-----------------------------------------------------------------------------
 
-#ifndef _DUALPARABOLOIDLIGHTSHADOWMAP_H_
-#define _DUALPARABOLOIDLIGHTSHADOWMAP_H_
+#ifndef _SHADOWMATHOOK_H_
+#define _SHADOWMATHOOK_H_
 
-#ifndef _PARABOLOIDLIGHTSHADOWMAP_H_
-#include "lighting/shadowMap/paraboloidLightShadowMap.h"
+#ifndef _MATINSTANCEHOOK_H_
+#include "materials/matInstanceHook.h"
+#endif
+#ifndef _MATINSTANCE_H_
+#include "materials/matInstance.h"
 #endif
 
-class DualParaboloidLightShadowMap : public ParaboloidLightShadowMap
+#ifndef _SHADOW_COMMON_H_
+#include "lighting/common/shadowCommon.h"
+#endif
+
+class ShadowMatInstance : public MatInstance
 {
-   typedef ParaboloidLightShadowMap Parent;
+   typedef MatInstance Parent;
 
+   bool mLightmappedMaterial;
 public:
-   DualParaboloidLightShadowMap( LightInfo *light );
+   ShadowMatInstance( Material *mat );
+   virtual ~ShadowMatInstance() {}
 
-   virtual void _render( RenderPassManager* renderPass, const SceneRenderState *diffuseState );
+   virtual bool setupPass( SceneRenderState *state, const SceneData &sgData );
 };
 
-#endif // _DUALPARABOLOIDLIGHTSHADOWMAP_H_
+class ShadowMaterialHook : public MatInstanceHook
+{
+public:
+
+   ShadowMaterialHook();
+
+   // MatInstanceHook
+   virtual ~ShadowMaterialHook();
+   virtual const MatInstanceHookType& getType() const { return Type; }
+
+   /// The material hook type.
+   static const MatInstanceHookType Type;
+
+   BaseMatInstance* getShadowMat( ShadowType type ) const;
+
+   void init( BaseMatInstance *mat );
+
+protected:
+
+   static void _overrideFeatures(   ProcessedMaterial *mat,
+                                    U32 stageNum,
+                                    MaterialFeatureData &fd, 
+                                    const FeatureSet &features );
+
+   /// 
+   BaseMatInstance* mShadowMat[ShadowType_Count];
+
+
+};
+
+#endif // _SHADOWMATHOOK_H_

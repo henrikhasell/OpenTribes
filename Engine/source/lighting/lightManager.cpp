@@ -36,7 +36,6 @@
 #include "T3D/gameBase/gameConnection.h"
 #include "gfx/gfxStringEnumTranslate.h"
 #include "console/engineAPI.h"
-#include "renderInstance/renderPrePassMgr.h"
 
 
 Signal<void(const char*,bool)> LightManager::smActivateSignal;
@@ -423,21 +422,6 @@ bool LightManager::lightScene( const char* callback, const char* param )
    // once the lighting process is complete.   
    SceneLighting* sl = new SceneLighting( getSceneLightingInterface() );
    return sl->lightScene( callback, flags );
-}
-
-RenderPrePassMgr* LightManager::_findPrePassRenderBin()
-{
-   RenderPassManager* rpm = getSceneManager()->getDefaultRenderPass();
-   for( U32 i = 0; i < rpm->getManagerCount(); i++ )
-   {
-      RenderBinManager *bin = rpm->getManager( i );
-      if( bin->getRenderInstType() == RenderPrePassMgr::RIT_PrePass )
-      {
-         return ( RenderPrePassMgr* ) bin;
-      }
-   }
-
-   return NULL;
 }
 
 DefineEngineFunction( setLightManager, bool, ( const char *name ),,

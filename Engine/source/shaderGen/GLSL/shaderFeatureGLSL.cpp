@@ -32,7 +32,6 @@
 #include "materials/materialFeatureTypes.h"
 #include "core/util/autoPtr.h"
 
-#include "lighting/advanced/advancedLightBinManager.h"
 
 LangElement * ShaderFeatureGLSL::setupTexSpaceMat( Vector<ShaderComponent*> &, // componentList
                                                    Var **texSpaceMat )
@@ -988,9 +987,6 @@ void LightmapFeatGLSL::processPix(  Vector<ShaderComponent*> &componentList,
       {
          // Find out if RTLighting should be added or substituted
          bool bPreProcessedLighting = false;
-         AdvancedLightBinManager *lightBin;
-         if ( Sim::findObject( "AL_LightBinMgr", lightBin ) )
-            bPreProcessedLighting = lightBin->MRTLightmapsDuringPrePass();
 
          // Lightmap has already been included in the advanced light bin, so
          // no need to do any sampling or anything
@@ -1104,9 +1100,6 @@ void TonemapFeatGLSL::processPix(  Vector<ShaderComponent*> &componentList,
 
    // Find out if RTLighting should be added
    bool bPreProcessedLighting = false;
-   AdvancedLightBinManager *lightBin;
-   if ( Sim::findObject( "AL_LightBinMgr", lightBin ) )
-      bPreProcessedLighting = lightBin->MRTLightmapsDuringPrePass();
    
    // Add in the realtime lighting contribution
    if ( fd.features[MFT_RTLighting] )
@@ -1255,9 +1248,6 @@ void VertLitGLSL::processPix(   Vector<ShaderComponent*> &componentList,
       {
          // Find out if RTLighting should be added or substituted
          bool bPreProcessedLighting = false;
-         AdvancedLightBinManager *lightBin;
-         if ( Sim::findObject( "AL_LightBinMgr", lightBin ) )
-            bPreProcessedLighting = lightBin->MRTLightmapsDuringPrePass();
          
          // Assign value in d_lightcolor to toneMapColor if it exists. This is
          // the dynamic light buffer, and it already has the baked-vertex-color 

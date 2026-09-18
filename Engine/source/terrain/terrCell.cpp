@@ -1059,10 +1059,6 @@ void TerrCell::preloadMaterials()
    {
       TerrainCellMaterial *material = getMaterial();
       material->getReflectMat();
-
-      if (  GFX->getPixelShaderVersion() > 2.0f && 
-            dStrcmp( LIGHTMGR->getId(), "BLM" ) != 0)
-         material->getPrePassMat();
    }
 
    for ( U32 i = 0; i < 4; i++ )

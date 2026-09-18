@@ -353,7 +353,7 @@ void TerrainBlock::_renderBlock( SceneRenderState *state )
    if ( !mBaseMaterial )
    {
       mBaseMaterial = new TerrainCellMaterial();
-      mBaseMaterial->init( this, 0, false, false, true );
+      mBaseMaterial->init( this, 0, false, true );
    }
 
    // Did the detail layers change?

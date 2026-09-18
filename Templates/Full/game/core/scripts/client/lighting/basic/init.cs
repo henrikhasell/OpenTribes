@@ -91,3 +91,27 @@ function setBasicLighting()
 {
    setLightManager( "Basic Lighting" );   
 }
+
+/// This material is used for generating shadow
+/// materials for objects that do not have materials.
+new Material( DefaultShadowMaterial )
+{
+   // We need something in the first pass else it
+   // won't create a proper material instance.
+   //
+   // We use color here because some objects may not
+   // have texture coords in their vertex format...
+   // for example like terrain.
+   //
+   diffuseColor[0] = "1 1 1 1";
+
+   // This is here mostly for terrain which uses
+   // this material to create its shadow material.
+   //
+   // At sunset/sunrise the sun is looking thru
+   // backsides of the terrain which often are not
+   // closed.  By changing the material to be double
+   // sided we avoid holes in the shadowed geometry.
+   //
+   doubleSided = true;
+};

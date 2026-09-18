@@ -362,80 +362,42 @@ so it is most likely a destruction-order problem among the statically owned sing
 The practical cost is that every automated run looks like a failure, which will hide real
 crashes in Phases 6 and 7. Worth fixing before them for that reason alone.
 
-### Advanced Lighting
+### Advanced Lighting has been removed
 
-This is what blocks SSAO, depth of field and light rays, and it is worth being precise about
-why, because the obvious reading is wrong.
+The deferred path is gone from this branch. `lighting/advanced/`, `lighting/shadowMap/` and
+`renderInstance/renderPrePassMgr.*` are deleted, along with the Advanced Lighting scripts and
+shaders and the GLSL shadergen features that only served them. Basic Lighting is the only
+light manager, and `$lightManager::defaults` names it alone.
 
-**Those three effects are not missing a port.** Their GLSL compiles. They ask for the
-`#prepass` named target, which only `RenderPrePassMgr` registers
-(`renderPrePassMgr.cpp:92`). Basic Lighting *can* create that bin, and the code that would is
-commented out — in this tree and, byte for byte, in the master branch too:
+It was ported far enough to draw a correct frame, but not far enough to trust, and every hour
+spent on it was an hour not spent on the rest of the port. The history is on
+`migration/phase-9-shaders` if any of it is ever wanted back.
 
-```cpp
-/*
-// If you would like to use forward shading, and have a linear depth pre-pass
-// than un-comment this code block.
-if ( !prePassBin ) { ... }
-*/
-```
+Two things had to survive the cut because Basic Lighting's projected (blob) shadows use them:
+`shadowMatHook.{cpp,h}` and `shadowCommon.h`, both moved to `lighting/common/`. The two
+prefs that lived on the deleted classes moved with them, onto `ProjectedShadow`:
 
-So master does not implement these effects differently. They are deferred-only there as well;
-master simply has a working deferred path. Anyone looking to master for a different technique
-will not find one.
+- `$pref::Shadows::textureScalar` → `ProjectedShadow::smShadowTexScalar`
+- `$pref::Shadows::disable`, `$Shadows::disable` → `ProjectedShadow::smDisableShadowsPref`
+  and `smDisableShadowsEditor`, read through `ProjectedShadow::disableShadows()`
 
-**The deferred path now works.** `AdvancedLightManager::isCompatible` requires pixel shader
-3.0 (master also checks `R16F` render target support). The GL device reported 2.0 until Phase
-9 raised it, so the deferred path could never be selected. Four bugs stood between that and a
-correct frame, all of them in GL-only code that the 2012 tree shipped half finished and that
-the D3D9 sibling next to it gets right:
+`AL_DefaultShadowMaterial` is referenced from C++ by both the material hook and
+`TerrainCellMaterial::getShadowMat`, so it moved to the Basic Lighting init script and lost
+its now-meaningless prefix: it is `DefaultShadowMaterial`.
 
-- **`gTapRotationTex` had no texture unit.** `softShadow.glsl` declares it and the HLSL pins
-  it to `register(S3)`, but the Advanced Lighting `ShaderData` blocks never listed it in
-  `samplerNames` — the only thing that assigns a unit in GL. The handle reported register -1,
-  which `ProcessedCustomMaterial` passed to `GFXDevice::setTexture`, whose only bounds check
-  is an `AssertFatal` that compiles out in release. That was the segfault.
-- **`DeferredRTLightingFeatGLSL` named its screen-space uniform `renderTargetParams`.**
-  Nothing in the engine sets that name; it sets `$rtParams<N>`, indexed by the material's
-  texture slot. `DeferredRTLightingFeatHLSL` keeps that index in `mLastTexIndex` and builds
-  the name from it; the GLSL copy hardcoded a literal instead, so the uniform stayed zero and
-  every sample of the light buffer collapsed to uv (0,0). The same feature also dropped the
-  `uv.y = 1 - uv.y` line its HLSL sibling and master both have.
-- **`DeferredBumpFeatGLSL::processPix` dropped `&& !fd.features[MFT_SpecularMap]`** from the
-  condition its `setTexData` still carries. A material with both a specular and a normal map
-  therefore declared a `bumpMap` sampler that nothing bound, and every sampler after it —
-  `lightInfoBuffer` included — was off by one. Terrain lit correctly, shapes did not.
-- **`getUVFromSSPos` in `farFrustumQuad.glsl` had its Y flip commented out**, and in the wrong
-  position relative to the rtParams scale. The HLSL beside it and master's GLSL both flip
-  before scaling.
+**What went with it.** `RenderPrePassMgr` was the only thing that registered the `#prepass`
+named target, so every effect that read it is gone too: SSAO, depth of field, edge AA, MLAA,
+light rays, and the depth-based fog and underwater fog. None of them worked with Advanced
+Lighting gated off anyway — the Basic Lighting prepass bin has always been commented out, in
+this tree and in master — so nothing that functioned was lost. Gamma, FXAA, chromatic
+aberration, HDR, glow and flash are untouched and still work.
 
-With those fixed the deferred path renders a frame indistinguishable from Basic Lighting, and
-`isCompatible` no longer refuses.
+Water and HDR still declare a `prepassTex` sampler. Those slots stay: the register numbering
+has to match the HLSL beside them, and dropping one silently renumbers every sampler after
+it. A named target that does not exist simply binds nothing.
 
-Three more bugs stood between that and correct output, found the same way:
-
-- **The vector light computed specular with the wrong eye ray.** `normal` and
-  `lightDirection` reach the shader in view space (`setLightParameters` runs the direction
-  through the world-to-camera matrix), so the view vector must be too. `vectorLightP.hlsl`
-  passes `IN.vsEyeRay` and master's GLSL does the same, but this branch's GLSL never
-  interpolated `vsEyeRay` at all and handed `wsEyeRay` to `calcSpecular`. The far-frustum
-  quad already carries the view-space corner in its normal element, so the fix is to read it.
-  This is what made terrain brightness swing as the camera turned.
-- **`DeferredBumpFeatGLSL` wrote world-space normals into the G-buffer.** It built its own
-  `worldToTangent` matrix and passed it through three loose `vec3` connectors, where the
-  terrain features, the HLSL sibling and master's GLSL all use the shared
-  `getOutViewToTangent`/`getInViewToTangent` pair. Shapes and terrain therefore disagreed
-  about which space the prepass normals were in.
-- **The PSSM lookup was inert.** The GLSL shadow block was written against a newer PSSM
-  interface: it selected the split from `splitDistStart`, `splitDistEnd` and `splitFade`,
-  three uniforms nothing in this engine sets. With all three zero `finalMask` came out zero
-  for every pixel, collapsing the sample to one fixed texel. `vectorLightP.hlsl` and master's
-  GLSL both select the split by testing the computed shadow coordinate against -0.99..0.99,
-  using the `scaleX`/`offsetX`/`atlasXOffset`/`farPlaneScalePSSM` set that
-  `LightingShaderConstants` actually binds. The same block also had
-  `shadowCoord.y = 1.0 - shadowCoord.y` commented out, which the HLSL and master both apply.
-
-Terrain and shapes now cast and receive PSSM shadows.
+The other templates (`Empty`, `Full PhysX`, `Empty PhysX`) are untouched. Nothing in this
+port builds or ships them.
 
 ### Shaders still ask for the compatibility profile
 

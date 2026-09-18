@@ -399,11 +399,6 @@ function turnOffZoom()
    setFov(ServerConnection.getControlCameraDefaultFov());
    Reticle.setVisible(true);
    zoomReticle.setVisible(false);
-
-   // Rather than just disable the DOF effect, we want to set it to the level's
-   // preset values.
-   //DOFPostEffect.disable();
-   ppOptionsUpdateDOFSettings();
 }
 
 function setZoomFOV(%val)
@@ -420,10 +415,6 @@ function toggleZoom(%val)
       setFov($Player::CurrentFOV);
       Reticle.setVisible(false);
       zoomReticle.setVisible(true);
-
-      DOFPostEffect.setAutoFocus( true );
-      DOFPostEffect.setFocusParams( 0.5, 0.5, 50, 500, -5, 5 );
-      DOFPostEffect.enable();
    }
    else
    {

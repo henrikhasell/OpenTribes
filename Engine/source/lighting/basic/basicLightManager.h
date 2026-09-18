@@ -41,7 +41,6 @@
 
 class AvailableSLInterfaces;
 class GFXShaderConstHandle;
-class RenderPrePassMgr;
 class PlatformTimer;
 
 class blInteriorSystem;
@@ -78,7 +77,6 @@ protected:
    BasicLightManager();
    virtual ~BasicLightManager();
 
-   SimObjectPtr<RenderPrePassMgr> mPrePassRenderBin;
 
    struct LightingShaderConstants
    {

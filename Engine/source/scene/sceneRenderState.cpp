@@ -42,7 +42,6 @@ SceneRenderState::SceneRenderState( SceneManager* sceneManager,
       mRenderNonLightmappedMeshes( true ),
       mRenderLightmappedMeshes( true ),
       mUsePostEffects( usePostEffects ),
-      mDisableAdvancedLightingBins( false ),
       mRenderArea( view.getFrustum().getBounds() ),
       mAmbientLightColor( sceneManager->getAmbientLightColor() )
 {

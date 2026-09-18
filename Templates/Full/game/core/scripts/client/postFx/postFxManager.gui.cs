@@ -71,29 +71,12 @@ function PostFXManager::getEnableResultFromControl(%this, %control)
    return %toEnable;
 }
 
-function ppOptionsEnableSSAO::onAction(%this)
-{
-   %toEnable = PostFXManager.getEnableResultFromControl(%this);
-   PostFXManager.settingsEffectSetEnabled("SSAO", %toEnable);
-}
-
 function ppOptionsEnableHDR::onAction(%this)
 {
    %toEnable = PostFXManager.getEnableResultFromControl(%this);
    PostFXManager.settingsEffectSetEnabled("HDR", %toEnable);
 }
 
-function ppOptionsEnableLightRays::onAction(%this)
-{
-   %toEnable = PostFXManager.getEnableResultFromControl(%this);
-   PostFXManager.settingsEffectSetEnabled("LightRays", %toEnable);
-}
-
-function ppOptionsEnableDOF::onAction(%this)
-{ 
-   %toEnable = PostFXManager.getEnableResultFromControl(%this);
-   PostFXManager.settingsEffectSetEnabled("DOF", %toEnable);
-}
  
 function ppOptionsSavePreset::onClick(%this)
 {
@@ -107,103 +90,9 @@ function ppOptionsLoadPreset::onClick(%this)
 
 
 //Other controls, Quality dropdown
-function ppOptionsSSAOQuality::onSelect( %this, %id, %text )
-{
-   if(%id > -1 && %id < 3)
-   {
-      $SSAOPostFx::quality = %id;
-   }
-}
-
-//SSAO Slider controls
 //General Tab
-function ppOptionsSSAOOverallStrength::onMouseDragged(%this)
-{
-   $SSAOPostFx::overallStrength = %this.value;
-   %this.ToolTip = "Value : " @ %this.value;
-}
-
-function ppOptionsSSAOBlurDepth::onMouseDragged(%this)
-{
-   $SSAOPostFx::blurDepthTol = %this.value;
-   %this.ToolTip = "Value : " @ %this.value;
-}
-
-function ppOptionsSSAOBlurNormal::onMouseDragged(%this)
-{
-   $SSAOPostFx::blurNormalTol = %this.value;
-   %this.ToolTip = "Value : " @ %this.value;
-}
-
 //Near Tab
-function ppOptionsSSAONearRadius::onMouseDragged(%this)
-{
-   $SSAOPostFx::sRadius = %this.value;
-   %this.ToolTip = "Value : " @ %this.value;
-}
-
-function ppOptionsSSAONearStrength::onMouseDragged(%this)
-{
-   $SSAOPostFx::sStrength = %this.value;
-   %this.ToolTip = "Value : " @ %this.value;
-}
-
-function ppOptionsSSAONearDepthMin::onMouseDragged(%this)
-{
-   $SSAOPostFx::sDepthMin = %this.value;
-   %this.ToolTip = "Value : " @ %this.value;
-}
-
-function ppOptionsSSAONearDepthMax::onMouseDragged(%this)
-{
-   $SSAOPostFx::sDepthMax = %this.value;
-   %this.ToolTip = "Value : " @ %this.value;   
-}
-
-function ppOptionsSSAONearToleranceNormal::onMouseDragged(%this)
-{
-   $SSAOPostFx::sNormalTol = %this.value;
-   %this.ToolTip = "Value : " @ %this.value;
-}
-
-function ppOptionsSSAONearTolerancePower::onMouseDragged(%this)
-{
-   $SSAOPostFx::sNormalPow = %this.value;
-   %this.ToolTip = "Value : " @ %this.value;
-}
-
 //Far Tab
-function ppOptionsSSAOFarRadius::onMouseDragged(%this)
-{
-   $SSAOPostFx::lRadius = %this.value;
-   %this.ToolTip = "Value : " @ %this.value;
-}
-function ppOptionsSSAOFarStrength::onMouseDragged(%this)
-{
-   $SSAOPostFx::lStrength = %this.value;
-   %this.ToolTip = "Value : " @ %this.value;
-}
-function ppOptionsSSAOFarDepthMin::onMouseDragged(%this)
-{
-   $SSAOPostFx::lDepthMin = %this.value;
-   %this.ToolTip = "Value : " @ %this.value;
-}
-function ppOptionsSSAOFarDepthMax::onMouseDragged(%this)
-{
-   $SSAOPostFx::lDepthMax = %this.value;
-   %this.ToolTip = "Value : " @ %this.value;
-}
-function ppOptionsSSAOFarToleranceNormal::onMouseDragged(%this)
-{
-   $SSAOPostFx::lNormalTol = %this.value;
-   %this.ToolTip = "Value : " @ %this.value;
-}
-function ppOptionsSSAOFarTolerancePower::onMouseDragged(%this)
-{
-   $SSAOPostFx::lNormalPow = %this.value;
-   %this.ToolTip = "Value : " @ %this.value;
-}
-
 //HDR Slider Controls
 //Brighness tab
 
@@ -296,81 +185,6 @@ function ppOptionsHDREffectsBlueShiftColorBaseColor::onAction(%this)
 
 
 //Light rays Slider Controls
-function ppOptionsLightRaysBrightScalar::onMouseDragged(%this)
-{
-   $LightRayPostFX::brightScalar = %this.value;
-   %this.ToolTip = "Value : " @ %this.value;
-}
-
-function ppOptionsUpdateDOFSettings()
-{
-   DOFPostEffect.setFocusParams( $DOFPostFx::BlurMin, $DOFPostFx::BlurMax, $DOFPostFx::FocusRangeMin, $DOFPostFx::FocusRangeMax, -($DOFPostFx::BlurCurveNear), $DOFPostFx::BlurCurveFar );
-   
-   DOFPostEffect.setAutoFocus( $DOFPostFx::EnableAutoFocus );
-   DOFPostEffect.setFocalDist(0);
-   
-   if($PostFXManager::PostFX::EnableDOF)
-   {
-      DOFPostEffect.enable();
-   }
-   else
-   {
-      DOFPostEffect.disable();
-   }
-}
-
-//DOF General Tab
-//DOF Toggles
-function ppOptionsDOFEnableDOF::onAction(%this)
-{
-   $PostFXManager::PostFX::EnableDOF = %this.getValue();
-   ppOptionsUpdateDOFSettings();
-}
-
-
-function ppOptionsDOFEnableAutoFocus::onAction(%this)
-{
-   $DOFPostFx::EnableAutoFocus = %this.getValue();
-   DOFPostEffect.setAutoFocus( %this.getValue() );
-}
-
-//DOF AutoFocus Slider controls
-function ppOptionsDOFFarBlurMinSlider::onMouseDragged(%this)
-{
-   $DOFPostFx::BlurMin = %this.value;
-   ppOptionsUpdateDOFSettings();
-}
-
-function ppOptionsDOFFarBlurMaxSlider::onMouseDragged(%this)
-{
-   $DOFPostFx::BlurMax = %this.value;
-   ppOptionsUpdateDOFSettings();
-}
-
-function ppOptionsDOFFocusRangeMinSlider::onMouseDragged(%this)
-{
-   $DOFPostFx::FocusRangeMin = %this.value;
-   ppOptionsUpdateDOFSettings();   
-}
-
-function ppOptionsDOFFocusRangeMaxSlider::onMouseDragged(%this)
-{
-   $DOFPostFx::FocusRangeMax = %this.value;
-   ppOptionsUpdateDOFSettings();   
-}
-
-function ppOptionsDOFBlurCurveNearSlider::onMouseDragged(%this)
-{
-   $DOFPostFx::BlurCurveNear = %this.value;
-   ppOptionsUpdateDOFSettings();
-}
-
-function ppOptionsDOFBlurCurveFarSlider::onMouseDragged(%this)
-{
-   $DOFPostFx::BlurCurveFar = %this.value;
-   ppOptionsUpdateDOFSettings();   
-}
-
 function ppOptionsEnableHDRDebug::onAction(%this)
 {
    if ( %this.getValue() )

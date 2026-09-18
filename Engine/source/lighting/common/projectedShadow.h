@@ -112,6 +112,17 @@ public:
    static float smFadeStartPixelSize;
    static float smFadeEndPixelSize;
 
+   /// Scales the texture a shadow is rendered into.
+   /// Bound to $pref::Shadows::textureScalar.
+   static F32 smShadowTexScalar;
+
+   /// Set from $pref::Shadows::disable and, for the editor,
+   /// $Shadows::disable.  Either one turns shadows off.
+   static bool smDisableShadowsPref;
+   static bool smDisableShadowsEditor;
+
+   static bool disableShadows() { return smDisableShadowsPref || smDisableShadowsEditor; }
+
    ProjectedShadow( SceneObject *object );
    virtual ~ProjectedShadow();
 
