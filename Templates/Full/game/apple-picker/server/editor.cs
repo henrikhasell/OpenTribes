@@ -22,41 +22,28 @@ function StaticShapeData::create(%data)
 
 
 //-----------------------------------------------------------------------------
-// Declare two marker objects used to place waypoints
-
-datablock MissionMarkerData(WayPointMarker)
-{
-   category = "Misc";
-   shapeFile = "~/data/shapes/markers/octahedron.dts";
-};
-
-datablock MissionMarkerData(SpawnSphereMarker)
-{
-   category = "Misc";
-   shapeFile = "~/data/shapes/markers/octahedron.dts";
-};
-
-function MissionMarkerData::create(%block)
-{
-   switch$(%block)
-   {
-      case "WayPointMarker":
-         %obj = new WayPoint() {
-            dataBlock = %block;
-         };
-         return(%obj);
-      case "SpawnSphereMarker":
-         %obj = new SpawnSphere() {
-            datablock = %block;
-         };
-         return(%obj);
-   }
-   return(-1);
-}
-
+// The two marker datablocks this file used to declare -- WayPointMarker and
+// SpawnSphereMarker, both pointing at data/shapes/markers/octahedron.dts -- are
+// gone, and so is that shape.  It is a DTS version 18 file and this engine
+// rejects anything below 19 (ts/tsShape.cpp:1549), so both datablocks failed to
+// preload, and with SpawnSphereMarker missing the SpawnSphere in orchard.mis
+// then failed to register and the game spawned at the origin.
+//
+// core/art/datablocks/markers.cs declares both under the same names against
+// core/art/shapes/octahedron.dts, which is the same octahedron at version 24,
+// and createServer() execs it before onServerCreated() gets here.
+//
+// MissionMarkerData::create() went with them: core does not define it, but it
+// is only called by the editor's Library pane, which -game does not load.
 
 //-----------------------------------------------------------------------------
-// Misc. server commands used for editing
+// Misc. server commands used for editing.
+//
+// core/scripts/server/commands.cs defines all three of these as well, but each
+// of its versions ends in clientCmdSyncEditorGui(), which lives in the tools
+// directory that `-game apple-picker` does not load -- so every camera toggle
+// would log an "Unable to find function".  These are exec'd from
+// onServerCreated(), after initBaseServer(), so they win.
 //-----------------------------------------------------------------------------
 
 function serverCmdToggleCamera(%client)

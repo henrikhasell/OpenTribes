@@ -6,10 +6,10 @@ function initServer()
 {
    echo("\n--------- Initializing MOD: apple-picker: Server ---------");
 
-   // The common module provides the basic server functionality.
+   // The core module provides the basic server functionality.
    initBaseServer();
 
-   // Must come after initBaseServer(): it overrides common/server/game.cs.
+   // Must come after initBaseServer(): it overrides core/scripts/server/game.cs.
    //
    // Only function definitions are exec'd here.  The datablock-bearing scripts
    // (camera.cs, player.cs, editor.cs) are exec'd from onServerCreated()

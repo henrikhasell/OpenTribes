@@ -1,15 +1,15 @@
 //-----------------------------------------------------------------------------
 // The game: five apples on the plain, and a victory box on the fifth.
 //
-// An ItemData, not the StaticShapeData that tutorial.base's logoitem.cs used
-// for this same shape, and that is the whole point: only ItemObjectType is in
-// sServerCollisionContactMask (game/player.cc:92), so only an Item gets a
-// walk-over collision out of Player::findContact.  A StaticShape would just be
-// scenery you bump into.
+// An ItemData, not a StaticShapeData, and that is the whole point: only
+// ItemObjectType is in sServerCollisionContactMask (T3D/player.cpp:111-112), so
+// only an Item gets a walk-over collision out of Player::findContact.  A
+// StaticShape would just be scenery you bump into.
 //
-// Modelled on starter.fps's HealthPatch (server/scripts/health.cs:49-76): the
-// same maxInventory = 0 walk-over patch, with no inventory system behind it.
-// Nothing here calls incInventory, so none of inventory.cs is needed.
+// Modelled on the stock HealthPatch: the same maxInventory = 0 walk-over patch,
+// with no inventory system behind it.  Nothing here calls incInventory, so none
+// of inventory.cs is needed -- which is just as well, since the "scripts"
+// directory it lives in is not loaded under `-game apple-picker`.
 //
 // Three hooks, all through the package, so this file plus its one exec line in
 // server/init.cs is the whole feature -- the same shape as animation-test's
@@ -19,7 +19,7 @@
 //                                and not at init time -- every destroyServer()
 //                                ends in deleteDataBlocks().  A `datablock`
 //                                declaration is an ordinary statement in the
-//                                grammar (console/CMDgram.y:181), so it is legal
+//                                grammar (console/CMDgram.y), so it is legal
 //                                inside a function.
 //   onMissionLoaded              places the apples, once MissionGroup and
 //                                MissionCleanup exist and the Terrain is up for
@@ -28,7 +28,7 @@
 //                                HUD is right from its first frame.
 //
 // Re-exec is harmless: activatePackage returns early if the package is already
-// active (console/consoleInternal.cc:955).
+// active (console/consoleInternal.cpp).
 //-----------------------------------------------------------------------------
 
 // Where the apples go, as mission x/y.  Z comes from the terrain, so this works
@@ -46,12 +46,12 @@ $ApplePicker::spawnCount = 5;
 // player.  0.6 brings it down to something you pick up rather than walk into.
 //
 // The height matters more than it looks.  Pickup is
-// getWorldBox().isOverlapped(item->getWorldBox()) (game/player.cc:2786) against
+// getWorldBox().isOverlapped(item->getWorldBox()) (T3D/player.cpp:5066) against
 // the player's OWN collision box, which runs from the feet up:
-// PlayerData::pickupRadius does NOT widen it, despite appearances -- findContact
-// computes an expanded box at player.cc:2742 and then never uses it.  So an
-// apple hovering above head height would be unreachable.  Scale and height are
-// the two knobs; pickupRadius is not one.
+// PlayerData::pickupRadius does NOT widen it, despite appearances -- it is read
+// in Player::findContact and never applied.  So an apple hovering above head
+// height would be unreachable.  Scale and height are the two knobs;
+// pickupRadius is not one.
 $ApplePicker::scale  = "0.6 0.6 0.6";
 $ApplePicker::height = 0.9;
 
@@ -90,8 +90,9 @@ function applePickerRegister()
       // Shows up under "shapes" in the Mission Editor's Creator pane.
       category = "Apple Picker";
 
-      // tutorial.base's own art, copied in with the rest of the mod.  "~"
-      // resolves to the codeblock's mod root, i.e. apple-picker.
+      // "~" resolves to the codeblock's mod root, i.e. apple-picker -- still
+      // how expandScriptFilename() reads a leading tilde in this engine
+      // (console/scriptFilename.cpp:159).
       shapeFile = "~/data/shapes/3dtorquelogo/torque_logo.dts";
 
       mass = 1;
@@ -99,17 +100,19 @@ function applePickerRegister()
       elasticity = 0.3;
 
       // No pickup, no throw -- this is a walk-over patch, and nothing in this
-      // mod has an inventory.  HealthPatch's line.
+      // mod has an inventory.  Neither of these is an ItemData field in this
+      // engine; both land as dynamic fields on the datablock, which is exactly
+      // what the stock inventory scripts read them as.
       maxInventory = 0;
 
       pickupName = "an apple";
    };
 }
 
-// What the Creator pane calls to place one by hand.  Same as starter.fps's
-// (server/scripts/item.cs:118-129): the editor always makes them static and
-// rotating.  Handy for trying positions -- drag one out, read the coordinates
-// off the Inspector, paste them into $ApplePicker::spawn[] above.
+// What the editor's Library pane calls to place one by hand: it always makes
+// them static and rotating.  Handy for trying positions -- drag one out, read
+// the coordinates off the Inspector, paste them into $ApplePicker::spawn[]
+// above.  Only reachable on a tool build with the tools directory loaded.
 function ItemData::create(%data)
 {
    return new Item() {
@@ -140,8 +143,8 @@ function applePickerPlace()
       %y = getWord($ApplePicker::spawn[%i], 1);
       %z = getTerrainHeight(%x SPC %y) + $ApplePicker::height;
 
-      // No rotation field: Item::setTransform (game/item.cc:396-410) throws an
-      // authored rotation away when rotate is true and substitutes the spin.
+      // No rotation field: Item::setTransform throws an authored rotation away
+      // when rotate is true and substitutes the spin.
       %apple = new Item() {
          dataBlock = AppleItem;
          position  = %x SPC %y SPC %z;
@@ -174,17 +177,17 @@ function applePickerPlace()
 //-----------------------------------------------------------------------------
 // Walk-over pickup.
 //
-// ShapeBase::notifyCollision (game/shapeBase.cc:2803-2827) calls onCollision on
+// ShapeBase::notifyCollision (T3D/shapeBase.cpp:2984-3008) calls onCollision on
 // BOTH datablocks: first the player's with (%obj = player, %col = item), then
 // the item's with (%obj = item, %col = player).  This is the second one.
 //
 // Server side only -- sClientCollisionContactMask has no ItemObjectType -- so
 // there is no ghost firing this a second time.
 //
-// Watch for typos in the name: Con::execute returns "" silently for a missing
-// datablock method (console/console.cc:926-934), so a misspelling here produces
-// no error at all, just apples you walk through.  probe.py's smoke picks all
-// five up for exactly that reason.
+// Watch for typos in the name: the callback is dispatched through
+// ShapeBaseData::onCollision_callback, which is silent when the script method
+// is missing -- so a misspelling here produces no error at all, just apples you
+// walk through.
 
 function AppleItem::onCollision(%this, %obj, %col, %vec, %vecLen)
 {
@@ -202,9 +205,9 @@ function AppleItem::onCollision(%this, %obj, %col, %vec, %vecLen)
    $ApplePicker::picked++;
 
    // Deleting the object inside its own collision callback is the stock path --
-   // ItemData::onPickup does exactly this (starter.fps/server/scripts/item.cs:110)
-   // -- and notifyCollision guards it: it holds a SimObjectPtr, and this
-   // callback is the last thing it does with the item.
+   // ItemData::onPickup does exactly this -- and notifyCollision guards it: it
+   // holds a SimObjectPtr, and this callback is the last thing it does with the
+   // item.
    %obj.delete();
 
    applePickerTellAll();

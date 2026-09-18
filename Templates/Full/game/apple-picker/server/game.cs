@@ -5,8 +5,14 @@
 // server/apple.cs, which hooks this file's callbacks through a package, so that
 // one file plus its exec line is the whole feature.
 //
-// From tutorial.base/server/game.cs, with the spawn point snapped to the ground
-// and the two print-clearing stubs added.
+// From tutorial.base/server/game.cs, with the spawn point snapped to the ground.
+//
+// These are plain redefinitions rather than a package, and initServer() execs
+// this file after initBaseServer(), so each one replaces core's version of the
+// same name in core/scripts/server/game.cs.  What core's onServerCreated does
+// and this one does not is load the editor-managed datablock files out of art/
+// (managed particles, decals, forest items) -- none of which this game has, and
+// none of which are on the resource path under `-game apple-picker` anyway.
 //-----------------------------------------------------------------------------
 
 function onServerCreated()
@@ -30,24 +36,12 @@ function onServerDestroyed()
 
 //-----------------------------------------------------------------------------
 
-function onMissionLoaded()
-{
-   // Defensive: EditTSCtrl::renderMissionArea (editTSCtrl.cc:265) dereferences
-   // Sim::findObject("MissionArea") with no null check whenever a TerrainBlock
-   // named "Terrain" exists, and EditorGui.gui sets renderMissionArea = 1.  If
-   // someone deletes the MissionArea in the editor and saves, every later boot
-   // would segfault on the first editor frame.  Put one back.
-   if (isObject(Terrain) && !isObject(MissionArea))
-   {
-      warn("apple-picker: mission has a Terrain but no MissionArea -- recreating it.");
-      %area = new MissionArea(MissionArea) {
-         area = "-1024 -1024 2048 2048";
-         flightCeiling = "300";
-         flightCeilingRange = "20";
-      };
-      MissionGroup.add(%area);
-   }
-}
+// This used to put a MissionArea back if the mission had lost one, because
+// TGE's EditTSCtrl::renderMissionArea dereferenced it with no null check and
+// segfaulted on the first editor frame without it.  EditTSCtrl here opens with
+// `if ( !obj ) return;` (editTSCtrl.cpp:840), so the hazard is gone and so is
+// the workaround -- and with it the MissionArea in orchard.mis.
+function onMissionLoaded() { }
 
 function onMissionEnded()
 {
@@ -56,13 +50,9 @@ function onMissionEnded()
 
 function onMissionReset() { }
 
-// common/server/missionLoad.cs:23-24 clears on-screen prints at the top of
-// every load.  This mod's HUD is a plain GuiTextCtrl rather than the starter
-// kits' centerPrint dialogs, so these are no-ops -- but they have to exist, or
-// every mission load logs two "Unable to find function" errors.  Stock
-// tutorial.base does exactly that.
-function clearCenterPrintAll() { }
-function clearBottomPrintAll() { }
+// The clearCenterPrintAll/clearBottomPrintAll stubs this file used to carry are
+// gone: core/scripts/server/centerPrint.cs defines both, and initBaseServer()
+// execs it.
 
 
 //-----------------------------------------------------------------------------
@@ -112,7 +102,7 @@ function GameConnection::createPlayer(%this, %spawnPoint)
 
    // Player setup...
    %player.setTransform(%spawnPoint);
-   %player.setShapeName(%this.name);
+   %player.setShapeName(%this.playerName);
 
    // Update the camera to start with the player
    %this.camera.setTransform(%player.getEyeTransform());
@@ -139,14 +129,12 @@ function pickSpawnPoint()
    %x = getWord(%xform, 0);
    %y = getWord(%xform, 1);
 
-   // Snap to the ground rather than trusting the authored z.  Stock flat.mis
-   // drops the player at z = 166 over a terrain that is flat at z = 0, so the
-   // game would open with a silent 166-metre fall.  (It does no damage --
-   // impact damage goes through PlayerData::onImpact and nothing defines one --
-   // but it is not a start, and the apples are out of sight for the whole of it.)
+   // Snap to the ground rather than trusting the authored z, so that editing a
+   // drop point cannot open the game with a silent fall and the apples out of
+   // sight for the whole of it.
    //
    // getTerrainHeight() subtracts the TerrainBlock's x/y offset but does NOT add
-   // its z back (terrain/terrData.cc:1222-1237), so this is only right while the
-   // terrain sits at z = 0.  In this mission it does.
+   // its z back (terrain/terrData.cpp:1300-1302) -- unchanged from TGE -- so this
+   // is only right while the terrain sits at z = 0.  In this mission it does.
    return %x SPC %y SPC (getTerrainHeight(%x SPC %y) + 1) SPC getWords(%xform, 3, 6);
 }

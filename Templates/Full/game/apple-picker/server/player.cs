@@ -3,8 +3,18 @@
 // Copyright (C) GarageGames.com, Inc.
 //-----------------------------------------------------------------------------
 
-// Load dts shapes and merge animations
-datablock TSShapeConstructor(PlayerDts)
+// Load dts shapes and merge animations.
+//
+// `singleton`, not `datablock`: TSShapeConstructor is a plain SimObject here,
+// not a SimDataBlock, so `datablock` fails with "Unable to instantiate
+// non-datablock class".  singleton also makes the re-exec from onServerCreated()
+// (see server/game.cs) a no-op rather than a duplicate object -- which matters
+// because, unlike a datablock, this one is NOT cleared by deleteDataBlocks().
+//
+// The old sequenceN field syntax still works: TSShapeConstructor::_onAdd falls
+// back to scanning for dynamic fields matching "sequence%d" when the shape has
+// no `sequence` fields (ts/tsShapeConstruct.cpp:332-338).
+singleton TSShapeConstructor(PlayerDts)
 {
    baseShape = "~/data/shapes/player/player.dts";
    sequence0 = "~/data/shapes/player/player_root.dsq root";

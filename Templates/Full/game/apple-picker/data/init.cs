@@ -1,10 +1,14 @@
 //-----------------------------------------------------------------------------
 // Content that has to be registered before a mission loads.
 //
-// The material property map is engine-wide and read by TerrainBlock::onAdd, so
-// it has to be filled in before any TerrainBlock is added -- not from
-// onServerCreated with the datablocks.  onStart() execs this on both halves,
-// which is also what the client's ghosted TerrainBlock needs.
+// TerrainMaterial::findOrCreate() is called from TerrainFile::load, i.e. while
+// TerrainBlock::onAdd is reading the .ter, so the terrain's material has to be
+// in the TerrainMaterialSet before any TerrainBlock is added -- not registered
+// from onServerCreated with the datablocks.
+//
+// onStart() execs this once, which in single player covers both halves: the
+// client's ghosted TerrainBlock reads the same .ter and needs the same lookup
+// to resolve.
 //-----------------------------------------------------------------------------
 
-exec("./terrains/propertyMap.cs");
+exec("./terrains/materials.cs");

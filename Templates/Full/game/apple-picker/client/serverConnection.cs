@@ -13,13 +13,14 @@ function onServerMessage(%mesg) { }
 
 
 //-----------------------------------------------------------------------------
-// Start the game.  This is toggleEditor()'s cold-boot branch
-// (creator/editor/editor.cs:92) with the editor left out: stand up a local
-// server on the mission, then connect to it.  initialControlSet() below puts
-// PlayGui on the Canvas once the mission has arrived and there is a camera to
-// look through.
+// Start the game: stand up a local server on the mission, then connect to it.
+// initialControlSet() below puts PlayGui on the Canvas once the mission has
+// arrived and there is a camera to look through.
 //
-// Nothing here needs deferring -- createServer() comes from common/, which
+// This is core's createAndConnectToLocalServer() opened out, so that the
+// loading screen can be raised before createServer() rather than after it.
+//
+// Nothing here needs deferring -- createServer() comes from core/, which
 // initServer() has already exec'd by the time initClient() runs.
 
 function startMission(%mission)
@@ -53,15 +54,19 @@ function GameConnection::initialControlSet(%this)
 
    // This is the end of the loading screen: the mission has ghosted in and
    // there is a control object to look through, so a 3D control can safely
-   // take the Canvas now.  Whichever branch below runs replaces LoadingGui.
+   // take the Canvas now.
    //
    // The editor gets first refusal: if it was opened from a cold boot it set
    // EditorGui.loadingMission before connecting, and checkActiveLoadDone()
-   // then puts EditorGui up instead of PlayGui.  On a normal boot no editor
-   // exists yet and PlayGui wins.
-   if (!Editor::checkActiveLoadDone())
-      if (Canvas.getContent() != PlayGui.getId())
-         Canvas.setContent(PlayGui);
+   // then puts EditorGui up instead of PlayGui.  That function lives in the
+   // tools directory, which -game does not load, so it is not merely absent on
+   // a normal boot but absent every boot unless tools were asked for
+   // explicitly -- hence the isFunction() guard rather than a bare call.
+   if (isMethod("Editor", "checkActiveLoadDone") && Editor::checkActiveLoadDone())
+      return;
+
+   if (Canvas.getContent() != PlayGui.getId())
+      Canvas.setContent(PlayGui);
 }
 
 function GameConnection::setLagIcon(%this, %state) { }
@@ -110,10 +115,12 @@ function disconnect()
 
 function disconnectedCleanup()
 {
-   // Deliberately does NOT touch the Canvas.  toggleEditor() calls disconnect()
-   // on a cold boot, before any GUI exists and with nothing to fall back to --
-   // the stock kits' Canvas.setContent(MainMenuGui) here would error every run.
-   alxStopAll();
-   clearTextureHolds();
-   purgeResources();
+   // Deliberately does NOT touch the Canvas.  There is no main menu to fall
+   // back to -- the stock kits' Canvas.setContent(MainMenuGui) here would error
+   // every run.
+   //
+   // alxStopAll() is TGE's; this engine's sound system is SFX.  TGE's
+   // clearTextureHolds() and purgeResources() are both gone: the resource
+   // manager here reference-counts and drops on its own.
+   sfxStopAll();
 }

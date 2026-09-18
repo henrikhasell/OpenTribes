@@ -4,66 +4,25 @@
 // This is what covers the Canvas for the whole of a mission load.  It matters
 // for more than looks: until the mission has finished ghosting in there is no
 // complete TerrainBlock to draw, and anything that puts a 3D control up before
-// then -- PlayGui's TSControl, or the editor's EditTSCtrl -- can be asked to
-// render a TerrainBlock that is still arriving.  TerrainRender::renderBlock
-// segfaults on one of those.  A plain 2D GUI cannot, so the rule this file
-// exists to enforce is: something 2D owns the Canvas from the moment a load
-// starts until GameConnection::initialControlSet says the mission is there.
+// then can be asked to render a terrain that is still arriving.  A plain 2D GUI
+// cannot, so the rule this file exists to enforce is: something 2D owns the
+// Canvas from the moment a load starts until GameConnection::initialControlSet
+// says the mission is there.
 //
-// Deliberately built out of nothing but common/'s profiles and no bitmaps at
-// all, so it has no content to go missing.
+// TGE's common/ shipped no loading screen, so this game brought its own
+// LoadingGui built out of nothing but common's profiles.  This engine's core
+// does ship one -- core/art/gui/loadingGui.gui, a singleton also called
+// LoadingGui -- and initializeCore() has already exec'd it before any of our
+// scripts run.  Defining a second object under the same name would leave two
+// of them in the Sim dictionary with only one reachable by name, so the .gui
+// and its two profiles are gone and this file is now just the two helpers that
+// drive core's controls.
+//
+// Core's version does use art (art/gui/background and the Torque logo), which
+// the self-contained original deliberately avoided.  Both are in this
+// template's art directory, so it has nothing to go missing either.
 //-----------------------------------------------------------------------------
 
-// The backdrop.  Opaque is the point -- the Canvas has no content of its own
-// before the first setContent, so anything translucent here would leave
-// whatever the GL buffers happened to contain showing through.
-new GuiControlProfile (LoadingGuiProfile)
-{
-   opaque = true;
-   fillColor = "104 108 120";
-};
-
-// The panel in the middle of it.  Light, because every text profile in
-// common/ui/defaultProfiles.cs draws black.
-new GuiControlProfile (LoadingGuiPanelProfile)
-{
-   opaque = true;
-   fillColor = "200 200 200";
-   border = true;
-   borderColor = "0 0 0";
-};
-
-
-//-----------------------------------------------------------------------------
-
-function LoadingGui::onAdd(%this)
-{
-   %this.qLineCount = 0;
-}
-
-function LoadingGui::onWake(%this)
-{
-   // The overlay is a dialog, so it sits above the content control rather than
-   // being replaced by it.  PlayGui::onSleep pops it on the way out of the
-   // game, but a load can also start with PlayGui already up (a second
-   // startMission), and then nothing has popped it yet.
-   Canvas.popDialog(AnimStageGui);
-}
-
-function LoadingGui::onSleep(%this)
-{
-   for (%i = 0; %i < %this.qLineCount; %i++)
-      %this.qLine[%i] = "";
-   %this.qLineCount = 0;
-
-   LOAD_MapName.setText("");
-   LOAD_MapDescription.setText("");
-   LoadingProgress.setValue(0);
-   LoadingProgressTxt.setValue("WAITING FOR SERVER");
-}
-
-
-//-----------------------------------------------------------------------------
 // Put the loading screen up, if it is not already.  Called by startMission()
 // before the server is even created, and again from phase 1 for the case where
 // a load begins without going through startMission().

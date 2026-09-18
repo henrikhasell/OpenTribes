@@ -1,15 +1,16 @@
 //-----------------------------------------------------------------------------
 // Client-side mission loading hooks.
 //
-// common/client/missionDownload.cs drives the three-phase handshake and calls
-// each of these by name.  All they do is drive the loading screen -- see
+// core/scripts/client/missionDownload.cs drives the three-phase handshake and
+// calls each of these by name -- the same three phases, under the same names,
+// as TGE's common/.  All they do is drive the loading screen; see
 // client/loadingGui.cs for why the Canvas must be showing one at all.
 //-----------------------------------------------------------------------------
 
 function onMissionDownloadPhase1(%missionName, %musicTrack)
 {
    // startMission() has normally raised it already; this covers a load that
-   // began some other way (the editor's cold-boot branch, or a reconnect).
+   // began some other way.
    loadingGuiOpen();
    loadingGuiProgress("LOADING DATABLOCKS", 0);
 }
@@ -33,9 +34,9 @@ function onPhase2Progress(%progress)
 
 function onPhase2Complete() { }
 
-// Phase 3 is scene lighting.  Note that SceneLighting::lightScene fires its
-// completion callback even on the failure path (sceneLighting.cc:215), so this
-// always runs and onClientEnterGame always follows.
+// Phase 3 was scene lighting -- the lightmap bake TGE ran at the end of every
+// load.  This engine has no SceneLighting, so core's clientCmdMissionStartPhase3
+// runs the phase through in one step and this is over as soon as it starts.
 function onMissionDownloadPhase3()
 {
    loadingGuiProgress("LIGHTING MISSION", 0);
@@ -59,8 +60,15 @@ function onMissionDownloadComplete() { }
 
 
 //-----------------------------------------------------------------------------
-// The server sends the MissionInfo block over these three messages during
-// loadMission(), before phase 1.
+// The server sends the level name and description over these three messages
+// during loadMission(), before phase 1.  In TGE they came from the mission's
+// MissionInfo ScriptObject; here core/scripts/server/levelInfo.cs sends them
+// from the LevelInfo object in the .mis, so the names on the far end changed
+// but the messages did not.
+//
+// Core's LoadingGui has no map-name or description control to put them in, so
+// these only echo.  The mission name still reaches the player: core's
+// LoadingProgressTxt shows the phase, which is what the progress bar is for.
 
 addMessageCallback('MsgLoadInfo', handleLoadInfoMessage);
 addMessageCallback('MsgLoadDescripition', handleLoadDescriptionMessage);
@@ -69,27 +77,12 @@ addMessageCallback('MsgLoadInfoDone', handleLoadInfoDoneMessage);
 function handleLoadInfoMessage(%msgType, %msgString, %mapName)
 {
    echo("*** Mission: " @ %mapName);
-
    loadingGuiOpen();
-
-   for (%i = 0; %i < LoadingGui.qLineCount; %i++)
-      LoadingGui.qLine[%i] = "";
-   LoadingGui.qLineCount = 0;
-
-   LOAD_MapName.setText(%mapName);
 }
 
 function handleLoadDescriptionMessage(%msgType, %msgString, %line)
 {
-   LoadingGui.qLine[LoadingGui.qLineCount] = %line;
-   LoadingGui.qLineCount++;
-
-   %text = "<spush><font:Arial:16>";
-   for (%i = 0; %i < LoadingGui.qLineCount; %i++)
-      %text = %text @ LoadingGui.qLine[%i] @ " ";
-   %text = %text @ "<spop>";
-
-   LOAD_MapDescription.setText(%text);
+   echo("*** " @ %line);
 }
 
 function handleLoadInfoDoneMessage(%msgType, %msgString) { }

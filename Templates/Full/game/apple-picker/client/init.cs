@@ -7,22 +7,18 @@ function initClient()
    echo("\n--------- Initializing MOD: apple-picker: Client ---------");
    $Server::Dedicated = false;
 
-   // The common module provides basic client functionality.
+   // The core module provides basic client functionality.  It also brings in
+   // the three-phase mission download whose onMissionDownloadPhaseN callbacks
+   // client/missionDownload.cs fills in.
    initBaseClient();
 
-   // initCanvas() starts the graphics system AND is the only thing that execs
-   // common/ui/defaultProfiles.cs, which defines GuiDefaultProfile.  Every
-   // GuiControl falls back to that profile when it wakes, so this must run
-   // before any .gui file is exec'd anywhere.
-   //
-   // It is also what execs common/client/messageBox.cs (via
-   // common/client/canvas.cs), which is where the victory box's MessageBoxOK()
-   // comes from -- see client/applePicker.cs.  Every mod gets that for free.
-   initCanvas("apple-picker");
+   // TGE's initCanvas() is gone.  Its two jobs -- starting the graphics system
+   // and exec'ing the default GUI profiles -- are done by initializeCore(),
+   // which CorePackage::onStart has already run by the time we get here (see
+   // the ordering note in main.cs).  So the Canvas, GuiDefaultProfile and
+   // MessageBoxOK all exist already and there is nothing to do for them.
 
-   // PlayGui is what the game runs in, and also what you land back on when you
-   // F11 out of the editor -- toggleEditor()'s else-branch does
-   // Editor.close("PlayGui").
+   // PlayGui is what the game runs in.
    //
    // applePicker.cs first: it defines the two profiles PlayGui.gui names for the
    // apple counter, and a .gui naming a profile that does not exist yet falls
@@ -31,22 +27,21 @@ function initClient()
    exec("./ui/PlayGui.gui");
    exec("./playGui.cs");
 
-   // The loading screen, which owns the Canvas for the whole of every mission
-   // load.  Same ordering rule: the .cs defines the two profiles the .gui asks
-   // for, so it goes first.
+   // The loading screen.  Unlike TGE's common/, this engine's core ships one --
+   // see client/missionDownload.cs for why we use it rather than our own.
    exec("./loadingGui.cs");
-   exec("./ui/LoadingGui.gui");
 
    // Client scripts.
    exec("./missionDownload.cs");
    exec("./serverConnection.cs");
 
-   // Defines moveMap, which both PlayGui::onWake and EditorGui::onWake push.
-   // Without it neither takes any keyboard or mouse input at all.
+   // Defines moveMap, which PlayGui::onWake pushes.  Without it PlayGui takes
+   // no keyboard or mouse input at all.
    exec("./default.bind.cs");
 
-   // Copy saved script prefs into C++ code.
-   setShadowDetailLevel($pref::shadows);
+   // Copy saved script prefs into C++ code.  TGE's setShadowDetailLevel() is
+   // gone -- shadow quality in this engine is per-light-manager, and the Basic
+   // Lighting pref for it is $pref::Shadows::textureScalar.
    setDefaultFov($pref::Player::defaultFov);
    setZoomSpeed($pref::Player::zoomSpeed);
 
@@ -58,23 +53,12 @@ function initClient()
    // Boot straight into the game.  startMission() puts LoadingGui on the Canvas
    // before it creates the server, so the load is covered by a 2D control from
    // its first frame; PlayGui only appears once the mission has finished
-   // arriving.  The Mission Editor is NOT opened -- press F11 for that, which is
-   // toggleEditor()'s warm branch since a mission is running.
-
-   // tutorial.base's flat.mis, copied into this mod rather than read from there:
-   // a mod is only on the resource path if it is in $userMods, and putting it
-   // there would exec its main.cs too -- its packages, its own initClient, its
-   // main menu.  See data/missions/orchard.mis for what the copy changed.
+   // arriving.
+   //
+   // The Mission Editor is NOT available in this mode: -game replaces the
+   // directory list, so the "tools" directory that defines it is not loaded.
+   // Add it back with `-game apple-picker -dir tools` on a tool build.
    $Game::DefaultMission = "apple-picker/data/missions/orchard.mis";
-
-   // Only read if the editor is ever entered with no mission running, in which
-   // case creator/editor/editor.cs:100 loads this instead of its own
-   // "~/data/newMission.mis" template.
-   $Editor::newMissionOverride = $Game::DefaultMission;
-
-   // Consumed by our patches to the copied creator scripts.
-   $Editor::defaultCloseGui = "PlayGui";
-   $Editor::quitExitsGame = true;
 
    startMission();
 }

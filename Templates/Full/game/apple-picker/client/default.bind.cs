@@ -2,8 +2,8 @@
 // Key bindings.
 //
 // tutorial.base's set, trimmed: no mouseTrigger (nothing here shoots) and no
-// cycleDebugRenderMode.  moveMap is pushed by PlayGui::onWake and also by
-// EditorGui::onWake, so this file is what makes both take input at all.
+// cycleDebugRenderMode.  moveMap is pushed by PlayGui::onWake, so this file is
+// what makes it take input at all.
 //-----------------------------------------------------------------------------
 
 if (isObject(moveMap))
@@ -124,11 +124,12 @@ moveMap.bind(keyboard, "F7", dropPlayerAtCamera);
 
 
 //-----------------------------------------------------------------------------
-// The global map, available everywhere -- editor included.
+// The global map, available everywhere.
 //
-// toggleFullScreen is a console function; do NOT wrap it in a script function
-// of the same name, which would only shadow it (GuiCanvas has no such method in
-// this SDK).
+// Both of these are already bound by initializeCore(), which runs before this
+// file, and both are rebound here so that this file remains the one place the
+// game's keys are written down.  TGE's toggleFullScreen() console function is
+// gone; the Canvas grew a method for it instead.
 
 GlobalActionMap.bind(keyboard, "tilde", toggleConsole);
-GlobalActionMap.bindCmd(keyboard, "alt enter", "", "toggleFullScreen();");
+GlobalActionMap.bindCmd(keyboard, "alt enter", "Canvas.attemptFullscreenToggle();", "");

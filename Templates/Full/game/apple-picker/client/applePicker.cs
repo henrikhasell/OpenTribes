@@ -14,9 +14,9 @@
 // GuiDefaultProfile without saying so (and asserts on the font in a debug
 // build), so this file is exec'd ahead of it in client/init.cs.
 
-// A plate behind the counter.  Every text profile in
-// common/ui/defaultProfiles.cs draws black, which is invisible against a bright
-// sky, so the HUD brings its own colours.
+// A plate behind the counter.  Every text profile in core/art/gui/profiles.cs
+// draws near-black, which is invisible against a bright sky, so the HUD brings
+// its own colours.
 if (!isObject(ApplePickerHudProfile))
    new GuiControlProfile (ApplePickerHudProfile)
    {
@@ -60,11 +60,10 @@ function clientCmdAppleVictory(%total)
 {
    $ApplePickerHud::victory = true;
 
-   // MessageBoxOK comes from common/client/messageBox.cs, which initCanvas()
-   // execs for free (common/client/canvas.cs) -- every mod gets it, no exec of
-   // ours and no art of ours.
+   // MessageBoxOK comes from core/scripts/gui/messageBoxes/, which
+   // initializeCore() execs for free -- no exec of ours and no art of ours.
    //
-   // MessageBoxOKDlg carries no noCursor, so common/client/cursor.cs's
+   // MessageBoxOKDlg carries no noCursor, so core/scripts/client/cursor.cs's
    // CanvasCursor package turns the cursor on as the dialog goes up and off
    // again when it comes down -- which is also what releases the mouse from
    // camera look and hands it back afterwards.  Nothing to do here for that.

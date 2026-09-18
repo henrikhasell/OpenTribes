@@ -2,15 +2,19 @@
 // apple-picker -- a small complete game: walk over five apples on a flat plain
 // and get a victory message on the fifth.
 //
-// Built from tutorial.base (the GettingStarted starting point -- its player, its
-// mission, its art) with the boot plumbing taken from animation-test, which
-// already goes straight into a mission instead of stopping at a main menu.
-// Everything here is script; no engine change, no new art.  The apples are
-// tutorial.base's own torque_logo.dts.
+// Originally written against a Torque Game Engine fork; ported to this
+// Torque 3D 1.2 tree.  Run it with
+//
+//    ./OpenTribes -game apple-picker
+//
+// from Templates/Full/game.  -game replaces the directory list outright
+// (core/parseArgs.cs), so the stock "scripts" mod does not also boot and try to
+// stand up its own client, server and main menu on top of this one.
 //-----------------------------------------------------------------------------
 
-// Load up common script base.  This also pushes "common" onto the mod path.
-loadDir("common");
+// Load up the core script base.  This also pushes "core" onto the mod path.
+// (TGE called this directory "common".)
+loadDir("core");
 
 // Default console values, then preferences (which override them).
 exec("./client/defaults.cs");
@@ -25,23 +29,26 @@ if (isFile("./prefs.cs"))
 //-----------------------------------------------------------------------------
 // Package overrides to initialize the game.
 //
-// NOTE ON ORDERING: loadMods() in the root main.cs recurses, so mods are exec'd
-// back-to-front.  With $userMods = "creator;apple-picker", our main.cs runs
-// FIRST and creator/main.cs runs LAST -- so the Creator package is the OUTERMOST
-// override.  So Creator::onStart calls Parent::onStart() (ours) before it execs
-// creator/editor/editor.cs.  Consequence: toggleEditor() does not exist yet when
-// initClient() runs -- anything there that wants the editor must schedule().
+// NOTE ON ORDERING: loadDirs() in the root main.cs recurses, so directories are
+// exec'd back-to-front and the FIRST entry in $userDirs is exec'd LAST.  With
+// "apple-picker" alone in the list, core/main.cs is exec'd by the loadDir()
+// above and CorePackage is therefore activated before applePicker -- so
+// applePicker is the outermost override and applePicker::onStart runs first,
+// reaching CorePackage::onStart through Parent::onStart().
 //
-// Do NOT "fix" this by reversing the mod order.  That would move Creator's
-// exec("./ui/InspectDlg.gui") ahead of our initCanvas(), so GuiDefaultProfile
-// would not exist yet and ConsoleSetType(TypeGuiProfile) would NULL-deref.
+// That ordering is what gets the Canvas: CorePackage::onStart calls
+// initializeCore(), which is this engine's equivalent of TGE's initCanvas() --
+// it creates the Canvas, execs core/art/gui/profiles.cs (so GuiDefaultProfile
+// exists before any .gui of ours is exec'd), and brings up messageBox.cs,
+// cursor.cs and the core materials.  Everything in our onStart() below
+// therefore runs with a live Canvas already in place.
 
 // The mod directory is apple-picker, but a package name is a TorqueScript
 // identifier -- no hyphens -- so the package is applePicker.
 package applePicker {
 
-// The root main.cs calls parseArgs() after the mods load and before onStart(),
-// so anything set here is in place by the time initClient() runs.
+// The root main.cs calls parseArgs() after the directories load and before
+// onStart(), so anything set here is in place by the time initClient() runs.
 function parseArgs()
 {
    Parent::parseArgs();
@@ -78,12 +85,23 @@ function onStart()
    exec("./server/init.cs");
    exec("./data/init.cs");
 
+   // Not in TGE: the physics and sound subsystems are started from script in
+   // this engine, and initBaseServer()'s audio.cs needs the latter up.
+   physicsInit();
+   sfxStartup();
+
    initServer();
    initClient();
 }
 
 function onExit()
 {
+   // Not in TGE, where the engine tore the server down itself.  Without this
+   // the SceneGraph is deleted before the objects in it and the shutdown
+   // crashes.
+   disconnect();
+   physicsDestroy();
+
    echo("Exporting prefs");
    export("$pref::*", "./prefs.cs", False);
    Parent::onExit();
