@@ -1,46 +1,90 @@
 //--- OBJECT WRITE BEGIN ---
 new SimGroup(MissionGroup) {
 
-   new ScriptObject(MissionInfo) {
+   // MissionInfo as a ScriptObject is what TGE's loading screen read.  Here
+   // core/scripts/server/levelInfo.cs sends theLevelInfo.levelName and
+   // theLevelInfo.desc[n] by that name instead, and LevelInfo is also where
+   // the view distance and fog live now -- both of which the Sky below used
+   // to carry, and both of which the sky needs to look right.
+   //
+   // TGE's fog was a distance ramp from fogDistance out to visibleDistance;
+   // this engine's is exponential, so the ramp becomes a density with an
+   // offset at the distance the old one started at.
+   new LevelInfo(theLevelInfo) {
+      nearClip = "0.1";
+      visibleDistance = "500";
+      fogColor = "0.82 0.828 0.844 1";
+      fogDensity = "0.0012";
+      fogDensityOffset = "300";
+      fogAtmosphereHeight = "100";
+      canvasClearColor = "209 212 215 255";
          desc0 = "Five apples on a flat plain.  Walk over all five.";
-         name = "The Orchard";
+         LevelName = "The Orchard";
    };
-   new MissionArea(MissionArea) {
+   new MissionArea(TheMissionArea) {
       Area = "-360 -648 720 1296";
       flightCeiling = "300";
       flightCeilingRange = "20";
          locked = "true";
    };
-   new Sky(Sky) {
-      position = "336 136 0";
+   // The Sky class is gone; this is the same art through the two objects that
+   // replace it.  SkyBox draws the cube -- see data/skies/materials.cs for how
+   // the .dml maps onto cubeFace -- and drawBottom is false because the Sky
+   // set renderBottomTexture = 0.
+   new SkyBox() {
+      material = "ApplePickerSkyMat";
+      drawBottom = "0";
+      fogBandHeight = "0";
+      position = "0 0 0";
       rotation = "1 0 0 0";
       scale = "1 1 1";
-      materialList = "~/data/skies/sky_day.dml";
-      cloudHeightPer[0] = "0.349971";
-      cloudHeightPer[1] = "0.25";
-      cloudHeightPer[2] = "0.199973";
-      cloudSpeed1 = "0.0001";
-      cloudSpeed2 = "0.0002";
-      cloudSpeed3 = "0.0003";
-      visibleDistance = "500";
-      fogDistance = "300";
-      fogColor = "0.82 0.828 0.844 1";
-      fogStorm1 = "0";
-      fogStorm2 = "0";
-      fogStorm3 = "0";
-      fogVolume1 = "300 0 71";
-      fogVolume2 = "0 0 0";
-      fogVolume3 = "0 0 0";
-      fogVolumeColor1 = "128 128 128 -2.22768e+038";
-      fogVolumeColor2 = "128 128 128 0";
-      fogVolumeColor3 = "128 128 128 -1.70699e+038";
-      windVelocity = "1 1 0";
-      windEffectPrecipitation = "1";
-      SkySolidColor = "0.547 0.641 0.789 0";
-      useSkyTextures = "1";
-      renderBottomTexture = "0";
-      noRenderBans = "0";
-         locked = "true";
+   };
+
+   // The two cloud layers from the tail of sky_day.dml, both cloud1.  TGE's
+   // cloudSpeed is a fraction of the sky radius per tick and its heights are a
+   // fraction of that radius; CloudLayer takes a world height and a speed per
+   // texture, so these are matched by eye against the original rather than
+   // converted.  The third cloudHeightPer in the old Sky had no texture behind
+   // it -- the list stops at two -- so there are two layers here.
+   new CloudLayer() {
+      texture = "apple-picker/data/skies/cloud1";
+      texScale[0] = "1.6";
+      texScale[1] = "1.1";
+      texScale[2] = "0.7";
+      texDirection[0] = "1 1";
+      texDirection[1] = "1 1";
+      texDirection[2] = "1 1";
+      texSpeed[0] = "0.0008";
+      texSpeed[1] = "0.0006";
+      texSpeed[2] = "0.0004";
+      baseColor = "0.9 0.92 0.95 1";
+      exposure = "1";
+      coverage = "0.08";
+      windSpeed = "1";
+      height = "3.5";
+      position = "0 0 0";
+      rotation = "1 0 0 0";
+      scale = "1 1 1";
+   };
+   new CloudLayer() {
+      texture = "apple-picker/data/skies/cloud1";
+      texScale[0] = "1.1";
+      texScale[1] = "0.8";
+      texScale[2] = "0.5";
+      texDirection[0] = "1 1";
+      texDirection[1] = "1 1";
+      texDirection[2] = "1 1";
+      texSpeed[0] = "0.0016";
+      texSpeed[1] = "0.0012";
+      texSpeed[2] = "0.0008";
+      baseColor = "0.88 0.9 0.94 1";
+      exposure = "1";
+      coverage = "0.05";
+      windSpeed = "1";
+      height = "2.5";
+      position = "0 0 0";
+      rotation = "1 0 0 0";
+      scale = "1 1 1";
    };
    new Sun() {
       azimuth = "0";
@@ -62,6 +106,17 @@ new SimGroup(MissionGroup) {
       bumpOffset = "0.01";
       zeroBumpScale = "8";
       tile = "1";
+
+      // TGE tiled the terrain texture straight onto each square, so a square
+      // got the whole 256x256 checkerboard.  Here the diffuse goes through one
+      // composited base texture for the entire block, and baseTexSize over the
+      // terrain's 2048m is all the resolution it can ever have: the stock 1024
+      // is 2m per texel, which leaves 4 texels per 8m square and erases the
+      // inner squares entirely.  4096 gets them back.
+      //
+      // Matching TGE exactly would want 65536.  This is the closest the
+      // pipeline goes.
+      baseTexSize = "4096";
          position = "-1024 -1024 0";
          locked = "true";
    };
