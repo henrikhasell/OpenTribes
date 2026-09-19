@@ -130,7 +130,7 @@ protected:
    bool onAdd();
    void onRemove();
 
-   void render();
+   void render( const Point3F &camPos );
    void calcAlphas_Heights( F32 zCamPos, F32 *banHeights, F32 *alphaBan, F32 depthInFog );
    void renderSkyBox( F32 lowerBanHeight, F32 alphaBanUpper );
    void calcBans( F32 *banHeights, Point3F banPoints[][MAX_BAN_POINTS], Point3F *cornerPoints );

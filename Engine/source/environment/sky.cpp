@@ -653,22 +653,26 @@ void Sky::_renderObject( ObjectRenderInst *ri, SceneRenderState *state, BaseMatI
    GFXDEBUGEVENT_SCOPE( Sky_RenderObject, ColorF::WHITE );
    GFXTransformSaver saver;
 
-   // Everything below is in sky space: the origin follows the camera and the
-   // points never rotate with it.
-   MatrixF worldMat( MatrixF::Identity );
-   worldMat.setPosition( state->getCameraPosition() );
-   GFX->setWorldMatrix( worldMat );
+   // Everything below is in sky space: axis-aligned with the world, origin
+   // following the camera.  The scene's view transform is in the world matrix
+   // rather than the view matrix -- guiTSControl sets the view matrix to the
+   // identity and SkyBox reads GFX->getWorldMatrix() as the scene view -- so
+   // this has to compose onto what is there.  Setting it instead replaces the
+   // camera's rotation with a translation, and the sky then turns with the
+   // player.
+   MatrixF camPosMat( MatrixF::Identity );
+   camPosMat.setPosition( state->getCameraPosition() );
+   GFX->multWorld( camPosMat );
 
-   render();
+   render( state->getCameraPosition() );
 }
 
 //---------------------------------------------------------------------------
-void Sky::render()
+void Sky::render( const Point3F &camPos )
 {
    F32 banHeights[2] = { -( mSpherePt.z - 1 ), -( mSpherePt.z - 1 ) };
    F32 alphaBan[2] = { 0.0f, 0.0f };
    F32 depthInFog = 0.0f;
-   Point3F camPos( 0.0f, 0.0f, 0.0f );
 
    if( gClientSceneGraph )
    {
@@ -684,10 +688,7 @@ void Sky::render()
    }
 
    if( mNumFogVolumes )
-   {
-      camPos = GFX->getWorldMatrix().getPosition();
       depthInFog = -( camPos.z - mFogLine );
-   }
 
    // Calculates alpha values and ban heights
    if( depthInFog > 0.0f )
