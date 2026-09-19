@@ -48,6 +48,7 @@ struct ShaderGenVars
    const static String nearPlaneWorld;
    const static String fogData;
    const static String fogColor;
+   const static String fogBandData;
    const static String detailScale;
    const static String visibility;
    const static String colorMultiply;
