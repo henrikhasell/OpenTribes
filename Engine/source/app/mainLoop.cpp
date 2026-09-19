@@ -322,8 +322,15 @@ void StandardMainLoop::shutdown()
 
    RedBook::destroy();
 
+   // Before Platform::shutdown(), which is SDL_Quit().  Net is SDL_net here,
+   // and NET_Quit() joins the resolver threads: run it afterwards and SDL has
+   // already torn those threads down -- it even says so, "Leaked thread" twice
+   // on the way past -- and the join never returns.  Ordering that did not
+   // matter while this was BSD sockets.
+   Net::shutdown();
+
    Platform::shutdown();
-   
+
 #if defined( _XBOX ) || defined( TORQUE_OS_MAC )
    DebugOutputConsumer::destroy();
 #endif
@@ -333,7 +340,6 @@ void StandardMainLoop::shutdown()
 
    _StringTable::destroy();
    FrameAllocator::destroy();
-   Net::shutdown();
    Sampler::destroy();
    
    ManagedSingleton< ThreadManager >::deleteSingleton();
