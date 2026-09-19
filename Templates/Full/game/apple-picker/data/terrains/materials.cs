@@ -18,8 +18,14 @@
 // is what findOrCreate() looks the material up by, and it finds this one first
 // and skips the fallback.
 //
-// diffuseSize is the world size one repeat of the texture covers, so 8 is one
-// checkerboard per terrain square, which is how TGE applied it.
+// diffuseSize is the world size one repeat of the texture covers --
+// terrRender.cpp:259 tiles it getWorldBlockSize()/diffuseSize times across the
+// block.  64, not 8: TGE did not put one checkerboard on each terrain square.
+// Blender::blend splits the source into an 8x8 grid of cells --
+// TEXELS_PER_SOURCE_EDGE is 256 and SQUARES_PER_MIPMAP_EDGE_LOG2 is
+// 10 - TerrainTextureMipLevel = 3, so eight cells of 32px a side -- and hands
+// each terrain square one cell.  A repeat spans 8 squares, which at
+// squareSize 8 is 64 metres.
 //
 // Note when changing any of this: the composited base texture is cached beside
 // the mission as orchard_basetex.dds and is NOT invalidated by an edit here.
@@ -30,5 +36,5 @@ new TerrainMaterial()
 {
    internalName = "apple-picker/data/terrains/checkerboard2";
    diffuseMap = "apple-picker/data/terrains/checkerboard2";
-   diffuseSize = "8";
+   diffuseSize = "64";
 };

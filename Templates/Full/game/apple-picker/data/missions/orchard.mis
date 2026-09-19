@@ -107,15 +107,16 @@ new SimGroup(MissionGroup) {
       zeroBumpScale = "8";
       tile = "1";
 
-      // TGE tiled the terrain texture straight onto each square, so a square
-      // got the whole 256x256 checkerboard.  Here the diffuse goes through one
-      // composited base texture for the entire block, and baseTexSize over the
-      // terrain's 2048m is all the resolution it can ever have: the stock 1024
-      // is 2m per texel, which leaves 4 texels per 8m square and erases the
-      // inner squares entirely.  4096 gets them back.
+      // TGE built a 128x128 blended texture per rendered block and chose the
+      // block size by distance, so the texel density near the camera was as
+      // high as it needed to be.  Here the diffuse goes through one composited
+      // base texture for the whole block, and baseTexSize over the terrain's
+      // 2048m is all the resolution there will ever be.
       //
-      // Matching TGE exactly would want 65536.  This is the closest the
-      // pipeline goes.
+      // The texture repeats every 64m (see data/terrains/materials.cs), so the
+      // stock 1024 gives 32 texels per repeat against a 256px source -- an 8x
+      // downsample, which mushes the inner squares.  4096 gives 128, close
+      // enough to the source to read properly.
       baseTexSize = "4096";
          position = "-1024 -1024 0";
          locked = "true";
