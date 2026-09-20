@@ -1795,8 +1795,8 @@ void GuiCanvas::renderFrame(bool preRenderOnly, bool bufferSwap /* = true */)
       // Really draw the cursor. :)
       // Only if the platform cursor controller is missing or the platform cursor
       // isn't visible.
-      if (!mPlatformWindow->getCursorController() || (mCursorEnabled && mouseCursor && mShowCursor && 
-         !mPlatformWindow->getCursorController()->isCursorVisible()))
+      if (mouseCursor && (!mPlatformWindow->getCursorController() || (mCursorEnabled && mShowCursor &&
+         !mPlatformWindow->getCursorController()->isCursorVisible())))
       {
          Point2I pos((S32)mCursorPt.x, (S32)mCursorPt.y);
          Point2I spot = mouseCursor->getHotSpot();
