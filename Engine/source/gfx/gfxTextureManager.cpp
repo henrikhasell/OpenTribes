@@ -45,6 +45,11 @@ GFXTextureManager::EventSignal GFXTextureManager::smEventSignal;
 
 static const String  sDDSExt( "dds" );
 
+// Tribes 2 keeps its art under textures/ and names it without that prefix: a
+// GUI profile asks for "gui/shll_button" and the file is
+// textures/gui/shll_button.png.  Searched only after the path as given fails.
+static const String  sTextureSearchDir( "textures" );
+
 void GFXTextureManager::init()
 {
    Con::addVariable( "$pref::Video::textureReductionLevel", TypeS32, &smTextureReductionLevel,
@@ -725,6 +730,22 @@ GFXTextureObject *GFXTextureManager::createTexture( const Torque::Path &path, GF
       bitmap = GBitmap::load( correctPath );
 
       if ( bitmap != NULL )
+      {
+         realPath = bitmap.getPath();
+         retTexObj = createTexture( bitmap, pathNoExt, profile, false );
+      }
+   }
+
+   // Nothing under the name as given, so try the texture search directory.  The
+   // check that we are not already under it keeps this to one extra attempt.
+   if( retTexObj == NULL && !correctPath.getPath().startsWith( sTextureSearchDir ) )
+   {
+      Torque::Path searchPath = correctPath;
+      searchPath.setPath( Torque::Path::Join( sTextureSearchDir, '/', correctPath.getPath() ) );
+
+      bitmap = GBitmap::load( searchPath );
+
+      if( bitmap != NULL )
       {
          realPath = bitmap.getPath();
          retTexObj = createTexture( bitmap, pathNoExt, profile, false );
