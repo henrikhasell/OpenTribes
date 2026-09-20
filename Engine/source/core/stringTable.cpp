@@ -56,10 +56,10 @@ U32 _StringTable::hashString(const char* str)
    if(!str) return -1;
 
    U32 ret = 0;
-   char c;
+   U8 c;
    while((c = *str++) != 0) {
       ret <<= 1;
-      ret ^= sgHashTable[static_cast<U32>(c)];
+      ret ^= sgHashTable[c];
    }
    return ret;
 }
@@ -70,10 +70,10 @@ U32 _StringTable::hashStringn(const char* str, S32 len)
       initTolowerTable();
 
    U32 ret = 0;
-   char c;
+   U8 c;
    while((c = *str++) != 0 && len--) {
       ret <<= 1;
-      ret ^= sgHashTable[static_cast<U32>(c)];
+      ret ^= sgHashTable[c];
    }
    return ret;
 }
