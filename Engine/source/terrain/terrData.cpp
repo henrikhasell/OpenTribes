@@ -185,7 +185,7 @@ TerrainBlock::TerrainBlock()
    mMaxDetailDistance( 0.0f ),
    mCell( NULL ),
    mCRC( 0 ),
-   mBaseTexSize( 1024 ),
+   mBaseTexSize( 4096 ),
    mBaseMaterial( NULL ),
    mDefaultMatInst( NULL ),
    mBaseTexScaleConst( NULL ),
@@ -250,16 +250,12 @@ bool TerrainBlock::_setBaseTexSize( void *obj, const char *index, const char *da
 {
    TerrainBlock *terrain = static_cast<TerrainBlock*>( obj );
 
-   // NOTE: We're limiting the base texture size to 
-   // 2048 as anything greater in size becomes too
-   // large to generate for many cards.
-   //
-   // If you want to remove this limit feel free, but
-   // prepare for problems if you don't ship the baked
-   // base texture with your installer.
-   //
+   // The ceiling matches the constructor's default, so a mission cannot ask
+   // for less than a terrain that asks for nothing.  terrRender.cpp rounds the
+   // size up to a power of two and clamps it to the device maximum, so a card
+   // that cannot hold this is not asked to.
 
-   S32 texSize = mClamp( dAtoi( data ), 0, 2048 );
+   S32 texSize = mClamp( dAtoi( data ), 0, 4096 );
    if ( terrain->mBaseTexSize != texSize )
    {
       terrain->mBaseTexSize = texSize;
