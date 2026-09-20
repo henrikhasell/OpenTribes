@@ -1,0 +1,50 @@
+//--- OBJECT WRITE BEGIN ---
+new GameTSCtrl(PlayGui) {
+   profile = "GuiContentProfile";
+   horizSizing = "right";
+   vertSizing = "bottom";
+   position = "0 0";
+   extent = "640 480";
+   minExtent = "8 8";
+   visible = "1";
+   cameraZRot = "0";
+   forceFOV = "0";
+   reflectPriority = "1";
+      noCursor = "1";
+      helpTag = "0";
+
+   // The apple counter.  A child of PlayGui rather than a dialog of its own,
+   // precisely so that it does NOT bring the cursor with it: checkCursor
+   // (core/scripts/client/cursor.cs) only walks the Canvas's root controls, so
+   // PlayGui's noCursor still decides, and the mouse stays on camera look.
+   //
+   // horizSizing "center" keeps the plate centred as the Canvas grows from this
+   // authored 640x480 to the real resolution.  The text is set from
+   // clientCmdAppleCount; this literal is what shows for the frame before the
+   // server's first update arrives.
+   new GuiControl(AppleHud) {
+      profile = "ApplePickerHudProfile";
+      horizSizing = "center";
+      vertSizing = "bottom";
+      position = "220 16";
+      extent = "200 40";
+      minExtent = "8 8";
+      visible = "1";
+         helpTag = "0";
+
+      new GuiTextCtrl(AppleCountText) {
+         profile = "ApplePickerTextProfile";
+         horizSizing = "width";
+         vertSizing = "height";
+         position = "0 7";
+         extent = "200 26";
+         minExtent = "8 8";
+         visible = "1";
+            helpTag = "0";
+            text = "Apples: 0 / 5";
+            maxLength = "255";
+      };
+   };
+};
+
+//--- OBJECT WRITE END ---

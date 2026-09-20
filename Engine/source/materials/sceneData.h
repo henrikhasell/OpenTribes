@@ -77,6 +77,11 @@ struct SceneData
    F32 fogDensityOffset;
    F32 fogHeightFalloff;
    ColorF fogColor;
+
+   F32 fogBandMin;
+   F32 fogBandMax;
+   F32 fogBandInvVisDist;
+   F32 fogHazeScale;
   
    // misc
    const MatrixF *objTrans;
@@ -122,6 +127,14 @@ struct SceneData
          fogHeightFalloff = 0.0f;
 
       fogColor = data.color;
+
+      fogBandMin = data.bandMin;
+      fogBandMax = data.bandMax;
+      if ( !mIsZero( data.bandVisDist ) )
+         fogBandInvVisDist = 1.0f / data.bandVisDist;
+      else
+         fogBandInvVisDist = 0.0f;
+      fogHazeScale = data.hazeScale;
    }
 };
 

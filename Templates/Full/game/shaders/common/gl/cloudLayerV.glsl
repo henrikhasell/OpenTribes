@@ -50,7 +50,7 @@ in vec4 vTexCoord2;
 void main()
 {   
    vec4 pos = vPosition;
-   vec3 normal = vNormal;
+   vec3 normal = vNormal.xyz;
    vec3 binormal = vTexCoord0.xyz;
    vec3 tangent = vTexCoord1.xyz;
    vec2 uv0 = vTexCoord2.st;
