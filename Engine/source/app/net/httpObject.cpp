@@ -236,8 +236,9 @@ void HTTPObject::expandPath(char *dest, const char *path, U32 destSize)
    U32 srcIndex = 0;
    while(path[srcIndex] && destIndex < destSize - 3)
    {
-      char c = path[srcIndex++];
-      if(asciiEscapeTable[static_cast<U32>(c)])
+      // U8, not char: a signed byte over 0x7F indexes outside the table.
+      U8 c = path[srcIndex++];
+      if(asciiEscapeTable[c])
       {
          dest[destIndex++] = '%';
          dest[destIndex++] = getHex((c >> 4) & 0xF);
