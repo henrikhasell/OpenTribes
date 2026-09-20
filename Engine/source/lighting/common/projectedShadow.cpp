@@ -80,7 +80,6 @@ ProjectedShadow::ProjectedShadow( SceneObject *object )
    mRadius = 0;
    mLastRenderTime = 0;
    mUpdateTexture = false;
-   mKeepTexture = false;
 
    mShadowLength = 10.0f;
 
@@ -326,17 +325,8 @@ bool ProjectedShadow::_updateDecal( const SceneRenderState *state )
 
    // Now, check and see if the object is visible.
    const Frustum &frust = state->getFrustum();
-   // Off screen and unchanged, so there is no need to render it again.  That
-   // is all this means: the texture we already have stays valid and the decal
-   // goes on using it.  Releasing it here instead leaves the DecalManager --
-   // which culls separately and disagrees about what is visible -- drawing the
-   // decal with nothing in it, which blends to a no-op.  The shadow does not
-   // fade, it is simply absent while still costing a draw call.
    if ( frust.isCulled( SphereF( mDecalInstance->mPosition, mDecalInstance->mSize * mDecalInstance->mSize ) ) && !shouldClip )
-   {
-      mKeepTexture = true;
       return false;
-   }
 
    F32 shadowLen = 10.0f;
    if ( data )
@@ -413,15 +403,12 @@ void ProjectedShadow::update( const SceneRenderState *state )
    // we render to texture.
    // If it fails, something bad happened
    // (no light to grab/failed clip) and we should return.
-   mKeepTexture = false;
-
    if ( !_updateDecal( state ) )
    {
-      // Release our shadow texture so that others can grab it out of the pool
-      // -- unless we are only skipping this frame's re-render, in which case
-      // it is still the right texture to draw with.
-      if ( !mKeepTexture )
-         mShadowTexture = NULL;
+      // Release our shadow texture
+      // so that others can grab it out
+      // of the pool.
+      mShadowTexture = NULL;      
       mUpdateTexture = false;
       return;
    }
