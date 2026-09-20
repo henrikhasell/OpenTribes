@@ -56,6 +56,7 @@ void ShaderConstHandles::init( GFXShader *shader, CustomMaterial* mat /*=NULL*/ 
    mSpecularPowerSC = shader->getShaderConstHandle(ShaderGenVars::specularPower);
    mParallaxInfoSC = shader->getShaderConstHandle("$parallaxInfo");
    mFogDataSC = shader->getShaderConstHandle(ShaderGenVars::fogData);
+   mFogBandDataSC = shader->getShaderConstHandle(ShaderGenVars::fogBandData);
    mFogColorSC = shader->getShaderConstHandle(ShaderGenVars::fogColor);
    mDetailScaleSC = shader->getShaderConstHandle(ShaderGenVars::detailScale);
    mVisiblitySC = shader->getShaderConstHandle(ShaderGenVars::visibility);
@@ -965,6 +966,15 @@ void ProcessedShaderMaterial::_setShaderConstants(SceneRenderState * state, cons
       fogData.y = sgData.fogDensityOffset;
       fogData.z = sgData.fogHeightFalloff;     
       shaderConsts->set( handles->mFogDataSC, fogData );
+   }
+
+   if ( handles->mFogBandDataSC->isValid() )
+   {
+      Point4F fogBandData( sgData.fogBandMin,
+                           sgData.fogBandMax,
+                           sgData.fogBandInvVisDist,
+                           sgData.fogHazeScale );
+      shaderConsts->set( handles->mFogBandDataSC, fogBandData );
    }
 
    shaderConsts->setSafe(handles->mFogColorSC, sgData.fogColor);

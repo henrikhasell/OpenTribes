@@ -477,6 +477,7 @@ bool TerrainCellMaterial::_createPass( Vector<MaterialInfo*> *materials,
    pass->baseTexMapConst = pass->shader->getShaderConstHandle( "$baseTexMap" );
    pass->layerTexConst = pass->shader->getShaderConstHandle( "$layerTex" );
    pass->fogDataConst = pass->shader->getShaderConstHandle( "$fogData" );
+   pass->fogBandDataConst = pass->shader->getShaderConstHandle( "$fogBandData" );
    pass->fogColorConst = pass->shader->getShaderConstHandle( "$fogColor" );
    pass->lightMapTexConst = pass->shader->getShaderConstHandle( "$lightMapTex" );
    pass->oneOverTerrainSize = pass->shader->getShaderConstHandle( "$oneOverTerrainSize" );
@@ -727,6 +728,15 @@ bool TerrainCellMaterial::setupPass(   const SceneRenderState *state,
       fogData.y = sceneData.fogDensityOffset;
       fogData.z = sceneData.fogHeightFalloff;     
       pass.consts->set( pass.fogDataConst, fogData );
+   }
+
+   if ( pass.fogBandDataConst->isValid() )
+   {
+      Point4F fogBandData( sceneData.fogBandMin,
+                           sceneData.fogBandMax,
+                           sceneData.fogBandInvVisDist,
+                           sceneData.fogHazeScale );
+      pass.consts->set( pass.fogBandDataConst, fogBandData );
    }
 
    pass.consts->setSafe( pass.fogColorConst, sceneData.fogColor );

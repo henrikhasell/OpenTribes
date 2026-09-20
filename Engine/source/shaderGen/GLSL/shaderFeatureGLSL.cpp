@@ -1842,6 +1842,10 @@ void FogFeatGLSL::processVert(   Vector<ShaderComponent*> &componentList,
       fogData->uniform = true;
       fogData->constSortPos = cspPass;   
 		
+      Var *fogBandData = new Var( "fogBandData", "vec4" );
+      fogBandData->uniform = true;
+      fogBandData->constSortPos = cspPass;
+		
       Var *wsPosition = new Var( "fogPos", "vec3" );
       getWsPosition( componentList, 
 						  fd.features[MFT_UseInstancing], 
@@ -1855,8 +1859,12 @@ void FogFeatGLSL::processVert(   Vector<ShaderComponent*> &componentList,
       fogAmount->setType( "float" );
       fogAmount->mapsToSampler = false;
 		
-      meta->addStatement( new GenOp( "   @ = saturate( computeSceneFog( @, @, @.r, @.g, @.b ) );\r\n", 
-												fogAmount, eyePos, wsPosition, fogData, fogData, fogData ) );
+      meta->addStatement( new GenOp( "   @ = saturate( computeSceneFog( @, @, @.r, @.g, @.b )\r\n"
+                                     "                  - computeSceneFogBand( @, @, @.r, @.g, @.b )\r\n"
+                                     "                  - computeSceneHaze( length( @ - @ ), @.g, @.a ) );\r\n",
+												fogAmount, eyePos, wsPosition, fogData, fogData, fogData,
+												eyePos, wsPosition, fogBandData, fogBandData, fogBandData,
+												wsPosition, eyePos, fogData, fogBandData ) );
    }
    else
    {
@@ -1918,10 +1926,18 @@ void FogFeatGLSL::processPix( Vector<ShaderComponent*> &componentList,
       fogData->uniform = true;
       fogData->constSortPos = cspPass;   
 		
+      Var *fogBandData = new Var( "fogBandData", "vec4" );
+      fogBandData->uniform = true;
+      fogBandData->constSortPos = cspPass;
+		
       /// Get the fog amount.
       fogAmount = new Var( "fogAmount", "float" );
-      meta->addStatement( new GenOp( "   @ = saturate( computeSceneFog( @, @, @.r, @.g, @.b ) );\r\n", 
-												new DecOp( fogAmount ), eyePos, wsPosition, fogData, fogData, fogData ) );
+      meta->addStatement( new GenOp( "   @ = saturate( computeSceneFog( @, @, @.r, @.g, @.b )\r\n"
+                                     "                  - computeSceneFogBand( @, @, @.r, @.g, @.b )\r\n"
+                                     "                  - computeSceneHaze( length( @ - @ ), @.g, @.a ) );\r\n",
+												new DecOp( fogAmount ), eyePos, wsPosition, fogData, fogData, fogData,
+												eyePos, wsPosition, fogBandData, fogBandData, fogBandData,
+												wsPosition, eyePos, fogData, fogBandData ) );
    }
 	
    // Lerp between the fog color and diffuse color.
