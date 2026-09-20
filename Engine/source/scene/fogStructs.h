@@ -31,12 +31,21 @@ struct FogData
    F32 atmosphereHeight;
    ColorF color;
 
+   F32 bandMin;
+   F32 bandMax;
+   F32 bandVisDist;
+   F32 hazeScale;
+
    FogData()
    {
       density = 0.0f;
       densityOffset = 0.0f;
       atmosphereHeight = 0.0f;
       color.set( 0.5f, 0.5f, 0.5f, 1.0f );
+      bandMin = 0.0f;
+      bandMax = 0.0f;
+      bandVisDist = 0.0f;
+      hazeScale = 0.0f;
    }
 };
 

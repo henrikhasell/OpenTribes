@@ -1436,8 +1436,16 @@ void ReflectCubeFeatGLSL::processVert( Vector<ShaderComponent*> &componentList,
    cubeNormal->setType( "vec3" );
    LangElement *cubeNormDecl = new DecOp( cubeNormal );
 
-   meta->addStatement( new GenOp( "   @ = normalize( @ * normalize(@).xyz );\r\n", 
+   // SkyBox zeroes its vertex normals so that the reflect() below returns the
+   // view vector unreflected -- it is viewed from the inside, where a real
+   // reflection would turn the cubemap upside down (environment/skyBox.cpp:380).
+   // normalize() of a zero vector is undefined, and the NaN reaches the cubemap
+   // lookup, so skip it when there is no normal to normalize.
+   meta->addStatement( new GenOp( "   @ = @ * @.xyz;\r\n",
                        cubeNormDecl, cubeTrans, inNormal ) );
+
+   meta->addStatement( new GenOp( "   @ = bool(length(@)) ? normalize(@) : @;\r\n",
+                       cubeNormal, cubeNormal, cubeNormal, cubeNormal ) );
 
    // eye to vert
    Var * eyeToVert = new Var;
@@ -1834,6 +1842,10 @@ void FogFeatGLSL::processVert(   Vector<ShaderComponent*> &componentList,
       fogData->uniform = true;
       fogData->constSortPos = cspPass;   
 		
+      Var *fogBandData = new Var( "fogBandData", "vec4" );
+      fogBandData->uniform = true;
+      fogBandData->constSortPos = cspPass;
+		
       Var *wsPosition = new Var( "fogPos", "vec3" );
       getWsPosition( componentList, 
 						  fd.features[MFT_UseInstancing], 
@@ -1847,8 +1859,12 @@ void FogFeatGLSL::processVert(   Vector<ShaderComponent*> &componentList,
       fogAmount->setType( "float" );
       fogAmount->mapsToSampler = false;
 		
-      meta->addStatement( new GenOp( "   @ = saturate( computeSceneFog( @, @, @.r, @.g, @.b ) );\r\n", 
-												fogAmount, eyePos, wsPosition, fogData, fogData, fogData ) );
+      meta->addStatement( new GenOp( "   @ = saturate( computeSceneFog( @, @, @.r, @.g, @.b )\r\n"
+                                     "                  - computeSceneFogBand( @, @, @.r, @.g, @.b )\r\n"
+                                     "                  - computeSceneHaze( length( @ - @ ), @.g, @.a ) );\r\n",
+												fogAmount, eyePos, wsPosition, fogData, fogData, fogData,
+												eyePos, wsPosition, fogBandData, fogBandData, fogBandData,
+												wsPosition, eyePos, fogData, fogBandData ) );
    }
    else
    {
@@ -1910,10 +1926,18 @@ void FogFeatGLSL::processPix( Vector<ShaderComponent*> &componentList,
       fogData->uniform = true;
       fogData->constSortPos = cspPass;   
 		
+      Var *fogBandData = new Var( "fogBandData", "vec4" );
+      fogBandData->uniform = true;
+      fogBandData->constSortPos = cspPass;
+		
       /// Get the fog amount.
       fogAmount = new Var( "fogAmount", "float" );
-      meta->addStatement( new GenOp( "   @ = saturate( computeSceneFog( @, @, @.r, @.g, @.b ) );\r\n", 
-												new DecOp( fogAmount ), eyePos, wsPosition, fogData, fogData, fogData ) );
+      meta->addStatement( new GenOp( "   @ = saturate( computeSceneFog( @, @, @.r, @.g, @.b )\r\n"
+                                     "                  - computeSceneFogBand( @, @, @.r, @.g, @.b )\r\n"
+                                     "                  - computeSceneHaze( length( @ - @ ), @.g, @.a ) );\r\n",
+												new DecOp( fogAmount ), eyePos, wsPosition, fogData, fogData, fogData,
+												eyePos, wsPosition, fogBandData, fogBandData, fogBandData,
+												wsPosition, eyePos, fogData, fogBandData ) );
    }
 	
    // Lerp between the fog color and diffuse color.

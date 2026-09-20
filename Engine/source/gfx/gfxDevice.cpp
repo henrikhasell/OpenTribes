@@ -264,8 +264,16 @@ GFXDevice::~GFXDevice()
       mNewCubemap[i] = NULL;
    }
 
-   // Release all the unreferenced textures in the cache.
-   mTextureManager->cleanupCache();
+   // Release the textures while the manager can still free them.
+   //
+   // kill() starts by doing what a bare cleanupCache() did here, and then
+   // empties the pool and marks the manager dead.  Without it the pool is
+   // still holding StrongRefPtrs when ~GFXTextureManager releases them, which
+   // is after ~GFXGLTextureManager has run: the last reference drops, the
+   // texture's destructor reaches GFXTextureObject::kill(), and deleteTexture()
+   // calls _freeTexture() on a manager that no longer has a derived half.  That
+   // is a pure virtual call, and the process aborts on the way out.
+   mTextureManager->kill();
 
    // Check for resource leaks
 #ifdef TORQUE_DEBUG
