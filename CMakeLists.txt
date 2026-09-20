@@ -59,6 +59,11 @@ target_compile_definitions(${TORQUE_APP_NAME} PRIVATE
     LTM_DESC
     LTC_NO_PROTOTYPES
     $<$<CONFIG:Debug>:TORQUE_DEBUG>
+    # TORQUE_TOOLS gates more than the editor sources in EngineSources.cmake:
+    # isToolBuild(), which main.cs tests before it puts "tools" on the mod
+    # path, and the createPath/pathCopy console functions the editors save
+    # through.  Without it the editors are compiled in but unreachable.
+    $<$<BOOL:${TORQUE_TOOLS}>:TORQUE_TOOLS>
     $<$<NOT:$<BOOL:${TORQUE_TOOLS}>>:TORQUE_PLAYER>
     $<$<BOOL:${TORQUE_COLLADA}>:TORQUE_COLLADA>)
 
