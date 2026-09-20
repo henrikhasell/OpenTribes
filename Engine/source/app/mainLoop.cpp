@@ -454,6 +454,19 @@ bool StandardMainLoop::handleCommandLine( S32 argc, const char **argv )
 #endif
          success = str.open(defaultScriptName, Torque::FS::File::Read);
 
+      // A Tribes 2 GameData directory has no main.cs: its root script is
+      // console_start.cs, which the game's own executable names directly.
+      if (!success)
+      {
+         const char *tribesScriptName = "console_start.cs";
+
+         if (str.open(tribesScriptName, Torque::FS::File::Read))
+         {
+            defaultScriptName = tribesScriptName;
+            success = true;
+         }
+      }
+
 #if defined( TORQUE_DEBUG ) && defined (TORQUE_TOOLS) && !defined( _XBOX )
       if (!success)
       {
