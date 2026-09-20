@@ -243,13 +243,6 @@ void SceneContainer::insertIntoBins(SceneObject* obj)
 
    // For huge objects, dump them into the overflow bin.  Otherwise, everything
    //  goes into the grid...
-   // && binds tighter than ||, so the global-bounds guard used to apply only to
-   // the Y term: an object with global bounds whose X range came out under the
-   // bin count was filed into the grid rather than the overflow bin.  Grid
-   // objects are only found when a query box reaches their bins, so such an
-   // object drops out of the render list from some camera positions -- and for
-   // the DecalManager, which is global-bounds precisely so that it is always
-   // visited, that takes every decal in the scene with it at once.
    if (((maxX - minX + 1) < csmNumBins || (maxY - minY + 1) < csmNumBins) && !obj->isGlobalBounds())
    {
       SceneObjectRef** pCurrInsert = &obj->mBinRefHead;
