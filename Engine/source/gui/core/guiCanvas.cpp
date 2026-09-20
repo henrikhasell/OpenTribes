@@ -2289,6 +2289,58 @@ DefineEngineFunction(excludeOtherInstance, bool, (const char* appIdentifer),,
 #endif
 }
 
+// GuiControl::onAdd() asserts on both of these, and they are script objects in
+// every Torque 3D template.  Game data that brings none of that script has to
+// get them from somewhere or the canvas cannot be added at all.
+static void ensureGuiProfile( const char *name )
+{
+   if ( Sim::findObject( name ) )
+      return;
+
+   GuiControlProfile *profile = new GuiControlProfile();
+   profile->registerObject( name );
+   Sim::getRootGroup()->addObject( profile );
+}
+
+DefineEngineFunction( createCanvas, bool, ( const char *windowTitle ), ( "" ),
+               "@brief Create the game window and the canvas that draws into it.\n\n"
+
+               "TGE exposed this from the engine and Tribes 2's console_start.cs "
+               "calls it; Torque 3D dropped it and has each template's main.cs "
+               "declare its own in script instead.  A script definition replaces "
+               "this one, so the templates are unaffected and game data that "
+               "brings no main.cs still gets a window.\n\n"
+
+               "@param windowTitle Title for the window.\n"
+
+               "@return False if a canvas already exists.\n\n"
+
+               "@ingroup GuiCore" )
+{
+   if ( Con::getBoolVariable( "$isDedicated" ) )
+   {
+      Con::evaluate( "GFXInit::createNullDevice();" );
+      return true;
+   }
+
+   if ( Sim::findObject( "Canvas" ) )
+   {
+      Con::errorf( "createCanvas - canvas already exists" );
+      return false;
+   }
+
+   ensureGuiProfile( "GuiDefaultProfile" );
+   ensureGuiProfile( "GuiTooltipProfile" );
+
+   GuiCanvas *canvas = new GuiCanvas();
+   canvas->registerObject( "Canvas" );
+
+   if ( windowTitle && windowTitle[ 0 ] )
+      canvas->setWindowTitle( windowTitle );
+
+   return true;
+}
+
 DefineEngineMethod( GuiCanvas, getExtent, Point2I, (),,
 				   "@brief Returns the dimensions of the canvas\n\n"
 
