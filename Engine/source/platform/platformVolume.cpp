@@ -50,10 +50,55 @@ bool  MountDefaults()
 
 #ifndef TORQUE_DISABLE_VIRTUAL_MOUNT_SYSTEM
    // Note that the VirtualMountSystem must be enabled in volume.cpp for zip support to work.
+   if ( IsTribesGameData( "game" ) )
+      return MountModDir( "game", "base" );
+
    return MountZips("game");
 #else
    return true;
 #endif
+}
+
+static S32 compareArchiveNames( const String *a, const String *b )
+{
+   return dStricmp( a->c_str(), b->c_str() );
+}
+
+bool IsTribesGameData(const String &root)
+{
+   Path basePath;
+   basePath.setRoot( root );
+   basePath.setPath( "/base" );
+
+   Vector<String> archives;
+   return FindByPattern( basePath, "*.vl2", false, archives ) > 0;
+}
+
+bool MountModDir(const String &root, const String &modDir)
+{
+   Path dirPath;
+   dirPath.setRoot( root );
+   dirPath.setPath( String( "/" ) + modDir );
+
+   Vector<String> archives;
+   FindByPattern( dirPath, "*.vl2", false, archives );
+
+   // A mod's loose files sit under its directory and the rest is inside .vl2
+   // archives beside them, which are zips.  Mount the directory itself first:
+   // the mount system resolves a path through the LAST filesystem that has it,
+   // so an archive wins over a loose file of the same name, and a later archive
+   // wins over an earlier one.  That is the ordering the game's own zz_ naming
+   // convention is built on, so the archives go on in name order.
+   if ( !Mount( root, createNativeFS( Path::Join( getAssetDir(), '/', modDir ) ) ) )
+      return false;
+
+   archives.sort( compareArchiveNames );
+
+   for ( S32 i = 0; i < archives.size(); ++i )
+      if ( !Mount( root, new ZipFileSystem( archives[ i ] ) ) )
+         return false;
+
+   return true;
 }
 
 bool MountZips(const String &root)
