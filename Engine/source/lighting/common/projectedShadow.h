@@ -73,6 +73,10 @@ protected:
    F32 mScore;
    bool mUpdateTexture;
 
+   /// Set when _updateDecal bails only because the shadow is off screen, so the
+   /// existing texture is still valid and must not be released.
+   bool mKeepTexture;
+
    Point3F mLastObjectScale;
    Point3F mLastObjectPosition;
    VectorF mLastLightDir;
