@@ -64,6 +64,30 @@ float computeSceneFog( float dist, float fogDensity, float fogDensityOffset )
 }
 
 
+// HH: Make fog match the TGE more closely.
+float computeSceneFogBand( vec3 startPos,
+                           vec3 endPos,
+                           float bandMin,
+                           float bandMax,
+                           float invVisDist )
+{
+   float dz = endPos.z - startPos.z;
+   float inBand = step( bandMin, startPos.z ) * step( startPos.z, bandMax );
+   float frac = abs( dz ) > 1e-4
+      ? ( clamp( endPos.z, bandMin, bandMax ) - clamp( startPos.z, bandMin, bandMax ) ) / dz
+      : inBand;
+   return length( endPos - startPos ) * frac * invVisDist;
+}
+
+
+// HH: Make fog match the TGE more closely.
+float computeSceneHaze( float dist, float fogDistance, float hazeScale )
+{
+   float t = clamp( ( dist - fogDistance ) * hazeScale, 0.0, 1.0 ) - 1.0;
+   return 1.0 - t * t;
+}
+
+
 /// Convert a vec4 uv in viewport space to render target space.
 vec2 viewportCoordToRenderTarget( vec4 inCoord, vec4 rtParams )
 {   

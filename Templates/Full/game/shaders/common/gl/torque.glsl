@@ -64,6 +64,7 @@ float computeSceneFog( float dist, float fogDensity, float fogDensityOffset )
 }
 
 
+// HH: Make fog match the TGE more closely.
 float computeSceneFogBand( vec3 startPos,
                            vec3 endPos,
                            float bandMin,
@@ -79,6 +80,7 @@ float computeSceneFogBand( vec3 startPos,
 }
 
 
+// HH: Make fog match the TGE more closely.
 float computeSceneHaze( float dist, float fogDistance, float hazeScale )
 {
    float t = clamp( ( dist - fogDistance ) * hazeScale, 0.0, 1.0 ) - 1.0;

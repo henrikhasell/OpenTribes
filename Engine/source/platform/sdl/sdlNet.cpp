@@ -423,10 +423,6 @@ Net::Error Net::recv( NetSocket socket, U8 *buffer, S32 bufferSize, S32 *bytesRe
    if ( read < 0 )
       return UnknownError;
 
-   // Callers read *bytesRead == 0 as the peer having closed, and disconnect on
-   // it -- see telnetConsole.cpp:200 and telnetDebugger.cpp:362, both of which
-   // test it before they look at WouldBlock.  ::recv() left -1 there for a
-   // socket that simply had nothing ready, so keep that apart from zero.
    *bytesRead = read == 0 ? -1 : read;
    return read == 0 ? WouldBlock : NoError;
 }
