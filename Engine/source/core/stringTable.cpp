@@ -56,8 +56,6 @@ U32 _StringTable::hashString(const char* str)
    if(!str) return -1;
 
    U32 ret = 0;
-   // char is signed here, so a byte over 0x7F -- any UTF-8 continuation byte --
-   // sign-extends to an index far outside the 256-entry table.
    U8 c;
    while((c = *str++) != 0) {
       ret <<= 1;
