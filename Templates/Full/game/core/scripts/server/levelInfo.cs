@@ -34,6 +34,9 @@
 function clearLoadInfo() {
    if (isObject(theLevelInfo))
       theLevelInfo.delete();
+
+   if (isObject(MissionInfo))
+      MissionInfo.delete();
 }
 
 //------------------------------------------------------------------------------

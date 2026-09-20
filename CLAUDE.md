@@ -14,6 +14,23 @@ Do not copy the header across from a neighbouring file when adding to an
 existing directory — most files here predate the port and carry it for that
 reason.
 
-This applies to files that are genuinely new. A file that is a rename or a
-copy of original Torque source keeps the notice it came with; removing it from
-a substantial copy would breach the MIT terms it was released under.
+This applies to files that are genuinely new. A file that is a rename of one
+already in this repository keeps the notice it came with.
+
+## Code brought over from TGE
+
+Source taken from the Torque Game Engine tree does not keep its banner either.
+Strip it and start the file with:
+
+```
+// HH: imported from TGE
+```
+
+If the file could not be brought over byte-identically, say so on the next
+line:
+
+```
+// (minor edits)
+```
+
+Describe the change instead of writing `minor edits` when it was not minor.
