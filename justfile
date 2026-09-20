@@ -22,10 +22,21 @@ windows-release:
     cmake --build {{builddir}}/windows-release
 
 # Apple Picker is a standalone project now: its main.cs names apple-picker as
-# the one mod, so there is no -game argument.
+# the one mod and puts tools beside it, so there is no -game argument and the
+# editors are on the mod path from the start.
 # Play Apple Picker.
 run config="linux-release": (stage config)
     cd "{{project}}" && ./OpenTribes
+
+# Both editors need a tools build (-DTORQUE_TOOLS=ON, the default); without
+# one main.cs leaves tools off the mod path and the flags do nothing.
+# Open Apple Picker in the Mission Editor.
+edit config="linux-release": (stage config)
+    cd "{{project}}" && ./OpenTribes -worldEditor
+
+# Open the GUI Editor.
+guiedit config="linux-release": (stage config)
+    cd "{{project}}" && ./OpenTribes -guiEditor
 
 # The stock Full template, for comparing against unmodified engine behaviour.
 run-template config="linux-release": (_stage template config)

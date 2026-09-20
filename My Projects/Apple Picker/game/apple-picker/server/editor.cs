@@ -33,18 +33,30 @@ function StaticShapeData::create(%data)
 // core/art/shapes/octahedron.dts, which is the same octahedron at version 24,
 // and createServer() execs it before onServerCreated() gets here.
 //
-// MissionMarkerData::create() went with them: core does not define it, but it
-// is only called by the editor's Library pane, which -game does not load.
+// MissionMarkerData::create() went with them.  The editor's Library pane builds
+// "<class>::create(<name>)" for every shape datablock it lists
+// (worldEditor/scripts/editors/creator.ed.cs), so the three markers core
+// declares have no create method -- but neither do they in the stock Full
+// template, so this is upstream behaviour rather than something the move to a
+// standalone project introduced.
 
 //-----------------------------------------------------------------------------
 // Misc. server commands used for editing.
 //
-// core/scripts/server/commands.cs defines all three of these as well, but each
-// of its versions ends in clientCmdSyncEditorGui(), which lives in the tools
-// directory that `-game apple-picker` does not load -- so every camera toggle
-// would log an "Unable to find function".  These are exec'd from
-// onServerCreated(), after initBaseServer(), so they win.
+// core/scripts/server/commands.cs defines all three of these as well, but its
+// versions do not set the camera mode the way TGE's did.  These are exec'd
+// from onServerCreated(), after initBaseServer(), so they win.
+//
+// syncEditorGui() stands in for the clientCmdSyncEditorGui() that core calls
+// at the end of each: it lives in the tools directory, which a player build
+// does not load, and calling it when absent logs "Unable to find function".
 //-----------------------------------------------------------------------------
+
+function syncEditorGui()
+{
+   if (isFunction("clientCmdSyncEditorGui"))
+      clientCmdSyncEditorGui();
+}
 
 function serverCmdToggleCamera(%client)
 {
@@ -59,6 +71,7 @@ function serverCmdToggleCamera(%client)
          %control.mode = observerFly;
       }
       %client.setControlObject(%control);
+      syncEditorGui();
    }
 }
 
@@ -68,6 +81,7 @@ function serverCmdDropPlayerAtCamera(%client)
       %client.player.setTransform(%client.camera.getTransform());
    %client.player.setVelocity("0 0 0");
    %client.setControlObject(%client.player);
+   syncEditorGui();
 }
 
 function serverCmdDropCameraAtPlayer(%client)
@@ -75,6 +89,7 @@ function serverCmdDropCameraAtPlayer(%client)
    %client.camera.setTransform(%client.player.getEyeTransform());
    %client.camera.setVelocity("0 0 0");
    %client.setControlObject(%client.camera);
+   syncEditorGui();
 }
 
 

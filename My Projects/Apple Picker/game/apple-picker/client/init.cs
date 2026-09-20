@@ -54,13 +54,13 @@ function initClient()
    // before it creates the server, so the load is covered by a 2D control from
    // its first frame; PlayGui only appears once the mission has finished
    // arriving.
-   //
-   // The Mission Editor is NOT available in this mode: -game replaces the
-   // directory list, so the "tools" directory that defines it is not loaded.
-   // Add it back with `-game apple-picker -dir tools` on a tool build.
    $Game::DefaultMission = "apple-picker/data/missions/orchard.mis";
 
-   startMission();
+   // -worldEditor and -guiEditor set their own Canvas content once the root
+   // main.cs returns from onStart(), and the tools package initializes after
+   // this function does.  Starting the mission here would race both.
+   if (!$startWorldEditor && !$startGUIEditor)
+      startMission();
 }
 
 

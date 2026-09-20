@@ -249,6 +249,57 @@ StringTableEntry Platform::getUserDataDirectory()
 
 //-----------------------------------------------------------------------------
 
+bool Platform::createPath(const char* path)
+{
+   if (!path || !*path)
+      return false;
+
+   const char* lastSlash = dStrrchr(path, '/');
+   if (!lastSlash)
+      return true;
+
+   if (lastSlash == path)
+      return true;
+
+   char dirs[4096];
+   const U32 len = lastSlash - path;
+   if (len >= sizeof(dirs))
+      return false;
+
+   dMemcpy(dirs, path, len);
+   dirs[len] = '\0';
+
+   return SDL_CreateDirectory(dirs);
+}
+
+void Platform::openFolder(const char* path)
+{
+   char url[4096];
+   dSprintf(url, sizeof(url), "file://%s", path);
+   SDL_OpenURL(url);
+}
+
+void Platform::openFile(const char* path)
+{
+   openFolder(path);
+}
+
+bool dPathCopy(const char* fromName, const char* toName, bool nooverwrite)
+{
+   if (!fromName || !toName)
+      return false;
+
+   if (nooverwrite && Platform::isFile(toName))
+      return false;
+
+   if (!Platform::createPath(toName))
+      return false;
+
+   return SDL_CopyFile(fromName, toName);
+}
+
+//-----------------------------------------------------------------------------
+
 bool dFileDelete(const char* name)
 {
    if (!name || !*name)
