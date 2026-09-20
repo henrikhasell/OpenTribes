@@ -48,6 +48,7 @@ public:
    GFXShaderConstHandle* mSpecularPowerSC;
    GFXShaderConstHandle* mParallaxInfoSC;
    GFXShaderConstHandle* mFogDataSC;
+   GFXShaderConstHandle* mFogBandDataSC;
    GFXShaderConstHandle* mFogColorSC;   
    GFXShaderConstHandle* mDetailScaleSC;
    GFXShaderConstHandle* mVisiblitySC;

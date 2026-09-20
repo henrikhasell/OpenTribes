@@ -127,6 +127,7 @@ protected:
       GFXShaderConstHandle *oneOverTerrainSize;
 
       GFXShaderConstHandle *fogDataConst;
+      GFXShaderConstHandle *fogBandDataConst;
       GFXShaderConstHandle *fogColorConst;
    };
 
