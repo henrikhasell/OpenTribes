@@ -1,4 +1,5 @@
 builddir  := "build"
+gamedata  := env_var_or_default("TRIBES2_DIR", "")
 project   := "My Projects/Apple Picker/game"
 template  := "Templates/Full/game"
 toolchain := "cmake/mingw-w64.cmake"
@@ -41,6 +42,31 @@ guiedit config="linux-release": (stage config)
 # The stock Full template, for comparing against unmodified engine behaviour.
 run-template config="linux-release": (_stage template config)
     cd "{{template}}" && ./OpenTribes
+
+# Nothing is written into the install.  A GameData has no main.cs -- the engine
+# falls back to console_start.cs -- so the script that opens the port is named
+# as the entry script instead and execs console_start.cs itself.  It is written
+# beside the binary, which is the game root.
+#
+# The password is empty, so a bare newline grants full read/write access, and
+# nothing binds it to loopback.  See the notes in Apple Picker's defaults.cs.
+#
+# The directory defaults to $TRIBES2_DIR.
+#
+# Run against a Tribes 2 GameData with telnet open: just tribes [dir] [port]
+tribes dir=gamedata port="4711" config="linux-release": (_engineassets config)
+    @test -n "{{dir}}" || { echo "no GameData: pass one or set TRIBES2_DIR"; exit 1; }
+    @test -f "{{dir}}/console_start.cs" || { echo "{{dir}} has no console_start.cs"; exit 1; }
+    printf 'telnetSetParameters(%s, "", "", true);\necho("Telnet console listening on port %s");\nexec("console_start.cs");\n' {{port}} {{port}} > "{{builddir}}/{{config}}/game/telnetboot.cs"
+    cd "{{dir}}" && "{{justfile_directory()}}/{{builddir}}/{{config}}/game/OpenTribes" telnetboot.cs
+
+# The engine resolves its own shaders through the game root, and game data that
+# is not ours has no reason to carry them -- without these the GL device dies on
+# the first frame.  Nothing in CMake puts them beside the binary; the fonts the
+# build leaves there are already in the right place.
+_engineassets config: (_build config)
+    rm -rf {{builddir}}/{{config}}/game/shaders
+    cp -r "{{template}}/shaders" {{builddir}}/{{config}}/game/shaders
 
 # Stage the binary and fonts without launching, for running by hand.
 stage config="linux-release": (_stage project config)
