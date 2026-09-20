@@ -1629,7 +1629,7 @@ void GuiCanvas::renderFrame(bool preRenderOnly, bool bufferSwap /* = true */)
    // changes at a later time.
 
    GFXVideoMode mode = mPlatformWindow->getVideoMode();
-   if ( dStricmp( LIGHTMGR->getId(), "ADVLM" ) == 0 && mode.antialiasLevel > 0 )   
+   if ( LIGHTMGR && dStricmp( LIGHTMGR->getId(), "ADVLM" ) == 0 && mode.antialiasLevel > 0 )
    {
       const char *pref = Con::getVariable( "$pref::Video::mode" );
       mode.parseFromString( pref );
@@ -1638,7 +1638,7 @@ void GuiCanvas::renderFrame(bool preRenderOnly, bool bufferSwap /* = true */)
 
       Con::printf( "AntiAliasing has been disabled; it is not compatible with AdvancedLighting." );
    }
-   else if ( dStricmp( LIGHTMGR->getId(), "BLM" ) == 0)
+   else if ( LIGHTMGR && dStricmp( LIGHTMGR->getId(), "BLM" ) == 0)
    {
       const char *pref = Con::getVariable( "$pref::Video::mode" );
 
