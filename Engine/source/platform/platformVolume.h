@@ -45,7 +45,7 @@ namespace FS
 
    bool MountDefaults();
    bool MountZips(const String &root);
-   bool MountModDir(const String &root, const String &modDir);
+   bool MountModDir(const String &root, const String &gameRoot, const String &modDir);
    bool IsTribesGameData(const String &root);
    
    bool Touch( const Path &path );
