@@ -21,10 +21,10 @@
 //-----------------------------------------------------------------------------
 
 // Set the name of our application
-$appName = "Full";
+$appName = "Apple Picker";
 
 // The directory it is run from
-$defaultGame = "scripts";
+$defaultGame = "apple-picker";
 
 // Set profile directory
 $Pref::Video::ProfilePath = "core/profile";
@@ -69,12 +69,15 @@ function isScriptFile(%path)
 exec("core/parseArgs.cs");
 
 $isDedicated = false;
-$dirCount = 2;
-$userDirs = $defaultGame @ ";art;levels";
+$dirCount = 1;
+$userDirs = $defaultGame;
 
 // load tools scripts if we're a tool build
 if (isToolBuild())
+{
     $userDirs = "tools;" @ $userDirs;
+    $dirCount++;
+}
 
 
 // Parse the executable arguments with the standard

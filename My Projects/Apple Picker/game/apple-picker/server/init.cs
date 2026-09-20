@@ -6,6 +6,8 @@ function initServer()
 {
    echo("\n--------- Initializing MOD: apple-picker: Server ---------");
 
+   $Server::MissionFileSpec = "apple-picker/data/missions/*.mis";
+
    // The core module provides the basic server functionality.
    initBaseServer();
 

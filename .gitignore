@@ -184,3 +184,13 @@ Templates/*/game/art/terrains/*_basetex.dds
 Templates/*/game/levels/*.ml
 Templates/*/game/art/**/*.cached.dts
 Templates/*/game/levels/*.mis.decals
+
+# Standalone projects.  The same generated files as a template's game
+# directory; what the project itself writes is in its own .gitignore.
+My Projects/*/game/shaders/procedural/
+My Projects/*/game/core/fonts/*.uft
+My Projects/*/game/core/prefs.cs
+My Projects/*/game/fonts/
+My Projects/*/game/console.log
+My Projects/*/game/OpenTribes
+My Projects/*/game/tools/settings.xml
