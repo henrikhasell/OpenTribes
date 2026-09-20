@@ -1,0 +1,73 @@
+//--- OBJECT WRITE BEGIN ---
+new GuiControl(LoadingGui) {
+   profile = "LoadingGuiProfile";
+   horizSizing = "width";
+   vertSizing = "height";
+   position = "0 0";
+   extent = "640 480";
+   minExtent = "8 8";
+   visible = "1";
+   helpTag = "0";
+   qLineCount = "0";
+
+   new GuiControl(LoadingPanel) {
+      profile = "LoadingGuiPanelProfile";
+      horizSizing = "center";
+      vertSizing = "center";
+      position = "112 156";
+      extent = "416 168";
+      minExtent = "8 8";
+      visible = "1";
+      helpTag = "0";
+
+      new GuiTextCtrl(LOAD_MapName) {
+         profile = "GuiMediumTextProfile";
+         horizSizing = "right";
+         vertSizing = "bottom";
+         position = "16 14";
+         extent = "8 28";
+         minExtent = "8 8";
+         visible = "1";
+         helpTag = "0";
+         text = "";
+         maxLength = "255";
+      };
+      new GuiMLTextCtrl(LOAD_MapDescription) {
+         profile = "GuiMLTextProfile";
+         horizSizing = "right";
+         vertSizing = "bottom";
+         position = "16 56";
+         extent = "384 14";
+         minExtent = "8 8";
+         visible = "1";
+         helpTag = "0";
+         lineSpacing = "2";
+         allowColorChars = "0";
+         maxChars = "-1";
+      };
+      new GuiProgressCtrl(LoadingProgress) {
+         profile = "GuiProgressProfile";
+         horizSizing = "width";
+         vertSizing = "top";
+         position = "16 124";
+         extent = "384 26";
+         minExtent = "8 8";
+         visible = "1";
+         helpTag = "0";
+
+         new GuiTextCtrl(LoadingProgressTxt) {
+            profile = "GuiProgressTextProfile";
+            horizSizing = "width";
+            vertSizing = "bottom";
+            position = "0 4";
+            extent = "384 20";
+            minExtent = "8 8";
+            visible = "1";
+            helpTag = "0";
+            text = "WAITING FOR SERVER";
+            maxLength = "255";
+         };
+      };
+   };
+};
+//--- OBJECT WRITE END ---

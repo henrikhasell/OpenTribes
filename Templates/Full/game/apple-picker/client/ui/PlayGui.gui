@@ -1,0 +1,84 @@
+//--- OBJECT WRITE BEGIN ---
+new GameTSCtrl(PlayGui) {
+   profile = "GuiContentProfile";
+   horizSizing = "right";
+   vertSizing = "bottom";
+   position = "0 0";
+   extent = "640 480";
+   minExtent = "8 8";
+   visible = "1";
+   cameraZRot = "0";
+   forceFOV = "0";
+      noCursor = "1";
+      helpTag = "0";
+
+   // The apple counter.  A child of PlayGui rather than a dialog of its own,
+   // precisely so that it does NOT bring the cursor with it: checkCursor
+   // (common/client/cursor.cs) only walks the Canvas's root controls, so
+   // PlayGui's noCursor still decides, and the mouse stays on camera look.
+   //
+   // horizSizing "center" keeps the plate centred as the Canvas grows from this
+   // authored 640x480 to the real resolution.  The text is set from
+   // clientCmdAppleCount; this literal is what shows for the frame before the
+   // server's first update arrives.
+   new GuiControl(AppleHud) {
+      profile = "ApplePickerHudProfile";
+      horizSizing = "center";
+      vertSizing = "bottom";
+      position = "220 16";
+      extent = "200 40";
+      minExtent = "8 8";
+      visible = "1";
+         helpTag = "0";
+
+      new GuiTextCtrl(AppleCountText) {
+         profile = "ApplePickerTextProfile";
+         horizSizing = "width";
+         vertSizing = "height";
+         position = "0 7";
+         extent = "200 26";
+         minExtent = "8 8";
+         visible = "1";
+            helpTag = "0";
+            text = "Apples: 0 / 5";
+            maxLength = "255";
+      };
+   };
+
+   // Touch controls.  Hidden here and shown by PlayGui::onWake only when
+   // $platform::touchScreen says there is one, so a desktop run is unchanged.
+   //
+   // TouchLook covers the whole view and is listed last so it is on top: the
+   // canvas offers a finger to the deepest control it hits and then walks up
+   // the parents, so a thumb inside the stick reaches the stick first and
+   // anything else falls through to the look region.  Both claim a finger each
+   // and keep it until it lifts, which is what lets you walk and look at once.
+   new GuiTouchLookCtrl(TouchLook) {
+      profile = "GuiDefaultProfile";
+      horizSizing = "width";
+      vertSizing = "height";
+      position = "0 0";
+      extent = "640 480";
+      minExtent = "8 8";
+      visible = "0";
+         sensitivity = "0.3";
+
+         tapMs = "250";
+         tapSlop = "20";
+
+      new GuiTouchStickCtrl(TouchStick) {
+         profile = "GuiDefaultProfile";
+         horizSizing = "right";
+         vertSizing = "top";
+         position = "24 320";
+         extent = "136 136";
+         minExtent = "8 8";
+         visible = "1";
+            radius = "56";
+            deadZone = "0.18";
+            floatingCentre = "0";
+      };
+   };
+};
+
+//--- OBJECT WRITE END ---
