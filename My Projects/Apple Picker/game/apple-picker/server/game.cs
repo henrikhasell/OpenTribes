@@ -9,10 +9,7 @@
 //
 // These are plain redefinitions rather than a package, and initServer() execs
 // this file after initBaseServer(), so each one replaces core's version of the
-// same name in core/scripts/server/game.cs.  What core's onServerCreated does
-// and this one does not is load the editor-managed datablock files out of art/
-// (managed particles, decals, forest items) -- none of which this game has, and
-// none of which are on the resource path under `-game apple-picker` anyway.
+// same name in core/scripts/server/game.cs.
 //-----------------------------------------------------------------------------
 
 function onServerCreated()
@@ -26,6 +23,30 @@ function onServerCreated()
    exec("./camera.cs");
    exec("./player.cs");
    exec("./editor.cs");
+
+   // The editors write what they create to these paths and nothing else reads
+   // them back, so without this a decal or a forest item made in the Mission
+   // Editor is gone at the next mission load.  The paths are the editors' own
+   // hardcoded defaults, not a choice this game gets to make -- see
+   // $DATABLOCK_EDITOR_DEFAULT_FILENAME and friends under tools/.  They do not
+   // exist until something is saved, hence the guard.
+   loadEditorDatablocks();
+}
+
+function loadEditorDatablocks()
+{
+   %files = "art/decals/managedDecalData.cs" TAB
+            "art/datablocks/managedDatablocks.cs" TAB
+            "art/forest/managedItemData.cs" TAB
+            "art/shapes/particles/managedParticleData.cs" TAB
+            "art/shapes/particles/managedParticleEmitterData.cs";
+
+   for (%i = 0; %i < getFieldCount(%files); %i++)
+   {
+      %file = getField(%files, %i);
+      if (isScriptFile(%file))
+         exec(%file);
+   }
 }
 
 function onServerDestroyed()
