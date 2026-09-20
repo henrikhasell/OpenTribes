@@ -1,5 +1,6 @@
 builddir  := "build"
-gamedir   := "Templates/Full/game"
+project   := "My Projects/Apple Picker/game"
+template  := "Templates/Full/game"
 toolchain := "cmake/mingw-w64.cmake"
 
 default: linux-release
@@ -20,31 +21,33 @@ windows-release:
     cmake -S . -B {{builddir}}/windows-release -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE={{toolchain}}
     cmake --build {{builddir}}/windows-release
 
-# `game` is a directory name under the game folder, so `just run apple-picker`.
-# Empty means the stock Full template, and is deliberately not spelled
-# "-game scripts": -game replaces the whole directory list rather than adding
-# to it, which would drop tools and with it the editor.
-#
-# The engine resolves main.cs, its assets and fonts next to the executable, so
-# both the binary and the staged fonts have to land in the game directory.
-run game="" config="linux-release": (_build config)
-    cp {{builddir}}/{{config}}/game/OpenTribes {{gamedir}}/OpenTribes
-    rm -rf {{gamedir}}/fonts
-    cp -r {{builddir}}/{{config}}/game/fonts {{gamedir}}/fonts
-    rm -f "{{gamedir}}/core/fonts/"*.uft
-    rm -f {{gamedir}}/core/prefs.cs {{gamedir}}/scripts/client/prefs.cs {{gamedir}}/scripts/server/prefs.cs
-    just _clearcaches
-    cd {{gamedir}} && ./OpenTribes{{ if game == "" { "" } else { " -game " + game } }}
+# Apple Picker is a standalone project now: its main.cs names apple-picker as
+# the one mod, so there is no -game argument.
+# Play Apple Picker.
+run config="linux-release": (stage config)
+    cd "{{project}}" && ./OpenTribes
+
+# The stock Full template, for comparing against unmodified engine behaviour.
+run-template config="linux-release": (_stage template config)
+    cd "{{template}}" && ./OpenTribes
 
 # Stage the binary and fonts without launching, for running by hand.
-stage game="" config="linux-release": (_build config)
-    cp {{builddir}}/{{config}}/game/OpenTribes {{gamedir}}/OpenTribes
-    rm -rf {{gamedir}}/fonts
-    cp -r {{builddir}}/{{config}}/game/fonts {{gamedir}}/fonts
-    rm -f "{{gamedir}}/core/fonts/"*.uft
-    rm -f {{gamedir}}/core/prefs.cs {{gamedir}}/scripts/client/prefs.cs {{gamedir}}/scripts/server/prefs.cs
-    just _clearcaches
-    @echo "staged in {{gamedir}} -- run ./OpenTribes{{ if game == "" { "" } else { " -game " + game } }} there"
+stage config="linux-release": (_stage project config)
+    @echo "staged in {{project}} -- run ./OpenTribes there"
+
+# The engine resolves main.cs, its assets and fonts next to the executable, so
+# both the binary and the staged fonts have to land in the game directory.
+#
+# Every prefs.cs is deleted rather than just core's: the engine exports $pref::*
+# on exit, so a value a test harness flipped -- $pref::Decals::enabled is the
+# one that has cost real time -- otherwise survives into every later run.
+_stage dir config: (_build config)
+    cp {{builddir}}/{{config}}/game/OpenTribes "{{dir}}/OpenTribes"
+    rm -rf "{{dir}}/fonts"
+    cp -r {{builddir}}/{{config}}/game/fonts "{{dir}}/fonts"
+    rm -f "{{dir}}/core/fonts/"*.uft
+    find "{{dir}}" -name 'prefs.cs' -delete
+    just _clearcaches "{{dir}}"
 
 _build config:
     just {{config}}
@@ -61,9 +64,9 @@ _build config:
 #   *_basetex.dds        The terrain's composited base texture, which is not
 #                        invalidated by baseTexSize or by an edit to any of
 #                        the TerrainMaterials that went into it.
-_clearcaches:
-    rm -f "{{gamedir}}/shaders/procedural/"*.glsl "{{gamedir}}/shaders/procedural/"*.hlsl
-    find {{gamedir}} -name '*_basetex.dds' -delete
+_clearcaches dir:
+    rm -f "{{dir}}/shaders/procedural/"*.glsl "{{dir}}/shaders/procedural/"*.hlsl
+    find "{{dir}}" -name '*_basetex.dds' -delete
 
 clean:
     rm -rf {{builddir}}
