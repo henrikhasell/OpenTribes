@@ -427,7 +427,13 @@ bool LightManager::lightScene( const char* callback, const char* param )
 
 RenderPrePassMgr* LightManager::_findPrePassRenderBin()
 {
-   RenderPassManager* rpm = getSceneManager()->getDefaultRenderPass();
+   // Not getDefaultRenderPass(): that asserts the render passes have been built
+   // in script, and a light manager can be activated before they are -- or in
+   // game data that never builds them at all.  A find should answer "no".
+   RenderPassManager* rpm = NULL;
+   if( !Sim::findObject( "DiffuseRenderPassManager", rpm ) )
+      return NULL;
+
    for( U32 i = 0; i < rpm->getManagerCount(); i++ )
    {
       RenderBinManager *bin = rpm->getManager( i );
