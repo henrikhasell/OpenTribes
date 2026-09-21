@@ -43,12 +43,19 @@ guiedit config="linux-release": (stage config)
 run-template config="linux-release": (_stage template config)
     cd "{{template}}" && ./OpenTribes
 
-# Nothing is written into the install.  A GameData has no main.cs, so the engine
-# falls back to console_start.cs, and both flags below are the game's own: it
-# parses $Game::argv itself, calling setModPaths for -mod and
-# telnetSetParameters for -telnetParams.
+# The engine roots itself at the executable's directory, so the binary is staged
+# into the GameData rather than run from the build tree.  That is the whole
+# directory mapping: no engine change, and the game's data is the game root.
 #
-# The passwords are empty, so a bare newline grants full read/write access, and
+# What the engine brings itself is symlinked in beside it -- its shaders, which
+# a GameData has no reason to carry and without which the GL device dies on the
+# first frame, and the fonts the build leaves next to the binary.  Links rather
+# than copies so a rebuild is picked up and so ShaderGen's generated output
+# lands under build/ instead of in the install.
+#
+# Both flags are the game's own: console_start.cs parses $Game::argv itself,
+# calling setModPaths for -mod and telnetSetParameters for -telnetParams.  The
+# passwords are empty, so a bare newline grants full read/write access, and
 # nothing binds it to loopback.  See the notes in Apple Picker's defaults.cs.
 #
 # The directory defaults to $TRIBES2_DIR.
@@ -57,12 +64,13 @@ run-template config="linux-release": (_stage template config)
 tribes dir=gamedata port="4711" config="linux-release": (_engineassets config)
     @test -n "{{dir}}" || { echo "no GameData: pass one or set TRIBES2_DIR"; exit 1; }
     @test -f "{{dir}}/console_start.cs" || { echo "{{dir}} has no console_start.cs"; exit 1; }
-    cd "{{dir}}" && "{{justfile_directory()}}/{{builddir}}/{{config}}/game/OpenTribes" -telnetParams {{port}} "" "" -mod base
+    cp {{builddir}}/{{config}}/game/OpenTribes "{{dir}}/OpenTribes"
+    ln -sfn "{{justfile_directory()}}/{{builddir}}/{{config}}/game/shaders" "{{dir}}/shaders"
+    ln -sfn "{{justfile_directory()}}/{{builddir}}/{{config}}/game/fonts" "{{dir}}/fonts"
+    cd "{{dir}}" && ./OpenTribes -telnetParams {{port}} "" "" -mod base
 
-# The engine resolves its own shaders through the game root, and game data that
-# is not ours has no reason to carry them -- without these the GL device dies on
-# the first frame.  Nothing in CMake puts them beside the binary; the fonts the
-# build leaves there are already in the right place.
+# The engine's shaders are not put beside the binary by CMake, and the tribes
+# recipe links the GameData at them, so they have to be there to link to.
 _engineassets config: (_build config)
     rm -rf {{builddir}}/{{config}}/game/shaders
     cp -r "{{template}}/shaders" {{builddir}}/{{config}}/game/shaders

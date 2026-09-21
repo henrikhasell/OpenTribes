@@ -41,45 +41,14 @@ namespace Platform
 namespace FS
 {
 
-// Where MountDefaults() rooted "game", which is the working directory whenever
-// that differs from the executable's.  setModPaths() needs the real directory
-// to mount a mod from, not the virtual root.
-static String sGameRoot;
-
-static String withoutTrailingSlash( const String &path )
-{
-   if ( path.length() > 1 && path[ path.length() - 1 ] == '/' )
-      return path.substr( 0, path.length() - 1 );
-
-   return path;
-}
-
 bool  MountDefaults()
 {
-   // getAssetDir() is where the executable sits, which is also where the game
-   // data is under this engine's own convention.  Point it somewhere else and
-   // there are two directories in play, so mount both: the executable's first,
-   // because the renderer cannot draw at all without the engine's shaders and a
-   // game directory is under no obligation to carry them, then the working
-   // directory, which wins wherever the two hold the same path.
-   // getExecutablePath() comes from SDL with a trailing separator and getcwd
-   // has none, so trim before comparing or the usual case -- one directory
-   // holding both -- looks like two and gets mounted twice.
-   String  exePath = withoutTrailingSlash( getAssetDir() );
-   String  workPath = withoutTrailingSlash( Platform::getCurrentDirectory() );
+   String  path = getAssetDir();
 
-   if ( !Mount( "game", createNativeFS( exePath ) ) )
+   bool  mounted = Mount( "game", createNativeFS( path ));
+
+   if ( !mounted )
       return false;
-
-   sGameRoot = exePath;
-
-   if ( workPath.isNotEmpty() && !workPath.equal( exePath, String::NoCase ) )
-   {
-      if ( !Mount( "game", createNativeFS( workPath ) ) )
-         return false;
-
-      sGameRoot = workPath;
-   }
 
 #ifndef TORQUE_DISABLE_VIRTUAL_MOUNT_SYSTEM
    // Note that the VirtualMountSystem must be enabled in volume.cpp for zip support to work.
@@ -109,7 +78,7 @@ bool MountModDir(const String &root, const String &modDir)
    // so an archive wins over a loose file of the same name, and a later archive
    // wins over an earlier one.  That is the ordering the game's own zz_ naming
    // convention is built on, so the archives go on in name order.
-   if ( !Mount( root, createNativeFS( Path::Join( sGameRoot, '/', modDir ) ) ) )
+   if ( !Mount( root, createNativeFS( Path::Join( getAssetDir(), '/', modDir ) ) ) )
       return false;
 
    archives.sort( compareArchiveNames );
