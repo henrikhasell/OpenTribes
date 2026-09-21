@@ -666,92 +666,80 @@ GFXTextureObject *GFXTextureManager::createTexture( const Torque::Path &path, GF
    if( retTexObj )
       return retTexObj;
 
+   // Texture assets live under textures/.  Tribes 2 names its art without that
+   // prefix -- a GUI profile asks for "gui/CUR_3darrow" and the file is
+   // textures/gui/CUR_3darrow.png -- so the prefix belongs here rather than in
+   // every name.  The cache key above is the name as asked for, so a texture is
+   // still found again by the name it was requested under.
+   if( !correctPath.getPath().startsWith( sTextureSearchDir ) )
+      correctPath.setPath( Torque::Path::Join( sTextureSearchDir, '/', correctPath.getPath() ) );
+
    const U32 scalePower = getTextureDownscalePower( profile );
 
-   // textures/ is the default place for a texture to live.  Tribes 2 keeps its
-   // art there and names it without the prefix, so a GUI profile asking for
-   // "gui/shll_button" means textures/gui/shll_button.png.  The path exactly as
-   // given is tried second, which is what a Torque 3D game directory needs.
-   Torque::Path searchPaths[ 2 ];
-   U32 numSearchPaths = 0;
-
-   if( !correctPath.getPath().startsWith( sTextureSearchDir ) )
-   {
-      searchPaths[ numSearchPaths ] = correctPath;
-      searchPaths[ numSearchPaths ].setPath( Torque::Path::Join( sTextureSearchDir, '/', correctPath.getPath() ) );
-      ++numSearchPaths;
-   }
-
-   searchPaths[ numSearchPaths++ ] = correctPath;
-
+   // If this is a valid file (has an extension) than load it
    Path realPath;
-
-   for( U32 i = 0; i < numSearchPaths && retTexObj == NULL; ++i )
+   if( Torque::FS::IsFile( correctPath ) )
    {
-      const Torque::Path &tryPath = searchPaths[ i ];
-
-      // If this is a valid file (has an extension) than load it
-      if( Torque::FS::IsFile( tryPath ) )
+      // Check for DDS
+      if( sDDSExt.equal(correctPath.getExtension(), String::NoCase ) )
       {
-         // Check for DDS
-         if( sDDSExt.equal(tryPath.getExtension(), String::NoCase ) )
+         dds = DDSFile::load( correctPath, scalePower );
+         if( dds != NULL )
          {
-            dds = DDSFile::load( tryPath, scalePower );
-            if( dds != NULL )
-            {
-               realPath = dds.getPath();
-               retTexObj = createTexture( dds, profile, false );
-            }
+            realPath = dds.getPath();
+            retTexObj = createTexture( dds, profile, false );
          }
-         else // Let GBitmap take care of it
-         {
-            bitmap = GBitmap::load( tryPath );
-            if( bitmap != NULL )
-            {
-               realPath = bitmap.getPath();
-               retTexObj = createTexture( bitmap, pathNoExt, profile, false );
-            }
-         }      
       }
-      else
+      else // Let GBitmap take care of it
       {
-         // NOTE -- We should probably remove the code from GBitmap that tries different
-         // extensions for things GBitmap loads, and move it here. I think it should
-         // be a bit more involved than just a list of extensions. Some kind of 
-         // extension registration thing, maybe.
-
-         // Check to see if there is a .DDS file with this name (if no extension is provided)
-         Torque::Path tryDDSPath = tryPath;
-         if( tryDDSPath.getExtension().isNotEmpty() )
-            tryDDSPath.setFileName( tryDDSPath.getFullFileName() );
-         tryDDSPath.setExtension( sDDSExt );
-
-         if( Torque::FS::IsFile( tryDDSPath ) )
-         {
-            dds = DDSFile::load( tryDDSPath, scalePower );
-            if( dds != NULL )
-            {
-               realPath = dds.getPath();
-               retTexObj = createTexture( dds, profile, false );
-            }
-         }
-      
-         // Otherwise, retTexObj stays NULL, and fall through to the generic GBitmap
-         // load.
-      }
-
-      // If we still don't have a texture object yet, feed the path to GBitmap and
-      // it will try a bunch of extensions
-      if( retTexObj == NULL )
-      {
-         // Find and load the texture.
-         bitmap = GBitmap::load( tryPath );
-
-         if ( bitmap != NULL )
+         bitmap = GBitmap::load( correctPath );
+         if( bitmap != NULL )
          {
             realPath = bitmap.getPath();
             retTexObj = createTexture( bitmap, pathNoExt, profile, false );
          }
+      }      
+   }
+   else
+   {
+      // NOTE -- We should probably remove the code from GBitmap that tries different
+      // extensions for things GBitmap loads, and move it here. I think it should
+      // be a bit more involved than just a list of extensions. Some kind of 
+      // extension registration thing, maybe.
+
+      // Check to see if there is a .DDS file with this name (if no extension is provided)
+      // From correctPath, not the cache key: the key is the name as asked for
+      // and this has to look where the file actually is.
+      Torque::Path tryDDSPath = correctPath;
+      if( tryDDSPath.getExtension().isNotEmpty() )
+         tryDDSPath.setFileName( tryDDSPath.getFullFileName() );
+      tryDDSPath.setExtension( sDDSExt );
+
+      if( Torque::FS::IsFile( tryDDSPath ) )
+      {
+         dds = DDSFile::load( tryDDSPath, scalePower );
+         if( dds != NULL )
+         {
+            realPath = dds.getPath();
+            retTexObj = createTexture( dds, profile, false );
+         }
+      }
+      
+      // Otherwise, retTexObj stays NULL, and fall through to the generic GBitmap
+      // load.
+   }
+
+   // If we still don't have a texture object yet, feed the correctPath to GBitmap and
+   // it will try a bunch of extensions
+   if( retTexObj == NULL )
+   {
+      // Find and load the texture.
+      bitmap = GBitmap::load( correctPath );
+
+      if ( bitmap != NULL )
+      {
+         realPath = bitmap.getPath();
+         retTexObj = createTexture( bitmap, pathNoExt, profile, false );
       }
    }
 

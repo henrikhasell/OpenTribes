@@ -957,6 +957,13 @@ String TerrainBlock::_getBaseTexCacheFileName() const
    Torque::Path basePath( mTerrFileName );
    basePath.setFileName( basePath.getFileName() + "_basetex" );
    basePath.setExtension( "dds" );
+
+   // This is written beside the terrain file but read back through the texture
+   // manager, which resolves every texture under textures/.  Cache it there so
+   // both halves name the same file.
+   if( !basePath.getPath().startsWith( "textures" ) )
+      basePath.setPath( Torque::Path::Join( "textures", '/', basePath.getPath() ) );
+
    return basePath.getFullPath();
 }
 
