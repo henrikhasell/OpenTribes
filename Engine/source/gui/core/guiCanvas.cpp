@@ -2290,9 +2290,8 @@ DefineEngineFunction(excludeOtherInstance, bool, (const char* appIdentifer),,
 #endif
 }
 
-// GuiControl::onAdd() asserts on both of these, and they are script objects in
-// every Torque 3D template.  Game data that brings none of that script has to
-// get them from somewhere or the canvas cannot be added at all.
+// HH: GuiControl::onAdd() asserts on GuiDefaultProfile, which is a script object
+// in every Torque 3D template.
 static void ensureGuiProfile( const char *name )
 {
    if ( Sim::findObject( name ) )
@@ -2331,7 +2330,6 @@ DefineEngineFunction( createCanvas, bool, ( const char *windowTitle ), ( "" ),
    }
 
    ensureGuiProfile( "GuiDefaultProfile" );
-   ensureGuiProfile( "GuiTooltipProfile" );
 
    GuiCanvas *canvas = new GuiCanvas();
    canvas->registerObject( "Canvas" );
