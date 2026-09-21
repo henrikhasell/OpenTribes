@@ -21,7 +21,7 @@
 //-----------------------------------------------------------------------------
 
 // Set the name of our application
-$appName = "Full PhysX";
+$appName = "Empty PhysX";
 
 // The directory it is run from
 $defaultGame = "scripts";
@@ -124,11 +124,11 @@ function compileFiles(%pattern)
    
    $Scripts::OverrideDSOPath  = %path;
    $Scripts::ignoreDSOs       = false;
-   %mainCsFile = makeFullPath("main.cs");
+   %mainCsFile = makeFullPath("console_start.cs");
 
    for (%file = findFirstFileMultiExpr(%pattern); %file !$= ""; %file = findNextFileMultiExpr(%pattern))
    {
-      // we don't want to try and compile the primary main.cs
+      // we don't want to try and compile the primary console_start.cs
       if(%mainCsFile !$= %file)      
          compile(%file, true);
    }

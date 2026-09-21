@@ -21,10 +21,10 @@
 //-----------------------------------------------------------------------------
 
 // Set the name of our application
-$appName = "Empty PhysX";
+$appName = "Apple Picker";
 
 // The directory it is run from
-$defaultGame = "scripts";
+$defaultGame = "apple-picker";
 
 // Set profile directory
 $Pref::Video::ProfilePath = "core/profile";
@@ -69,12 +69,15 @@ function isScriptFile(%path)
 exec("core/parseArgs.cs");
 
 $isDedicated = false;
-$dirCount = 2;
-$userDirs = $defaultGame @ ";art;levels";
+$dirCount = 1;
+$userDirs = $defaultGame;
 
 // load tools scripts if we're a tool build
 if (isToolBuild())
+{
     $userDirs = "tools;" @ $userDirs;
+    $dirCount++;
+}
 
 
 // Parse the executable arguments with the standard
@@ -124,11 +127,11 @@ function compileFiles(%pattern)
    
    $Scripts::OverrideDSOPath  = %path;
    $Scripts::ignoreDSOs       = false;
-   %mainCsFile = makeFullPath("main.cs");
+   %mainCsFile = makeFullPath("console_start.cs");
 
    for (%file = findFirstFileMultiExpr(%pattern); %file !$= ""; %file = findNextFileMultiExpr(%pattern))
    {
-      // we don't want to try and compile the primary main.cs
+      // we don't want to try and compile the primary console_start.cs
       if(%mainCsFile !$= %file)      
          compile(%file, true);
    }
