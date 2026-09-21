@@ -1630,7 +1630,7 @@ void GuiCanvas::renderFrame(bool preRenderOnly, bool bufferSwap /* = true */)
    // changes at a later time.
 
    GFXVideoMode mode = mPlatformWindow->getVideoMode();
-   if ( LIGHTMGR && dStricmp( LIGHTMGR->getId(), "ADVLM" ) == 0 && mode.antialiasLevel > 0 )
+   if ( dStricmp( LIGHTMGR->getId(), "ADVLM" ) == 0 && mode.antialiasLevel > 0 )   
    {
       const char *pref = Con::getVariable( "$pref::Video::mode" );
       mode.parseFromString( pref );
@@ -1639,7 +1639,7 @@ void GuiCanvas::renderFrame(bool preRenderOnly, bool bufferSwap /* = true */)
 
       Con::printf( "AntiAliasing has been disabled; it is not compatible with AdvancedLighting." );
    }
-   else if ( LIGHTMGR && dStricmp( LIGHTMGR->getId(), "BLM" ) == 0)
+   else if ( dStricmp( LIGHTMGR->getId(), "BLM" ) == 0)
    {
       const char *pref = Con::getVariable( "$pref::Video::mode" );
 
@@ -1796,8 +1796,8 @@ void GuiCanvas::renderFrame(bool preRenderOnly, bool bufferSwap /* = true */)
       // Really draw the cursor. :)
       // Only if the platform cursor controller is missing or the platform cursor
       // isn't visible.
-      if (mouseCursor && (!mPlatformWindow->getCursorController() || (mCursorEnabled && mShowCursor &&
-         !mPlatformWindow->getCursorController()->isCursorVisible())))
+      if (!mPlatformWindow->getCursorController() || (mCursorEnabled && mouseCursor && mShowCursor && 
+         !mPlatformWindow->getCursorController()->isCursorVisible()))
       {
          Point2I pos((S32)mCursorPt.x, (S32)mCursorPt.y);
          Point2I spot = mouseCursor->getHotSpot();
