@@ -427,7 +427,10 @@ bool LightManager::lightScene( const char* callback, const char* param )
 
 RenderPrePassMgr* LightManager::_findPrePassRenderBin()
 {
-   RenderPassManager* rpm = getSceneManager()->getDefaultRenderPass();
+   RenderPassManager* rpm = NULL;
+   if( !Sim::findObject( "DiffuseRenderPassManager", rpm ) )
+      return NULL;
+
    for( U32 i = 0; i < rpm->getManagerCount(); i++ )
    {
       RenderBinManager *bin = rpm->getManager( i );

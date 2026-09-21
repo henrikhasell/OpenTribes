@@ -30,6 +30,8 @@
 
 #include "platform/platformVolume.h"
 #include "core/util/zip/zipVolume.h"
+#include "console/console.h"
+#include "console/engineAPI.h"
 
 using namespace Torque;
 using namespace Torque::FS;
@@ -54,6 +56,33 @@ bool  MountDefaults()
 #else
    return true;
 #endif
+}
+
+static S32 compareArchiveNames( const String *a, const String *b )
+{
+   return dStricmp( a->c_str(), b->c_str() );
+}
+
+bool MountModDir(const String &root, const String &modDir)
+{
+   // HH: Load mod directories like in Tribes2.
+   Path dirPath;
+   dirPath.setRoot( root );
+   dirPath.setPath( String( "/" ) + modDir );
+
+   Vector<String> archives;
+   FindByPattern( dirPath, "*.vl2", false, archives );
+
+   if ( !Mount( root, createNativeFS( Path::Join( getAssetDir(), '/', modDir ) ) ) )
+      return false;
+
+   archives.sort( compareArchiveNames );
+
+   for ( S32 i = 0; i < archives.size(); ++i )
+      if ( !Mount( root, new ZipFileSystem( archives[ i ] ) ) )
+         return false;
+
+   return true;
 }
 
 bool MountZips(const String &root)
@@ -89,3 +118,28 @@ bool  Touch( const Path &path )
 
 } // namespace FS
 } // namespace Platform
+
+//-----------------------------------------------------------------------------
+
+DefineEngineFunction( setModPaths, void, ( const char *paths ),,
+   "@brief Mount each mod directory in a semicolon separated list.\n\n"
+
+   "Compatible with old versions of TGE and Tribes.\n\n"
+
+   "@param paths Semicolon separated mod directories, relative to the game root.\n\n"
+
+   "@ingroup FileSystem" )
+{
+   Vector<String> modDirs;
+   String( paths ).split( ";", modDirs );
+
+   for ( S32 i = 0; i < modDirs.size(); ++i )
+   {
+      const String modDir = modDirs[ i ].trim();
+      if ( modDir.isEmpty() )
+         continue;
+
+      if ( !Platform::FS::MountModDir( "game", modDir ) )
+         Con::errorf( "setModPaths - could not mount mod directory '%s'", modDir.c_str() );
+   }
+}
