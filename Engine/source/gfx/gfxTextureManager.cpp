@@ -666,11 +666,7 @@ GFXTextureObject *GFXTextureManager::createTexture( const Torque::Path &path, GF
    if( retTexObj )
       return retTexObj;
 
-   // Texture assets live under textures/.  Tribes 2 names its art without that
-   // prefix -- a GUI profile asks for "gui/CUR_3darrow" and the file is
-   // textures/gui/CUR_3darrow.png -- so the prefix belongs here rather than in
-   // every name.  The cache key above is the name as asked for, so a texture is
-   // still found again by the name it was requested under.
+   // HH: Tribes2 compatibility.
    if( !correctPath.getPath().startsWith( sTextureSearchDir ) )
       correctPath.setPath( Torque::Path::Join( sTextureSearchDir, '/', correctPath.getPath() ) );
 
@@ -708,8 +704,7 @@ GFXTextureObject *GFXTextureManager::createTexture( const Torque::Path &path, GF
       // extension registration thing, maybe.
 
       // Check to see if there is a .DDS file with this name (if no extension is provided)
-      // From correctPath, not the cache key: the key is the name as asked for
-      // and this has to look where the file actually is.
+      // HH: Tribes2 compatibility.
       Torque::Path tryDDSPath = correctPath;
       if( tryDDSPath.getExtension().isNotEmpty() )
          tryDDSPath.setFileName( tryDDSPath.getFullFileName() );
