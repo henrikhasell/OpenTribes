@@ -67,7 +67,7 @@ tribes dir=gamedata port="4711" config="linux-release": (_engineassets config)
     cp {{builddir}}/{{config}}/game/OpenTribes "{{dir}}/OpenTribes"
     ln -sfn "{{justfile_directory()}}/{{builddir}}/{{config}}/game/shaders" "{{dir}}/shaders"
     ln -sfn "{{justfile_directory()}}/{{builddir}}/{{config}}/game/fonts" "{{dir}}/fonts"
-    cd "{{dir}}" && ./OpenTribes -telnetParams {{port}} "" "" -mod base
+    cd "{{dir}}" && ./OpenTribes -telnetParams {{port}} "" "" -nologin -mod base
 
 # The engine's shaders are not put beside the binary by CMake, and the tribes
 # recipe links the GameData at them, so they have to be there to link to.

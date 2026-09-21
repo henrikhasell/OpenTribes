@@ -32,8 +32,37 @@ U16 Input::getAscii(U16 keyCode, KEY_STATE keyState)
    return 0;
 }
 
+// HH: ActionMap resolves a name out of gAsciiMap through here, so a bind by
+// character -- "grave", which is how Tribes 2 spells the console key -- fails
+// outright while this returns nothing.
 U16 Input::getKeyCode(U16 asciiCode)
 {
-   TORQUE_UNUSED(asciiCode);
+   if ( asciiCode >= 'a' && asciiCode <= 'z' )
+      return KEY_A + ( asciiCode - 'a' );
+
+   if ( asciiCode >= 'A' && asciiCode <= 'Z' )
+      return KEY_A + ( asciiCode - 'A' );
+
+   if ( asciiCode >= '0' && asciiCode <= '9' )
+      return KEY_0 + ( asciiCode - '0' );
+
+   switch ( asciiCode )
+   {
+      case ' ':   return KEY_SPACE;
+      case '`':   return KEY_TILDE;
+      case '-':   return KEY_MINUS;
+      case '=':   return KEY_EQUALS;
+      case '[':   return KEY_LBRACKET;
+      case ']':   return KEY_RBRACKET;
+      case '\\':  return KEY_BACKSLASH;
+      case ';':   return KEY_SEMICOLON;
+      case '\'':  return KEY_APOSTROPHE;
+      case ',':   return KEY_COMMA;
+      case '.':   return KEY_PERIOD;
+      case '/':   return KEY_SLASH;
+      case '\t':  return KEY_TAB;
+      case '\r':  return KEY_RETURN;
+   }
+
    return 0;
 }
