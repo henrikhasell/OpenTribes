@@ -30,6 +30,8 @@
 
 #include "platform/platformVolume.h"
 #include "core/util/zip/zipVolume.h"
+#include "console/console.h"
+#include "console/engineAPI.h"
 
 using namespace Torque;
 using namespace Torque::FS;
@@ -38,6 +40,11 @@ namespace Platform
 {
 namespace FS
 {
+
+// Where MountDefaults() rooted "game", which is the working directory whenever
+// that differs from the executable's.  setModPaths() needs the real directory
+// to mount a mod from, not the virtual root.
+static String sGameRoot;
 
 static String withoutTrailingSlash( const String &path )
 {
@@ -60,24 +67,22 @@ bool  MountDefaults()
    // holding both -- looks like two and gets mounted twice.
    String  exePath = withoutTrailingSlash( getAssetDir() );
    String  workPath = withoutTrailingSlash( Platform::getCurrentDirectory() );
-   String  gameRoot = exePath;
 
    if ( !Mount( "game", createNativeFS( exePath ) ) )
       return false;
+
+   sGameRoot = exePath;
 
    if ( workPath.isNotEmpty() && !workPath.equal( exePath, String::NoCase ) )
    {
       if ( !Mount( "game", createNativeFS( workPath ) ) )
          return false;
 
-      gameRoot = workPath;
+      sGameRoot = workPath;
    }
 
 #ifndef TORQUE_DISABLE_VIRTUAL_MOUNT_SYSTEM
    // Note that the VirtualMountSystem must be enabled in volume.cpp for zip support to work.
-   if ( IsTribesGameData( "game" ) )
-      return MountModDir( "game", gameRoot, "base" );
-
    return MountZips("game");
 #else
    return true;
@@ -89,17 +94,7 @@ static S32 compareArchiveNames( const String *a, const String *b )
    return dStricmp( a->c_str(), b->c_str() );
 }
 
-bool IsTribesGameData(const String &root)
-{
-   Path basePath;
-   basePath.setRoot( root );
-   basePath.setPath( "/base" );
-
-   Vector<String> archives;
-   return FindByPattern( basePath, "*.vl2", false, archives ) > 0;
-}
-
-bool MountModDir(const String &root, const String &gameRoot, const String &modDir)
+bool MountModDir(const String &root, const String &modDir)
 {
    Path dirPath;
    dirPath.setRoot( root );
@@ -114,7 +109,7 @@ bool MountModDir(const String &root, const String &gameRoot, const String &modDi
    // so an archive wins over a loose file of the same name, and a later archive
    // wins over an earlier one.  That is the ordering the game's own zz_ naming
    // convention is built on, so the archives go on in name order.
-   if ( !Mount( root, createNativeFS( Path::Join( gameRoot, '/', modDir ) ) ) )
+   if ( !Mount( root, createNativeFS( Path::Join( sGameRoot, '/', modDir ) ) ) )
       return false;
 
    archives.sort( compareArchiveNames );
@@ -159,3 +154,32 @@ bool  Touch( const Path &path )
 
 } // namespace FS
 } // namespace Platform
+
+//-----------------------------------------------------------------------------
+
+DefineEngineFunction( setModPaths, void, ( const char *paths ),,
+   "@brief Mount each mod directory in a semicolon separated list.\n\n"
+
+   "A mod keeps its loose files in a directory under the game root and the rest "
+   "in archives beside them.  Torque Game Engine had this and Tribes 2's "
+   "console_start.cs calls it to act on its own -mod argument; Torque 3D "
+   "dropped it, so without this a GameData reaches nothing but the files that "
+   "happen to be loose.\n\n"
+
+   "@param paths Semicolon separated mod directories, relative to the game root.\n\n"
+
+   "@ingroup FileSystem" )
+{
+   Vector<String> modDirs;
+   String( paths ).split( ";", modDirs );
+
+   for ( S32 i = 0; i < modDirs.size(); ++i )
+   {
+      const String modDir = modDirs[ i ].trim();
+      if ( modDir.isEmpty() )
+         continue;
+
+      if ( !Platform::FS::MountModDir( "game", modDir ) )
+         Con::errorf( "setModPaths - could not mount mod directory '%s'", modDir.c_str() );
+   }
+}

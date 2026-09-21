@@ -43,12 +43,12 @@ guiedit config="linux-release": (stage config)
 run-template config="linux-release": (_stage template config)
     cd "{{template}}" && ./OpenTribes
 
-# Nothing is written into the install.  A GameData has no main.cs -- the engine
-# falls back to console_start.cs -- so the script that opens the port is named
-# as the entry script instead and execs console_start.cs itself.  It is written
-# beside the binary, which is the game root.
+# Nothing is written into the install.  A GameData has no main.cs, so the engine
+# falls back to console_start.cs, and both flags below are the game's own: it
+# parses $Game::argv itself, calling setModPaths for -mod and
+# telnetSetParameters for -telnetParams.
 #
-# The password is empty, so a bare newline grants full read/write access, and
+# The passwords are empty, so a bare newline grants full read/write access, and
 # nothing binds it to loopback.  See the notes in Apple Picker's defaults.cs.
 #
 # The directory defaults to $TRIBES2_DIR.
@@ -57,8 +57,7 @@ run-template config="linux-release": (_stage template config)
 tribes dir=gamedata port="4711" config="linux-release": (_engineassets config)
     @test -n "{{dir}}" || { echo "no GameData: pass one or set TRIBES2_DIR"; exit 1; }
     @test -f "{{dir}}/console_start.cs" || { echo "{{dir}} has no console_start.cs"; exit 1; }
-    printf 'telnetSetParameters(%s, "", "", true);\necho("Telnet console listening on port %s");\nexec("console_start.cs");\n' {{port}} {{port}} > "{{builddir}}/{{config}}/game/telnetboot.cs"
-    cd "{{dir}}" && "{{justfile_directory()}}/{{builddir}}/{{config}}/game/OpenTribes" telnetboot.cs
+    cd "{{dir}}" && "{{justfile_directory()}}/{{builddir}}/{{config}}/game/OpenTribes" -telnetParams {{port}} "" "" -mod base
 
 # The engine resolves its own shaders through the game root, and game data that
 # is not ours has no reason to carry them -- without these the GL device dies on
