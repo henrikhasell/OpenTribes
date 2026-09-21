@@ -2305,11 +2305,8 @@ static void ensureGuiProfile( const char *name )
 DefineEngineFunction( createCanvas, bool, ( const char *windowTitle ), ( "" ),
                "@brief Create the game window and the canvas that draws into it.\n\n"
 
-               "TGE exposed this from the engine and Tribes 2's console_start.cs "
-               "calls it; Torque 3D dropped it and has each template's main.cs "
-               "declare its own in script instead.  A script definition replaces "
-               "this one, so the templates are unaffected and game data that "
-               "brings no main.cs still gets a window.\n\n"
+               "Added for Tribes compatibility.  TGE defines this in script - "
+               "Tribes 2 does not.\n\n"
 
                "@param windowTitle Title for the window.\n"
 
@@ -2337,11 +2334,8 @@ DefineEngineFunction( createCanvas, bool, ( const char *windowTitle ), ( "" ),
    if ( windowTitle && windowTitle[ 0 ] )
       canvas->setWindowTitle( windowTitle );
 
-   // Choosing a light manager is a Torque 3D client-init job, and game data
-   // that brings none of that script never does it.  The renderer dereferences
-   // LIGHTMGR, so settle on basic lighting here, once the canvas exists and
-   // there is a device to ask about compatibility.  A script that sets one
-   // later still wins: SceneManager::setLightManager switches between them.
+   // HH: Tribes2 compatibility.
+   // Set a default light manager, since Tribes never sets one.
    if ( !LIGHTMGR && gClientSceneGraph )
       gClientSceneGraph->setLightManager( "Basic Lighting" );
 

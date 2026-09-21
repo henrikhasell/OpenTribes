@@ -65,6 +65,7 @@ static S32 compareArchiveNames( const String *a, const String *b )
 
 bool MountModDir(const String &root, const String &modDir)
 {
+   // HH: Load mod directories like in Tribes2.
    Path dirPath;
    dirPath.setRoot( root );
    dirPath.setPath( String( "/" ) + modDir );
@@ -72,12 +73,6 @@ bool MountModDir(const String &root, const String &modDir)
    Vector<String> archives;
    FindByPattern( dirPath, "*.vl2", false, archives );
 
-   // A mod's loose files sit under its directory and the rest is inside .vl2
-   // archives beside them, which are zips.  Mount the directory itself first:
-   // the mount system resolves a path through the LAST filesystem that has it,
-   // so an archive wins over a loose file of the same name, and a later archive
-   // wins over an earlier one.  That is the ordering the game's own zz_ naming
-   // convention is built on, so the archives go on in name order.
    if ( !Mount( root, createNativeFS( Path::Join( getAssetDir(), '/', modDir ) ) ) )
       return false;
 
@@ -129,11 +124,7 @@ bool  Touch( const Path &path )
 DefineEngineFunction( setModPaths, void, ( const char *paths ),,
    "@brief Mount each mod directory in a semicolon separated list.\n\n"
 
-   "A mod keeps its loose files in a directory under the game root and the rest "
-   "in archives beside them.  Torque Game Engine had this and Tribes 2's "
-   "console_start.cs calls it to act on its own -mod argument; Torque 3D "
-   "dropped it, so without this a GameData reaches nothing but the files that "
-   "happen to be loose.\n\n"
+   "Compatible with old versions of TGE and Tribes.\n\n"
 
    "@param paths Semicolon separated mod directories, relative to the game root.\n\n"
 
