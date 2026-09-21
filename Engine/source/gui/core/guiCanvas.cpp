@@ -35,6 +35,7 @@
 #include "gfx/screenshot.h"
 #include "gfx/video/videoCapture.h"
 #include "lighting/lightManager.h"
+#include "scene/sceneManager.h"
 #include "core/strings/stringUnit.h"
 
 #ifndef TORQUE_TGB_ONLY
@@ -2287,6 +2288,58 @@ DefineEngineFunction(excludeOtherInstance, bool, (const char* appIdentifer),,
    // We can just return true if we get here.
    return true;
 #endif
+}
+
+// HH: GuiControl::onAdd() asserts on GuiDefaultProfile, which is a script object
+// in every Torque 3D template.
+static void ensureGuiProfile( const char *name )
+{
+   if ( Sim::findObject( name ) )
+      return;
+
+   GuiControlProfile *profile = new GuiControlProfile();
+   profile->registerObject( name );
+   Sim::getRootGroup()->addObject( profile );
+}
+
+DefineEngineFunction( createCanvas, bool, ( const char *windowTitle ), ( "" ),
+               "@brief Create the game window and the canvas that draws into it.\n\n"
+
+               "Added for Tribes compatibility.  TGE defines this in script - "
+               "Tribes 2 does not.\n\n"
+
+               "@param windowTitle Title for the window.\n"
+
+               "@return False if a canvas already exists.\n\n"
+
+               "@ingroup GuiCore" )
+{
+   if ( Con::getBoolVariable( "$isDedicated" ) )
+   {
+      Con::evaluate( "GFXInit::createNullDevice();" );
+      return true;
+   }
+
+   if ( Sim::findObject( "Canvas" ) )
+   {
+      Con::errorf( "createCanvas - canvas already exists" );
+      return false;
+   }
+
+   ensureGuiProfile( "GuiDefaultProfile" );
+
+   GuiCanvas *canvas = new GuiCanvas();
+   canvas->registerObject( "Canvas" );
+
+   if ( windowTitle && windowTitle[ 0 ] )
+      canvas->setWindowTitle( windowTitle );
+
+   // HH: Tribes2 compatibility.
+   // Set a default light manager, since Tribes never sets one.
+   if ( !LIGHTMGR && gClientSceneGraph )
+      gClientSceneGraph->setLightManager( "Basic Lighting" );
+
+   return true;
 }
 
 DefineEngineMethod( GuiCanvas, getExtent, Point2I, (),,

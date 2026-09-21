@@ -464,6 +464,9 @@ bool GuiControl::defaultTooltipRender( const Point2I &hoverPos, const Point2I &c
    if ( !root )
       return false;
 
+   if ( !mTooltipProfile )
+      setTooltipProfile( mProfile );
+
    GFont *font = mTooltipProfile->mFont;
 
    // Support for multi-line tooltip text...
@@ -720,17 +723,6 @@ bool GuiControl::onAdd()
       setControlProfile( profile );
    }
 
-   // We must also assign a valid TooltipProfile...
-   if ( !mTooltipProfile )
-   {
-      GuiControlProfile *profile = NULL;
-      Sim::findObject( "GuiTooltipProfile", profile );
-
-      AssertISV( profile != NULL, avar("GuiControl::onAdd() unable to find specified tooltip profile and GuiTooltipProfile does not exist!") );
-
-      setTooltipProfile( profile );
-   }
-
    // Notify Script.
    onAdd_callback();
 
@@ -831,7 +823,8 @@ bool GuiControl::onWake()
 
    //increment the profile
    mProfile->incLoadCount();
-   mTooltipProfile->incLoadCount();
+   if ( mTooltipProfile )
+      mTooltipProfile->incLoadCount();
 
    // Only invoke script callbacks if we have a namespace in which to do so
    // This will suppress warnings
@@ -857,7 +850,8 @@ void GuiControl::onSleep()
 
    //decrement the profile reference
    mProfile->decLoadCount();
-   mTooltipProfile->decLoadCount();
+   if ( mTooltipProfile )
+      mTooltipProfile->decLoadCount();
 
    // Set Flag
    mAwake = false;

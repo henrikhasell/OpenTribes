@@ -45,6 +45,8 @@ GFXTextureManager::EventSignal GFXTextureManager::smEventSignal;
 
 static const String  sDDSExt( "dds" );
 
+static const String  sTextureSearchDir( "textures" );
+
 void GFXTextureManager::init()
 {
    Con::addVariable( "$pref::Video::textureReductionLevel", TypeS32, &smTextureReductionLevel,
@@ -664,6 +666,10 @@ GFXTextureObject *GFXTextureManager::createTexture( const Torque::Path &path, GF
    if( retTexObj )
       return retTexObj;
 
+   // HH: Tribes2 compatibility.
+   if( !correctPath.getPath().startsWith( sTextureSearchDir ) )
+      correctPath.setPath( Torque::Path::Join( sTextureSearchDir, '/', correctPath.getPath() ) );
+
    const U32 scalePower = getTextureDownscalePower( profile );
 
    // If this is a valid file (has an extension) than load it
@@ -698,7 +704,8 @@ GFXTextureObject *GFXTextureManager::createTexture( const Torque::Path &path, GF
       // extension registration thing, maybe.
 
       // Check to see if there is a .DDS file with this name (if no extension is provided)
-      Torque::Path tryDDSPath = pathNoExt;
+      // HH: Tribes2 compatibility.
+      Torque::Path tryDDSPath = correctPath;
       if( tryDDSPath.getExtension().isNotEmpty() )
          tryDDSPath.setFileName( tryDDSPath.getFullFileName() );
       tryDDSPath.setExtension( sDDSExt );

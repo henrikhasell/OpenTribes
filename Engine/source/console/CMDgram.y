@@ -244,8 +244,8 @@ var_list
    ;
 
 datablock_decl
-   : rwDATABLOCK class_name_expr '(' expr parent_block ')'  '{' slot_assign_list_opt '}' ';'
-      { $$ = ObjectDeclNode::alloc( $1.lineNumber, $2, $4, NULL, $5.value, $8, NULL, true, false, false); }
+   : rwDATABLOCK class_name_expr '(' expr parent_block ')' parent_block '{' slot_assign_list_opt '}' ';'
+      { $$ = ObjectDeclNode::alloc( $1.lineNumber, $2, $4, NULL, $5.value ? $5.value : $7.value, $9, NULL, true, false, false); }
    ;
 
 object_decl

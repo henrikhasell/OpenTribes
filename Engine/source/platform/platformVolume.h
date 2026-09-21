@@ -45,6 +45,7 @@ namespace FS
 
    bool MountDefaults();
    bool MountZips(const String &root);
+   bool MountModDir(const String &root, const String &modDir);
    
    bool Touch( const Path &path );
 

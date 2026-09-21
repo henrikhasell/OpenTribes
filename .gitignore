@@ -180,7 +180,7 @@ Templates/*/game/scripts/client/prefs.cs
 Templates/*/game/scripts/server/prefs.cs
 Templates/*/game/scripts/server/banlist.cs
 Templates/*/game/shaders/procedural/
-Templates/*/game/art/terrains/*_basetex.dds
+*_basetex.dds
 Templates/*/game/levels/*.ml
 Templates/*/game/art/**/*.cached.dts
 Templates/*/game/levels/*.mis.decals
