@@ -35,6 +35,7 @@
 #include "gfx/screenshot.h"
 #include "gfx/video/videoCapture.h"
 #include "lighting/lightManager.h"
+#include "scene/sceneManager.h"
 #include "core/strings/stringUnit.h"
 
 #ifndef TORQUE_TGB_ONLY
@@ -2337,6 +2338,14 @@ DefineEngineFunction( createCanvas, bool, ( const char *windowTitle ), ( "" ),
 
    if ( windowTitle && windowTitle[ 0 ] )
       canvas->setWindowTitle( windowTitle );
+
+   // Choosing a light manager is a Torque 3D client-init job, and game data
+   // that brings none of that script never does it.  The renderer dereferences
+   // LIGHTMGR, so settle on basic lighting here, once the canvas exists and
+   // there is a device to ask about compatibility.  A script that sets one
+   // later still wins: SceneManager::setLightManager switches between them.
+   if ( !LIGHTMGR && gClientSceneGraph )
+      gClientSceneGraph->setLightManager( "Basic Lighting" );
 
    return true;
 }
