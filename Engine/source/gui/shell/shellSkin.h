@@ -34,12 +34,20 @@
 /// is what lets one skin serve controls that use different parts of it.
 class ShellSkin
 {
-   enum { MaxParts = 16 };
+   enum { MaxParts = 16, MaxPieces = 8 };
 
    StringTableEntry mBase;
    StringTableEntry mSuffix[MaxParts];
    GFXTexHandle     mTexture[MaxParts];
    U32              mCount;
+
+   /// Where the separator rows put the pieces of each part, once measured.
+   bool mMeasured[MaxParts];
+   U32  mPieceCount[MaxParts];
+   S32  mPieceTop[MaxParts][MaxPieces];
+   S32  mPieceBottom[MaxParts][MaxPieces];
+
+   void measure(S32 slot);
 
 public:
    ShellSkin();
@@ -58,6 +66,20 @@ public:
 
    /// The texture for a suffix, or a null handle.  Convenience over part().
    GFXTexHandle get(const char *suffix);
+
+   /// Where one cell of a part lives.
+   ///
+   /// A part is a grid: its rows are the pieces it is built from and its
+   /// columns are the states it can be in.  The rows are delimited by lines in
+   /// the separator colour -- the colour of the top-left pixel, the same
+   /// convention GuiControlProfile::constructBitmapArray() reads -- because
+   /// they are not all the same height.  The columns have no separators and
+   /// are an even division.
+   ///
+   /// Art with fewer separated rows than `pieces` is divided evenly instead,
+   /// which covers a part drawn as a plain grid and a part with no separators
+   /// at all.
+   RectI cell(S32 slot, S32 states, S32 state, S32 pieces, S32 piece);
 
    void clear();
 };

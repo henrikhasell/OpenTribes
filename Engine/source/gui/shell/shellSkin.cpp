@@ -6,8 +6,21 @@
 #include "gfx/gfxDevice.h"
 #include "gfx/gfxDrawUtil.h"
 #include "gfx/gfxTextureManager.h"
+#include "gfx/bitmap/gBitmap.h"
 #include "core/util/safeDelete.h"
 #include "console/console.h"
+
+// The GUI profile's flags, plus the bitmap: cell() has to read the separator
+// rows out of the image, and a texture alone cannot be asked what colour a
+// pixel is.
+GFX_DeclareTextureProfile(ShellSkinProfile);
+GFX_ImplementTextureProfile(ShellSkinProfile,
+                            GFXTextureProfile::DiffuseMap,
+                            GFXTextureProfile::PreserveSize |
+                            GFXTextureProfile::Static |
+                            GFXTextureProfile::NoPadding |
+                            GFXTextureProfile::KeepBitmap,
+                            GFXTextureProfile::None);
 
 ShellSkin::ShellSkin()
 {
@@ -21,6 +34,7 @@ void ShellSkin::clear()
    {
       mSuffix[i] = NULL;
       mTexture[i] = NULL;
+      mMeasured[i] = false;
    }
    mCount = 0;
 }
@@ -57,10 +71,11 @@ S32 ShellSkin::part(const char *suffix)
 
    const U32 slot = mCount++;
    mSuffix[slot] = key;
+   mMeasured[slot] = false;
    // A skin part that this base does not have is normal -- Tribes 2's skins
    // are sparse, and shellDrawFrame() is written to degrade around a missing
    // piece -- so the handle simply stays null.
-   mTexture[slot] = GFXTexHandle(name, &GFXDefaultGUIProfile, avar("%s() - %s", __FUNCTION__, name));
+   mTexture[slot] = GFXTexHandle(name, &ShellSkinProfile, avar("%s() - %s", __FUNCTION__, name));
 
    return S32(slot);
 }
@@ -69,6 +84,65 @@ GFXTexHandle ShellSkin::get(const char *suffix)
 {
    const S32 slot = part(suffix);
    return slot == -1 ? GFXTexHandle() : mTexture[slot];
+}
+
+void ShellSkin::measure(S32 slot)
+{
+   if(mMeasured[slot])
+      return;
+
+   mMeasured[slot] = true;
+   mPieceCount[slot] = 0;
+
+   const GBitmap *bmp = mTexture[slot] ? mTexture[slot].getBitmap() : NULL;
+
+   ColorI sep;
+   if(!bmp || !bmp->getColor(0, 0, sep))
+      return;
+
+   const U32 height = bmp->getHeight();
+
+   ColorI color;
+   U32 y = 0;
+
+   while(y < height && mPieceCount[slot] < MaxPieces)
+   {
+      if(bmp->getColor(0, y, color) && color == sep)
+      {
+         y++;
+         continue;
+      }
+
+      const U32 top = y;
+      while(y < height && bmp->getColor(0, y, color) && color != sep)
+         y++;
+
+      const U32 piece = mPieceCount[slot]++;
+      mPieceTop[slot][piece] = S32(top);
+      mPieceBottom[slot][piece] = S32(y);
+   }
+}
+
+RectI ShellSkin::cell(S32 slot, S32 states, S32 state, S32 pieces, S32 piece)
+{
+   if(slot < 0 || !mTexture[slot])
+      return RectI(0, 0, 0, 0);
+
+   measure(slot);
+
+   states = getMax(states, 1);
+   pieces = getMax(pieces, 1);
+   state  = mClamp(state, 0, states - 1);
+   piece  = mClamp(piece, 0, pieces - 1);
+
+   const S32 w = S32(mTexture[slot].getWidth()) / states;
+
+   if(S32(mPieceCount[slot]) >= pieces)
+      return RectI(w * state, mPieceTop[slot][piece], w,
+                   mPieceBottom[slot][piece] - mPieceTop[slot][piece]);
+
+   const S32 h = S32(mTexture[slot].getHeight()) / pieces;
+   return RectI(w * state, h * piece, w, h);
 }
 
 //-----------------------------------------------------------------------------

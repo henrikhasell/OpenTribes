@@ -189,6 +189,11 @@ class GuiScrollCtrl : public GuiContainer
 
       Region findHitRegion(const Point2I &);
 
+      // HH: The bitmap array is one way to have art and not the only one -- a
+      // Tribes 2 profile names a family of files instead -- so what onRender
+      // asks before drawing the bars is this rather than the array directly.
+      virtual bool hasScrollArt() const { return !mTextureObject.isNull() && mBitmapBounds; }
+
       /// Build the BmpStates * BmpCount array from art that only has BmpCount
       /// rects, each holding its states side by side.
       ///

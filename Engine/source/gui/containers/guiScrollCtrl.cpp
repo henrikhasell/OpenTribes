@@ -1130,7 +1130,7 @@ void GuiScrollCtrl::onRender(Point2I offset, const RectI &updateRect)
    
    // HH: mBitmapBounds too: a profile can hold a texture that did not yield a
    // long enough array, and every draw below indexes it.
-   if( mTextureObject && mBitmapBounds )
+   if( hasScrollArt() )
    {
       // Reset the ClipRect as the parent call can modify it when rendering
       // the child controls
