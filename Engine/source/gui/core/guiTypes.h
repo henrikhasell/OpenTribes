@@ -432,6 +432,7 @@ public:
    AlignmentType mAlignment;                       ///< Horizontal text alignment
    bool mAutoSizeWidth;                            ///< Auto-size the width-bounds of the control to fit it's contents
    bool mAutoSizeHeight;                           ///< Auto-size the height-bounds of the control to fit it's contents
+   bool mFixedExtent;                              ///< HH: Tribes2 compatibility.  The art sizes the control, not the layout.
    bool mReturnTab;                                ///< Used in GuiTextEditCtrl to specify if a tab-event should be simulated when return is pressed.
    bool mNumbersOnly;                              ///< For text controls, true if this should only accept numerical data
    bool mMouseOverSelected;                        ///< True if this object should be "selected" while the mouse is over it

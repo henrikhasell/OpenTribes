@@ -310,6 +310,7 @@ GuiControlProfile::GuiControlProfile(void) :
    mAlignment = LeftJustify;
    mAutoSizeWidth = false;
    mAutoSizeHeight= false;
+   mFixedExtent   = false;
    mReturnTab     = false;
    mNumbersOnly   = false;
    mMouseOverSelected = false;
@@ -367,6 +368,7 @@ GuiControlProfile::GuiControlProfile(void) :
       mAlignment     = def->mAlignment;
       mAutoSizeWidth = def->mAutoSizeWidth;
       mAutoSizeHeight= def->mAutoSizeHeight;
+      mFixedExtent   = def->mFixedExtent;
       mReturnTab     = def->mReturnTab;
       mNumbersOnly   = def->mNumbersOnly;
       mCursorColor   = def->mCursorColor;
@@ -440,6 +442,8 @@ void GuiControlProfile::initPersistFields()
       addField( "textOffset",    TypePoint2I,    Offset(mTextOffset, GuiControlProfile));
       addField( "autoSizeWidth", TypeBool,       Offset(mAutoSizeWidth, GuiControlProfile),
          "Automatically adjust width of control to fit contents." );
+      addField("fixedExtent",  TypeBool,        Offset(mFixedExtent, GuiControlProfile),
+         "HH: Tribes2 compatibility.  If true, a control whose art has a size of its own takes it." );
       addField("autoSizeHeight",TypeBool,       Offset(mAutoSizeHeight, GuiControlProfile),
          "Automatically adjust height of control to fit contents." );
       addField("returnTab",     TypeBool,       Offset(mReturnTab, GuiControlProfile),
