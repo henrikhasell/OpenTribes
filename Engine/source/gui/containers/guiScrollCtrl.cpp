@@ -150,6 +150,15 @@ bool GuiScrollCtrl::onWake()
    else
    {
       Con::warnf("No texture loaded for scroll control named %s with profile %s", getName(), mProfile->getName());
+
+      // HH: Tribes2 compatibility.
+      // computeSizes() is what lays the control out, so skipping it left the
+      // content child at whatever extent it was declared with.  The bar
+      // metrics keep their constructor defaults; mBaseThumbSize has none, and
+      // it is the floor of every thumb size computed below.
+      mBitmapBounds = NULL;
+      mBaseThumbSize = mScrollBarArrowBtnLength;
+      computeSizes();
    }
    
    return true;
@@ -1042,7 +1051,9 @@ void GuiScrollCtrl::onRender(Point2I offset, const RectI &updateRect)
    // Always call parent
    Parent::onRender(offset, contentRect);
    
-   if( mTextureObject )
+   // HH: mBitmapBounds too: a profile can hold a texture that did not yield a
+   // long enough array, and every draw below indexes it.
+   if( mTextureObject && mBitmapBounds )
    {
       // Reset the ClipRect as the parent call can modify it when rendering
       // the child controls
