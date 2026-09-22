@@ -674,20 +674,23 @@ bool GuiWindowCtrl::onWake()
 
    //get the texture for the close, minimize, and maximize buttons
    mTextureObject = mProfile->mTextureObject;
-   bool result = mProfile->constructBitmapArray() >= NumBitmaps;
-   if( !result )
+   // HH: Tribes2 compatibility.
+   // onRender already falls through to Parent::onRender without the frame art.
+   // Refusing to wake over it took the window and everything inside it out of
+   // the render entirely, since a control that is not awake does not render
+   // and neither do its children.
+   if( mProfile->constructBitmapArray() >= NumBitmaps )
    {
-      Con::errorf( "GuiWindowCtrl::onWake - failed to create bitmap array from profile bitmap." );
-      return false;
+      mBitmapBounds = mProfile->mBitmapArrayRects.address();
+      S32 buttonHeight = mBitmapBounds[BmpStates * BmpClose].extent.y;
+
+      mTitleHeight = buttonHeight + 4;
+
+      //set the button coords
+      positionButtons();
    }
-
-   mBitmapBounds = mProfile->mBitmapArrayRects.address();
-   S32 buttonHeight = mBitmapBounds[BmpStates * BmpClose].extent.y;
-
-   mTitleHeight = buttonHeight + 4;
-
-   //set the button coords
-   positionButtons();
+   else
+      mBitmapBounds = NULL;
 
    //set the tab index
    mTabIndex = -1;
