@@ -30,6 +30,7 @@ set(_engine_dirs
     gui/containers
     gui/controls
     gui/core
+    gui/shell
     gui/game
     gui/shiny
     gui/utility

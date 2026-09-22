@@ -316,6 +316,7 @@ GuiControlProfile::GuiControlProfile(void) :
    
    // bitmap members
    mBitmapName = NULL;
+   mBitmapBase = NULL;
    mUseBitmapArray = false;
    mTextureObject = NULL; // initialized in incLoadCount()
 
@@ -457,6 +458,8 @@ void GuiControlProfile::initPersistFields()
          "Texture to use for rendering control." );
       addField("hasBitmapArray", TypeBool,      Offset(mUseBitmapArray, GuiControlProfile),
          "If true, 'bitmap' is an array of images." );
+      addField("bitmapBase", TypeFilename,      Offset(mBitmapBase, GuiControlProfile),
+         "Stem of a family of bitmaps, each named <base><suffix>." );
 
       addProtectedField( "soundButtonDown", TypeSFXTrackName,  Offset(mSoundButtonDown, GuiControlProfile),
          &GuiControlProfile::protectedSetSoundButtonDown, &GuiControlProfile::protectedGetSoundButtonDown,

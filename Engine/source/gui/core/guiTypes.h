@@ -441,6 +441,7 @@ public:
 
    // bitmap members
    StringTableEntry mBitmapName;                   ///< Bitmap file name for the bitmap of the control
+   StringTableEntry mBitmapBase;                   ///< HH: Tribes2 compatibility.  Stem of a family of bitmaps, each named <base><suffix>.
    bool mUseBitmapArray;                           ///< Flag to use the bitmap array or to fallback to non-array rendering
    GFXTexHandle mTextureObject;
    Vector<RectI> mBitmapArrayRects;                ///< Used for controls which use an array of bitmaps such as checkboxes
