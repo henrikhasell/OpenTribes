@@ -76,7 +76,7 @@ bool ShellScrollCtrl::onWake()
    // pixel wide and the arrows have no room.
    const S32 track = mSkin.part("_vertfield");
    if(track != -1 && mSkin.texture(track))
-      mScrollBarThickness = mSkin.texture(track).getWidth() / TrackStates;
+      mScrollBarThickness = shellArtWidth(mSkin.texture(track)) / TrackStates;
 
    const S32 arrows = mSkin.part("_vertbuttons");
    if(arrows != -1 && mSkin.texture(arrows))

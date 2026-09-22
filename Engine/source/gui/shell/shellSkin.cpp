@@ -135,13 +135,13 @@ RectI ShellSkin::cell(S32 slot, S32 states, S32 state, S32 pieces, S32 piece)
    state  = mClamp(state, 0, states - 1);
    piece  = mClamp(piece, 0, pieces - 1);
 
-   const S32 w = S32(mTexture[slot].getWidth()) / states;
+   const S32 w = shellArtWidth(mTexture[slot]) / states;
 
    if(S32(mPieceCount[slot]) >= pieces)
       return RectI(w * state, mPieceTop[slot][piece], w,
                    mPieceBottom[slot][piece] - mPieceTop[slot][piece]);
 
-   const S32 h = S32(mTexture[slot].getHeight()) / pieces;
+   const S32 h = shellArtHeight(mTexture[slot]) / pieces;
    return RectI(w * state, h * piece, w, h);
 }
 
@@ -152,10 +152,10 @@ void shellDrawFrame(const RectI &bounds, GFXTexHandle *p)
    // A missing corner is a zero-sized one, which keeps the arithmetic below
    // honest: the edges then run the full span and the frame degrades to a
    // stretched middle rather than to nothing.
-   const S32 lw = p[0] ? p[0].getWidth()  : (p[3] ? p[3].getWidth()  : 0);
-   const S32 rw = p[2] ? p[2].getWidth()  : (p[5] ? p[5].getWidth()  : 0);
-   const S32 th = p[0] ? p[0].getHeight() : (p[1] ? p[1].getHeight() : 0);
-   const S32 bh = p[6] ? p[6].getHeight() : (p[7] ? p[7].getHeight() : 0);
+   const S32 lw = p[0] ? shellArtWidth(p[0])  : shellArtWidth(p[3]);
+   const S32 rw = p[2] ? shellArtWidth(p[2])  : shellArtWidth(p[5]);
+   const S32 th = p[0] ? shellArtHeight(p[0]) : shellArtHeight(p[1]);
+   const S32 bh = p[6] ? shellArtHeight(p[6]) : shellArtHeight(p[7]);
 
    // Never let the corners eat more than the control has.
    const S32 left   = getMin(lw, bounds.extent.x);
@@ -221,8 +221,8 @@ void shellTileBitmap(const RectI &bounds, GFXTexHandle texture)
    if(!texture)
       return;
 
-   const S32 tw = texture.getWidth();
-   const S32 th = texture.getHeight();
+   const S32 tw = shellArtWidth(texture);
+   const S32 th = shellArtHeight(texture);
    if(tw <= 0 || th <= 0)
       return;
 

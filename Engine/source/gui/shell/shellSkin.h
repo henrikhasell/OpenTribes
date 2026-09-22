@@ -27,6 +27,26 @@
 /// nine-piece frame over an arbitrary rectangle without distorting the corners.
 
 //-----------------------------------------------------------------------------
+/// How big the art in a texture is, which is not how big the texture is.
+///
+/// GFXTexHandle::getWidth() reports the surface the bitmap was loaded into,
+/// and that is rounded up to a power of two: dlg_fieldgrade is 4x130 of art in
+/// a 4x256 surface.  Measuring a piece against the surface therefore takes in
+/// the padding past the art, and the padding draws.
+///
+/// GFXTextureProfile::NoPadding says not to round up, and nothing in this tree
+/// reads it, so everything below works from the bitmap's own size instead.
+inline S32 shellArtWidth(const GFXTexHandle &texture)
+{
+   return texture ? S32(texture->getBitmapWidth()) : 0;
+}
+
+inline S32 shellArtHeight(const GFXTexHandle &texture)
+{
+   return texture ? S32(texture->getBitmapHeight()) : 0;
+}
+
+//-----------------------------------------------------------------------------
 /// A lazily-loaded set of textures sharing a stem.
 ///
 /// Load() is cheap to call repeatedly -- the texture manager caches, and a
