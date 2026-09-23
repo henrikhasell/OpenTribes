@@ -73,14 +73,14 @@ bool MountModDir(const String &root, const String &modDir)
    Vector<String> archives;
    FindByPattern( dirPath, "*.vl2", false, archives );
 
-   if ( !Mount( root, createNativeFS( Path::Join( getAssetDir(), '/', modDir ) ) ) )
-      return false;
-
    archives.sort( compareArchiveNames );
 
    for ( S32 i = 0; i < archives.size(); ++i )
       if ( !Mount( root, new ZipFileSystem( archives[ i ] ) ) )
          return false;
+
+   if ( !Mount( root, createNativeFS( Path::Join( getAssetDir(), '/', modDir ) ) ) )
+      return false;
 
    return true;
 }
