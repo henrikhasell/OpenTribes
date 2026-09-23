@@ -73,14 +73,18 @@ bool MountModDir(const String &root, const String &modDir)
    Vector<String> archives;
    FindByPattern( dirPath, "*.vl2", false, archives );
 
-   if ( !Mount( root, createNativeFS( Path::Join( getAssetDir(), '/', modDir ) ) ) )
-      return false;
-
+   // The archives go down first because VirtualMountSystem resolves a path
+   // against the last filesystem mounted that has it, so the directory has to
+   // be mounted after them to win.  A loose file that shadows one inside a .vl2
+   // is the point: it is how a mod is altered without editing what it ships.
    archives.sort( compareArchiveNames );
 
    for ( S32 i = 0; i < archives.size(); ++i )
       if ( !Mount( root, new ZipFileSystem( archives[ i ] ) ) )
          return false;
+
+   if ( !Mount( root, createNativeFS( Path::Join( getAssetDir(), '/', modDir ) ) ) )
+      return false;
 
    return true;
 }
