@@ -849,7 +849,8 @@ void GuiControl::onSleep()
    onSleep_callback();
 
    //decrement the profile reference
-   mProfile->decLoadCount();
+   if ( mProfile )
+      mProfile->decLoadCount();
    if ( mTooltipProfile )
       mTooltipProfile->decLoadCount();
 
