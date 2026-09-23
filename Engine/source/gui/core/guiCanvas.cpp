@@ -2290,18 +2290,6 @@ DefineEngineFunction(excludeOtherInstance, bool, (const char* appIdentifer),,
 #endif
 }
 
-// HH: GuiControl::onAdd() asserts on GuiDefaultProfile, which is a script object
-// in every Torque 3D template.
-static void ensureGuiProfile( const char *name )
-{
-   if ( Sim::findObject( name ) )
-      return;
-
-   GuiControlProfile *profile = new GuiControlProfile();
-   profile->registerObject( name );
-   Sim::getRootGroup()->addObject( profile );
-}
-
 // HH: Added for Tribes2 compatibility.
 DefineEngineFunction( toggleConsole, void, (), ,
                "@brief Raise the console dialog, or drop it if it is already up.\n\n"
@@ -2353,7 +2341,34 @@ DefineEngineFunction( createCanvas, bool, ( const char *windowTitle ), ( "" ),
       return false;
    }
 
-   ensureGuiProfile( "GuiDefaultProfile" );
+   // HH: Tribes2 compatibility.
+   //
+   // Tribes 2's engine supplies GuiDefaultProfile; nothing on the game's boot
+   // path declares one, and every profile that leaves a field unset copies it
+   // from here.  These are the values a dump of the stock profile reports.
+   //
+   // A game that declares its own has said what it wants.
+   if ( !Sim::findObject( "GuiDefaultProfile" ) )
+   {
+      GuiControlProfile *profile = new GuiControlProfile();
+
+      profile->mModal = true;
+      profile->mBorder = 0;
+      profile->mFontSize = 14;
+      profile->mBitmapName = StringTable->insert( "gui/darkScroll" );
+
+      profile->mFillColor = profile->mFillColorHL = profile->mFillColorNA =
+         profile->mFillColorSEL = ColorI( 0, 0, 0 );
+      profile->mBorderColor = profile->mBorderColorHL = profile->mBorderColorNA =
+         profile->mBevelColorHL = profile->mBevelColorLL = ColorI( 0, 0, 0 );
+      profile->mCursorColor = ColorI( 0, 0, 0 );
+
+      for ( U32 i = 0; i < 10; ++i )
+         profile->mFontColors[ i ] = ColorI( 255, 255, 255 );
+
+      profile->registerObject( "GuiDefaultProfile" );
+      Sim::getRootGroup()->addObject( profile );
+   }
 
    GuiCanvas *canvas = new GuiCanvas();
    canvas->registerObject( "Canvas" );
