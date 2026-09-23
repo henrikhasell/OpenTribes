@@ -2292,14 +2292,19 @@ DefineEngineFunction(excludeOtherInstance, bool, (const char* appIdentifer),,
 
 // HH: GuiControl::onAdd() asserts on GuiDefaultProfile, which is a script object
 // in every Torque 3D template.
-static void ensureGuiProfile( const char *name )
+//
+// Returns the profile only when this call is what made it, so that a caller
+// adjusting what it gets cannot reach one the game declared for itself.
+static GuiControlProfile *createGuiProfile( const char *name )
 {
    if ( Sim::findObject( name ) )
-      return;
+      return NULL;
 
    GuiControlProfile *profile = new GuiControlProfile();
    profile->registerObject( name );
    Sim::getRootGroup()->addObject( profile );
+
+   return profile;
 }
 
 DefineEngineFunction( toggleConsole, void, (), ,
@@ -2353,7 +2358,7 @@ DefineEngineFunction( createCanvas, bool, ( const char *windowTitle ), ( "" ),
       return false;
    }
 
-   ensureGuiProfile( "GuiDefaultProfile" );
+   createGuiProfile( "GuiDefaultProfile" );
 
    GuiCanvas *canvas = new GuiCanvas();
    canvas->registerObject( "Canvas" );
