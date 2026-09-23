@@ -34,6 +34,9 @@ U16 Input::getAscii(U16 keyCode, KEY_STATE keyState)
 
 U16 Input::getKeyCode(U16 asciiCode)
 {
+   static_assert( KEY_Z - KEY_A == 25, "KEY_A..KEY_Z must stay contiguous" );
+   static_assert( KEY_9 - KEY_0 ==  9, "KEY_0..KEY_9 must stay contiguous" );
+
    if ( asciiCode >= 'a' && asciiCode <= 'z' )
       return KEY_A + ( asciiCode - 'a' );
 
