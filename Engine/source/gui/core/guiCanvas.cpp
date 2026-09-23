@@ -2358,7 +2358,18 @@ DefineEngineFunction( createCanvas, bool, ( const char *windowTitle ), ( "" ),
       return false;
    }
 
-   createGuiProfile( "GuiDefaultProfile" );
+   // HH: Tribes2 compatibility.
+   //
+   // Tribes 2's GuiControlProfile constructor does not leave the bitmap unset
+   // the way Torque 3D's does -- it names the scrollbar sheet, and every
+   // profile that declares no bitmap of its own inherits it.  That is how the
+   // console's scroll control is skinned: GuiButtonProfile, which its layout
+   // names, sets no bitmap anywhere in the game's scripts.
+   //
+   // It only belongs on a profile this supplied.  A game that declares its own
+   // has said what it wants.
+   if ( GuiControlProfile *profile = createGuiProfile( "GuiDefaultProfile" ) )
+      profile->mBitmapName = StringTable->insert( "gui/darkScroll" );
 
    GuiCanvas *canvas = new GuiCanvas();
    canvas->registerObject( "Canvas" );
