@@ -2367,7 +2367,6 @@ DefineEngineFunction( createCanvas, bool, ( const char *windowTitle ), ( "" ),
          profile->mFontColors[ i ] = ColorI( 255, 255, 255 );
 
       profile->registerObject( "GuiDefaultProfile" );
-      Sim::getRootGroup()->addObject( profile );
    }
 
    GuiCanvas *canvas = new GuiCanvas();
