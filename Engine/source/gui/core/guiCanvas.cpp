@@ -2302,6 +2302,33 @@ static void ensureGuiProfile( const char *name )
    Sim::getRootGroup()->addObject( profile );
 }
 
+// HH: Added for Tribes2 compatibility.
+DefineEngineFunction( toggleConsole, void, (), ,
+               "@brief Raise the console dialog, or drop it if it is already up.\n\n"
+
+               "Tribes 2 binds a key straight to this and expects the engine to "
+               "provide it; a script definition still replaces it.  The dialog is "
+               "whatever control is named ConsoleDlg.\n\n"
+
+               "@ingroup GuiCore" )
+{
+   GuiCanvas *canvas;
+   if ( !Sim::findObject( "Canvas", canvas ) )
+      return;
+
+   GuiControl *dialog;
+   if ( !Sim::findObject( "ConsoleDlg", dialog ) )
+   {
+      Con::errorf( "toggleConsole - there is no control named ConsoleDlg" );
+      return;
+   }
+
+   if ( dialog->isAwake() )
+      canvas->popDialogControl( dialog );
+   else
+      canvas->pushDialogControl( dialog, 99 );
+}
+
 DefineEngineFunction( createCanvas, bool, ( const char *windowTitle ), ( "" ),
                "@brief Create the game window and the canvas that draws into it.\n\n"
 
