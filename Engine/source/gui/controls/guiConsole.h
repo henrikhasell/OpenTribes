@@ -39,6 +39,10 @@ class GuiConsole : public GuiArrayCtrl
 
       Resource<GFont> mFont;
 
+      // HH: Tribes2 compatibility.  Set by onWake, spent by the next onPreRender,
+      // once the scroll control above has sized itself around the log.
+      bool mScrollToEnd;
+
       S32 getMaxWidth(S32 startIndex, S32 endIndex);
 
    protected:
