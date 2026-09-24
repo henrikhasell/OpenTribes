@@ -53,7 +53,11 @@ GFXTexHandle ShellSkin::get( const char *suffix )
 
    // A missing part is not an error: one stem serves several controls, and
    // each uses only the suffixes it knows about.
-   mTexture[ slot ].set( avar( "%s%s", mBase, suffix ), &GFXDefaultPersistentProfile,
+   //
+   // The name is built from the interned copy rather than from what the caller
+   // passed.  avar formats into one static buffer, so a caller that reached it
+   // through avar would have its suffix overwritten by this very call.
+   mTexture[ slot ].set( avar( "%s%s", mBase, key ), &GFXDefaultPersistentProfile,
                          avar( "%s() - mTexture (line %d)", __FUNCTION__, __LINE__ ) );
 
    return mTexture[ slot ];
