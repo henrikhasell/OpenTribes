@@ -68,9 +68,13 @@ void *DataChunker::alloc(S32 size)
    return ret;
 }
 
+// HH: alloc() leaves next unset when an oversized block is the first one.
 DataChunker::DataBlock::DataBlock(S32 size)
 {
    data = new U8[size];
+   prev = NULL;
+   next = NULL;
+   curIndex = 0;
 }
 
 DataChunker::DataBlock::~DataBlock()
