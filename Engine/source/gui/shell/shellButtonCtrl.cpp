@@ -114,6 +114,8 @@ ShellTabGroupCtrl::ShellTabGroupCtrl()
    mGlowOffset = 0;
    mStretchToFit = false;
 
+   mMinTabWidth = 0;
+
    mSelected = -1;
    mMouseOver = -1;
 
@@ -147,6 +149,20 @@ bool ShellTabGroupCtrl::onWake()
    if ( mProfile->mBitmapBase && mProfile->mBitmapBase[ 0 ] )
       addSet( 0, mProfile->mBitmapBase, mProfile->mFontColor,
               mProfile->mFontColorHL, mProfile->mFontColorSEL );
+
+   // The narrowest a tab may be is both its caps and room for one letter --
+   // a tab squeezed past that is two caps touching with nothing between them.
+   mMinTabWidth = 0;
+
+   if ( mSets.size() && mSets[ 0 ].art.isValid() )
+      mMinTabWidth = mSets[ 0 ].art.getCapWidth();
+
+   if ( mProfile->mFont )
+      mMinTabWidth += mProfile->mFont->getStrWidth( "W" );
+
+   // A cap smaller than that is raised to it rather than fighting it.
+   if ( mMaxTabWidth > 0 && mMaxTabWidth < mMinTabWidth )
+      mMaxTabWidth = mMinTabWidth;
 
    return true;
 }
@@ -203,35 +219,61 @@ void ShellTabGroupCtrl::clearTabSets()
    setUpdate();
 }
 
-S32 ShellTabGroupCtrl::tabExtent() const
+S32 ShellTabGroupCtrl::tabExtent( S32 *remainder ) const
 {
+   if ( remainder )
+      *remainder = 0;
+
    const S32 count = mTabs.size();
    if ( !count )
       return 0;
 
-   const S32 span = horizontal() ? getWidth() : getHeight();
+   // The glow is taken off the room before it is divided, not after: the art
+   // is allowed to overhang the bar by that much at each end.
+   const S32 span = ( horizontal() ? getWidth() : getHeight() ) - mGlowOffset * 2;
 
-   S32 each = ( span - mTabSpacing * ( count - 1 ) ) / count;
+   // The spacing comes off every tab rather than off the gaps between them,
+   // which leaves the last tab's worth of it spare at the end.
+   S32 each = span / count - mTabSpacing;
 
-   // maxTabWidth caps how wide one tab grows, not how wide the row is: four
-   // tabs in a five-hundred-pixel bar are a hundred and sixty each and the
-   // rest of the bar stays empty, which is what Tribes 2 looks like.
+   if ( each < mMinTabWidth )
+      each = mMinTabWidth;
+
+   // stretchToFit is what lets a tab grow past its cap to fill the bar.
    if ( !mStretchToFit && mMaxTabWidth > 0 && each > mMaxTabWidth )
       each = mMaxTabWidth;
+   else if ( remainder )
+   {
+      // Whatever the division left over is handed out a pixel at a time to the
+      // tabs at the front, so the row ends where the bar does.
+      const S32 used = each * count + mTabSpacing * ( count - 1 );
+      *remainder = getMax( span - used, 0 );
+   }
 
    return getMax( each, 1 );
 }
 
 S32 ShellTabGroupCtrl::hitTab( const Point2I &point ) const
 {
-   const S32 each = tabExtent();
+   S32 remainder = 0;
+   const S32 each = tabExtent( &remainder );
    if ( each < 1 )
       return -1;
 
-   const S32 along = horizontal() ? point.x : point.y;
-   const S32 index = along / ( each + mTabSpacing );
+   S32 along = horizontal() ? point.x : point.y;
 
-   return ( index >= 0 && index < mTabs.size() ) ? index : -1;
+   for ( S32 i = 0; i < mTabs.size(); i++ )
+   {
+      const S32 width = each + ( i < remainder ? 1 : 0 );
+      if ( along < width )
+         return i;
+
+      along -= width + mTabSpacing;
+      if ( along < 0 )
+         return -1;
+   }
+
+   return -1;
 }
 
 void ShellTabGroupCtrl::addTab( S32 id, const char *text, S32 set )
@@ -286,6 +328,7 @@ S32 ShellTabGroupCtrl::getTabId( S32 index ) const
 void ShellTabGroupCtrl::clear()
 {
    mTabs.clear();
+
    mSelected = -1;
    mMouseOver = -1;
 
@@ -376,18 +419,23 @@ void ShellTabGroupCtrl::onRender( Point2I offset, const RectI &updateRect )
 {
    GFXDrawUtil *draw = GFX->getDrawUtil();
 
-   const S32 each = tabExtent();
+   S32 remainder = 0;
+   const S32 each = tabExtent( &remainder );
+
+   S32 along = 0;
 
    for ( S32 i = 0; i < mTabs.size(); i++ )
    {
       const Tab &entry = mTabs[ i ];
       const Set *set = setFor( entry );
 
-      const S32 along = i * ( each + mTabSpacing );
+      const S32 width = each + ( i < remainder ? 1 : 0 );
 
       const RectI tab = horizontal()
-         ? RectI( offset.x + along, offset.y, each, getHeight() )
-         : RectI( offset.x, offset.y + along, getWidth(), each );
+         ? RectI( offset.x + along, offset.y, width, getHeight() )
+         : RectI( offset.x, offset.y + along, getWidth(), width );
+
+      along += width + mTabSpacing;
 
       S32 state = 0;
       if ( i == mSelected )

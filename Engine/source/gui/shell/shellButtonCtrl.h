@@ -84,8 +84,13 @@ class ShellTabGroupCtrl : public GuiControl
    S32 mGlowOffset;
    bool mStretchToFit;
 
-   /// How wide one tab is, given how many there are and how much room.
-   S32 tabExtent() const;
+   /// The narrowest a tab is allowed to be: its two caps plus room for one
+   /// letter.  Worked out at wake, because it depends on the art and the font.
+   S32 mMinTabWidth;
+
+   /// How wide one tab is, given how many there are and how much room, and
+   /// how many of them get a spare pixel.
+   S32 tabExtent( S32 *remainder = NULL ) const;
 
    /// Which tab `point` is over, or -1.
    S32 hitTab( const Point2I &point ) const;
