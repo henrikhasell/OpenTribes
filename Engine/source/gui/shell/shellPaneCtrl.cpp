@@ -24,6 +24,7 @@ ShellPaneCtrl::ShellPaneCtrl()
 {
    mText = StringTable->insert( "" );
    mNoTitleBar = false;
+   mHaveTitleCells = false;
 
    setExtent( 200, 100 );
 }
@@ -47,6 +48,73 @@ void ShellPaneCtrl::setText( const char *text )
 void ShellPaneCtrl::updateSkin()
 {
    mSkin.setBase( mProfile ? mProfile->mBitmapBase : NULL );
+
+   if ( mHaveTitleCells )
+      return;
+
+   GFXTexHandle tab = mSkin.get( "_titletab" );
+   if ( !tab )
+      return;
+
+   // Two cells stacked: the chamfered left end, and the length that runs
+   // between the ends.
+   mHaveTitleCells = shellSliceGrid( tab->getBitmap(), mTitleCell, 1, 2 ) == 2;
+}
+
+S32 ShellPaneCtrl::titleHeight()
+{
+   if ( mNoTitleBar || !mHaveTitleCells )
+      return 0;
+
+   return mTitleCell[ 1 ].extent.y;
+}
+
+void ShellPaneCtrl::drawTitleBar( const Point2I &offset )
+{
+   const S32 height = titleHeight();
+   if ( !height )
+      return;
+
+   GFXTexHandle tab = mSkin.get( "_titletab" );
+   GFXTexHandle rail = mSkin.get( "_frame_end" );
+   if ( !tab )
+      return;
+
+   // The bar sits between the rails rather than over them.
+   const S32 railWidth = rail ? S32( rail->getWidth() ) : 0;
+   const S32 capWidth = mTitleCell[ 0 ].extent.x;
+
+   const S32 span = getWidth() - ( capWidth + railWidth ) * 2;
+
+   GFXDrawUtil *draw = GFX->getDrawUtil();
+   draw->clearBitmapModulation();
+
+   S32 x = offset.x + railWidth;
+
+   draw->drawBitmapSR( tab, Point2I( x, offset.y ), mTitleCell[ 0 ] );
+   x += capWidth;
+
+   if ( span > 0 )
+   {
+      draw->drawBitmapStretchSR( tab, RectI( x, offset.y, span, height ), mTitleCell[ 1 ] );
+      x += span;
+   }
+
+   // The right end is the left one turned round; there is no separate art.
+   draw->drawBitmapSR( tab, Point2I( x, offset.y ), mTitleCell[ 0 ], GFXBitmapFlip_X );
+
+   if ( mProfile->mFont && mText && mText[ 0 ] )
+   {
+      const S32 textWidth = mProfile->mFont->getStrWidth( mText );
+      const S32 textHeight = mProfile->mFont->getHeight();
+
+      const Point2I at( offset.x + ( getWidth() - textWidth ) / 2,
+                        offset.y + ( height - textHeight ) / 2 );
+
+      draw->setBitmapModulation( mProfile->mFontColor );
+      draw->drawText( mProfile->mFont, at, mText );
+      draw->clearBitmapModulation();
+   }
 }
 
 bool ShellPaneCtrl::onWake()
@@ -61,6 +129,8 @@ bool ShellPaneCtrl::onWake()
 void ShellPaneCtrl::onRender( Point2I offset, const RectI &updateRect )
 {
    updateSkin();
+
+   drawTitleBar( offset );
 
    renderChildControls( offset, updateRect );
 }

@@ -30,7 +30,17 @@ protected:
 
    ShellSkin mSkin;
 
+   /// The two cells of the title bar's art: the left end, which is chamfered,
+   /// and the length that runs between the ends.
+   RectI mTitleCell[ 2 ];
+   bool mHaveTitleCells;
+
    void updateSkin();
+
+   /// How tall the title bar is, and so where the interior starts.
+   S32 titleHeight();
+
+   void drawTitleBar( const Point2I &offset );
 
 public:
    ShellPaneCtrl();
