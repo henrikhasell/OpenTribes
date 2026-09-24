@@ -5,6 +5,7 @@
 #include "gfx/gfxDevice.h"
 #include "gfx/gfxDrawUtil.h"
 #include "gfx/bitmap/gBitmap.h"
+#include "gui/shell/shellSkin.h"
 
 ShellStateBitmap::ShellStateBitmap()
 {
@@ -52,60 +53,15 @@ void ShellStateBitmap::load( const char *name )
 
 void ShellStateBitmap::measure( GBitmap *bitmap )
 {
-   if ( !bitmap || bitmap->getWidth() < 1 || bitmap->getHeight() < 1 )
-      return;
+   RectI cell[ MaxPieces * MaxStates ];
 
-   const S32 width = bitmap->getWidth();
-   const S32 height = bitmap->getHeight();
+   const S32 rows = shellSliceGrid( bitmap, cell, MaxStates, MaxPieces );
 
-   ColorI separator;
-   if ( !bitmap->getColor( 0, 0, separator ) )
-      return;
-
-   S32 y = 0;
-
-   for ( S32 piece = 0; piece < MaxPieces; piece++ )
-   {
-      ColorI color;
-
-      // The rule that opens the row states how wide a cell is: it runs in the
-      // separator colour exactly, and stops where the art begins.
-      S32 cellWidth = 0;
-      while ( cellWidth < width )
-      {
-         if ( !bitmap->getColor( cellWidth, y, color ) || color != separator )
-            break;
-         cellWidth++;
-      }
-
-      y++;
-
-      // And column zero below it states how tall: the run that is not the
-      // separator.
-      S32 cellHeight = 0;
-      while ( cellHeight + y < height )
-      {
-         if ( !bitmap->getColor( 0, cellHeight + y, color ) || color == separator )
-            break;
-         cellHeight++;
-      }
-
-      // A row that does not fit is the sheet saying it has no more rows.  Art
-      // the size of the control it skins is one row of states and nothing
-      // else, and that is not a failure -- it is a control drawn whole.
-      if ( cellWidth < 3 || cellHeight < 3 || cellWidth * MaxStates > width + 1 )
-         break;
-
+   for ( S32 piece = 0; piece < rows; piece++ )
       for ( S32 state = 0; state < MaxStates; state++ )
-         mCell[ piece ][ state ] = RectI( cellWidth * state + 1, y + 1,
-                                          cellWidth - 2, cellHeight - 2 );
+         mCell[ piece ][ state ] = cell[ piece * MaxStates + state ];
 
-      mPieces = piece + 1;
-
-      y += cellHeight;
-      if ( y >= height )
-         break;
-   }
+   mPieces = rows;
 }
 
 void ShellStateBitmap::drawCell( S32 state, const Point2I &at ) const

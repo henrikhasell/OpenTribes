@@ -6,6 +6,20 @@
 #include "gui/core/guiTypes.h"
 #endif
 
+class GBitmap;
+
+/// Cut `bitmap` into a `cols` by `rows` grid of cells, writing `cols * rows`
+/// rects in reading order.  Returns how many rows it got, which can be fewer
+/// than asked for: art the size of the control it skins is one row of states
+/// and nothing else, and that is not a failure.
+///
+/// The sheet states its own measurements in the colour at pixel (0,0) rather
+/// than ruling every cell.  A row opens with a run of exactly that colour, and
+/// how far the run goes is how wide one cell is; the run below it down column
+/// zero that is not that colour is how tall.  Each cell is then inset by a
+/// pixel all round, so a division never bleeds into what is drawn.
+S32 shellSliceGrid( GBitmap *bitmap, RectI *out, S32 cols, S32 rows );
+
 /// A set of textures sharing a stem.
 ///
 /// A shell control does not always have one bitmap; it has a stem.  The
