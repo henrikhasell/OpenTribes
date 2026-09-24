@@ -2,6 +2,7 @@
 #include "gui/containers/guiScrollContentCtrl.h"
 
 #include "console/engineAPI.h"
+#include "gui/containers/guiScrollCtrl.h"
 
 IMPLEMENT_CONOBJECT( GuiScrollContentCtrl );
 
@@ -28,7 +29,8 @@ void GuiScrollContentCtrl::fitToParent()
    if ( !parent )
       return;
 
-   Point2I extent = parent->getExtent();
+   GuiScrollCtrl *scroll = dynamic_cast< GuiScrollCtrl* >( parent );
+   Point2I extent = scroll ? scroll->getContentExtent() : parent->getExtent();
 
    for ( iterator i = begin(); i != end(); i++ )
    {
