@@ -61,7 +61,14 @@ void ShellBitmapButton::onRender( Point2I offset, const RectI &updateRect )
    if ( mArt.isValid() )
    {
       draw->clearBitmapModulation();
-      mArt.draw( artState(), RectI( offset, getExtent() ) );
+
+      // simpleStyle is a different drawing altogether rather than a variation
+      // on one: the state is drawn at the size it was drawn, where the control
+      // starts, with no caps and nothing stretched.
+      if ( mSimpleStyle )
+         mArt.drawCell( artState(), offset );
+      else
+         mArt.draw( artState(), RectI( offset, getExtent() ) );
    }
 
    if ( mProfile->mFont && mButtonText && mButtonText[ 0 ] )

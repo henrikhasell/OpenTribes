@@ -70,6 +70,10 @@ public:
    /// is common.
    void draw( S32 state, const RectI &bounds ) const;
 
+   /// Draw one cell of the first row at the size it was drawn, at `at`.  This
+   /// is the whole of what a simple-style control does: no caps, no stretch.
+   void drawCell( S32 state, const Point2I &at ) const;
+
 private:
    void measure( GBitmap *bitmap );
 };
