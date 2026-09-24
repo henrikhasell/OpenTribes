@@ -59,6 +59,13 @@ public:
    /// size of the control it skins gives.
    S32 getPieceCount() const { return mPieces; }
 
+   /// The two caps together, which is the least width that draws all of a
+   /// control rather than a squeezed part of it.
+   S32 getCapWidth() const
+   {
+      return mPieces >= MaxPieces ? mCell[ 0 ][ 0 ].extent.x + mCell[ 2 ][ 0 ].extent.x : 0;
+   }
+
    /// The height one state was drawn at, which is what a control using this
    /// art should be tall.
    S32 getStateHeight() const { return mPieces ? mCell[ 0 ][ 0 ].extent.y : 0; }
