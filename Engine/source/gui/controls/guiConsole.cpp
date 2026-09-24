@@ -58,6 +58,7 @@ GuiConsole::GuiConsole()
    setExtent(64, 64);
    mCellSize.set(1, 1);
    mSize.set(1, 0);
+   mScrollToEnd = false;
 }
 
 //-----------------------------------------------------------------------------
@@ -69,6 +70,10 @@ bool GuiConsole::onWake()
 
    //get the font
    mFont = mProfile->mFont;
+
+   // HH: Tribes2 compatibility.  Opening the console shows the newest output,
+   // however far up the view was left the last time.
+   mScrollToEnd = true;
 
    return true;
 }
@@ -131,6 +136,12 @@ void GuiConsole::onPreRender()
       //if the console was not scrolled, make the last entry visible
       if (scrolled)
          scrollCellVisible(Point2I(0,mSize.y - 1));
+   }
+
+   if(mScrollToEnd)
+   {
+      scrollCellVisible(Point2I(0, mSize.y - 1));
+      mScrollToEnd = false;
    }
 }
 
