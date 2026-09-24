@@ -468,9 +468,14 @@ void ShellTabGroupCtrl::onRender( Point2I offset, const RectI &updateRect )
          else if ( i == mMouseOver )
             color = set ? set->fontColorHL : mProfile->mFontColorHL;
 
+         // The open tab's label sits a pixel down and right of where the
+         // others sit, the way a pressed button's does.
+         Point2I at = tab.point + mProfile->mTextOffset;
+         if ( i == mSelected )
+            at += Point2I( 1, 1 );
+
          draw->setBitmapModulation( color );
-         renderJustifiedText( tab.point + mProfile->mTextOffset,
-                              tab.extent - mProfile->mTextOffset, entry.text );
+         renderJustifiedText( at, tab.extent - mProfile->mTextOffset, entry.text );
          draw->clearBitmapModulation();
       }
    }
