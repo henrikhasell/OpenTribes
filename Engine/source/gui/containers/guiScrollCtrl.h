@@ -94,6 +94,11 @@ class GuiScrollCtrl : public GuiContainer
       RectI *mBitmapBounds;  //bmp is [3*n], bmpHL is [3*n + 1], bmpNA is [3*n + 2]
       GFXTexHandle mTextureObject;
 
+      // HH: Where mBitmapBounds points when the art puts a piece's states
+      // side by side inside one rect rather than in separate ones.  See
+      // splitBitmapStates().
+      Vector<RectI> mSplitBounds;
+
       S32     mBorderThickness;           // this gets set per class in the constructor
       Point2I mChildMargin;               // the thickness of the margin around the child controls
 
@@ -183,6 +188,19 @@ class GuiScrollCtrl : public GuiContainer
       /// @}
 
       Region findHitRegion(const Point2I &);
+
+      /// Build the BmpStates * BmpCount array from art that only has BmpCount
+      /// rects, each holding its states side by side.
+      ///
+      /// Both layouts are a grid of the same thirteen pieces in three states.
+      /// They differ in whether the separator colour is drawn between the
+      /// states: T3D's art draws it and so slices into thirty-nine rects,
+      /// while Tribes 2's darkScroll does not, and slices into thirteen rects
+      /// three states wide.  Cutting those in three gives the array the rest
+      /// of this class already indexes.
+      ///
+      /// Returns false if the rects cannot be cut that way.
+      bool splitBitmapStates();
 
       virtual bool calcChildExtents();
       virtual void calcScrollRects(void);

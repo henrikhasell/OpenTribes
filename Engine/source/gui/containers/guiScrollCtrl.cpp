@@ -130,16 +130,89 @@ void GuiScrollCtrl::childResized(GuiControl *child)
 
 //-----------------------------------------------------------------------------
 
+// HH: Tribes2 compatibility.
+//
+// The pieces are not all as wide as the row they sit in: a horizontal thumb
+// is as narrow as a vertical one is short, and only the arrows and the page
+// runs fill the row.  Where a piece is narrower the rest of the row is padded
+// out in pure green, so the width the states divide is the row less that pad.
+// Without this the horizontal bar takes a third of the whole row for each
+// state, which is wide enough to reach into the next one.
+static S32 usableWidth( const GBitmap *bmp, const RectI &piece )
+{
+   if ( !bmp )
+      return piece.extent.x;
+
+   const S32 sampleY = piece.point.y + piece.extent.y / 2;
+
+   S32 width = piece.extent.x;
+   ColorI color;
+
+   while ( width > 0 &&
+           bmp->getColor( piece.point.x + width - 1, sampleY, color ) &&
+           color.red == 0 && color.green == 255 && color.blue == 0 )
+      width--;
+
+   // All pad and no art is art this does not understand; leave it whole.
+   return width > 0 ? width : piece.extent.x;
+}
+
+bool GuiScrollCtrl::splitBitmapStates()
+{
+   const Vector< RectI > &rects = mProfile->mBitmapArrayRects;
+
+   if ( rects.size() < BmpCount )
+      return false;
+
+   const GBitmap *bmp = mProfile->mTextureObject ? mProfile->mTextureObject->getBitmap() : NULL;
+
+   mSplitBounds.setSize( BmpStates * BmpCount );
+
+   for ( S32 piece = 0; piece < BmpCount; piece++ )
+   {
+      const RectI &whole = rects[ piece ];
+      const S32 width = usableWidth( bmp, whole ) / BmpStates;
+
+      // A piece too narrow to divide is art laid out some third way, and
+      // guessing at it would draw a sliver of the wrong state.
+      if ( width <= 0 )
+      {
+         mSplitBounds.clear();
+         return false;
+      }
+
+      for ( S32 state = 0; state < BmpStates; state++ )
+         mSplitBounds[ BmpStates * piece + state ] =
+            RectI( whole.point.x + width * state, whole.point.y, width, whole.extent.y );
+   }
+
+   mBitmapBounds = mSplitBounds.address();
+   return true;
+}
+
 bool GuiScrollCtrl::onWake()
 {
    if (! Parent::onWake())
       return false;
 
+   mSplitBounds.clear();
+   mBitmapBounds = NULL;
    mTextureObject = mProfile->mTextureObject;
-   if (mTextureObject && (mProfile->constructBitmapArray() >= BmpStates * BmpCount))
-   {
-      mBitmapBounds = mProfile->mBitmapArrayRects.address();
 
+   if ( mTextureObject )
+   {
+      const S32 rects = mProfile->constructBitmapArray();
+
+      // HH: Take the array as it comes when the art gives a rect per state,
+      // and cut the states out of the pieces when it does not.
+      if ( rects >= BmpStates * BmpCount )
+         mBitmapBounds = mProfile->mBitmapArrayRects.address();
+      else if ( rects >= BmpCount )
+         splitBitmapStates();
+   }
+
+   if (mBitmapBounds)
+   {
       //init
       mBaseThumbSize = mBitmapBounds[BmpStates * BmpVThumbTopCap].extent.y +
          mBitmapBounds[BmpStates * BmpVThumbBottomCap].extent.y;
@@ -166,6 +239,11 @@ void GuiScrollCtrl::onSleep()
 
    Parent::onSleep();
    mTextureObject = NULL;
+
+   // HH: mBitmapBounds points into one of these two and neither outlives the
+   // profile, so it cannot be left behind either.
+   mSplitBounds.clear();
+   mBitmapBounds = NULL;
 }
 
 //-----------------------------------------------------------------------------
@@ -1042,7 +1120,9 @@ void GuiScrollCtrl::onRender(Point2I offset, const RectI &updateRect)
    // Always call parent
    Parent::onRender(offset, contentRect);
    
-   if( mTextureObject )
+   // HH: mBitmapBounds too: a profile can hold a texture that did not yield a
+   // long enough array, and every draw below indexes it.
+   if( mTextureObject && mBitmapBounds )
    {
       // Reset the ClipRect as the parent call can modify it when rendering
       // the child controls
