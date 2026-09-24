@@ -454,7 +454,9 @@ bool StandardMainLoop::handleCommandLine( S32 argc, const char **argv )
 #endif
          success = str.open(defaultScriptName, Torque::FS::File::Read);
 
-#if defined( TORQUE_DEBUG ) && defined (TORQUE_TOOLS) && !defined( _XBOX )
+// HH: OpenFileDialog not implemented on Linux.
+// TODO: Fix this
+#if 0 && defined( TORQUE_DEBUG ) && defined (TORQUE_TOOLS) && !defined( _XBOX )
       if (!success)
       {
          OpenFileDialog ofd;
