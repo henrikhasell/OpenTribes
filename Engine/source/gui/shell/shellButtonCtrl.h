@@ -58,11 +58,26 @@ class ShellTabGroupCtrl : public GuiControl
       S32 set;
    };
 
+   /// A group of tabs drawn from their own art in their own colours.
+   ///
+   /// The bar is not one strip of identical tabs: GameGui.gui puts WARRIOR
+   /// SETUP in a set of its own so that it reads as a different kind of thing
+   /// from JOIN and HOST beside it, and script asks getTabSet which set the
+   /// open tab is in to tint the panel below to match.
+   struct Set
+   {
+      S32 id;
+      ShellStateBitmap art;
+      ColorI fontColor;
+      ColorI fontColorHL;
+      ColorI fontColorSEL;
+   };
+
    Vector< Tab > mTabs;
+   Vector< Set > mSets;
+
    S32 mSelected;
    S32 mMouseOver;
-
-   ShellStateBitmap mArt;
 
    S32 mTabSpacing;
    S32 mMaxTabWidth;
@@ -76,6 +91,13 @@ class ShellTabGroupCtrl : public GuiControl
    S32 hitTab( const Point2I &point ) const;
 
    bool horizontal() const { return getWidth() >= getHeight(); }
+
+   /// Where the set with this id sits, or -1.
+   S32 findSet( S32 id ) const;
+
+   /// The set a tab draws from.  A tab naming a set that was never registered
+   /// falls back to the first one, which is what Tribes 2 does.
+   const Set *setFor( const Tab &tab ) const;
 
 public:
    ShellTabGroupCtrl();
@@ -105,6 +127,11 @@ public:
    S32 getTabId( S32 index ) const;
 
    void clear();
+
+   bool addSet( S32 id, const char *bitmap, const ColorI &fontColor,
+                const ColorI &fontColorHL, const ColorI &fontColorSEL );
+   void removeSet( S32 index );
+   void clearTabSets();
 
    void setTabText( S32 index, const char *text );
    const char *getTabText( S32 index ) const;

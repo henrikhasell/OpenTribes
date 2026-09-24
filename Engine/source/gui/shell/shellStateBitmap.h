@@ -47,6 +47,11 @@ public:
    /// the profile still names what it last measured.
    void update( GuiControlProfile *profile );
 
+   /// The same for art named directly, which is how a control that carries
+   /// several sheets at once -- a tab bar with a set per group of tabs -- gets
+   /// the ones the profile does not name.
+   void load( const char *name );
+
    bool isValid() const { return mPieces > 0; }
 
    /// How many rows the sheet actually carried.  Three is a control drawn from

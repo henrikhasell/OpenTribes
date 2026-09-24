@@ -18,10 +18,16 @@ void ShellStateBitmap::update( GuiControlProfile *profile )
    // one that named anything: GuiControlProfile copies mBitmapName down from
    // GuiDefaultProfile, so every shell profile appears to carry a window frame
    // it never asked for.
-   StringTableEntry source = NULL;
-   if ( profile )
-      source = ( profile->mBitmapBase && profile->mBitmapBase[ 0 ] )
-                  ? profile->mBitmapBase : profile->mBitmapName;
+   if ( !profile )
+      return;
+
+   load( ( profile->mBitmapBase && profile->mBitmapBase[ 0 ] )
+            ? profile->mBitmapBase : profile->mBitmapName );
+}
+
+void ShellStateBitmap::load( const char *name )
+{
+   StringTableEntry source = ( name && name[ 0 ] ) ? StringTable->insert( name ) : NULL;
 
    if ( source == mSource )
       return;
@@ -30,13 +36,13 @@ void ShellStateBitmap::update( GuiControlProfile *profile )
    mTexture = NULL;
    mPieces = 0;
 
-   if ( !source || !source[ 0 ] )
+   if ( !source )
       return;
 
    if ( !mTexture.set( source, &GFXDefaultPersistentProfile,
                        avar( "%s() - mTexture (line %d)", __FUNCTION__, __LINE__ ) ) )
    {
-      Con::errorf( "ShellStateBitmap::update - failed to load %s", source );
+      Con::errorf( "ShellStateBitmap::load - failed to load %s", source );
       mSource = NULL;
       return;
    }
