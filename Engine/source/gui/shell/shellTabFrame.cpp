@@ -85,19 +85,27 @@ void ShellTabFrame::onRender( Point2I offset, const RectI &updateRect )
       GFXDrawUtil *draw = GFX->getDrawUtil();
       draw->clearBitmapModulation();
 
+      // getWidth() and getHeight() are the texture's, which the device may
+      // have padded up to a power of two -- gui/shll_horztabframegrad is 9
+      // wide and lands in a 16-wide texture.  drawBitmap lays the art down at
+      // its bitmap size, so stepping past it by anything else opens a gap.
+      const S32 railWidth = S32( rail->getBitmapWidth() );
+      const S32 railHeight = S32( rail->getBitmapHeight() );
+
       Point2I at = offset;
 
       if ( mIsVertical )
       {
          // edgeInset is the horizontal layout's alone; nothing shifts the line
          // when the rails run across the top and bottom.
-         const S32 span = getHeight() - S32( rail->getHeight() ) * 2;
+         const S32 span = getHeight() - railHeight * 2;
 
          draw->drawBitmap( rail, at );
-         at.y += rail->getHeight();
+         at.y += railHeight;
 
          if ( span > 0 )
-            draw->drawBitmapStretch( line, RectI( at.x, at.y, line->getWidth(), span ) );
+            draw->drawBitmapStretch( line,
+               RectI( at.x, at.y, S32( line->getBitmapWidth() ), span ) );
 
          at.y += span;
 
@@ -105,14 +113,15 @@ void ShellTabFrame::onRender( Point2I offset, const RectI &updateRect )
       }
       else
       {
-         const S32 span = getWidth() - S32( rail->getWidth() ) * 2;
+         const S32 span = getWidth() - railWidth * 2;
 
          draw->drawBitmap( rail, at );
-         at.x += rail->getWidth();
+         at.x += railWidth;
          at.y += mEdgeInset;
 
          if ( span > 0 )
-            draw->drawBitmapStretch( line, RectI( at.x, at.y, span, line->getHeight() ) );
+            draw->drawBitmapStretch( line,
+               RectI( at.x, at.y, span, S32( line->getBitmapHeight() ) ) );
 
          at.x += span;
          at.y -= mEdgeInset;

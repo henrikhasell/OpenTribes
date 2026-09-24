@@ -90,7 +90,7 @@ void ShellPaneCtrl::drawTitleBar( const Point2I &offset )
       return;
 
    // The bar sits between the rails rather than over them.
-   const S32 railWidth = rail ? S32( rail->getWidth() ) : 0;
+   const S32 railWidth = rail ? S32( rail->getBitmapWidth() ) : 0;
    const S32 capWidth = mTitleCell[ 0 ].extent.x;
 
    const S32 span = getWidth() - ( capWidth + railWidth ) * 2;
@@ -139,9 +139,12 @@ void ShellPaneCtrl::drawFrame( const Point2I &offset )
    GFXDrawUtil *draw = GFX->getDrawUtil();
    draw->clearBitmapModulation();
 
-   const S32 railWidth = S32( rail->getWidth() );
-   const S32 edgeHeight = S32( edge->getHeight() );
-   const S32 gradeHeight = S32( grade->getHeight() );
+   // The bitmap's size, not the texture's: the device pads up to a power of
+   // two -- gui/shll_frame_end is 238 tall and lands in a 256-tall texture --
+   // and drawBitmapStretch here is laying out from the art, not the page.
+   const S32 railWidth = S32( rail->getBitmapWidth() );
+   const S32 edgeHeight = S32( edge->getBitmapHeight() );
+   const S32 gradeHeight = S32( grade->getBitmapHeight() );
 
    const S32 top = titleHeight();
    const S32 insideWidth = getWidth() - railWidth * 2;
@@ -177,7 +180,7 @@ void ShellPaneCtrl::drawFrame( const Point2I &offset )
    // And the frame hangs off the bottom rather than boxing the panel in: the
    // title bar is its top edge, and the two rails rise from the bottom corners
    // as far as their own art is tall.
-   const S32 railHeight = getMin( getHeight(), S32( rail->getHeight() ) );
+   const S32 railHeight = getMin( getHeight(), S32( rail->getBitmapHeight() ) );
    const S32 railTop = offset.y + getHeight() - railHeight;
 
    draw->drawBitmapStretch( rail, RectI( offset.x, railTop, railWidth, railHeight ) );
