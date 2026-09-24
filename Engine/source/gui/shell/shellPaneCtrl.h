@@ -41,6 +41,7 @@ protected:
    S32 titleHeight();
 
    void drawTitleBar( const Point2I &offset );
+   void drawFrame( const Point2I &offset );
 
 public:
    ShellPaneCtrl();
