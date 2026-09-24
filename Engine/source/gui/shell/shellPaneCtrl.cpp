@@ -61,6 +61,15 @@ void ShellPaneCtrl::updateSkin()
    mHaveTitleCells = shellSliceGrid( tab->getBitmap(), mTitleCell, 1, 2 ) == 2;
 }
 
+bool ShellPaneCtrl::onWake()
+{
+   if ( !Parent::onWake() )
+      return false;
+
+   updateSkin();
+   return true;
+}
+
 S32 ShellPaneCtrl::titleHeight()
 {
    if ( mNoTitleBar || !mHaveTitleCells )
@@ -120,21 +129,23 @@ void ShellPaneCtrl::drawTitleBar( const Point2I &offset )
 void ShellPaneCtrl::drawFrame( const Point2I &offset )
 {
    GFXTexHandle rail = mSkin.get( "_frame_end" );
+   GFXTexHandle edge = mSkin.get( "_frame_edge" );
    GFXTexHandle fill = mSkin.get( "_fieldfill" );
    GFXTexHandle grade = mSkin.get( "_fieldgrade" );
 
-   if ( !rail || !fill || !grade )
+   if ( !rail || !edge || !fill || !grade )
       return;
 
    GFXDrawUtil *draw = GFX->getDrawUtil();
    draw->clearBitmapModulation();
 
    const S32 railWidth = S32( rail->getWidth() );
+   const S32 edgeHeight = S32( edge->getHeight() );
    const S32 gradeHeight = S32( grade->getHeight() );
 
    const S32 top = titleHeight();
    const S32 insideWidth = getWidth() - railWidth * 2;
-   const S32 insideHeight = getHeight() - top;
+   const S32 insideHeight = getHeight() - top - edgeHeight;
 
    // The interior is three bands, not a fill with a gradient over it: the
    // gradient runs down from under the title, the fill carries the middle, and
@@ -162,15 +173,23 @@ void ShellPaneCtrl::drawFrame( const Point2I &offset )
       const S32 last = roomForFill ? gradeHeight : insideHeight - first;
       draw->drawBitmapStretch( grade, RectI( x, y, insideWidth, last ), GFXBitmapFlip_Y );
    }
-}
 
-bool ShellPaneCtrl::onWake()
-{
-   if ( !Parent::onWake() )
-      return false;
+   // And the frame hangs off the bottom rather than boxing the panel in: the
+   // title bar is its top edge, and the two rails rise from the bottom corners
+   // as far as their own art is tall.
+   const S32 railHeight = getMin( getHeight(), S32( rail->getHeight() ) );
+   const S32 railTop = offset.y + getHeight() - railHeight;
 
-   updateSkin();
-   return true;
+   draw->drawBitmapStretch( rail, RectI( offset.x, railTop, railWidth, railHeight ) );
+
+   if ( insideWidth > 0 )
+      draw->drawBitmapStretch( edge,
+         RectI( offset.x + railWidth, offset.y + getHeight() - edgeHeight,
+                insideWidth, edgeHeight ) );
+
+   draw->drawBitmapStretch( rail,
+      RectI( offset.x + railWidth + insideWidth, railTop, railWidth, railHeight ),
+      GFXBitmapFlip_X );
 }
 
 void ShellPaneCtrl::onRender( Point2I offset, const RectI &updateRect )
