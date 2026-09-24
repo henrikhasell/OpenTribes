@@ -30,6 +30,8 @@
 #include "gui/core/guiDefaultControlRender.h"
 #include "gfx/gfxDevice.h"
 #include "gfx/gfxDrawUtil.h"
+#include "gfx/gfxTextureManager.h"
+#include "gfx/bitmap/gBitmap.h"
 #include "gui/containers/guiRolloutCtrl.h"
 
 
@@ -667,6 +669,94 @@ void GuiWindowCtrl::getSnappableWindows( Vector<GuiWindowCtrl*> &windowOutVector
 
 //-----------------------------------------------------------------------------
 
+// HH: Tribes2 compatibility.
+//
+// Tribes 2's gui/darkWindow is the four buttons and nothing else, and it packs
+// each button's three states into one rect the way gui/darkScroll does, so the
+// slicer hands back four where this control indexes twenty-three.  Divide each
+// of the four to get the twelve buttons, then stand the eleven frame pieces up
+// as flat colour: the sheet is copied into a taller bitmap with two solid blocks
+// appended, and the frame rects point into those.
+bool GuiWindowCtrl::buildFlatFrame( S32 sheetRects )
+{
+   static const ColorI sTitleColor( 64, 150, 150 );
+   static const ColorI sFrameColor( 200, 200, 200 );
+
+   static const S32 sTitleRows = 30;
+   static const S32 sFrameRows = 3;
+
+   if( sheetRects < BmpCount )
+      return false;
+
+   const GBitmap *sheet = mProfile->mTextureObject ? mProfile->mTextureObject->getBitmap() : NULL;
+
+   Resource< GBitmap > loaded;
+   if( !sheet && mProfile->mBitmapName )
+   {
+      loaded = GBitmap::load( mProfile->mBitmapName );
+      sheet = loaded;
+   }
+
+   if( !sheet )
+      return false;
+
+   mFlatFrameRects.clear();
+
+   for( S32 button = 0; button < BmpCount; ++button )
+   {
+      const RectI &whole = mProfile->mBitmapArrayRects[ button ];
+      const S32 width = whole.extent.x / BmpStates;
+
+      // A rect too narrow to divide is art laid out some third way, and
+      // guessing at it would draw a sliver of the wrong state.
+      if( width <= 0 )
+         return false;
+
+      for( S32 state = 0; state < BmpStates; ++state )
+         mFlatFrameRects.push_back( RectI( whole.point.x + width * state, whole.point.y,
+                                           width, whole.extent.y ) );
+   }
+
+   const U32 width = sheet->getWidth();
+   const U32 height = sheet->getHeight();
+
+   // The title block is as tall as the strip should draw; the frame block only
+   // needs the pixel to spare that inset() takes off a stretched piece.
+   GBitmap *sheetAndBlocks = new GBitmap( width, height + sTitleRows + sFrameRows,
+                                          false, GFXFormatR8G8B8A8 );
+   sheetAndBlocks->copyRect( sheet, RectI( 0, 0, width, height ), Point2I( 0, 0 ) );
+
+   for( S32 y = 0; y < sTitleRows + sFrameRows; ++y )
+      for( U32 x = 0; x < width; ++x )
+         sheetAndBlocks->setColor( x, height + y, y < sTitleRows ? sTitleColor : sFrameColor );
+
+   if( !mFlatFrameTexture.set( sheetAndBlocks, &GFXDefaultPersistentProfile, true,
+                               avar( "%s() - flat window frame (line %d)", __FUNCTION__, __LINE__ ) ) )
+   {
+      mFlatFrameRects.clear();
+      return false;
+   }
+
+   const S32 title = height;
+   const S32 frame = height + sTitleRows;
+
+   mFlatFrameRects.push_back( RectI( 0, title, 1, sTitleRows ) );   // BorderTopLeftKey
+   mFlatFrameRects.push_back( RectI( 0, title, 1, sTitleRows ) );   // BorderTopRightKey
+   mFlatFrameRects.push_back( RectI( 0, title, 3, sTitleRows ) );   // BorderTopKey
+   mFlatFrameRects.push_back( RectI( 0, title, 1, sTitleRows ) );   // BorderTopLeftNoKey
+   mFlatFrameRects.push_back( RectI( 0, title, 1, sTitleRows ) );   // BorderTopRightNoKey
+   mFlatFrameRects.push_back( RectI( 0, title, 3, sTitleRows ) );   // BorderTopNoKey
+   mFlatFrameRects.push_back( RectI( 0, frame, 1, 3 ) );   // BorderLeft
+   mFlatFrameRects.push_back( RectI( 0, frame, 1, 3 ) );   // BorderRight
+   mFlatFrameRects.push_back( RectI( 0, frame, 1, 1 ) );   // BorderBottomLeft
+   mFlatFrameRects.push_back( RectI( 0, frame, 3, 1 ) );   // BorderBottom
+   mFlatFrameRects.push_back( RectI( 0, frame, 1, 1 ) );   // BorderBottomRight
+
+   mTextureObject = mFlatFrameTexture;
+
+   return true;
+}
+
 bool GuiWindowCtrl::onWake()
 {
    if (! Parent::onWake())
@@ -674,14 +764,17 @@ bool GuiWindowCtrl::onWake()
 
    //get the texture for the close, minimize, and maximize buttons
    mTextureObject = mProfile->mTextureObject;
-   bool result = mProfile->constructBitmapArray() >= NumBitmaps;
-   if( !result )
+   S32 numRects = mProfile->constructBitmapArray();
+   if( numRects >= NumBitmaps )
+      mBitmapBounds = mProfile->mBitmapArrayRects.address();
+   else if( buildFlatFrame( numRects ) )
+      mBitmapBounds = mFlatFrameRects.address();
+   else
    {
+      mBitmapBounds = NULL;
       Con::errorf( "GuiWindowCtrl::onWake - failed to create bitmap array from profile bitmap." );
       return false;
    }
-
-   mBitmapBounds = mProfile->mBitmapArrayRects.address();
    S32 buttonHeight = mBitmapBounds[BmpStates * BmpClose].extent.y;
 
    mTitleHeight = buttonHeight + 4;
@@ -1273,7 +1366,7 @@ bool GuiWindowCtrl::onKeyDown(const GuiEvent &event)
 
 void GuiWindowCtrl::onRender(Point2I offset, const RectI &updateRect)
 {
-   if( !mProfile || mProfile->mFont == NULL || mProfile->mBitmapArrayRects.size() < NumBitmaps )
+   if( !mProfile || mProfile->mFont == NULL || !mBitmapBounds )
       return Parent::onRender( offset, updateRect );
 
    // Draw the outline
