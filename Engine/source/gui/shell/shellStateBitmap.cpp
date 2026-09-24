@@ -108,6 +108,19 @@ void ShellStateBitmap::measure( GBitmap *bitmap )
    }
 }
 
+void ShellStateBitmap::drawCell( S32 state, const Point2I &at ) const
+{
+   if ( !mPieces )
+      return;
+
+   if ( state < 0 )
+      state = 0;
+   else if ( state >= MaxStates )
+      state = MaxStates - 1;
+
+   GFX->getDrawUtil()->drawBitmapSR( mTexture, at, mCell[ 0 ][ state ] );
+}
+
 void ShellStateBitmap::draw( S32 state, const RectI &bounds ) const
 {
    if ( !mPieces || bounds.extent.x < 1 || bounds.extent.y < 1 )
