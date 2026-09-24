@@ -175,6 +175,19 @@ bool ShellTabGroupCtrl::onWake()
 
    mTabThickness = getMax( artThickness - mGlowOffset, 0 );
 
+   // A bar declared thinner than its art would cut the tabs off.  Raise the
+   // minimum to what the art needs and resize to it, which is how the launch
+   // bar -- written 29 tall against gui/lnch_tab's 31 -- ends up 31.
+   Point2I minExtent = getMinExtent();
+
+   if ( horizontal() )
+      minExtent.y = getMax( minExtent.y, artThickness );
+   else
+      minExtent.x = getMax( minExtent.x, artThickness );
+
+   setMinExtent( minExtent );
+   resize( getPosition(), getExtent() );
+
    return true;
 }
 
