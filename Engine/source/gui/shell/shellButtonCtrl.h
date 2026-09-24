@@ -88,9 +88,17 @@ class ShellTabGroupCtrl : public GuiControl
    /// letter.  Worked out at wake, because it depends on the art and the font.
    S32 mMinTabWidth;
 
+   /// How thick a tab is across the bar -- the art's own height, less the
+   /// margin the art leaves clear for the glow.  Worked out at wake.
+   S32 mTabThickness;
+
    /// How wide one tab is, given how many there are and how much room, and
    /// how many of them get a spare pixel.
    S32 tabExtent( S32 *remainder = NULL ) const;
+
+   /// Where a tab sits, in the bar's own coordinates.  `along` is how far the
+   /// tab starts down the row, `size` how much of the row it takes.
+   RectI tabRect( S32 along, S32 size ) const;
 
    /// Which tab `point` is over, or -1.
    S32 hitTab( const Point2I &point ) const;
