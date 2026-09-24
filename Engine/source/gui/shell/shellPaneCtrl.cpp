@@ -117,6 +117,53 @@ void ShellPaneCtrl::drawTitleBar( const Point2I &offset )
    }
 }
 
+void ShellPaneCtrl::drawFrame( const Point2I &offset )
+{
+   GFXTexHandle rail = mSkin.get( "_frame_end" );
+   GFXTexHandle fill = mSkin.get( "_fieldfill" );
+   GFXTexHandle grade = mSkin.get( "_fieldgrade" );
+
+   if ( !rail || !fill || !grade )
+      return;
+
+   GFXDrawUtil *draw = GFX->getDrawUtil();
+   draw->clearBitmapModulation();
+
+   const S32 railWidth = S32( rail->getWidth() );
+   const S32 gradeHeight = S32( grade->getHeight() );
+
+   const S32 top = titleHeight();
+   const S32 insideWidth = getWidth() - railWidth * 2;
+   const S32 insideHeight = getHeight() - top;
+
+   // The interior is three bands, not a fill with a gradient over it: the
+   // gradient runs down from under the title, the fill carries the middle, and
+   // the gradient runs again at the bottom turned over, so the panel is lit
+   // from both edges towards its centre.  A panel too short to hold both
+   // gradients gets the two of them and no fill.
+   if ( insideWidth > 0 && insideHeight > 0 )
+   {
+      const bool roomForFill = insideHeight > gradeHeight * 2;
+
+      S32 y = offset.y + top;
+      const S32 x = offset.x + railWidth;
+
+      const S32 first = roomForFill ? gradeHeight : insideHeight / 2;
+      draw->drawBitmapStretch( grade, RectI( x, y, insideWidth, first ) );
+      y += first;
+
+      if ( roomForFill )
+      {
+         const S32 middle = insideHeight - gradeHeight * 2;
+         draw->drawBitmapStretch( fill, RectI( x, y, insideWidth, middle ) );
+         y += middle;
+      }
+
+      const S32 last = roomForFill ? gradeHeight : insideHeight - first;
+      draw->drawBitmapStretch( grade, RectI( x, y, insideWidth, last ), GFXBitmapFlip_Y );
+   }
+}
+
 bool ShellPaneCtrl::onWake()
 {
    if ( !Parent::onWake() )
@@ -130,6 +177,7 @@ void ShellPaneCtrl::onRender( Point2I offset, const RectI &updateRect )
 {
    updateSkin();
 
+   drawFrame( offset );
    drawTitleBar( offset );
 
    renderChildControls( offset, updateRect );
