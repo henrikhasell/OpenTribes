@@ -1,0 +1,472 @@
+#include "platform/platform.h"
+#include "gui/shell/shellButtonCtrl.h"
+
+#include "console/console.h"
+#include "console/consoleTypes.h"
+#include "console/engineAPI.h"
+#include "gfx/gfxDevice.h"
+#include "gfx/gfxDrawUtil.h"
+
+IMPLEMENT_CONOBJECT( ShellBitmapButton );
+
+ConsoleDocClass( ShellBitmapButton,
+   "@brief A button skinned the way Tribes 2's shell skins one.\n\n"
+
+   "Draws one band of its profile's art across itself, stretching what is "
+   "between the end caps, and centres the label over it.\n\n"
+
+   "@ingroup GuiShell"
+);
+
+ShellBitmapButton::ShellBitmapButton()
+{
+   mSimpleStyle = false;
+}
+
+void ShellBitmapButton::initPersistFields()
+{
+   addField( "simpleStyle", TypeBool, Offset( mSimpleStyle, ShellBitmapButton ),
+      "Draw the art and the label only, without the frame a shell button otherwise carries." );
+
+   Parent::initPersistFields();
+}
+
+bool ShellBitmapButton::onWake()
+{
+   if ( !Parent::onWake() )
+      return false;
+
+   mArt.update( mProfile );
+   return true;
+}
+
+S32 ShellBitmapButton::artState()
+{
+   if ( !mActive )
+      return 0;
+   if ( mDepressed || mStateOn )
+      return 1;
+   if ( mMouseOver )
+      return 2;
+
+   return 0;
+}
+
+void ShellBitmapButton::onRender( Point2I offset, const RectI &updateRect )
+{
+   mArt.update( mProfile );
+
+   GFXDrawUtil *draw = GFX->getDrawUtil();
+
+   if ( mArt.isValid() )
+   {
+      draw->clearBitmapModulation();
+      mArt.draw( artState(), RectI( offset, getExtent() ) );
+   }
+
+   if ( mProfile->mFont && mButtonText && mButtonText[ 0 ] )
+   {
+      ColorI color = mProfile->mFontColor;
+      if ( !mActive )
+         color = mProfile->mFontColorNA;
+      else if ( mDepressed || mStateOn )
+         color = mProfile->mFontColorSEL;
+      else if ( mMouseOver )
+         color = mProfile->mFontColorHL;
+
+      draw->setBitmapModulation( color );
+      renderJustifiedText( offset + mProfile->mTextOffset,
+                           getExtent() - mProfile->mTextOffset, mButtonText );
+      draw->clearBitmapModulation();
+   }
+
+   renderChildControls( offset, updateRect );
+}
+
+//-----------------------------------------------------------------------------
+IMPLEMENT_CONOBJECT( ShellTabGroupCtrl );
+
+ConsoleDocClass( ShellTabGroupCtrl,
+   "@brief The row of tabs across the top of Tribes 2's launch bar.\n\n"
+
+   "The tabs belong to the control rather than being child controls: script "
+   "adds one per screen the player opens and removes it again when they close "
+   "it.  Selecting a tab calls onSelect, which is where the screen is put on "
+   "the canvas.\n\n"
+
+   "@ingroup GuiShell"
+);
+
+ShellTabGroupCtrl::ShellTabGroupCtrl()
+{
+   VECTOR_SET_ASSOCIATION( mTabs );
+
+   mTabSpacing = 0;
+   mMaxTabWidth = 0;
+   mGlowOffset = 0;
+   mStretchToFit = false;
+
+   mSelected = -1;
+   mMouseOver = -1;
+
+   setExtent( 300, 32 );
+}
+
+void ShellTabGroupCtrl::initPersistFields()
+{
+   addField( "tabSpacing", TypeS32, Offset( mTabSpacing, ShellTabGroupCtrl ),
+      "Gap left between one tab and the next." );
+   addField( "maxTabWidth", TypeS32, Offset( mMaxTabWidth, ShellTabGroupCtrl ),
+      "How wide one tab is allowed to grow." );
+   addField( "glowOffset", TypeS32, Offset( mGlowOffset, ShellTabGroupCtrl ),
+      "Where along the tab its attention marker sits." );
+   addField( "stretchToFit", TypeBool, Offset( mStretchToFit, ShellTabGroupCtrl ),
+      "Divide the whole row between the tabs, ignoring maxTabWidth." );
+
+   Parent::initPersistFields();
+}
+
+bool ShellTabGroupCtrl::onWake()
+{
+   if ( !Parent::onWake() )
+      return false;
+
+   mArt.update( mProfile );
+   return true;
+}
+
+S32 ShellTabGroupCtrl::tabExtent() const
+{
+   const S32 count = mTabs.size();
+   if ( !count )
+      return 0;
+
+   const S32 span = horizontal() ? getWidth() : getHeight();
+
+   S32 each = ( span - mTabSpacing * ( count - 1 ) ) / count;
+
+   // maxTabWidth caps how wide one tab grows, not how wide the row is: four
+   // tabs in a five-hundred-pixel bar are a hundred and sixty each and the
+   // rest of the bar stays empty, which is what Tribes 2 looks like.
+   if ( !mStretchToFit && mMaxTabWidth > 0 && each > mMaxTabWidth )
+      each = mMaxTabWidth;
+
+   return getMax( each, 1 );
+}
+
+S32 ShellTabGroupCtrl::hitTab( const Point2I &point ) const
+{
+   const S32 each = tabExtent();
+   if ( each < 1 )
+      return -1;
+
+   const S32 along = horizontal() ? point.x : point.y;
+   const S32 index = along / ( each + mTabSpacing );
+
+   return ( index >= 0 && index < mTabs.size() ) ? index : -1;
+}
+
+void ShellTabGroupCtrl::addTab( S32 id, const char *text, S32 set )
+{
+   Tab tab;
+   tab.id = id;
+   tab.text = StringTable->insert( text ? text : "", true );
+   tab.active = true;
+   tab.set = set;
+
+   mTabs.push_back( tab );
+
+   // The first tab to arrive is the one showing: a bar with tabs and nothing
+   // selected is a state Tribes 2's scripts never expect to see.
+   if ( mSelected == -1 )
+      setSelectedByIndex( mTabs.size() - 1 );
+
+   setUpdate();
+}
+
+void ShellTabGroupCtrl::removeTabByIndex( S32 index )
+{
+   if ( index < 0 || index >= mTabs.size() )
+      return;
+
+   mTabs.erase( index );
+
+   // Follow the tab, not the slot.  Closing one to the left of the open tab
+   // must not silently change which screen is up.
+   if ( mSelected == index )
+      mSelected = -1;
+   else if ( mSelected > index )
+      mSelected--;
+
+   setUpdate();
+}
+
+S32 ShellTabGroupCtrl::indexOfId( S32 id ) const
+{
+   for ( S32 i = 0; i < mTabs.size(); i++ )
+      if ( mTabs[ i ].id == id )
+         return i;
+
+   return -1;
+}
+
+S32 ShellTabGroupCtrl::getTabId( S32 index ) const
+{
+   return ( index >= 0 && index < mTabs.size() ) ? mTabs[ index ].id : -1;
+}
+
+void ShellTabGroupCtrl::clear()
+{
+   mTabs.clear();
+   mSelected = -1;
+   mMouseOver = -1;
+
+   setUpdate();
+}
+
+void ShellTabGroupCtrl::setTabText( S32 index, const char *text )
+{
+   if ( index >= 0 && index < mTabs.size() )
+   {
+      mTabs[ index ].text = StringTable->insert( text ? text : "", true );
+      setUpdate();
+   }
+}
+
+const char *ShellTabGroupCtrl::getTabText( S32 index ) const
+{
+   return ( index >= 0 && index < mTabs.size() ) ? mTabs[ index ].text : "";
+}
+
+void ShellTabGroupCtrl::setTabActive( S32 index, bool active )
+{
+   if ( index >= 0 && index < mTabs.size() )
+   {
+      mTabs[ index ].active = active;
+      setUpdate();
+   }
+}
+
+bool ShellTabGroupCtrl::isTabActive( S32 index ) const
+{
+   return ( index >= 0 && index < mTabs.size() ) ? mTabs[ index ].active : false;
+}
+
+S32 ShellTabGroupCtrl::getTabSet( S32 index ) const
+{
+   return ( index >= 0 && index < mTabs.size() ) ? mTabs[ index ].set : 0;
+}
+
+void ShellTabGroupCtrl::setSelectedByIndex( S32 index )
+{
+   if ( index < 0 || index >= mTabs.size() || !mTabs[ index ].active )
+      return;
+
+   mSelected = index;
+   setUpdate();
+
+   // onSelect is where the launch bar puts the screen on the canvas.  It is
+   // handed the id and the label because that is what a Torque list callback
+   // is handed; Tribes 2's own handler ignores both and reads getSelectedTab().
+   Con::executef( this, "onSelect", Con::getIntArg( mTabs[ index ].id ), mTabs[ index ].text );
+}
+
+S32 ShellTabGroupCtrl::getSelectedId() const
+{
+   return getTabId( mSelected );
+}
+
+const char *ShellTabGroupCtrl::getSelectedText() const
+{
+   return getTabText( mSelected );
+}
+
+void ShellTabGroupCtrl::onMouseDown( const GuiEvent &event )
+{
+   const S32 tab = hitTab( globalToLocalCoord( event.mousePoint ) );
+   if ( tab != -1 )
+      setSelectedByIndex( tab );
+}
+
+void ShellTabGroupCtrl::onMouseMove( const GuiEvent &event )
+{
+   const S32 over = hitTab( globalToLocalCoord( event.mousePoint ) );
+   if ( over != mMouseOver )
+   {
+      mMouseOver = over;
+      setUpdate();
+   }
+}
+
+void ShellTabGroupCtrl::onMouseLeave( const GuiEvent & )
+{
+   mMouseOver = -1;
+   setUpdate();
+}
+
+void ShellTabGroupCtrl::onRender( Point2I offset, const RectI &updateRect )
+{
+   mArt.update( mProfile );
+
+   GFXDrawUtil *draw = GFX->getDrawUtil();
+
+   const S32 each = tabExtent();
+
+   for ( S32 i = 0; i < mTabs.size(); i++ )
+   {
+      const S32 along = i * ( each + mTabSpacing );
+
+      const RectI tab = horizontal()
+         ? RectI( offset.x + along, offset.y, each, getHeight() )
+         : RectI( offset.x, offset.y + along, getWidth(), each );
+
+      S32 state = 0;
+      if ( i == mSelected )
+         state = 1;
+      else if ( i == mMouseOver && mTabs[ i ].active )
+         state = 2;
+
+      if ( mArt.isValid() )
+      {
+         // glowOffset is how far the art is allowed outside the tab, so that a
+         // lit tab's glow overhangs its neighbours instead of being clipped to
+         // its own rect.
+         RectI art = tab;
+         art.inset( -mGlowOffset, -mGlowOffset );
+
+         draw->clearBitmapModulation();
+         mArt.draw( state, art );
+      }
+
+      if ( mProfile->mFont && mTabs[ i ].text[ 0 ] )
+      {
+         ColorI color = mProfile->mFontColor;
+         if ( !mTabs[ i ].active )
+            color = mProfile->mFontColorNA;
+         else if ( i == mSelected )
+            color = mProfile->mFontColorSEL;
+         else if ( i == mMouseOver )
+            color = mProfile->mFontColorHL;
+
+         draw->setBitmapModulation( color );
+         renderJustifiedText( tab.point + mProfile->mTextOffset,
+                              tab.extent - mProfile->mTextOffset, mTabs[ i ].text );
+         draw->clearBitmapModulation();
+      }
+   }
+
+   renderChildControls( offset, updateRect );
+}
+
+//-----------------------------------------------------------------------------
+DefineEngineMethod( ShellTabGroupCtrl, tabCount, S32, (), ,
+   "@brief How many tabs the bar is carrying.\n\n@ingroup GuiShell" )
+{
+   return object->getTabCount();
+}
+
+DefineEngineMethod( ShellTabGroupCtrl, addTab, void, ( S32 id, const char *text, S32 set ), ( 0 ),
+   "@brief Put a tab on the end of the bar.\n\n"
+   "@param id Script's own handle for the tab, which need not be unique.\n"
+   "@param text The label.\n"
+   "@param set Which group of tabs this one belongs to.\n\n"
+   "@ingroup GuiShell" )
+{
+   object->addTab( id, text, set );
+}
+
+DefineEngineMethod( ShellTabGroupCtrl, removeTabByIndex, void, ( S32 index ), ,
+   "@brief Take the tab at this position off the bar.\n\n@ingroup GuiShell" )
+{
+   object->removeTabByIndex( index );
+}
+
+DefineEngineMethod( ShellTabGroupCtrl, removeTab, void, ( S32 id ), ,
+   "@brief Take the first tab carrying this id off the bar.\n\n@ingroup GuiShell" )
+{
+   object->removeTabByIndex( object->indexOfId( id ) );
+}
+
+DefineEngineMethod( ShellTabGroupCtrl, clear, void, (), ,
+   "@brief Empty the bar.\n\n@ingroup GuiShell" )
+{
+   object->clear();
+}
+
+DefineEngineMethod( ShellTabGroupCtrl, getTabId, S32, ( S32 index ), ,
+   "@brief The id the tab at this position was added with.\n\n@ingroup GuiShell" )
+{
+   return object->getTabId( index );
+}
+
+DefineEngineMethod( ShellTabGroupCtrl, getTabIndex, S32, ( S32 id ), ,
+   "@brief Where the first tab carrying this id sits, or -1.\n\n@ingroup GuiShell" )
+{
+   return object->indexOfId( id );
+}
+
+DefineEngineMethod( ShellTabGroupCtrl, getTabText, const char *, ( S32 index ), ,
+   "@brief The label on the tab at this position.\n\n@ingroup GuiShell" )
+{
+   return object->getTabText( index );
+}
+
+DefineEngineMethod( ShellTabGroupCtrl, setTabText, void, ( S32 index, const char *text ), ,
+   "@brief Relabel the tab at this position.\n\n@ingroup GuiShell" )
+{
+   object->setTabText( index, text );
+}
+
+DefineEngineMethod( ShellTabGroupCtrl, isTabActive, bool, ( S32 index ), ,
+   "@brief Whether the tab at this position can be selected.\n\n@ingroup GuiShell" )
+{
+   return object->isTabActive( index );
+}
+
+DefineEngineMethod( ShellTabGroupCtrl, setTabActive, void, ( S32 index, bool active ), ,
+   "@brief Let the tab at this position be selected, or stop it being.\n\n@ingroup GuiShell" )
+{
+   object->setTabActive( index, active );
+}
+
+DefineEngineMethod( ShellTabGroupCtrl, getTabSetByIndex, S32, ( S32 index ), ,
+   "@brief Which group the tab at this position belongs to.\n\n@ingroup GuiShell" )
+{
+   return object->getTabSet( index );
+}
+
+DefineEngineMethod( ShellTabGroupCtrl, getTabSet, S32, ( S32 id ), ,
+   "@brief Which group the first tab carrying this id belongs to.\n\n@ingroup GuiShell" )
+{
+   return object->getTabSet( object->indexOfId( id ) );
+}
+
+DefineEngineMethod( ShellTabGroupCtrl, getSelectedTab, S32, (), ,
+   "@brief Which position is showing, or -1.\n\n@ingroup GuiShell" )
+{
+   return object->getSelectedTab();
+}
+
+DefineEngineMethod( ShellTabGroupCtrl, setSelectedByIndex, void, ( S32 index ), ,
+   "@brief Show the tab at this position.\n\n@ingroup GuiShell" )
+{
+   object->setSelectedByIndex( index );
+}
+
+DefineEngineMethod( ShellTabGroupCtrl, setSelected, void, ( S32 id ), ,
+   "@brief Show the first tab carrying this id.\n\n@ingroup GuiShell" )
+{
+   object->setSelectedByIndex( object->indexOfId( id ) );
+}
+
+DefineEngineMethod( ShellTabGroupCtrl, getSelectedId, S32, (), ,
+   "@brief The id of the tab showing.\n\n@ingroup GuiShell" )
+{
+   return object->getSelectedId();
+}
+
+DefineEngineMethod( ShellTabGroupCtrl, getSelectedText, const char *, (), ,
+   "@brief The label on the tab showing.\n\n@ingroup GuiShell" )
+{
+   return object->getSelectedText();
+}
