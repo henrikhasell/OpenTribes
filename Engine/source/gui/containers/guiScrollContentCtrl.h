@@ -1,3 +1,4 @@
+// HH: Added for Tribes 2 compatibility.
 #ifndef _GUISCROLLCONTENTCTRL_H_
 #define _GUISCROLLCONTENTCTRL_H_
 
