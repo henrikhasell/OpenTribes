@@ -100,6 +100,7 @@ ConsoleDocClass( ShellTabGroupCtrl,
 ShellTabGroupCtrl::ShellTabGroupCtrl()
 {
    VECTOR_SET_ASSOCIATION( mTabs );
+   VECTOR_SET_ASSOCIATION( mSets );
 
    mTabSpacing = 0;
    mMaxTabWidth = 0;
@@ -131,8 +132,68 @@ bool ShellTabGroupCtrl::onWake()
    if ( !Parent::onWake() )
       return false;
 
-   mArt.update( mProfile );
+   // The set every tab belongs to unless script says otherwise.  It is added
+   // rather than special-cased so that the profile is just another set, and it
+   // is added here rather than in the constructor because the profile is not
+   // resolved until now -- by which time script's own onAdd has already
+   // registered any sets of its own, which is why this one is not first.
+   if ( mProfile->mBitmapBase && mProfile->mBitmapBase[ 0 ] )
+      addSet( 0, mProfile->mBitmapBase, mProfile->mFontColor,
+              mProfile->mFontColorHL, mProfile->mFontColorSEL );
+
    return true;
+}
+
+S32 ShellTabGroupCtrl::findSet( S32 id ) const
+{
+   for ( S32 i = 0; i < mSets.size(); i++ )
+      if ( mSets[ i ].id == id )
+         return i;
+
+   return -1;
+}
+
+const ShellTabGroupCtrl::Set *ShellTabGroupCtrl::setFor( const Tab &tab ) const
+{
+   if ( !mSets.size() )
+      return NULL;
+
+   const S32 index = findSet( tab.set );
+   return &mSets[ index >= 0 ? index : 0 ];
+}
+
+bool ShellTabGroupCtrl::addSet( S32 id, const char *bitmap, const ColorI &fontColor,
+                                const ColorI &fontColorHL, const ColorI &fontColorSEL )
+{
+   if ( findSet( id ) != -1 )
+      return false;
+
+   mSets.increment();
+
+   Set &set = mSets.last();
+   set.id = id;
+   set.fontColor = fontColor;
+   set.fontColorHL = fontColorHL;
+   set.fontColorSEL = fontColorSEL;
+   set.art.load( bitmap );
+
+   setUpdate();
+   return true;
+}
+
+void ShellTabGroupCtrl::removeSet( S32 index )
+{
+   if ( index >= 0 && index < mSets.size() )
+   {
+      mSets.erase( index );
+      setUpdate();
+   }
+}
+
+void ShellTabGroupCtrl::clearTabSets()
+{
+   mSets.clear();
+   setUpdate();
 }
 
 S32 ShellTabGroupCtrl::tabExtent() const
@@ -306,14 +367,15 @@ void ShellTabGroupCtrl::onMouseLeave( const GuiEvent & )
 
 void ShellTabGroupCtrl::onRender( Point2I offset, const RectI &updateRect )
 {
-   mArt.update( mProfile );
-
    GFXDrawUtil *draw = GFX->getDrawUtil();
 
    const S32 each = tabExtent();
 
    for ( S32 i = 0; i < mTabs.size(); i++ )
    {
+      const Tab &entry = mTabs[ i ];
+      const Set *set = setFor( entry );
+
       const S32 along = i * ( each + mTabSpacing );
 
       const RectI tab = horizontal()
@@ -323,10 +385,10 @@ void ShellTabGroupCtrl::onRender( Point2I offset, const RectI &updateRect )
       S32 state = 0;
       if ( i == mSelected )
          state = 1;
-      else if ( i == mMouseOver && mTabs[ i ].active )
+      else if ( i == mMouseOver && entry.active )
          state = 2;
 
-      if ( mArt.isValid() )
+      if ( set && set->art.isValid() )
       {
          // glowOffset is how far the art is allowed outside the tab, so that a
          // lit tab's glow overhangs its neighbours instead of being clipped to
@@ -335,22 +397,25 @@ void ShellTabGroupCtrl::onRender( Point2I offset, const RectI &updateRect )
          art.inset( -mGlowOffset, -mGlowOffset );
 
          draw->clearBitmapModulation();
-         mArt.draw( state, art );
+         set->art.draw( state, art );
       }
 
-      if ( mProfile->mFont && mTabs[ i ].text[ 0 ] )
+      if ( mProfile->mFont && entry.text[ 0 ] )
       {
-         ColorI color = mProfile->mFontColor;
-         if ( !mTabs[ i ].active )
+         // The colours come from the set too, all but the one for a tab that
+         // cannot be selected: a set carries three, and Tribes 2 leaves the
+         // inactive colour to the profile.
+         ColorI color = set ? set->fontColor : mProfile->mFontColor;
+         if ( !entry.active )
             color = mProfile->mFontColorNA;
          else if ( i == mSelected )
-            color = mProfile->mFontColorSEL;
+            color = set ? set->fontColorSEL : mProfile->mFontColorSEL;
          else if ( i == mMouseOver )
-            color = mProfile->mFontColorHL;
+            color = set ? set->fontColorHL : mProfile->mFontColorHL;
 
          draw->setBitmapModulation( color );
          renderJustifiedText( tab.point + mProfile->mTextOffset,
-                              tab.extent - mProfile->mTextOffset, mTabs[ i ].text );
+                              tab.extent - mProfile->mTextOffset, entry.text );
          draw->clearBitmapModulation();
       }
    }
@@ -391,6 +456,45 @@ DefineEngineMethod( ShellTabGroupCtrl, clear, void, (), ,
    "@brief Empty the bar.\n\n@ingroup GuiShell" )
 {
    object->clear();
+}
+
+static ColorI shellParseColor( const char *text )
+{
+   S32 r = 255, g = 255, b = 255, a = 255;
+
+   // Tribes 2 writes these three-wide -- "50 50 0" -- and means them opaque.
+   if ( text && dSscanf( text, "%d %d %d %d", &r, &g, &b, &a ) < 3 )
+      return ColorI( 255, 255, 255 );
+
+   return ColorI( r, g, b, a );
+}
+
+DefineEngineMethod( ShellTabGroupCtrl, addSet, void,
+   ( S32 id, const char *bitmap, const char *fontColor, const char *fontColorHL,
+     const char *fontColorSEL ), ,
+   "@brief Give a group of tabs its own art and colours.\n\n"
+
+   "A tab added with this id draws from `bitmap` rather than the profile's, "
+   "which is how one bar carries tabs that read as different kinds of thing.  "
+   "An id already registered is left alone.\n\n"
+
+   "@ingroup GuiShell" )
+{
+   object->addSet( id, bitmap, shellParseColor( fontColor ),
+                   shellParseColor( fontColorHL ), shellParseColor( fontColorSEL ) );
+}
+
+DefineEngineMethod( ShellTabGroupCtrl, removeSet, void, ( S32 index ), ,
+   "@brief Drop the set at this position.\n\n@ingroup GuiShell" )
+{
+   object->removeSet( index );
+}
+
+DefineEngineMethod( ShellTabGroupCtrl, clearTabSets, void, (), ,
+   "@brief Drop every set, including the one taken from the profile.\n\n"
+   "@ingroup GuiShell" )
+{
+   object->clearTabSets();
 }
 
 DefineEngineMethod( ShellTabGroupCtrl, getTabId, S32, ( S32 index ), ,
