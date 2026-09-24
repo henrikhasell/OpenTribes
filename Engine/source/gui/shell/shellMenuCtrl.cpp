@@ -107,8 +107,11 @@ void ShellLaunchMenu::onRender( Point2I offset, const RectI &updateRect )
 
    if ( art )
    {
+      // At the size it was drawn, where the control starts.  The art and the
+      // control are both 115x56 here, so stretching looked the same -- but the
+      // art is what decides the size, not the layout.
       draw->clearBitmapModulation();
-      draw->drawBitmapStretch( art, RectI( offset, getExtent() ) );
+      draw->drawBitmap( art, offset );
    }
 
    GFont *font = buttonFont();
