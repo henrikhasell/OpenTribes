@@ -84,6 +84,34 @@ bool ShellSliderCtrl::onWake()
    return true;
 }
 
+S32 ShellSliderCtrl::trackSpan() const
+{
+   // What the thumb has to move in: the track less its own width, so that it
+   // stops with its far edge on the track's rather than beyond it.
+   return getMax( getWidth() - mLabelWidth * 2 - mThumbSize.x, 0 );
+}
+
+S32 ShellSliderCtrl::thumbLeft() const
+{
+   const F32 range = mRange.y - mRange.x;
+   const F32 along = range > 0.0f ? ( mValue - mRange.x ) / range : 0.0f;
+
+   return mLabelWidth + S32( mClampF( along, 0.0f, 1.0f ) * trackSpan() + 0.5f );
+}
+
+F32 ShellSliderCtrl::valueAt( S32 x ) const
+{
+   const S32 span = trackSpan();
+   if ( span <= 0 )
+      return mRange.x;
+
+   // The thumb centres on the cursor, so the value is read from where its
+   // left edge would land rather than from the cursor itself.
+   const F32 along = F32( x - mLabelWidth - mThumbSize.x / 2 ) / F32( span );
+
+   return mRange.x + mClampF( along, 0.0f, 1.0f ) * ( mRange.y - mRange.x );
+}
+
 void ShellSliderCtrl::onSleep()
 {
    Parent::onSleep();
@@ -91,6 +119,42 @@ void ShellSliderCtrl::onSleep()
    mTrackTexture = NULL;
    mThumbTexture = NULL;
    mSliced = false;
+}
+
+void ShellSliderCtrl::onMouseDown( const GuiEvent &event )
+{
+   if ( !mActive || !mAwake || !mVisible )
+      return;
+
+   mouseLock();
+   setFirstResponder();
+   mDepressed = true;
+
+   setValue( valueAt( globalToLocalCoord( event.mousePoint ).x ), true );
+}
+
+void ShellSliderCtrl::onMouseDragged( const GuiEvent &event )
+{
+   if ( !mActive || !mAwake || !mVisible )
+      return;
+
+   mMouseDragged = true;
+
+   setValue( valueAt( globalToLocalCoord( event.mousePoint ).x ), true );
+}
+
+void ShellSliderCtrl::onMouseUp( const GuiEvent &event )
+{
+   if ( !mActive || !mAwake || !mVisible )
+      return;
+
+   mouseUnlock();
+
+   mDepressed = false;
+   mMouseDragged = false;
+
+   setValue( valueAt( globalToLocalCoord( event.mousePoint ).x ), true );
+   execConsoleCallback();
 }
 
 S32 ShellSliderCtrl::thumbState() const
@@ -155,8 +219,10 @@ void ShellSliderCtrl::onRender( Point2I offset, const RectI &updateRect )
       const RectI &capLeft = thumbPiece( LeftCap, state );
       const RectI &capRight = thumbPiece( RightCap, state );
 
-      at.set( offset.x + mThumb.point.x + mLabelWidth - 1,
-              offset.y + mThumb.point.y );
+      // The art is the two caps butted together, which is the thumb plus the
+      // inset it overhangs the track by at each end.
+      at.set( offset.x + thumbLeft() - mInset,
+              offset.y + ( getHeight() - mThumbSize.y ) / 2 );
 
       draw->drawBitmapSR( mThumbTexture, at, capLeft );
       at.x += capLeft.extent.x;
