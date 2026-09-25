@@ -50,6 +50,7 @@
 
 class GuiCanvas;
 class GuiEditCtrl;
+class GuiScrollCtrl;
 class GuiWindowCtrl;
 
 
@@ -408,6 +409,12 @@ class GuiControl : public SimGroup
       
       GuiControl *getParent();  ///< Returns the control which owns this one.
       GuiCanvas *getRoot();     ///< Returns the root canvas of this control.
+
+      // HH: Tribes2 compatibility.  Tribes 2's layouts put a container between
+      // a control and the scroll control that scrolls it, so the scroll
+      // control is not always the parent.  @a offset comes back as the
+      // translation from this control's coordinates to the scrolled child's.
+      GuiScrollCtrl *findScrollParent( Point2I &offset );
       
       virtual bool acceptsAsChild( SimObject* object ) const;
       

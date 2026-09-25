@@ -173,23 +173,6 @@ void GuiArrayCtrl::scrollSelectionVisible()
 
 //-----------------------------------------------------------------------------
 
-GuiScrollCtrl *GuiArrayCtrl::findScrollParent( Point2I &offset )
-{
-   offset.set( 0, 0 );
-
-   GuiControl *child = this;
-   for( GuiControl *walk = getParent(); walk; walk = walk->getParent() )
-   {
-      if( GuiScrollCtrl *scroll = dynamic_cast< GuiScrollCtrl* >( walk ) )
-         return scroll;
-
-      offset += child->getPosition();
-      child = walk;
-   }
-
-   return NULL;
-}
-
 void GuiArrayCtrl::scrollCellVisible(Point2I cell)
 {
    //make sure we have a valid cell selected

@@ -39,10 +39,6 @@ class GuiArrayCtrl : public GuiControl
 
 protected:
 
-   // HH: Tribes2 compatibility.  Tribes 2's layouts put a container between an
-   // array control and the scroll control that scrolls it.
-   GuiScrollCtrl *findScrollParent( Point2I &offset );
-
    Point2I mHeaderDim;
    Point2I mSize;
    Point2I mCellSize;

@@ -168,7 +168,7 @@ DefineEngineMethod( GuiMLTextCtrl, scrollToTag, void, (int tagID),,
    object->scrollToTag( tagID );
 }
 
-DefineEngineMethod( GuiMLTextCtrl, scrollToTop, void, ( S32 param1, S32 param2),,
+DefineEngineMethod( GuiMLTextCtrl, scrollToTop, void, (),,
    "@brief Scroll to the top of the text.\n\n"
    "@tsexample\n"
    "// Inform GuiMLTextCtrl object to scroll to its top\n"
@@ -646,22 +646,23 @@ bool GuiMLTextCtrl::setCursorPosition(const S32 newPosition)
 //--------------------------------------------------------------------------
 void GuiMLTextCtrl::ensureCursorOnScreen()
 {
-   // If our parent isn't a scroll control, or we're not the only control
+   // If there is no scroll control above us, or we're not the only control
    //  in the content region, bail...
-   GuiControl* pParent = getParent();
-	GuiScrollCtrl *sc = dynamic_cast<GuiScrollCtrl*>(pParent);
+   Point2I offset;
+   GuiScrollCtrl *sc = findScrollParent( offset );
 	if(!sc)
 		return;
 
-   // Ok.  Now we know that our parent is a scroll control.  Let's find the
-   //  top of the cursor, and it's bottom.  We can then scroll the parent control
+   // Ok.  Now we know that a scroll control holds us.  Let's find the
+   //  top of the cursor, and it's bottom.  We can then scroll that control
    //  if appropriate...
 
    Point2I cursorTopP, cursorBottomP;
    ColorI color;
    getCursorPositionAndColor(cursorTopP, cursorBottomP, color);
 
-	sc->scrollRectVisible(RectI(cursorTopP.x, cursorTopP.y, 1, cursorBottomP.y - cursorTopP.y));
+	sc->scrollRectVisible(RectI(offset.x + cursorTopP.x, offset.y + cursorTopP.y,
+	                            1, cursorBottomP.y - cursorTopP.y));
 }
 
 //--------------------------------------
@@ -1000,8 +1001,9 @@ void GuiMLTextCtrl::clearSelection()
 //--------------------------------------------------------------------------
 void GuiMLTextCtrl::scrollToTag( U32 id )
 {
-   // If the parent control is not a GuiScrollContentCtrl, then this call is invalid:
-   GuiScrollCtrl *pappy = dynamic_cast<GuiScrollCtrl*>(getParent());
+   // If no scroll control holds us, then this call is invalid:
+   Point2I offset;
+   GuiScrollCtrl *pappy = findScrollParent( offset );
    if ( !pappy )
       return;
 
@@ -1018,29 +1020,31 @@ void GuiMLTextCtrl::scrollToTag( U32 id )
       Con::warnf( ConsoleLogEntry::General, "GuiMLTextCtrl::scrollToTag - tag id %d not found!", id );
       return;
    }
-	pappy->scrollRectVisible(RectI(0, tag->y, 1, 1));
+	pappy->scrollRectVisible(RectI(offset.x, offset.y + tag->y, 1, 1));
 }
 
 //--------------------------------------------------------------------------
 void GuiMLTextCtrl::scrollToTop()
 {
-   // If the parent control is not a GuiScrollContentCtrl, then this call is invalid:
-   GuiScrollCtrl *pappy = dynamic_cast<GuiScrollCtrl*>(getParent());
+   // If no scroll control holds us, then this call is invalid:
+   Point2I offset;
+   GuiScrollCtrl *pappy = findScrollParent( offset );
    if ( !pappy )
       return;
-	pappy->scrollRectVisible(RectI(0,0,0,0));
+	pappy->scrollRectVisible(RectI(offset.x, offset.y, 0, 0));
 }
 
 //--------------------------------------------------------------------------
 void GuiMLTextCtrl::scrollToBottom()
 {
-   // If the parent control is not a GuiScrollContentCtrl, then this call is invalid:
-   GuiScrollCtrl *pappy = dynamic_cast<GuiScrollCtrl*>(getParent());
+   // If no scroll control holds us, then this call is invalid:
+   Point2I offset;
+   GuiScrollCtrl *pappy = findScrollParent( offset );
    if ( !pappy )
       return;
 
    // Figure bounds for the bottom left corner
-   RectI cornerBounds (0, getPosition().y + getExtent().y, 1, 1);
+   RectI cornerBounds (offset.x, offset.y + getExtent().y, 1, 1);
    pappy->scrollRectVisible(cornerBounds);
 }
 

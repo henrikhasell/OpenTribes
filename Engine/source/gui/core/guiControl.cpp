@@ -33,6 +33,7 @@
 #include "sim/actionMap.h"
 #include "gui/core/guiCanvas.h"
 #include "gui/core/guiDefaultControlRender.h"
+#include "gui/containers/guiScrollCtrl.h"
 #include "gui/editor/guiEditCtrl.h"
 #include "gfx/gfxDrawUtil.h"
 
@@ -1836,6 +1837,25 @@ GuiControl *GuiControl::getParent()
 	if (GuiControl* gui = dynamic_cast<GuiControl*>(obj))
       return gui;
    return 0;
+}
+
+//-----------------------------------------------------------------------------
+
+GuiScrollCtrl *GuiControl::findScrollParent( Point2I &offset )
+{
+   offset.set( 0, 0 );
+
+   GuiControl *child = this;
+   for( GuiControl *walk = getParent(); walk; walk = walk->getParent() )
+   {
+      if( GuiScrollCtrl *scroll = dynamic_cast< GuiScrollCtrl* >( walk ) )
+         return scroll;
+
+      offset += child->getPosition();
+      child = walk;
+   }
+
+   return NULL;
 }
 
 //-----------------------------------------------------------------------------
