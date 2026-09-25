@@ -87,6 +87,8 @@ public:
    bool onWake();
    void onSleep();
 
+   void onRender( Point2I offset, const RectI &updateRect );
+
    void drawBorder( const Point2I &offset, bool isFirstResponder );
    void drawVScrollBar( const Point2I &offset );
    void drawHScrollBar( const Point2I &offset );

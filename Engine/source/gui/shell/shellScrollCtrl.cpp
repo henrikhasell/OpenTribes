@@ -271,6 +271,15 @@ void ShellScrollCtrl::drawScrollCorner( const Point2I &offset )
    GFX->getDrawUtil()->drawBitmapSR( mScaleTexture, at, mScaleCell[ Resting ] );
 }
 
+void ShellScrollCtrl::onRender( Point2I offset, const RectI &updateRect )
+{
+   // Torque's GuiScrollCtrl declares drawBorder virtual but never calls it,
+   // where Tribes 2's does -- so the frame is drawn here, behind the content.
+   drawBorder( offset, isFirstResponder() );
+
+   Parent::onRender( offset, updateRect );
+}
+
 void ShellScrollCtrl::drawBorder( const Point2I &offset, bool isFirstResponder )
 {
    static const char *suffix[ 9 ] =
