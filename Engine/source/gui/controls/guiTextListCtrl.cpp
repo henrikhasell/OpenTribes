@@ -26,6 +26,7 @@
 #include "console/consoleTypes.h"
 #include "console/console.h"
 #include "gui/containers/guiScrollCtrl.h"
+#include "gui/containers/guiScrollContentCtrl.h"
 #include "gui/core/guiDefaultControlRender.h"
 #include "gfx/gfxDrawUtil.h"
 #include "console/engineAPI.h"
@@ -350,7 +351,16 @@ void GuiTextListCtrl::setSize(Point2I newSize)
    {
       if ( mSize.x == 1 && mFitParentWidth )
       {
-         GuiScrollCtrl* parent = dynamic_cast<GuiScrollCtrl *>(getParent());
+         // HH: Tribes 2 puts a scroll control's contents in a
+         // GuiScrollContentCtrl, so the scroll is one level further up than
+         // stock Torque looks.  Without this a list in a shell scroll keeps
+         // the width of its widest row instead of filling the scroll.
+         GuiControl *up = getParent();
+
+         if ( dynamic_cast<GuiScrollContentCtrl *>( up ) )
+            up = up->getParent();
+
+         GuiScrollCtrl* parent = dynamic_cast<GuiScrollCtrl *>( up );
          if ( parent )
             mCellSize.x = parent->getContentExtent().x;
       }
