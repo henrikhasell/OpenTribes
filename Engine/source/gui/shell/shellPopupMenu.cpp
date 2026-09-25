@@ -26,9 +26,9 @@ ConsoleDocClass( ShellPopupMenu,
 
 ShellPopupMenu::ShellPopupMenu()
 {
-   mButtonBitmap = StringTable->EmptyString();
-   mRolloverBarBitmap = StringTable->EmptyString();
-   mSelectedBarBitmap = StringTable->EmptyString();
+   mButtonBitmap = StringTable->insert( "gui/shll_pulldown" );
+   mRolloverBarBitmap = StringTable->insert( "gui/shll_pulldownbar_rol" );
+   mSelectedBarBitmap = StringTable->insert( "gui/shll_pulldownbar_act" );
 
    mNoButtonStyle = false;
    mSliced = false;
