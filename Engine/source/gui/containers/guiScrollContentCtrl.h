@@ -30,6 +30,9 @@ public:
 
    DECLARE_CONOBJECT( GuiScrollContentCtrl );
 
+   /// The part of this control the scroll control actually shows.
+   Point2I getVisibleExtent();
+
    bool onWake() override;
    void parentResized( const RectI &oldParentRect, const RectI &newParentRect ) override;
    void childResized( GuiControl *child ) override;

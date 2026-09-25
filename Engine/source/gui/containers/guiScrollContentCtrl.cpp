@@ -24,6 +24,16 @@ GuiScrollContentCtrl::GuiScrollContentCtrl()
    setExtent( 100, 100 );
 }
 
+Point2I GuiScrollContentCtrl::getVisibleExtent()
+{
+   GuiControl *parent = getParent();
+
+   if ( GuiScrollCtrl *scroll = dynamic_cast< GuiScrollCtrl* >( parent ) )
+      return scroll->getContentExtent();
+
+   return parent ? parent->getExtent() : getExtent();
+}
+
 void GuiScrollContentCtrl::fitToParent()
 {
    // Growing to fit the contents resizes them in turn -- a .gui gives the
@@ -40,7 +50,7 @@ void GuiScrollContentCtrl::fitToParent()
       return;
 
    GuiScrollCtrl *scroll = dynamic_cast< GuiScrollCtrl* >( parent );
-   Point2I extent = scroll ? scroll->getContentExtent() : parent->getExtent();
+   Point2I extent = getVisibleExtent();
 
    for ( iterator i = begin(); i != end(); i++ )
    {
