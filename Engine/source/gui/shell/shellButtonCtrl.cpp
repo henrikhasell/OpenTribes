@@ -115,6 +115,7 @@ ShellTabGroupCtrl::ShellTabGroupCtrl()
    mStretchToFit = false;
 
    mMinTabWidth = 0;
+   mTabThickness = 0;
 
    mSelected = -1;
    mMouseOver = -1;
@@ -164,7 +165,40 @@ bool ShellTabGroupCtrl::onWake()
    if ( mMaxTabWidth > 0 && mMaxTabWidth < mMinTabWidth )
       mMaxTabWidth = mMinTabWidth;
 
+   // Across the bar a tab is the art's height less the glow's margin.  The art
+   // carries that margin as transparent pixels along its outside edges -- in
+   // gui/shll_horztabbutton the first seven rows and the first and last seven
+   // columns of a resting tab are clear, and it is the lit state that fills
+   // them -- so a tab set glowOffset inside the bar has its face where the bar
+   // is and its glow room outside it.
+   const S32 artThickness = mSets.size() ? mSets[ 0 ].art.getStateHeight() : 0;
+
+   mTabThickness = getMax( artThickness - mGlowOffset, 0 );
+
+   // A bar declared thinner than its art would cut the tabs off.  Raise the
+   // minimum to what the art needs and resize to it, which is how the launch
+   // bar -- written 29 tall against gui/lnch_tab's 31 -- ends up 31.
+   Point2I minExtent = getMinExtent();
+
+   if ( horizontal() )
+      minExtent.y = getMax( minExtent.y, artThickness );
+   else
+      minExtent.x = getMax( minExtent.x, artThickness );
+
+   setMinExtent( minExtent );
+   resize( getPosition(), getExtent() );
+
    return true;
+}
+
+RectI ShellTabGroupCtrl::tabRect( S32 along, S32 size ) const
+{
+   // The glow's margin comes off every edge the row does not run along: the
+   // tabs start that far in and stop that far short, which is what leaves the
+   // art room to overhang the bar without being drawn outside it.
+   return horizontal()
+      ? RectI( mGlowOffset + along, mGlowOffset, size, mTabThickness )
+      : RectI( mGlowOffset, mGlowOffset + along, mTabThickness, size );
 }
 
 S32 ShellTabGroupCtrl::findSet( S32 id ) const
@@ -260,7 +294,11 @@ S32 ShellTabGroupCtrl::hitTab( const Point2I &point ) const
    if ( each < 1 )
       return -1;
 
-   S32 along = horizontal() ? point.x : point.y;
+   // The row starts the glow's margin in, so anything before that is the bar
+   // rather than a tab.
+   S32 along = ( horizontal() ? point.x : point.y ) - mGlowOffset;
+   if ( along < 0 )
+      return -1;
 
    for ( S32 i = 0; i < mTabs.size(); i++ )
    {
@@ -431,9 +469,8 @@ void ShellTabGroupCtrl::onRender( Point2I offset, const RectI &updateRect )
 
       const S32 width = each + ( i < remainder ? 1 : 0 );
 
-      const RectI tab = horizontal()
-         ? RectI( offset.x + along, offset.y, width, getHeight() )
-         : RectI( offset.x, offset.y + along, getWidth(), width );
+      RectI tab = tabRect( along, width );
+      tab.point += offset;
 
       along += width + mTabSpacing;
 
@@ -445,9 +482,10 @@ void ShellTabGroupCtrl::onRender( Point2I offset, const RectI &updateRect )
 
       if ( set && set->art.isValid() )
       {
-         // glowOffset is how far the art is allowed outside the tab, so that a
-         // lit tab's glow overhangs its neighbours instead of being clipped to
-         // its own rect.
+         // The art is drawn back out over the margin the tab was set in by, so
+         // it lands on the bar's own edges: a resting tab's face stops at the
+         // tab, and a lit one's glow fills the margin and overhangs its
+         // neighbours rather than being clipped to its own rect.
          RectI art = tab;
          art.inset( -mGlowOffset, -mGlowOffset );
 
