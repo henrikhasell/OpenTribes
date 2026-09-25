@@ -24,6 +24,8 @@ ConsoleDocClass( ShellWindowCtrl,
 
 ShellWindowCtrl::ShellWindowCtrl()
 {
+   mWindowBase = StringTable->insert( "gui/window" );
+
    mSliced = false;
    mTitleHeight = 20;
    mMinBodyHeight = 2;
@@ -51,13 +53,13 @@ bool ShellWindowCtrl::onWake()
       dSprintf( name, sizeof( name ), "%s_fieldgrade", stem );
       mGradeTexture.set( name, &GFXDefaultPersistentProfile, avar( "%s() - grade", __FUNCTION__ ) );
 
-      dSprintf( name, sizeof( name ), "%s_titleTab", stem );
+      dSprintf( name, sizeof( name ), "%s_titleTab", mWindowBase );
       mTitleTexture.set( name, &GFXDefaultPersistentProfile, avar( "%s() - title", __FUNCTION__ ) );
 
-      dSprintf( name, sizeof( name ), "%s_close", stem );
+      dSprintf( name, sizeof( name ), "%s_close", mWindowBase );
       mCloseTexture.set( name, &GFXDefaultPersistentProfile, avar( "%s() - close", __FUNCTION__ ) );
 
-      dSprintf( name, sizeof( name ), "%s_corner", stem );
+      dSprintf( name, sizeof( name ), "%s_corner", mWindowBase );
       mCornerTexture.set( name, &GFXDefaultPersistentProfile, avar( "%s() - corner", __FUNCTION__ ) );
 
       mSliced = mTitleTexture &&
@@ -121,6 +123,16 @@ void ShellWindowCtrl::onRender( Point2I offset, const RectI &updateRect )
       // The far cap is the near one turned round, which is why the art only
       // carries one of them.
       draw->drawBitmapSR( mTitleTexture, at, mTitleCell[ TitleCap ], GFXBitmapFlip_X );
+
+      if ( mCloseTexture )
+      {
+         const RectI &close = mCloseCell[ 0 ];
+
+         draw->drawBitmapSR( mCloseTexture,
+            Point2I( offset.x + getWidth() - cap - close.extent.x,
+                     offset.y + ( mTitleHeight - close.extent.y ) / 2 ),
+            close );
+      }
 
       const char *text = getText();
 
