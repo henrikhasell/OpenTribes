@@ -23,6 +23,7 @@
 #include "platform/platform.h"
 #include "platform/typetraits.h"
 #include "gui/containers/guiScrollCtrl.h"
+#include "gui/containers/guiScrollContentCtrl.h"
 #include "console/engineAPI.h"
 #include "console/console.h"
 #include "gfx/bitmap/gBitmap.h"
@@ -265,13 +266,30 @@ bool GuiScrollCtrl::calcChildExtents()
       GuiControl *ctrl = (GuiControl*)at(i);
       if( ctrl->isVisible() )
       {
+         Point2I ctrlPos = ctrl->getPosition();
+         Point2I ctrlExt = ctrl->getExtent();
+
+         // HH: Tribes2 compatibility.  A scroll content control is a fixed
+         // window the size of the content rect, so measuring it would always
+         // say there is nothing to scroll.  What scrolls is what it holds.
+         if( GuiScrollContentCtrl *window = dynamic_cast<GuiScrollContentCtrl *>( ctrl ) )
+         {
+            GuiControl *contents = window->getContents();
+
+            if( !contents )
+               continue;
+
+            ctrlPos += contents->getPosition();
+            ctrlExt = contents->getExtent();
+         }
+
          haveVisibleChild = true;
          
-         minPos.x = getMin( ctrl->getPosition().x, minPos.x );
-         minPos.y = getMin( ctrl->getPosition().y, minPos.y );
+         minPos.x = getMin( ctrlPos.x, minPos.x );
+         minPos.y = getMin( ctrlPos.y, minPos.y );
 
          // This is +1 but the remaining code here all works with extents +1.
-         Point2I ctrlMax = ctrl->getPosition() + ctrl->getExtent();
+         Point2I ctrlMax = ctrlPos + ctrlExt;
                   
          maxPos.x = getMax( ctrlMax.x, maxPos.x );
          maxPos.y = getMax( ctrlMax.y, maxPos.y );
@@ -492,6 +510,13 @@ void GuiScrollCtrl::computeSizes()
          ctrl->setWidth( mContentExt.x  );
       }
    }
+
+   // HH: Tribes2 compatibility.  Sit the content control over the content
+   // rect, so that it is a window on to what it holds rather than something
+   // the contents have to fit inside.
+   if ( size() )
+      if ( GuiScrollContentCtrl *window = dynamic_cast<GuiScrollContentCtrl *>( (GuiControl *)front() ) )
+         window->setWindow( mContentPos, mContentExt );
 
    mIgnoreChildResized = false;
 

@@ -22,7 +22,6 @@
 
 #include "gui/controls/guiMLTextEditCtrl.h"
 #include "gui/containers/guiScrollCtrl.h"
-#include "gui/containers/guiScrollContentCtrl.h"
 #include "gui/core/guiCanvas.h"
 #include "console/consoleTypes.h"
 #include "platform/event.h"
@@ -78,12 +77,10 @@ GuiMLTextEditCtrl::~GuiMLTextEditCtrl()
 //--------------------------------------------------------------------------
 bool GuiMLTextEditCtrl::resize(const Point2I &newPosition, const Point2I &newExtent)
 {
-   // We don't want to get any smaller than the part of our parent that shows:
+   // We don't want to get any smaller than our parent:
    Point2I newExt = newExtent;
    GuiControl* parent = getParent();
-   if ( GuiScrollContentCtrl* content = dynamic_cast<GuiScrollContentCtrl*>( parent ) )
-      newExt.y = getMax( content->getVisibleExtent().y, newExt.y );
-   else if ( parent )
+   if ( parent )
       newExt.y = getMax( parent->getHeight(), newExt.y );
 
    return Parent::resize( newPosition, newExt );
