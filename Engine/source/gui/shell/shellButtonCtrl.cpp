@@ -82,8 +82,12 @@ void ShellBitmapButton::onRender( Point2I offset, const RectI &updateRect )
          color = mProfile->mFontColorHL;
 
       draw->setBitmapModulation( color );
+
+      // The offset is a margin, so it comes off both sides.  Taking it off the
+      // extent once instead leaves the label sitting half of it low -- five
+      // pixels, on the shell's own buttons, which write it "0 10".
       renderJustifiedText( offset + mProfile->mTextOffset,
-                           getExtent() - mProfile->mTextOffset, mButtonText );
+                           getExtent() - mProfile->mTextOffset * 2, mButtonText );
       draw->clearBitmapModulation();
    }
 
