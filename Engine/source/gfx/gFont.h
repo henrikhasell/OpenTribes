@@ -121,6 +121,10 @@ public:
    U32      getFontCharSet() const { return mCharSet; }
 
    bool read(Stream& io_rStream);
+
+   // HH: Added for Tribes 2 compatibility.
+   bool readGFT(Stream& io_rStream);
+
    bool write(Stream& io_rStream);
 
    static GFont* load( const Torque::Path& path );
