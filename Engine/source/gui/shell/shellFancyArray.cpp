@@ -44,9 +44,12 @@ ShellFancyArray::ShellFancyArray()
 
    mScrollOffset = 0;
 
-   mHeaderBitmap = StringTable->EmptyString();
-   mSortArrowBitmap = StringTable->EmptyString();
-   mBarBase = StringTable->EmptyString();
+   mHeaderBitmap = StringTable->insert( "gui/server_tabs" );
+   mSortArrowBitmap = StringTable->insert( "gui/shll_sortarrow" );
+   mBarBase = StringTable->insert( "gui/shll_bar" );
+
+   // fieldBase is the one the constructor really does leave empty, so an
+   // array has no frame unless a .gui asks for one.
    mFieldBase = StringTable->EmptyString();
 
    mRowHeight = 16;
@@ -492,10 +495,16 @@ void ShellFancyArray::addColumn( S32 key, const char *name, S32 width,
          column.flags |= HeaderIcon;
    }
 
-   // A header-icon column names art rather than text.
+   // A header-icon column names art rather than text, and the name is a leaf:
+   // the binary formats it as "gui/%s" before loading.
    if ( column.flags & HeaderIcon )
-      column.icon.set( column.name, &GFXDefaultPersistentProfile,
+   {
+      char icon[ 256 ];
+      dSprintf( icon, sizeof( icon ), "gui/%s", column.name );
+
+      column.icon.set( icon, &GFXDefaultPersistentProfile,
                        avar( "%s() - icon", __FUNCTION__ ) );
+   }
 
    setUpdate();
 }

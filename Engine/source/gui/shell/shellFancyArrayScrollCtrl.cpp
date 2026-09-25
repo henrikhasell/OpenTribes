@@ -24,8 +24,8 @@ ConsoleDocClass( ShellFancyArrayScrollCtrl,
 
 ShellFancyArrayScrollCtrl::ShellFancyArrayScrollCtrl()
 {
-   mVertSpacerBitmap = StringTable->EmptyString();
-   mHorzSpacerBitmap = StringTable->EmptyString();
+   mVertSpacerBitmap = StringTable->insert( "gui/shll_vertspacer" );
+   mHorzSpacerBitmap = StringTable->insert( "gui/shll_horzspacer" );
 
    mFixedHorizontal = false;
 }
