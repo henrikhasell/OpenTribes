@@ -22,6 +22,8 @@
 
 #include "gui/controls/guiMLTextCtrl.h"
 #include "gui/containers/guiScrollCtrl.h"
+// HH: Modified for Tribes 2 compatibility.
+// Tribes 2 puts a container between this control and the scroll control.
 #include "gui/containers/guiScrollContentCtrl.h"
 #include "console/consoleTypes.h"
 #include "gui/core/guiCanvas.h"
@@ -169,6 +171,8 @@ DefineEngineMethod( GuiMLTextCtrl, scrollToTag, void, (int tagID),,
    object->scrollToTag( tagID );
 }
 
+// HH: Modified for Tribes 2 compatibility.
+// Tribes 2 calls scrollToTop with no arguments.
 DefineEngineMethod( GuiMLTextCtrl, scrollToTop, void, (),,
    "@brief Scroll to the top of the text.\n\n"
    "@tsexample\n"
@@ -647,8 +651,8 @@ bool GuiMLTextCtrl::setCursorPosition(const S32 newPosition)
 //--------------------------------------------------------------------------
 void GuiMLTextCtrl::ensureCursorOnScreen()
 {
-   // If no scroll control holds us, or we're not the only control
-   //  in the content region, bail...
+	// HH: Modified for Tribes 2 compatibility.
+	// The scroll control can sit further up than the immediate parent.
 	Point2I scrollOffset;
 	GuiScrollCtrl *sc = findScrollAbove( this, scrollOffset );
 	if(!sc)
@@ -662,6 +666,8 @@ void GuiMLTextCtrl::ensureCursorOnScreen()
    ColorI color;
    getCursorPositionAndColor(cursorTopP, cursorBottomP, color);
 
+	// HH: Modified for Tribes 2 compatibility.
+	// The cursor rect has to be in the scroll control's own coordinates.
 	sc->scrollRectVisible(RectI(scrollOffset.x + cursorTopP.x, scrollOffset.y + cursorTopP.y,
 	                            1, cursorBottomP.y - cursorTopP.y));
 }
@@ -1002,7 +1008,8 @@ void GuiMLTextCtrl::clearSelection()
 //--------------------------------------------------------------------------
 void GuiMLTextCtrl::scrollToTag( U32 id )
 {
-   // If a scroll content control is not holding us, then this call is invalid:
+   // HH: Modified for Tribes 2 compatibility.
+   // Tribes 2 puts a container between this control and the scroll control.
    if ( !dynamic_cast<GuiScrollContentCtrl*>( getParent() ) )
       return;
 
@@ -1019,6 +1026,8 @@ void GuiMLTextCtrl::scrollToTag( U32 id )
       Con::warnf( ConsoleLogEntry::General, "GuiMLTextCtrl::scrollToTag - tag id %d not found!", id );
       return;
    }
+	// HH: Modified for Tribes 2 compatibility.
+	// The container scrolls by moving its contents, not a view rectangle.
 	setPosition( Point2I( getPosition().x, -tag->y ) );
 	static_cast<GuiScrollContentCtrl*>( getParent() )->contentsMoved();
 }
@@ -1026,7 +1035,8 @@ void GuiMLTextCtrl::scrollToTag( U32 id )
 //--------------------------------------------------------------------------
 void GuiMLTextCtrl::scrollToTop()
 {
-   // If a scroll content control is not holding us, then this call is invalid:
+   // HH: Modified for Tribes 2 compatibility.
+   // A container holds us now, and it scrolls by moving us inside it.
    GuiScrollContentCtrl *window = dynamic_cast<GuiScrollContentCtrl*>( getParent() );
    if ( !window )
       return;
@@ -1037,12 +1047,12 @@ void GuiMLTextCtrl::scrollToTop()
 //--------------------------------------------------------------------------
 void GuiMLTextCtrl::scrollToBottom()
 {
-   // If a scroll content control is not holding us, then this call is invalid:
+   // HH: Modified for Tribes 2 compatibility.
+   // The container scrolls by moving its contents, not a view rectangle.
    GuiScrollContentCtrl *window = dynamic_cast<GuiScrollContentCtrl*>( getParent() );
    if ( !window )
       return;
 
-   // Put our bottom left corner on the bottom of the window
    setPosition( Point2I( getPosition().x, window->getHeight() - getExtent().y ) );
    window->contentsMoved();
 }

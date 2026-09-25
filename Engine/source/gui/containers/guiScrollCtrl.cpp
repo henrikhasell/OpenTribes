@@ -23,6 +23,8 @@
 #include "platform/platform.h"
 #include "platform/typetraits.h"
 #include "gui/containers/guiScrollCtrl.h"
+// HH: Modified for Tribes 2 compatibility.
+// Tribes 2 puts a content control between this and what it scrolls.
 #include "gui/containers/guiScrollContentCtrl.h"
 #include "console/engineAPI.h"
 #include "console/console.h"
@@ -131,14 +133,8 @@ void GuiScrollCtrl::childResized(GuiControl *child)
 
 //-----------------------------------------------------------------------------
 
-// HH: Tribes2 compatibility.
-//
-// The pieces are not all as wide as the row they sit in: a horizontal thumb
-// is as narrow as a vertical one is short, and only the arrows and the page
-// runs fill the row.  Where a piece is narrower the rest of the row is padded
-// out in pure green, so the width the states divide is the row less that pad.
-// Without this the horizontal bar takes a third of the whole row for each
-// state, which is wide enough to reach into the next one.
+// HH: Modified for Tribes 2 compatibility.
+// Tribes 2's scrollbar art pads a piece's unused width with pure green.
 static S32 usableWidth( const GBitmap *bmp, const RectI &piece )
 {
    if ( !bmp )
@@ -154,7 +150,6 @@ static S32 usableWidth( const GBitmap *bmp, const RectI &piece )
            color.red == 0 && color.green == 255 && color.blue == 0 )
       width--;
 
-   // All pad and no art is art this does not understand; leave it whole.
    return width > 0 ? width : piece.extent.x;
 }
 
@@ -174,8 +169,6 @@ bool GuiScrollCtrl::splitBitmapStates()
       const RectI &whole = rects[ piece ];
       const S32 width = usableWidth( bmp, whole ) / BmpStates;
 
-      // A piece too narrow to divide is art laid out some third way, and
-      // guessing at it would draw a sliver of the wrong state.
       if ( width <= 0 )
       {
          mSplitBounds.clear();
@@ -196,6 +189,8 @@ bool GuiScrollCtrl::onWake()
    if (! Parent::onWake())
       return false;
 
+   // HH: Modified for Tribes 2 compatibility.
+   // The bitmap array may hold one rect per piece instead of one per state.
    mSplitBounds.clear();
    mBitmapBounds = NULL;
    mTextureObject = mProfile->mTextureObject;
@@ -204,8 +199,6 @@ bool GuiScrollCtrl::onWake()
    {
       const S32 rects = mProfile->constructBitmapArray();
 
-      // HH: Take the array as it comes when the art gives a rect per state,
-      // and cut the states out of the pieces when it does not.
       if ( rects >= BmpStates * BmpCount )
          mBitmapBounds = mProfile->mBitmapArrayRects.address();
       else if ( rects >= BmpCount )
@@ -241,8 +234,8 @@ void GuiScrollCtrl::onSleep()
    Parent::onSleep();
    mTextureObject = NULL;
 
-   // HH: mBitmapBounds points into one of these two and neither outlives the
-   // profile, so it cannot be left behind either.
+   // HH: Modified for Tribes 2 compatibility.
+   // mBitmapBounds points into storage that does not outlive the profile.
    mSplitBounds.clear();
    mBitmapBounds = NULL;
 }
@@ -266,12 +259,11 @@ bool GuiScrollCtrl::calcChildExtents()
       GuiControl *ctrl = (GuiControl*)at(i);
       if( ctrl->isVisible() )
       {
+         // HH: Modified for Tribes 2 compatibility.
+         // A content control is a fixed window; what scrolls is its contents.
          Point2I ctrlPos = ctrl->getPosition();
          Point2I ctrlExt = ctrl->getExtent();
 
-         // HH: Tribes2 compatibility.  A scroll content control is a fixed
-         // window the size of the content rect, so measuring it would always
-         // say there is nothing to scroll.  What scrolls is what it holds.
          if( GuiScrollContentCtrl *window = dynamic_cast<GuiScrollContentCtrl *>( ctrl ) )
          {
             GuiControl *contents = window->getContents();
@@ -511,9 +503,8 @@ void GuiScrollCtrl::computeSizes()
       }
    }
 
-   // HH: Tribes2 compatibility.  Sit the content control over the content
-   // rect, so that it is a window on to what it holds rather than something
-   // the contents have to fit inside.
+   // HH: Modified for Tribes 2 compatibility.
+   // The content control is a window on the content rect, not sized to fit.
    if ( size() )
       if ( GuiScrollContentCtrl *window = dynamic_cast<GuiScrollContentCtrl *>( (GuiControl *)front() ) )
          window->setWindow( mContentPos, mContentExt );
@@ -1145,8 +1136,8 @@ void GuiScrollCtrl::onRender(Point2I offset, const RectI &updateRect)
    // Always call parent
    Parent::onRender(offset, contentRect);
    
-   // HH: mBitmapBounds too: a profile can hold a texture that did not yield a
-   // long enough array, and every draw below indexes it.
+   // HH: Modified for Tribes 2 compatibility.
+   // A texture need not have yielded an array, and every draw indexes it.
    if( mTextureObject && mBitmapBounds )
    {
       // Reset the ClipRect as the parent call can modify it when rendering
