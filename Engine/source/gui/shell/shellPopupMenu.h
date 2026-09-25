@@ -55,6 +55,8 @@ public:
    bool onWake();
    void onSleep();
 
+   void addChildren() override;
+
    void onRender( Point2I offset, const RectI &updateRect );
 };
 
