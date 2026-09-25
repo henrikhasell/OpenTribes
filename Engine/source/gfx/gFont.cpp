@@ -138,7 +138,12 @@ Resource<GFont> GFont::create(const String &faceName, U32 size, const char *cach
    const Torque::Path   path( String::ToString("%s/%s %d (%s).uft",
       cacheDirectory, faceName.c_str(), size, getCharSetName(charset)) );
 
-   Resource<GFont> ret;
+   // HH: Added for Tribes 2 compatibility.
+   Resource<GFont> ret = ResourceManager::get().load(
+      Torque::Path( String::ToString( "fonts/%s_%d.gft", faceName.c_str(), size ) ) );
+
+   if (ret != NULL)
+      return ret;
 
    // If the file already exists attempt to load it
    if (Platform::isFile(path.getFullPath().c_str()))
