@@ -185,10 +185,14 @@ void ShellWindowCtrl::onRender( Point2I offset, const RectI &updateRect )
                                GFXBitmapFlip_Y );
    }
 
+   renderChildControls( offset, updateRect );
+
+   // The corner sits over the contents, not under them.
    if ( mCornerTexture )
+   {
+      draw->clearBitmapModulation();
       draw->drawBitmap( mCornerTexture,
          Point2I( offset.x + getWidth() - S32( mCornerTexture->getBitmapWidth() ),
                   offset.y + getHeight() - S32( mCornerTexture->getBitmapHeight() ) ) );
-
-   renderChildControls( offset, updateRect );
+   }
 }
