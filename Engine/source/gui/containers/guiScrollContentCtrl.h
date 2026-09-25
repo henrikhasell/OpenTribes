@@ -19,6 +19,10 @@ class GuiScrollContentCtrl : public GuiControl
 {
    typedef GuiControl Parent;
 
+   /// Set while fitToParent() is resizing, so that the children answering
+   /// that resize do not start it again.
+   bool mFitting;
+
    void fitToParent();
 
 public:
