@@ -90,6 +90,20 @@ GFont* GFont::load( const Torque::Path& path )
    if ( stream.getStatus() != Stream::Ok )
       return NULL;
 
+   // HH: Added for Tribes 2 compatibility.
+   if ( path.getExtension().equal( "gft", String::NoCase ) )
+   {
+      GFont *gft = new GFont;
+
+      if ( !gft->readGFT( stream ) )
+      {
+         Con::errorf( "GFont::load - error reading '%s'", path.getFullPath().c_str() );
+         SAFE_DELETE( gft );
+      }
+
+      return gft;
+   }
+
    GFont *ret = new GFont;
    ret->mGFTFile = path;
 
@@ -648,6 +662,79 @@ void GFont::wrapString(const UTF8 *txt, U32 lineWidth, Vector<U32> &startLineOff
 }
 
 //-----------------------------------------------------------------------------
+
+// HH: Added for Tribes 2 compatibility.
+bool GFont::readGFT(Stream& io_rStream)
+{
+   U32 version;
+   io_rStream.read(&version);
+   if(version != 1)
+      return false;
+
+   io_rStream.read(&mHeight);
+   io_rStream.read(&mBaseline);
+
+   mAscent  = mBaseline;
+   mDescent = mHeight > mBaseline ? mHeight - mBaseline : 0;
+
+   U32 size = 0;
+   io_rStream.read(&size);
+   mCharInfoList.setSize(size);
+
+   U32 i;
+   for(i = 0; i < size; i++)
+   {
+      PlatformFont::CharInfo *ci = &mCharInfoList[i];
+
+      U8 xOffset, yOffset, width, height;
+      S8 xOrigin, yOrigin, xIncrement;
+
+      io_rStream.read(&ci->bitmapIndex);
+      io_rStream.read(&xOffset);
+      io_rStream.read(&yOffset);
+      io_rStream.read(&width);
+      io_rStream.read(&height);
+      io_rStream.read(&xOrigin);
+      io_rStream.read(&yOrigin);
+      io_rStream.read(&xIncrement);
+
+      ci->xOffset    = xOffset;
+      ci->yOffset    = yOffset;
+      ci->width      = width;
+      ci->height     = height;
+      ci->xOrigin    = xOrigin;
+      ci->yOrigin    = yOrigin;
+      ci->xIncrement = xIncrement;
+      ci->bitmapData = NULL;
+   }
+
+   U32 numSheets = 0;
+   io_rStream.read(&numSheets);
+
+   for(i = 0; i < numSheets; i++)
+   {
+      GBitmap *bmp = new GBitmap;
+      if(!bmp->readBitmap("png", io_rStream))
+      {
+         delete bmp;
+         return false;
+      }
+
+      mTextureSheets.push_back(GFXTexHandle(bmp, &GFXFontTextureProfile, true,
+         avar("%s() - Read Font Sheet (line %d)", __FUNCTION__, __LINE__)));
+   }
+
+   for(i = 0; i < 256; i++)
+   {
+      S16 index;
+      io_rStream.read(&index);
+      mRemapTable[i] = index;
+   }
+
+   mCurX = mCurY = mCurSheet = -1;
+
+   return (io_rStream.getStatus() == Stream::Ok);
+}
 
 bool GFont::read(Stream& io_rStream)
 {
