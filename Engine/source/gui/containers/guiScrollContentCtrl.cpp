@@ -82,7 +82,29 @@ void GuiScrollContentCtrl::childResized( GuiControl *child )
    Parent::childResized( child );
 
    // What is scrolled sits inside this control, so the scroll control cannot
-   // see it change on its own.
+   // see it change on its own.  Go through childResized rather than straight
+   // to computeSizes, or this walks back in while it is already resizing.
    if ( GuiScrollCtrl *scroll = dynamic_cast< GuiScrollCtrl* >( getParent() ) )
-      scroll->computeSizes();
+      scroll->childResized( this );
+}
+
+GuiScrollCtrl *findScrollAbove( GuiControl *ctrl, Point2I &offset )
+{
+   offset.set( 0, 0 );
+
+   GuiControl *child = ctrl;
+
+   for ( GuiControl *walk = ctrl->getParent(); walk; walk = walk->getParent() )
+   {
+      if ( GuiScrollContentCtrl *window = dynamic_cast< GuiScrollContentCtrl* >( walk ) )
+         return dynamic_cast< GuiScrollCtrl* >( window->getParent() );
+
+      if ( GuiScrollCtrl *scroll = dynamic_cast< GuiScrollCtrl* >( walk ) )
+         return scroll;
+
+      offset += child->getPosition();
+      child = walk;
+   }
+
+   return NULL;
 }

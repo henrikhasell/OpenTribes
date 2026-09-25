@@ -39,4 +39,13 @@ public:
    void childResized( GuiControl *child ) override;
 };
 
+/// The scroll control scrolling \a ctrl, and the offset that puts a rect in
+/// \a ctrl's own coordinates into that scroll control's client space.
+///
+/// Client space starts at the top left of what is being scrolled, so the
+/// position of the content control's own child is the scroll offset and is
+/// not part of the offset -- counting it would ask to scroll by where we
+/// already are, twice over.
+GuiScrollCtrl *findScrollAbove( GuiControl *ctrl, Point2I &offset );
+
 #endif // _GUISCROLLCONTENTCTRL_H_

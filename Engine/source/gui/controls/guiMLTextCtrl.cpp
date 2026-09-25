@@ -645,25 +645,12 @@ bool GuiMLTextCtrl::setCursorPosition(const S32 newPosition)
 }
 
 //--------------------------------------------------------------------------
-// HH: Tribes2 compatibility.  A Tribes 2 scroll control holds one
-// GuiScrollContentCtrl and puts what it scrolls inside that, so the scroll
-// control is the grandparent.  Tribes 2 spells this lookup out where it needs
-// it rather than keeping a helper for it.
-static GuiScrollCtrl *scrollHolding( GuiControl *ctrl )
-{
-   GuiScrollContentCtrl *window = dynamic_cast<GuiScrollContentCtrl*>( ctrl->getParent() );
-
-   if ( !window )
-      return NULL;
-
-   return dynamic_cast<GuiScrollCtrl*>( window->getParent() );
-}
-
 void GuiMLTextCtrl::ensureCursorOnScreen()
 {
    // If no scroll control holds us, or we're not the only control
    //  in the content region, bail...
-	GuiScrollCtrl *sc = scrollHolding( this );
+	Point2I scrollOffset;
+	GuiScrollCtrl *sc = findScrollAbove( this, scrollOffset );
 	if(!sc)
 		return;
 
@@ -675,7 +662,8 @@ void GuiMLTextCtrl::ensureCursorOnScreen()
    ColorI color;
    getCursorPositionAndColor(cursorTopP, cursorBottomP, color);
 
-	sc->scrollRectVisible(RectI(cursorTopP.x, cursorTopP.y, 1, cursorBottomP.y - cursorTopP.y));
+	sc->scrollRectVisible(RectI(scrollOffset.x + cursorTopP.x, scrollOffset.y + cursorTopP.y,
+	                            1, cursorBottomP.y - cursorTopP.y));
 }
 
 //--------------------------------------

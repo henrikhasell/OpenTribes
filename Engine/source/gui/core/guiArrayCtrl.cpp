@@ -27,6 +27,7 @@
 #include "console/engineAPI.h"
 #include "platform/event.h"
 #include "gui/containers/guiScrollCtrl.h"
+#include "gui/containers/guiScrollContentCtrl.h"
 #include "gfx/gfxDrawUtil.h"
 #include "gui/core/guiDefaultControlRender.h"
 
@@ -175,19 +176,7 @@ void GuiArrayCtrl::scrollSelectionVisible()
 
 GuiScrollCtrl *GuiArrayCtrl::findScrollParent( Point2I &offset )
 {
-   offset.set( 0, 0 );
-
-   GuiControl *child = this;
-   for( GuiControl *walk = getParent(); walk; walk = walk->getParent() )
-   {
-      if( GuiScrollCtrl *scroll = dynamic_cast< GuiScrollCtrl* >( walk ) )
-         return scroll;
-
-      offset += child->getPosition();
-      child = walk;
-   }
-
-   return NULL;
+   return findScrollAbove( this, offset );
 }
 
 void GuiArrayCtrl::scrollCellVisible(Point2I cell)
