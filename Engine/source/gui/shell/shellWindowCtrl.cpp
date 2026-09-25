@@ -34,9 +34,14 @@ bool ShellWindowCtrl::onWake()
    if ( !Parent::onWake() )
       return false;
 
+   // The binary keeps "gui/window" to fall back on when a profile names no
+   // stem of its own (its constructor writes it at 0x004f6a11).  Every shipped
+   // profile does name one, so this only matters to content that does not.
    const char *stem = mProfile->mBitmapBase;
 
-   if ( stem && stem[ 0 ] )
+   if ( !stem || !stem[ 0 ] )
+      stem = "gui/window";
+
    {
       char name[ 256 ];
 
