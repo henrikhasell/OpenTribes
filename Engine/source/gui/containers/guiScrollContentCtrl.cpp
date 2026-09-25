@@ -9,39 +9,61 @@ IMPLEMENT_CONOBJECT( GuiScrollContentCtrl );
 ConsoleDocClass( GuiScrollContentCtrl,
    "@brief The control a Tribes 2 scroll control holds its contents in.\n\n"
 
-   "Fills the scroll control and grows past it where the contents are taller, "
-   "so that there is something to scroll.\n\n"
+   "A fixed window the size of the scroll control's content rect.  Moving or "
+   "resizing it moves or resizes what it holds instead, so the contents scroll "
+   "behind a window that stays put.\n\n"
 
    "@ingroup GuiContainers"
 );
 
 GuiScrollContentCtrl::GuiScrollContentCtrl()
 {
-   // GuiControl's 64x64 would clip the contents into a corner on the frame
-   // before the first fitToParent().
-   setExtent( 100, 100 );
 }
 
-void GuiScrollContentCtrl::fitToParent()
+GuiControl *GuiScrollContentCtrl::getContents()
 {
-   GuiControl *parent = getParent();
+   return size() ? dynamic_cast< GuiControl* >( front() ) : NULL;
+}
 
-   if ( !parent )
-      return;
+void GuiScrollContentCtrl::setWindow( const Point2I &position, const Point2I &extent )
+{
+   Parent::resize( position, extent );
 
-   GuiScrollCtrl *scroll = dynamic_cast< GuiScrollCtrl* >( parent );
-   Point2I extent = scroll ? scroll->getContentExtent() : parent->getExtent();
+   // Contents that follow the window across are as wide as it is.  Following
+   // it by how much it changed instead would keep whatever gap they happened
+   // to be built with, and they are built before the scroll control has
+   // worked out how wide the window is.
+   GuiControl *contents = getContents();
 
-   for ( iterator i = begin(); i != end(); i++ )
-   {
-      GuiControl *child = dynamic_cast< GuiControl* >( *i );
+   if ( contents && contents->getHorizSizing() == horizResizeWidth )
+      contents->setWidth( getWidth() );
+}
 
-      if ( child )
-         extent.y = getMax( extent.y, child->getPosition().y + child->getExtent().y );
-   }
+void GuiScrollContentCtrl::contentsMoved()
+{
+   // Moving without resizing does not reach a parent, so the scroll control
+   // would go on believing the contents are where it last put them.
+   if ( GuiScrollCtrl *scroll = dynamic_cast< GuiScrollCtrl* >( getParent() ) )
+      scroll->computeSizes();
+}
 
-   if ( extent != getExtent() )
-      resize( getPosition(), extent );
+bool GuiScrollContentCtrl::resize( const Point2I &newPosition, const Point2I &newExtent )
+{
+   GuiControl *contents = getContents();
+
+   if ( !contents )
+      return Parent::resize( newPosition, newExtent );
+
+   // Scrolling asks this control to move.  Move what it holds instead, and
+   // stay where the scroll control put us.  The extent is not passed on: how
+   // tall the contents are is the contents' own answer, and it is what there
+   // is to scroll over.
+   Point2I delta = newPosition - getPosition();
+
+   if ( !delta.isZero() )
+      contents->setPosition( contents->getPosition() + delta );
+
+   return false;
 }
 
 bool GuiScrollContentCtrl::onWake()
@@ -49,18 +71,40 @@ bool GuiScrollContentCtrl::onWake()
    if ( !Parent::onWake() )
       return false;
 
-   fitToParent();
-   return true;
-}
+   if ( GuiScrollCtrl *scroll = dynamic_cast< GuiScrollCtrl* >( getParent() ) )
+      scroll->computeSizes();
 
-void GuiScrollContentCtrl::parentResized( const RectI &oldParentRect, const RectI &newParentRect )
-{
-   Parent::parentResized( oldParentRect, newParentRect );
-   fitToParent();
+   return true;
 }
 
 void GuiScrollContentCtrl::childResized( GuiControl *child )
 {
    Parent::childResized( child );
-   fitToParent();
+
+   // What is scrolled sits inside this control, so the scroll control cannot
+   // see it change on its own.  Go through childResized rather than straight
+   // to computeSizes, or this walks back in while it is already resizing.
+   if ( GuiScrollCtrl *scroll = dynamic_cast< GuiScrollCtrl* >( getParent() ) )
+      scroll->childResized( this );
+}
+
+GuiScrollCtrl *findScrollAbove( GuiControl *ctrl, Point2I &offset )
+{
+   offset.set( 0, 0 );
+
+   GuiControl *child = ctrl;
+
+   for ( GuiControl *walk = ctrl->getParent(); walk; walk = walk->getParent() )
+   {
+      if ( GuiScrollContentCtrl *window = dynamic_cast< GuiScrollContentCtrl* >( walk ) )
+         return dynamic_cast< GuiScrollCtrl* >( window->getParent() );
+
+      if ( GuiScrollCtrl *scroll = dynamic_cast< GuiScrollCtrl* >( walk ) )
+         return scroll;
+
+      offset += child->getPosition();
+      child = walk;
+   }
+
+   return NULL;
 }

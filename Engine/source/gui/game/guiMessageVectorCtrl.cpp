@@ -26,6 +26,9 @@
 #include "gui/utility/messageVector.h"
 #include "console/consoleTypes.h"
 #include "gui/containers/guiScrollCtrl.h"
+// HH: Modified for Tribes 2 compatibility.
+// Declares findScrollAbove, which reaches past an intervening container.
+#include "gui/containers/guiScrollContentCtrl.h"
 #include "gfx/gfxDevice.h"
 #include "gfx/gfxDrawUtil.h"
 #include "console/engineAPI.h"
@@ -257,8 +260,11 @@ void GuiMessageVectorCtrl::lineInserted(const U32 arg)
 {
    AssertFatal(mMessageVector != NULL, "Should not be here unless we're attached!");
 
-   GuiScrollCtrl* pScroll = dynamic_cast<GuiScrollCtrl*>(getParent());
-   bool fullyScrolled = pScroll->isScrolledToBottom();
+   // HH: Modified for Tribes 2 compatibility.
+   // Tribes 2 chat layouts put a scroll content control in between.
+   Point2I scrollOffset;
+   GuiScrollCtrl* pScroll = findScrollAbove( this, scrollOffset );
+   bool fullyScrolled = pScroll && pScroll->isScrolledToBottom();
 
    mSpecialMarkers.insert(arg);
    createSpecialMarkers(mSpecialMarkers[arg], mMessageVector->getLine(arg).message);

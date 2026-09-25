@@ -168,11 +168,10 @@ class GuiWindowCtrl : public GuiContainer
       RectI *mBitmapBounds;  //bmp is [3*n], bmpHL is [3*n + 1], bmpNA is [3*n + 2]
       GFXTexHandle mTextureObject;
 
-      // HH: Tribes2 compatibility.  Holds the sheet and the rects when the
-      // profile's art carries the buttons but none of the frame.
+      // HH: Modified for Tribes 2 compatibility.
+      // Tribes 2's window art carries the buttons but none of the frame.
       Vector<RectI> mFlatFrameRects;
       GFXTexHandle mFlatFrameTexture;
-
       bool buildFlatFrame( S32 buttonRects );
       
       /// @name Collapsing

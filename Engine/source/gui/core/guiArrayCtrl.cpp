@@ -27,6 +27,9 @@
 #include "console/engineAPI.h"
 #include "platform/event.h"
 #include "gui/containers/guiScrollCtrl.h"
+// HH: Modified for Tribes 2 compatibility.
+// Declares findScrollAbove, which reaches past an intervening container.
+#include "gui/containers/guiScrollContentCtrl.h"
 #include "gfx/gfxDrawUtil.h"
 #include "gui/core/guiDefaultControlRender.h"
 
@@ -173,21 +176,11 @@ void GuiArrayCtrl::scrollSelectionVisible()
 
 //-----------------------------------------------------------------------------
 
+// HH: Modified for Tribes 2 compatibility.
+// Tribes 2 puts a container between the array and the scroll control.
 GuiScrollCtrl *GuiArrayCtrl::findScrollParent( Point2I &offset )
 {
-   offset.set( 0, 0 );
-
-   GuiControl *child = this;
-   for( GuiControl *walk = getParent(); walk; walk = walk->getParent() )
-   {
-      if( GuiScrollCtrl *scroll = dynamic_cast< GuiScrollCtrl* >( walk ) )
-         return scroll;
-
-      offset += child->getPosition();
-      child = walk;
-   }
-
-   return NULL;
+   return findScrollAbove( this, offset );
 }
 
 void GuiArrayCtrl::scrollCellVisible(Point2I cell)
@@ -196,13 +189,16 @@ void GuiArrayCtrl::scrollCellVisible(Point2I cell)
    if(cell.x < 0 || cell.y < 0)
       return;
 
-   //make sure we have a scroll control above us
+   // HH: Modified for Tribes 2 compatibility.
+   // The scroll control is not always this control's immediate parent.
    Point2I offset;
    GuiScrollCtrl *parent = findScrollParent( offset );
    if(!parent)
       return;
 
    RectI cellBounds(cell.x * mCellSize.x, cell.y * mCellSize.y, mCellSize.x, mCellSize.y);
+   // HH: Modified for Tribes 2 compatibility.
+   // The cell rectangle has to reach the scroll control's coordinate space.
    cellBounds.point += offset;
    parent->scrollRectVisible(cellBounds);
 }

@@ -464,6 +464,8 @@ bool GuiControl::defaultTooltipRender( const Point2I &hoverPos, const Point2I &c
    if ( !root )
       return false;
 
+   // HH: Modified for Tribes 2 compatibility.
+   // Tribes 2 defines no tooltip profile, so fall back to the control's own.
    if ( !mTooltipProfile )
       setTooltipProfile( mProfile );
 
@@ -606,6 +608,8 @@ void GuiControl::setUpdate()
 void GuiControl::renderJustifiedText(Point2I offset, Point2I extent, const char *text)
 {
    GFont *font = mProfile->mFont;
+   // HH: Modified for Tribes 2 compatibility.
+   // A profile whose font failed to load must degrade, not crash.
    if( !font )
       return;
 
@@ -723,6 +727,9 @@ bool GuiControl::onAdd()
       setControlProfile( profile );
    }
 
+   // HH: Modified for Tribes 2 compatibility.
+   // The stock tooltip profile assignment is dropped; Tribes 2 defines none.
+
    // Notify Script.
    onAdd_callback();
 
@@ -823,6 +830,8 @@ bool GuiControl::onWake()
 
    //increment the profile
    mProfile->incLoadCount();
+   // HH: Modified for Tribes 2 compatibility.
+   // A control may have no tooltip profile, now that none is forced on it.
    if ( mTooltipProfile )
       mTooltipProfile->incLoadCount();
 
@@ -849,6 +858,8 @@ void GuiControl::onSleep()
    onSleep_callback();
 
    //decrement the profile reference
+   // HH: Modified for Tribes 2 compatibility.
+   // Either profile can already be gone by the time a control sleeps.
    if ( mProfile )
       mProfile->decLoadCount();
    if ( mTooltipProfile )
@@ -2322,6 +2333,8 @@ U32 GuiControl::clipText( String &text, U32 clipWidth ) const
 {
    PROFILE_SCOPE( GuiControl_clipText );
 
+   // HH: Modified for Tribes 2 compatibility.
+   // A profile whose font failed to load must degrade, not crash.
    if( !mProfile->mFont )
       return 0;
 

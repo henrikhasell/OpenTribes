@@ -923,6 +923,8 @@ SimObject* GuiListBoxCtrl::getItemObject( S32 index )
    }
 
    SimObject *outObj;
+   // HH: Modified for Tribes 2 compatibility.
+   // itemData stores the id in a pointer, which is wider on 64-bit.
    Sim::findObject( (SimObjectId)(uintptr_t)(mItems[ index ]->itemData), outObj );
 
    return outObj;   
@@ -1480,6 +1482,8 @@ void GuiListBoxCtrl::_mirror()
 
    for ( U32 i = 0; i < mItems.size(); i++ )
    {
+      // HH: Modified for Tribes 2 compatibility.
+      // itemData stores the id in a pointer, which is wider on 64-bit.
       curId = (SimObjectId)(uintptr_t)mItems[i]->itemData;
 
       Sim::findObject( curId, curObj );
@@ -1514,6 +1518,8 @@ void GuiListBoxCtrl::_mirror()
 
       for ( U32 j = 0; j < mItems.size(); j++ )
       {
+         // HH: Modified for Tribes 2 compatibility.
+         // itemData stores the id in a pointer, which is wider on 64-bit.
          if ( (SimObjectId)(uintptr_t)(mItems[j]->itemData) == curId )
          {
             found = true;
@@ -1523,6 +1529,8 @@ void GuiListBoxCtrl::_mirror()
 		
 		for ( U32 j = 0; j < mFilteredItems.size(); j++ )
       {
+         // HH: Modified for Tribes 2 compatibility.
+         // itemData stores the id in a pointer, which is wider on 64-bit.
          if ( (SimObjectId)(uintptr_t)(mFilteredItems[j]->itemData) == curId )
          {
             found = true;

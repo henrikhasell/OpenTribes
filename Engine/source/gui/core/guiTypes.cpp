@@ -316,6 +316,8 @@ GuiControlProfile::GuiControlProfile(void) :
    
    // bitmap members
    mBitmapName = NULL;
+   // HH: Modified for Tribes 2 compatibility.
+   // Tribes 2 profiles name a stem that a control completes with suffixes.
    mBitmapBase = NULL;
    mUseBitmapArray = false;
    mTextureObject = NULL; // initialized in incLoadCount()
@@ -355,6 +357,8 @@ GuiControlProfile::GuiControlProfile(void) :
 		
       // default bitmap
       mBitmapName     = def->mBitmapName;
+      // HH: Modified for Tribes 2 compatibility.
+      // Tribes 2 profiles name a stem that a control completes with suffixes.
       mBitmapBase     = def->mBitmapBase;
       mUseBitmapArray = def->mUseBitmapArray;
       mTextOffset     = def->mTextOffset;
@@ -459,6 +463,8 @@ void GuiControlProfile::initPersistFields()
          "Texture to use for rendering control." );
       addField("hasBitmapArray", TypeBool,      Offset(mUseBitmapArray, GuiControlProfile),
          "If true, 'bitmap' is an array of images." );
+      // HH: Modified for Tribes 2 compatibility.
+      // Tribes 2 profiles name a stem that a control completes with suffixes.
       addField("bitmapBase", TypeString,        Offset(mBitmapBase, GuiControlProfile),
          "Stem of a family of textures, which a control completes with the suffixes it knows." );
 

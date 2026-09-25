@@ -188,8 +188,8 @@ void GuiTextCtrl::setText(const char *txt)
    if( !mProfile )
       return;
    
-   // GuiTextEditCtrl::onAdd() calls setText(mText), so source and destination
-   // can be the same buffer; strncpy with overlapping ranges is undefined.
+   // HH: Modified for Tribes 2 compatibility.
+   // The source and destination can be the same buffer here.
    if (txt && txt != (const char*)mText)
       dStrncpy(mText, (UTF8*)txt, MAX_STRING_LENGTH);
    mText[MAX_STRING_LENGTH] = '\0';
