@@ -29,7 +29,7 @@ S32 shellSliceGrid( GBitmap *bitmap, RectI *out, S32 cols, S32 rows );
 /// one stem serve controls that use different parts of it.
 class ShellSkin
 {
-   enum { MaxParts = 8 };
+   enum { MaxParts = 9 };
 
    StringTableEntry mBase;
    StringTableEntry mSuffix[ MaxParts ];
