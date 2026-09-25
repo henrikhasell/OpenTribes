@@ -58,6 +58,8 @@ GuiConsole::GuiConsole()
    setExtent(64, 64);
    mCellSize.set(1, 1);
    mSize.set(1, 0);
+   // HH: Modified for Tribes 2 compatibility.
+   // Tracks whether the next render should jump to the newest output.
    mScrollToEnd = false;
 }
 
@@ -71,8 +73,8 @@ bool GuiConsole::onWake()
    //get the font
    mFont = mProfile->mFont;
 
-   // HH: Tribes2 compatibility.  Opening the console shows the newest output,
-   // however far up the view was left the last time.
+   // HH: Modified for Tribes 2 compatibility.
+   // Opening the console shows the newest output, however far up it was left.
    mScrollToEnd = true;
 
    return true;
@@ -116,6 +118,8 @@ void GuiConsole::onPreRender()
    {
       //first, find out if the console was scrolled up
       bool scrolled = false;
+      // HH: Modified for Tribes 2 compatibility.
+      // Tribes 2 puts a container between the array and the scroll control.
       Point2I offset;
       GuiScrollCtrl *parent = findScrollParent( offset );
 
@@ -138,6 +142,8 @@ void GuiConsole::onPreRender()
          scrollCellVisible(Point2I(0,mSize.y - 1));
    }
 
+   // HH: Modified for Tribes 2 compatibility.
+   // The jump waits until the scroll control has sized itself around the log.
    if(mScrollToEnd)
    {
       scrollCellVisible(Point2I(0, mSize.y - 1));

@@ -35,6 +35,8 @@
 #include "gfx/screenshot.h"
 #include "gfx/video/videoCapture.h"
 #include "lighting/lightManager.h"
+// HH: Modified for Tribes 2 compatibility.
+// The canvas installs a default light manager on the client scene graph.
 #include "scene/sceneManager.h"
 #include "core/strings/stringUnit.h"
 
@@ -2290,7 +2292,8 @@ DefineEngineFunction(excludeOtherInstance, bool, (const char* appIdentifer),,
 #endif
 }
 
-// HH: Added for Tribes2 compatibility.
+// HH: Modified for Tribes 2 compatibility.
+// Tribes 2 binds a key to this and expects the engine to provide it.
 DefineEngineFunction( toggleConsole, void, (), ,
                "@brief Raise the console dialog, or drop it if it is already up.\n\n"
 
@@ -2317,6 +2320,8 @@ DefineEngineFunction( toggleConsole, void, (), ,
       canvas->pushDialogControl( dialog, 99 );
 }
 
+// HH: Modified for Tribes 2 compatibility.
+// TGE defines this in script and Tribes 2 does not, so the engine must.
 DefineEngineFunction( createCanvas, bool, ( const char *windowTitle ), ( "" ),
                "@brief Create the game window and the canvas that draws into it.\n\n"
 
@@ -2341,13 +2346,6 @@ DefineEngineFunction( createCanvas, bool, ( const char *windowTitle ), ( "" ),
       return false;
    }
 
-   // HH: Tribes2 compatibility.
-   //
-   // Tribes 2's engine supplies GuiDefaultProfile; nothing on the game's boot
-   // path declares one, and every profile that leaves a field unset copies it
-   // from here.  These are the values a dump of the stock profile reports.
-   //
-   // A game that declares its own has said what it wants.
    if ( !Sim::findObject( "GuiDefaultProfile" ) )
    {
       GuiControlProfile *profile = new GuiControlProfile();
@@ -2375,8 +2373,6 @@ DefineEngineFunction( createCanvas, bool, ( const char *windowTitle ), ( "" ),
    if ( windowTitle && windowTitle[ 0 ] )
       canvas->setWindowTitle( windowTitle );
 
-   // HH: Tribes2 compatibility.
-   // Set a default light manager, since Tribes never sets one.
    if ( !LIGHTMGR && gClientSceneGraph )
       gClientSceneGraph->setLightManager( "Basic Lighting" );
 

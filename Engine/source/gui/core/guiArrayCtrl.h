@@ -30,17 +30,19 @@
 #include "gui/controls/guiTextCtrl.h"
 #endif
 
-/// Renders a grid of cells.
+// HH: Modified for Tribes 2 compatibility.
+// Names the type the scroll control lookup below hands back.
 class GuiScrollCtrl;
 
+/// Renders a grid of cells.
 class GuiArrayCtrl : public GuiControl
 {
    typedef GuiControl Parent;
 
 protected:
 
-   // HH: Tribes2 compatibility.  Tribes 2's layouts put a container between an
-   // array control and the scroll control that scrolls it.
+   // HH: Modified for Tribes 2 compatibility.
+   // Tribes 2 puts a container between the array and the scroll control.
    GuiScrollCtrl *findScrollParent( Point2I &offset );
 
    Point2I mHeaderDim;

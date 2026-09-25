@@ -30,6 +30,8 @@
 #include "gui/core/guiDefaultControlRender.h"
 #include "gfx/gfxDevice.h"
 #include "gfx/gfxDrawUtil.h"
+// HH: Modified for Tribes 2 compatibility.
+// The flat window frame is built as a bitmap and uploaded as a texture.
 #include "gfx/gfxTextureManager.h"
 #include "gfx/bitmap/gBitmap.h"
 #include "gui/containers/guiRolloutCtrl.h"
@@ -669,14 +671,8 @@ void GuiWindowCtrl::getSnappableWindows( Vector<GuiWindowCtrl*> &windowOutVector
 
 //-----------------------------------------------------------------------------
 
-// HH: Tribes2 compatibility.
-//
-// Tribes 2's gui/darkWindow is the four buttons and nothing else, and it packs
-// each button's three states into one rect the way gui/darkScroll does, so the
-// slicer hands back four where this control indexes twenty-three.  Divide each
-// of the four to get the twelve buttons, then stand the eleven frame pieces up
-// as flat colour: the sheet is copied into a taller bitmap with two solid blocks
-// appended, and the frame rects point into those.
+// HH: Modified for Tribes 2 compatibility.
+// Tribes 2's window art lacks frame pieces and packs button states per rect.
 bool GuiWindowCtrl::buildFlatFrame( S32 sheetRects )
 {
    static const ColorI sTitleColor( 64, 150, 150 );
@@ -707,8 +703,6 @@ bool GuiWindowCtrl::buildFlatFrame( S32 sheetRects )
       const RectI &whole = mProfile->mBitmapArrayRects[ button ];
       const S32 width = whole.extent.x / BmpStates;
 
-      // A rect too narrow to divide is art laid out some third way, and
-      // guessing at it would draw a sliver of the wrong state.
       if( width <= 0 )
          return false;
 
@@ -720,8 +714,6 @@ bool GuiWindowCtrl::buildFlatFrame( S32 sheetRects )
    const U32 width = sheet->getWidth();
    const U32 height = sheet->getHeight();
 
-   // The title block is as tall as the strip should draw; the frame block only
-   // needs the pixel to spare that inset() takes off a stretched piece.
    GBitmap *sheetAndBlocks = new GBitmap( width, height + sTitleRows + sFrameRows,
                                           false, GFXFormatR8G8B8A8 );
    sheetAndBlocks->copyRect( sheet, RectI( 0, 0, width, height ), Point2I( 0, 0 ) );
@@ -764,6 +756,8 @@ bool GuiWindowCtrl::onWake()
 
    //get the texture for the close, minimize, and maximize buttons
    mTextureObject = mProfile->mTextureObject;
+   // HH: Modified for Tribes 2 compatibility.
+   // Fall back to a built frame when the profile's bitmap array is short.
    S32 numRects = mProfile->constructBitmapArray();
    if( numRects >= NumBitmaps )
       mBitmapBounds = mProfile->mBitmapArrayRects.address();
@@ -1366,6 +1360,8 @@ bool GuiWindowCtrl::onKeyDown(const GuiEvent &event)
 
 void GuiWindowCtrl::onRender(Point2I offset, const RectI &updateRect)
 {
+   // HH: Modified for Tribes 2 compatibility.
+   // The bounds may come from the built frame rather than the profile's array.
    if( !mProfile || mProfile->mFont == NULL || !mBitmapBounds )
       return Parent::onRender( offset, updateRect );
 
