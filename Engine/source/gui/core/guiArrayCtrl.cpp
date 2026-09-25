@@ -27,6 +27,7 @@
 #include "console/engineAPI.h"
 #include "platform/event.h"
 #include "gui/containers/guiScrollCtrl.h"
+#include "gui/containers/guiScrollContentCtrl.h"
 #include "gfx/gfxDrawUtil.h"
 #include "gui/core/guiDefaultControlRender.h"
 
@@ -172,6 +173,11 @@ void GuiArrayCtrl::scrollSelectionVisible()
 }
 
 //-----------------------------------------------------------------------------
+
+GuiScrollCtrl *GuiArrayCtrl::findScrollParent( Point2I &offset )
+{
+   return findScrollAbove( this, offset );
+}
 
 void GuiArrayCtrl::scrollCellVisible(Point2I cell)
 {

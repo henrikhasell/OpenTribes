@@ -26,6 +26,7 @@
 #include "gui/utility/messageVector.h"
 #include "console/consoleTypes.h"
 #include "gui/containers/guiScrollCtrl.h"
+#include "gui/containers/guiScrollContentCtrl.h"
 #include "gfx/gfxDevice.h"
 #include "gfx/gfxDrawUtil.h"
 #include "console/engineAPI.h"
@@ -257,8 +258,11 @@ void GuiMessageVectorCtrl::lineInserted(const U32 arg)
 {
    AssertFatal(mMessageVector != NULL, "Should not be here unless we're attached!");
 
-   Point2I offset;
-   GuiScrollCtrl* pScroll = findScrollParent( offset );
+   // HH: Tribes2 compatibility.  Tribes 2's chat layouts put this control
+   // inside a scroll content control, so the scroll control is not the parent
+   // and casting one to the other hands back nothing to ask.
+   Point2I scrollOffset;
+   GuiScrollCtrl* pScroll = findScrollAbove( this, scrollOffset );
    bool fullyScrolled = pScroll && pScroll->isScrolledToBottom();
 
    mSpecialMarkers.insert(arg);
