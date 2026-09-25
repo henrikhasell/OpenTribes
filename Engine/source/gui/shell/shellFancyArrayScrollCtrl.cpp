@@ -98,13 +98,11 @@ void ShellFancyArrayScrollCtrl::arrange()
    if ( !mArray )
       return;
 
-   // The scroll control is the viewport, not a bar beside the array: it fills
-   // this control, and the array is laid over the part of it the bar leaves.
+   // How big the array is was settled by whoever wrote the .gui: it is laid
+   // out to leave room beside it for the bar and the spacer art, and sizing it
+   // from this control would take that room back.
    if ( !mScroll )
-   {
-      mArray->resize( Point2I( 0, 0 ), getExtent() );
       return;
-   }
 
    mScroll->resize( Point2I( 0, 0 ), getExtent() );
 
@@ -118,11 +116,6 @@ void ShellFancyArrayScrollCtrl::arrange()
       if ( content->getHeight() != wanted )
          content->resize( content->getPosition(), Point2I( content->getWidth(), wanted ) );
    }
-
-   const Point2I extent = mScroll->getContentExtent();
-
-   mArray->resize( mScroll->getPosition(),
-                   Point2I( extent.x, getHeight() ) );
 
    mArray->setScrollOffset( mScroll->getChildRelPos().y );
 }
