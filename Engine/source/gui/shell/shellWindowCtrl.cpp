@@ -133,6 +133,8 @@ void ShellWindowCtrl::onRender( Point2I offset, const RectI &updateRect )
 
       if ( text && text[ 0 ] && span > 0 && mProfile->mFont )
       {
+         const RectI saved = GFX->getClipRect();
+
          RectI clip( offset.x + cap, offset.y, span, mTitleHeight );
 
          if ( clip.intersect( updateRect ) )
@@ -148,6 +150,8 @@ void ShellWindowCtrl::onRender( Point2I offset, const RectI &updateRect )
             draw->drawText( font, where, text, mProfile->mFontColors );
             draw->clearBitmapModulation();
          }
+
+         GFX->setClipRect( saved );
       }
    }
 

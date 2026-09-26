@@ -1728,6 +1728,15 @@ DefineEngineMethod( GuiTextEditCtrl, selectAllText, void, (),,
    object->selectAllText();
 }
 
+// HH: Modified for Tribes 2 compatibility.
+// The name Tribes 2 knows selectAllText by.
+DefineEngineMethod( GuiTextEditCtrl, selectAll, void, (),,
+   "@brief Select all text in the control.\n\n"
+   "@ingroup GuiControls" )
+{
+   object->selectAllText();
+}
+
 DefineEngineMethod( GuiTextEditCtrl, clearSelectedText, void, (),,
    "@brief Unselects all selected text in the control.\n\n"
    "@tsexample\n"

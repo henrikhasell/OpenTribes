@@ -2740,3 +2740,23 @@ ConsoleMethod( GuiCanvas, setVideoMode, void, 5, 8,
    // Store the new mode into a pref.
    Con::setVariable( "$pref::Video::mode", vm.toString() );
 }
+
+// HH: Modified for Tribes 2 compatibility.
+// Tribes 2 asks for the screen's size as three words, and the shell lays the
+// Server Info window out against it.
+DefineEngineFunction( getResolution, const char *, ( ), ,
+   "@brief The canvas's width, height and bit depth.\n\n"
+   "@ingroup Rendering" )
+{
+   GuiCanvas *canvas = dynamic_cast< GuiCanvas * >( Sim::findObject( "Canvas" ) );
+
+   if ( !canvas || !canvas->getPlatformWindow() )
+      return "0 0 0";
+
+   const GFXVideoMode mode = canvas->getPlatformWindow()->getVideoMode();
+
+   char *buffer = Con::getReturnBuffer( 64 );
+   dSprintf( buffer, 64, "%d %d %d", mode.resolution.x, mode.resolution.y, mode.bitDepth );
+
+   return buffer;
+}
