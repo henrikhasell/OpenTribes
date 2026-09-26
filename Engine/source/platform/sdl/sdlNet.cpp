@@ -2,6 +2,7 @@
 #include "platform/event.h"
 #include "console/console.h"
 #include "core/strings/stringFunctions.h"
+#include "core/util/journal/process.h"
 #include "core/util/tVector.h"
 
 #include <SDL3_net/SDL_net.h>
@@ -124,12 +125,13 @@ void addressFromNet( NET_Address *address, U16 port, NetAddress *out )
    out->type = NetAddress::IPAddress;
    out->port = port;
 
-   int numBytes = 0;
-   const U8 *bytes = static_cast< const U8* >( NET_GetAddressBytes( address, &numBytes ) );
+   const char *text = address ? NET_GetAddressString( address ) : NULL;
 
-   // IPv6 has nowhere to go in NetAddress, whose netNum is four bytes.
-   if ( bytes && numBytes == 4 )
-      dMemcpy( out->netNum, bytes, 4 );
+   U32 quad[ 4 ];
+
+   if ( text && dSscanf( text, "%u.%u.%u.%u", &quad[0], &quad[1], &quad[2], &quad[3] ) == 4 )
+      for ( U32 i = 0; i < 4; i++ )
+         out->netNum[ i ] = U8( quad[ i ] );
 }
 
 /// NetAddress carries the address as raw bytes; SDL_net wants it as text.
@@ -169,11 +171,15 @@ bool Net::init()
       return false;
    }
 
+   Process::notify( &Net::process, PROCESS_NET_ORDER );
+
    return true;
 }
 
 void Net::shutdown()
 {
+   Process::remove( &Net::process );
+
    closePort();
 
    for ( U32 i = 0; i < gEntries.size(); ++i )
@@ -194,7 +200,14 @@ bool Net::openPort( S32 port, bool doBind )
 {
    closePort();
 
-   NET_DatagramSocket *socket = NET_CreateDatagramSocket( NULL, doBind ? U16( port ) : 0, 0 );
+   const SDL_PropertiesID props = SDL_CreateProperties();
+
+   SDL_SetBooleanProperty( props, NET_PROP_DATAGRAM_SOCKET_ALLOW_BROADCAST_BOOLEAN, true );
+
+   NET_DatagramSocket *socket = NET_CreateDatagramSocket( NULL, doBind ? U16( port ) : 0, props );
+
+   SDL_DestroyProperties( props );
+
    if ( !socket )
    {
       Con::errorf( "Net::openPort - could not bind port %d: %s", port, SDL_GetError() );
@@ -466,10 +479,10 @@ bool Net::compareAddresses( const NetAddress *a1, const NetAddress *a2 )
 
 bool Net::stringToAddress( const char *addressString, NetAddress *address )
 {
-   if ( dStrncmp( addressString, "ipx:", 4 ) == 0 )
+   if ( dStrnicmp( addressString, "ipx:", 4 ) == 0 )
       return false;
 
-   if ( dStrncmp( addressString, "ip:", 3 ) == 0 )
+   if ( dStrnicmp( addressString, "ip:", 3 ) == 0 )
       addressString += 3;
 
    char host[ 256 ];
