@@ -808,7 +808,14 @@ class GuiControl : public SimGroup
       /// Renders justified text using the profile.
       ///
       /// @note This should move into the graphics library at some point
-      void renderJustifiedText(Point2I offset, Point2I extent, const char *text);
+      /// Draw text justified in a box.
+      ///
+      /// HH: Modified for Tribes 2 compatibility.
+      /// centerVertically false draws from the top of the box instead of the
+      /// middle, which is what Tribes 2 does for the controls whose profile
+      /// already carries a textOffset saying where their text goes.
+      void renderJustifiedText(Point2I offset, Point2I extent, const char *text,
+                               bool centerVertically = true);
       
       /// Returns text clipped to fit within a pixel width. The clipping 
       /// occurs on the right side and "..." is appended.  It returns width

@@ -605,7 +605,8 @@ void GuiControl::setUpdate()
 
 //-----------------------------------------------------------------------------
 
-void GuiControl::renderJustifiedText(Point2I offset, Point2I extent, const char *text)
+void GuiControl::renderJustifiedText(Point2I offset, Point2I extent, const char *text,
+                                     bool centerVertically)
 {
    GFont *font = mProfile->mFont;
    // HH: Modified for Tribes 2 compatibility.
@@ -649,23 +650,33 @@ void GuiControl::renderJustifiedText(Point2I offset, Point2I extent, const char 
       }
    
    // Align vertical.
-   //
-   // HH: Modified for Tribes 2 compatibility.
-   // Torque centres the text in the box.  Tribes 2 never did: it draws from
-   // the top and lets whoever placed the text say where it goes, which is
-   // what a profile's textOffset is for.  Centring on top of that drops a
-   // shell label two pixels and a button's caption one, because their boxes
-   // are taller than the font by those amounts.
-   switch( mProfile->mAlignment )
-   {
-      case GuiControlProfile::BottomJustify:
-         start.y = extent.y - textHeight - 1;
-         break;
 
-      default:
-         start.y = 0;
-         break;
+   // HH: Modified for Tribes 2 compatibility.
+   // A caller that places its own text asks for the top of the box: Tribes 2
+   // draws from there and lets the profile's textOffset say where the text
+   // goes, and centring on top of that puts it low.
+   if( !centerVertically )
+      start.y = 0;
+   else if( textHeight > extent.y )
+   {
+      start.y = 0 - ( textHeight - extent.y ) / 2;
    }
+   else
+      switch( mProfile->mAlignment )
+      {
+         case GuiControlProfile::TopJustify:
+            start.y = 0;
+            break;
+
+         case GuiControlProfile::BottomJustify:
+            start.y = extent.y - textHeight - 1;
+            break;
+
+         default:
+            // Center vertical.
+            start.y = ( extent.y - font->getHeight() ) / 2;
+            break;
+      }
 
    GFX->getDrawUtil()->drawText( font, start + offset, text, mProfile->mFontColors );
 }
