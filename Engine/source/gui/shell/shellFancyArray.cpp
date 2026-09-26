@@ -68,6 +68,9 @@ ShellFancyArray::ShellFancyArray()
    mNoSelect = false;
 
    mHeaderHeight = 0;
+   mMinColumnWidth = 0;
+   mFitColumns = false;
+   mFitPending = false;
    mFramed = false;
    mHeaderSliced = false;
 }
@@ -167,6 +170,9 @@ bool ShellFancyArray::onWake()
    mHeaderHeight = mHeaderSliced ? mHeaderCell[ 0 ].extent.y
                  : mHeader ? S32( mHeader->getBitmapHeight() ) : 0;
 
+   mMinColumnWidth = mHeaderSliced
+      ? mHeaderCell[ 0 ].extent.x + mHeaderCell[ 6 ].extent.x - mGlowOffset * 2 : 0;
+
    return true;
 }
 
@@ -189,20 +195,26 @@ void ShellFancyArray::onSleep()
 
 RectI ShellFancyArray::rowRegion() const
 {
-   const S32 left = mFramed ? S32( mFrame[ TopLeft ]->getBitmapWidth() ) : 0;
-   const S32 right = mFramed ? S32( mFrame[ TopRight ]->getBitmapWidth() ) : 0;
-   const S32 foot = mFramed ? S32( mFrame[ BotLeft ]->getBitmapHeight() ) : 0;
+   const S32 top = mRowHeight * mStartScrollRegion.y + mHeaderHeight - mGlowOffset;
 
-   const S32 top = mHeaderHeight - mGlowOffset + mStartScrollRegion.y;
+   return RectI( 0, top, getWidth(), getHeight() - top );
+}
 
-   return RectI( mGlowOffset + left + mStartScrollRegion.x, top,
-                 getWidth() - mGlowOffset * 2 - left - right - mStartScrollRegion.x,
-                 getHeight() - top - foot - mGlowOffset );
+S32 ShellFancyArray::pinnedWidth() const
+{
+   const S32 pinned = getMin( S32( mColumns.size() ), mStartScrollRegion.x );
+
+   S32 width = 0;
+
+   for ( S32 i = 0; i < pinned; i++ )
+      width += mColumns[ i ].width;
+
+   return width;
 }
 
 S32 ShellFancyArray::columnAt( S32 x ) const
 {
-   S32 running = rowRegion().point.x;
+   S32 running = mGlowOffset;
 
    for ( U32 i = 0; i < mColumns.size(); i++ )
    {
@@ -237,13 +249,15 @@ void ShellFancyArray::drawFrame( const Point2I &offset )
 
    const S32 left = S32( mFrame[ TopLeft ]->getBitmapWidth() );
    const S32 right = S32( mFrame[ TopRight ]->getBitmapWidth() );
-   const S32 span = getWidth() - mGlowOffset * 2 - left - right;
+   const S32 span = getWidth() - mGlowOffset - left - right;
 
-   const S32 head = S32( mFrame[ TopLeft ]->getBitmapHeight() );
    const S32 foot = S32( mFrame[ BotLeft ]->getBitmapHeight() );
 
-   const S32 top = offset.y + mHeaderHeight + mGlowOffset;
-   const S32 body = getHeight() - mHeaderHeight - mGlowOffset * 2 - head - foot;
+   const S32 room = getHeight() - mHeaderHeight + mGlowOffset;
+   const S32 head = getMin( room - foot, S32( mFrame[ TopLeft ]->getBitmapHeight() ) );
+   const S32 body = room - head - foot;
+
+   const S32 top = offset.y + mHeaderHeight - mGlowOffset;
 
    const S32 x = offset.x + mGlowOffset;
 
@@ -278,9 +292,12 @@ void ShellFancyArray::drawHeader( const Point2I &offset )
    if ( !font )
       return;
 
-   S32 x = offset.x + rowRegion().point.x;
+   const S32 inside = mHeaderHeight - mGlowOffset * 2;
 
-   const S32 y = offset.y + ( mHeaderHeight - S32( font->getHeight() ) ) / 2;
+   S32 x = offset.x + mGlowOffset;
+
+   const S32 top = offset.y + mGlowOffset;
+   const S32 y = top + ( inside - S32( font->getHeight() ) ) / 2;
 
    for ( U32 i = 0; i < mColumns.size(); i++ )
    {
@@ -290,33 +307,42 @@ void ShellFancyArray::drawHeader( const Point2I &offset )
       {
          const S32 state = S32( i ) == mMouseOverColumn ? 2 : 0;
 
-         const S32 cap = mHeaderCell[ 0 ].extent.x;
-         const S32 span = column.width - cap * 2;
+         const S32 cap = mHeaderCell[ state ].extent.x;
+         const S32 end = mHeaderCell[ 6 + state ].extent.x;
+
+         const S32 span = column.width + mGlowOffset * 2 - 1 - cap - end;
+
+         const S32 left = x - mGlowOffset;
 
          draw->clearBitmapModulation();
-         draw->drawBitmapSR( mHeader, Point2I( x, offset.y ), mHeaderCell[ state ] );
+         draw->drawBitmapSR( mHeader, Point2I( left, offset.y ), mHeaderCell[ state ] );
 
          if ( span > 0 )
             draw->drawBitmapStretchSR( mHeader,
-               RectI( x + cap, offset.y, span, mHeaderHeight ),
+               RectI( left + cap, offset.y, span, mHeaderHeight ),
                mHeaderCell[ 3 + state ] );
 
-         draw->drawBitmapSR( mHeader, Point2I( x + cap + span, offset.y ),
+         draw->drawBitmapSR( mHeader, Point2I( left + cap + span, offset.y ),
                              mHeaderCell[ 6 + state ] );
       }
 
       if ( column.flags & HeaderIcon )
       {
          if ( column.icon )
+         {
+            const S32 room = column.width - S32( column.icon->getBitmapWidth() );
+
             draw->drawBitmap( column.icon,
-               Point2I( x + ( column.width - S32( column.icon->getBitmapWidth() ) ) / 2,
-                        offset.y + ( mHeaderHeight - S32( column.icon->getBitmapHeight() ) ) / 2 ) );
+               Point2I( x + ( room > 8 ? room / 2 : 4 ),
+                        top + ( inside - S32( column.icon->getBitmapHeight() ) ) / 2 ) );
+         }
       }
       else if ( column.name && column.name[ 0 ] )
       {
          const S32 width = S32( font->getStrWidth( column.name ) );
+         const S32 room = column.width - width;
 
-         S32 at = x + ( column.width - width ) / 2;
+         S32 at = x + ( room > 8 ? room / 2 : 4 );
 
          if ( column.flags & AlignLeft )
             at = x + 2;
@@ -336,8 +362,8 @@ void ShellFancyArray::drawHeader( const Point2I &offset )
 
          draw->clearBitmapModulation();
          draw->drawBitmap( mSortArrow,
-            Point2I( x + column.width - arrowW - 2,
-                     offset.y + ( mHeaderHeight - arrowH ) / 2 ),
+            Point2I( x + column.width - arrowW - 6,
+                     top + ( inside - arrowH ) / 2 ),
             mSortIncreasing ? GFXBitmapFlip_Y : GFXBitmapFlip_None );
       }
 
@@ -358,13 +384,19 @@ void ShellFancyArray::onRenderRow( const Point2I &offset, const Column &column,
          RectI( offset.x, offset.y, column.width, mRowHeight ) );
 
    if ( mDrawSeparators )
-      draw->drawLine( Point2I( offset.x + column.width, offset.y ),
+      draw->drawLine( Point2I( offset.x, offset.y + mRowHeight ),
                       Point2I( offset.x + column.width, offset.y + mRowHeight ),
                       mSeparatorColor );
 }
 
 void ShellFancyArray::onRender( Point2I offset, const RectI &updateRect )
 {
+   if ( mFitPending )
+   {
+      mFitPending = false;
+      fitColumns();
+   }
+
    drawFrame( offset );
    drawHeader( offset );
 
@@ -382,7 +414,7 @@ void ShellFancyArray::onRender( Point2I offset, const RectI &updateRect )
 
       for ( S32 row = first; row < last; row++ )
       {
-         Point2I at( offset.x + rows.point.x,
+         Point2I at( offset.x + mGlowOffset,
                      offset.y + rows.point.y + row * mRowHeight - mScrollOffset );
 
          const bool selected = row == mSelectedRow;
@@ -469,7 +501,7 @@ void ShellFancyArray::addColumn( S32 key, const char *name, S32 width,
 
    column.key = key;
    column.name = StringTable->insert( name ? name : "", true );
-   column.width = width;
+   column.width = getMin( getMax( width, getMax( mMinColumnWidth, minWidth ) ), maxWidth );
    column.minWidth = minWidth;
    column.maxWidth = maxWidth;
    column.flags = 0;
@@ -497,12 +529,66 @@ void ShellFancyArray::addColumn( S32 key, const char *name, S32 width,
                        avar( "%s() - icon", __FUNCTION__ ) );
    }
 
+   if ( mFitColumns )
+   {
+      mStartScrollRegion.x = mColumns.size();
+      mFitPending = true;
+   }
+
    setUpdate();
+}
+
+void ShellFancyArray::fitColumns()
+{
+   if ( mColumns.empty() )
+      return;
+
+   S32 slack = getWidth() - mGlowOffset;
+
+   for ( U32 i = 0; i < mColumns.size(); i++ )
+      slack -= mColumns[ i ].width;
+
+   if ( slack == 0 )
+      return;
+
+   if ( slack > 0 )
+   {
+      Column &last = mColumns.last();
+
+      last.width += slack;
+      last.maxWidth = getMax( last.maxWidth, last.width );
+
+      return;
+   }
+
+   for ( S32 i = S32( mColumns.size() ) - 1; i >= 0; i-- )
+   {
+      Column &column = mColumns[ i ];
+
+      column.width += slack;
+
+      if ( column.width >= column.minWidth )
+         break;
+
+      slack = column.width - column.minWidth;
+      column.width = column.minWidth;
+   }
+}
+
+bool ShellFancyArray::resize( const Point2I &position, const Point2I &extent )
+{
+   const bool changed = Parent::resize( position, extent );
+
+   if ( mFitColumns )
+      mFitPending = true;
+
+   return changed;
 }
 
 void ShellFancyArray::clearColumns()
 {
    mColumns.clear();
+   mFitPending = mFitColumns;
    setUpdate();
 }
 

@@ -79,6 +79,9 @@ void ShellFancyArrayScrollCtrl::addObject( SimObject *object )
    {
       mArray = array;
       mArrayMargin = getExtent() - array->getExtent();
+
+      if ( mFixedHorizontal )
+         array->setFitColumns( true );
    }
    else if ( VirtualScrollCtrl *scroll = dynamic_cast< VirtualScrollCtrl * >( object ) )
    {
@@ -110,10 +113,7 @@ void ShellFancyArrayScrollCtrl::arrange()
 
    mScroll->resize( mScrollPos, getExtent() - mScrollPos - mScrollMargin );
 
-   const Point2I wanted = getExtent() - mArrayMargin;
-
-   if ( mArray->getExtent() != wanted )
-      mArray->resize( mArray->getPosition(), wanted );
+   mArray->resize( mArray->getPosition(), getExtent() - mArrayMargin );
 
    if ( GuiControl *content = mScroll->size() ? dynamic_cast< GuiControl * >( ( *mScroll )[ 0 ] ) : NULL )
    {
@@ -144,22 +144,22 @@ void ShellFancyArrayScrollCtrl::onRender( Point2I offset, const RectI &updateRec
    GFXDrawUtil *draw = GFX->getDrawUtil();
    draw->clearBitmapModulation();
 
-   if ( mVertSpacer && mScroll )
+   if ( mVertSpacer && mArray )
    {
-      const S32 width = S32( mVertSpacer->getBitmapWidth() );
-      const S32 bar = mScroll->getPosition().x + mScroll->getContentExtent().x;
-
       draw->drawBitmapStretch( mVertSpacer,
-         RectI( offset.x + bar - width, offset.y, width, getHeight() ) );
+         RectI( offset.x + mArray->getWidth(),
+                offset.y + mArray->getGlowOffset(),
+                S32( mVertSpacer->getBitmapWidth() ),
+                mArray->headerSpan() - 1 ) );
    }
 
-   if ( mHorzSpacer && mArray )
+   if ( mHorzSpacer && mArray && !mFixedHorizontal )
    {
-      const S32 height = S32( mHorzSpacer->getBitmapHeight() );
-
       draw->drawBitmapStretch( mHorzSpacer,
-         RectI( offset.x, offset.y + getHeight() - height,
-                mArray->getWidth(), height ) );
+         RectI( offset.x + mArray->getGlowOffset(),
+                offset.y + mArray->getHeight(),
+                mArray->pinnedWidth() - 1,
+                S32( mHorzSpacer->getBitmapHeight() ) ) );
    }
 
    renderChildControls( offset, updateRect );

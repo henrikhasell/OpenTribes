@@ -99,9 +99,17 @@ protected:
 
    S32 mHeaderHeight;
 
+   S32 mMinColumnWidth;
+
+   bool mFitColumns;
+
+   bool mFitPending;
+
    bool mFramed;
 
    RectI rowRegion() const;
+
+   void fitColumns();
 
    S32 columnAt( S32 x ) const;
    S32 rowAt( const Point2I &local ) const;
@@ -126,7 +134,11 @@ public:
    bool onWake();
    void onSleep();
 
+   bool resize( const Point2I &position, const Point2I &extent );
+
    void onRender( Point2I offset, const RectI &updateRect );
+
+   void setFitColumns( bool fit ) { mFitColumns = fit; }
 
    void onMouseDown( const GuiEvent &event );
    void onMouseMove( const GuiEvent &event );
@@ -165,6 +177,12 @@ public:
 
    S32 getRowHeight() const { return mRowHeight; }
    S32 getHeaderHeight() const { return mHeaderHeight; }
+   S32 getGlowOffset() const { return mGlowOffset; }
+
+   S32 headerSpan() const
+      { return mRowHeight * mStartScrollRegion.y + mHeaderHeight - mGlowOffset * 2; }
+
+   S32 pinnedWidth() const;
 
    void setScrollOffset( S32 offset );
    S32 getScrollOffset() const { return mScrollOffset; }
