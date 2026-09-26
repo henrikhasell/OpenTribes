@@ -7,6 +7,7 @@
 #include "core/stringTable.h"
 #include "gfx/gfxDevice.h"
 #include "gfx/gfxDrawUtil.h"
+#include "gui/containers/guiScrollContentCtrl.h"
 #include "gui/shell/shellFancyArray.h"
 #include "gui/shell/virtualScrollCtrl.h"
 
@@ -28,6 +29,9 @@ ShellFancyArrayScrollCtrl::ShellFancyArrayScrollCtrl()
    mHorzSpacerBitmap = StringTable->insert( "gui/shll_horzspacer" );
 
    mFixedHorizontal = false;
+
+   mContentSize.set( 0, 0 );
+   mOffset.set( 0, 0 );
 }
 
 void ShellFancyArrayScrollCtrl::initPersistFields()
@@ -78,7 +82,6 @@ void ShellFancyArrayScrollCtrl::addObject( SimObject *object )
    if ( ShellFancyArray *array = dynamic_cast< ShellFancyArray * >( object ) )
    {
       mArray = array;
-      mArrayMargin = getExtent() - array->getExtent();
 
       if ( mFixedHorizontal )
          array->setFitColumns( true );
@@ -86,8 +89,6 @@ void ShellFancyArrayScrollCtrl::addObject( SimObject *object )
    else if ( VirtualScrollCtrl *scroll = dynamic_cast< VirtualScrollCtrl * >( object ) )
    {
       mScroll = scroll;
-      mScrollPos = scroll->getPosition();
-      mScrollMargin = getExtent() - scroll->getPosition() - scroll->getExtent();
    }
 
    arrange();
@@ -103,27 +104,66 @@ void ShellFancyArrayScrollCtrl::removeObject( SimObject *object )
    Parent::removeObject( object );
 }
 
+GuiControl *ShellFancyArrayScrollCtrl::contents() const
+{
+   if ( !mScroll || !mScroll->size() )
+      return NULL;
+
+   GuiScrollContentCtrl *window =
+      dynamic_cast< GuiScrollContentCtrl * >( ( *mScroll )[ 0 ] );
+
+   return window ? window->getContents() : NULL;
+}
+
 void ShellFancyArrayScrollCtrl::arrange()
 {
-   if ( !mArray )
+   if ( !mArray || !mScroll )
       return;
 
-   if ( !mScroll )
+   const S32 glow = mArray->getGlowOffset();
+   const S32 bar = mScroll->scrollBarThickness();
+
+   Point2I extent( getWidth() - bar - glow, getHeight() - glow );
+
+   if ( !mFixedHorizontal )
+      extent.y -= bar + 1;
+
+   mArray->resize( Point2I( 0, 0 ), extent );
+
+   const Point2I origin = mArray->barOrigin() - Point2I( glow, glow );
+
+   mScroll->resize( origin, getExtent() - origin );
+
+   mArray->fitScrollColumns();
+
+   sync();
+}
+
+void ShellFancyArrayScrollCtrl::sync()
+{
+   GuiControl *content = contents();
+
+   if ( !mArray || !content )
       return;
 
-   mScroll->resize( mScrollPos, getExtent() - mScrollPos - mScrollMargin );
+   const Point2I size = mArray->contentSize() + Point2I( 2, 2 );
 
-   mArray->resize( mArray->getPosition(), getExtent() - mArrayMargin );
-
-   if ( GuiControl *content = mScroll->size() ? dynamic_cast< GuiControl * >( ( *mScroll )[ 0 ] ) : NULL )
+   if ( size != mContentSize )
    {
-      const S32 wanted = mArray->getHeaderHeight() + mArray->contentHeight();
-
-      if ( content->getHeight() != wanted )
-         content->resize( content->getPosition(), Point2I( content->getWidth(), wanted ) );
+      mContentSize = size;
+      content->setExtent( size );
+      mScroll->computeSizes();
    }
 
-   mArray->setScrollOffset( mScroll->getChildRelPos().y );
+   if ( mArray->getScrollOffset() != mOffset )
+      content->setPosition( -mArray->getScrollOffset() );
+   else if ( -content->getPosition() == mOffset )
+      return;
+
+   mScroll->computeSizes();
+
+   mOffset = -content->getPosition();
+   mArray->setScrollOffset( mOffset );
 }
 
 bool ShellFancyArrayScrollCtrl::resize( const Point2I &position, const Point2I &extent )
@@ -137,6 +177,13 @@ void ShellFancyArrayScrollCtrl::childResized( GuiControl *child )
 {
    Parent::childResized( child );
    arrange();
+}
+
+void ShellFancyArrayScrollCtrl::onPreRender()
+{
+   Parent::onPreRender();
+
+   sync();
 }
 
 void ShellFancyArrayScrollCtrl::onRender( Point2I offset, const RectI &updateRect )
