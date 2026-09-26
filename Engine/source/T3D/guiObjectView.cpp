@@ -528,6 +528,12 @@ void GuiObjectView::renderWorld( const RectI& updateRect )
       false
    );
 
+   // HH: Modified for Tribes 2 compatibility.
+   // lightAmbient is the control's own, and nothing read it: the ambient term
+   // came from the scene, which a shell screen has none of.  A control that
+   // wants its model lit flat sets this to white and lightColor to black.
+   state.setAmbientLightColor( mLightAmbient );
+
    // Set up our TS render state here.   
    TSRenderState rdata;
    rdata.setSceneState( &state );
