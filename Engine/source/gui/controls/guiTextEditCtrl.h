@@ -148,7 +148,11 @@ public:
 
    void onPreRender();
    void onRender(Point2I offset, const RectI &updateRect);
-   virtual void drawText( const RectI &drawRect, bool isFocused );
+   /// HH: Modified for Tribes 2 compatibility.
+   /// centerVertically false starts the text at the top of drawRect instead
+   /// of centring it there.
+   virtual void drawText( const RectI &drawRect, bool isFocused,
+                          bool centerVertically = true );
 
 	bool dealWithEnter( bool clearResponder ); 
 };
