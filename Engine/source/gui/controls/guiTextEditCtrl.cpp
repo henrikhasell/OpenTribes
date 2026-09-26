@@ -1324,8 +1324,14 @@ void GuiTextEditCtrl::drawText( const RectI &drawRect, bool isFocused )
    paddingLeftTop.set(( mProfile->mTextOffset.x != 0 ? mProfile->mTextOffset.x : 3 ), mProfile->mTextOffset.y);
    paddingRightBottom = paddingLeftTop;
 
-   // Center vertically:
-   drawPoint.y += ( ( drawRect.extent.y - paddingLeftTop.y - paddingRightBottom.y - S32( mProfile->mFont->getHeight() ) ) / 2 ) + paddingLeftTop.y;
+   // HH: Modified for Tribes 2 compatibility.
+   // Tribes 2 starts the text at the top of the box and leaves the profile's
+   // offset to say where it goes, rather than centring it in whatever height
+   // it was handed.  A shell field's box is four pixels taller than its font,
+   // so centring put the text two rows low; and because the field's art does
+   // not grow with its box, a taller field dropped the text out from under
+   // the art entirely, which stock does not do.
+   drawPoint.y += paddingLeftTop.y;
 
    // Align horizontally:
    
