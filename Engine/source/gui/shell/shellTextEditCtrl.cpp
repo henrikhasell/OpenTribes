@@ -119,7 +119,7 @@ void ShellTextEditCtrl::onRender( Point2I offset, const RectI &updateRect )
       mProfile->mAlignment = GuiControlProfile::LeftJustify;
       mProfile->mTextOffset.x = 3;
 
-      drawText( text, isFirstResponder() );
+      drawText( text, isFirstResponder(), false );
 
       mProfile->mAlignment = align;
       mProfile->mTextOffset = textOffset;

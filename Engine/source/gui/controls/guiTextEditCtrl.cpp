@@ -1295,7 +1295,8 @@ void GuiTextEditCtrl::onPreRender()
    }
 }
 
-void GuiTextEditCtrl::drawText( const RectI &drawRect, bool isFocused )
+void GuiTextEditCtrl::drawText( const RectI &drawRect, bool isFocused,
+                                bool centerVertically )
 {
    StringBuffer textBuffer;
    Point2I drawPoint = drawRect.point;
@@ -1324,8 +1325,10 @@ void GuiTextEditCtrl::drawText( const RectI &drawRect, bool isFocused )
    paddingLeftTop.set(( mProfile->mTextOffset.x != 0 ? mProfile->mTextOffset.x : 3 ), mProfile->mTextOffset.y);
    paddingRightBottom = paddingLeftTop;
 
-   // Center vertically:
-   drawPoint.y += ( ( drawRect.extent.y - paddingLeftTop.y - paddingRightBottom.y - S32( mProfile->mFont->getHeight() ) ) / 2 ) + paddingLeftTop.y;
+   if( centerVertically )
+      drawPoint.y += ( ( drawRect.extent.y - paddingLeftTop.y - paddingRightBottom.y - S32( mProfile->mFont->getHeight() ) ) / 2 ) + paddingLeftTop.y;
+   else
+      drawPoint.y += paddingLeftTop.y;
 
    // Align horizontally:
    
