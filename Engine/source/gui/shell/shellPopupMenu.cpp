@@ -184,7 +184,12 @@ void ShellPopupMenu::onAction()
    // leaves twelve rows clear underneath.  Tribes 2 hangs the list off the
    // face rather than off the control, which is what keeps it no wider than
    // the button and joined to its bottom edge instead of floating below it.
-   enum { FaceLeft = 8, FaceRight = 10, FaceBottom = 12 };
+   // The rows below the face are the button's rounded bottom, and stock keeps
+   // them: its list starts under the art rather than on top of it.  The panel
+   // is also left a couple of rows longer than its entries fill, so the bar
+   // that marks the entry under the mouse stops short of the panel's own
+   // rounded bottom instead of covering it on the last one.
+   enum { FaceLeft = 8, FaceRight = 10, FaceBottom = 9, BottomReveal = 2 };
 
    const Point2I at =
       mBackground->globalToLocalCoord( parent->localToGlobalCoord( getPosition() ) );
@@ -201,6 +206,8 @@ void ShellPopupMenu::onAction()
    const S32 frame = mSc->getBorderThickness();
 
    bounds.extent.x = getMax( getWidth() - FaceLeft - FaceRight + frame * 2, 1 );
+   bounds.extent.y += BottomReveal;
+
    bounds.point.x = at.x + FaceLeft - frame;
    bounds.point.y = above ? at.y - bounds.extent.y + FaceBottom
                           : at.y + getHeight() - FaceBottom;
