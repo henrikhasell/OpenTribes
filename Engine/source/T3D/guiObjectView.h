@@ -32,6 +32,7 @@
 
 
 class LightInfo;
+class RenderPassManager;
 
 
 /// A control that displays a TSShape in its view.
@@ -153,6 +154,10 @@ class GuiObjectView : public GuiTSCtrl
       Point3F mLightDirection;
       
       /// @}
+
+      /// HH: Added for Tribes 2 compatibility.
+      /// The bins to draw through; the scene's default comes from a script.
+      virtual RenderPassManager* getRenderPass() const;
 
       ///
       void _initAnimation();

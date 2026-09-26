@@ -475,6 +475,11 @@ void GuiObjectView::onMouseLeave( const GuiEvent & event )
 
 //------------------------------------------------------------------------------
 
+RenderPassManager* GuiObjectView::getRenderPass() const
+{
+   return gClientSceneGraph->getDefaultRenderPass();
+}
+
 void GuiObjectView::renderWorld( const RectI& updateRect )
 {
    if( !mModel )
@@ -494,7 +499,7 @@ void GuiObjectView::renderWorld( const RectI& updateRect )
    mv.inverse();
    mv.getColumn( 3, &cp );
 
-   RenderPassManager* renderPass = gClientSceneGraph->getDefaultRenderPass();
+   RenderPassManager* renderPass = getRenderPass();
 
    S32 time = Platform::getVirtualMilliseconds();
    S32 dt = time - mLastRenderTime;
