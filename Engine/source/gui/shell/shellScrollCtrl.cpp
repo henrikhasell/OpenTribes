@@ -25,7 +25,7 @@ ConsoleDocClass( ShellScrollCtrl,
 
 ShellScrollCtrl::ShellScrollCtrl()
 {
-   mFieldBase = StringTable->insert( "gui/shll_field" );
+   mFieldBase = StringTable->EmptyString();
    mOverhang = 4;
 }
 
