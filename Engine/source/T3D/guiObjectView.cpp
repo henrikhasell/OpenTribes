@@ -538,6 +538,14 @@ void GuiObjectView::renderWorld( const RectI& updateRect )
    query.init( SphereF( Point3F::Zero, 1.0f ) );
    rdata.setLightQuery( &query );
 
+   // HH: Modified for Tribes 2 compatibility.
+   // The control is handed the world-to-camera transform as its world matrix,
+   // and a mesh takes the world matrix for its own transform -- so the camera
+   // went on twice and carried the model out of the frustum.  The model stands
+   // at the origin; say so.
+   GFX->pushWorldMatrix();
+   GFX->setWorldMatrix( MatrixF::Identity );
+
    // Render primary model.
 
    if( mModel )
@@ -563,6 +571,8 @@ void GuiObjectView::renderWorld( const RectI& updateRect )
 
       GFX->popWorldMatrix();
    }
+
+   GFX->popWorldMatrix();
 
    renderPass->renderPass( &state );
 

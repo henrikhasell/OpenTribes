@@ -28,7 +28,7 @@ GuiPlayerView::GuiPlayerView()
    mLightDirection.set( 0.f, 0.7f, -0.7f );
 
    mCameraRot.set( 0.f, 0.f, 3.9f );
-   mOrbitDist = 3.4f;
+   mOrbitDist = 3.5f;
 }
 
 bool GuiPlayerView::onWake()
@@ -74,10 +74,15 @@ RenderPassManager *GuiPlayerView::getRenderPass() const
 
 bool GuiPlayerView::processCameraQuery( CameraQuery *query )
 {
+   if ( mModel )
+      mOrbitDist = mClampF( mOrbitDist, mModel->getShape()->radius, 5.f );
+
    if ( !Parent::processCameraQuery( query ) )
       return false;
 
-   query->fov = mDegToRad( 45.f );
+   query->nearPlane = 0.1f;
+   query->farPlane = 2100.f;
+   query->fov = 0.8975979f;
 
    return true;
 }

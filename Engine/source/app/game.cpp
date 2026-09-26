@@ -138,6 +138,29 @@ ConsoleFunction( strToPlayerName, const char*, 2, 2, "strToPlayerName( string )"
 	return( "" );
 }
 
+// HH: Modified for Tribes 2 compatibility.
+// The shell puts a warrior's name through this before it shows it, and an
+// underscore counts as a trailing space the way it does going the other way
+// in strToPlayerName.
+ConsoleFunction( stripTrailingSpaces, const char*, 2, 2, "stripTrailingSpaces( string )" )
+{
+   TORQUE_UNUSED(argc);
+
+   S32 len = dStrlen( argv[1] );
+
+   while ( len >= 1 && ( argv[1][len - 1] == ' ' || argv[1][len - 1] == '_' ) )
+      len--;
+
+   if ( !len )
+      return( "" );
+
+   char *ret = Con::getReturnBuffer( len + 1 );
+   dStrncpy( ret, argv[1], len );
+   ret[ len ] = '\0';
+
+   return( ret );
+}
+
 ConsoleFunctionGroupBegin( Platform , "General platform functions.");
 
 ConsoleFunction( lockMouse, void, 2, 2, "(bool isLocked)"
