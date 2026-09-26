@@ -292,9 +292,6 @@ void ShellTabGroupCtrl::addTab( S32 id, const char *text, S32 set )
 
    mTabs.push_back( tab );
 
-   if ( mSelected == -1 )
-      setSelectedByIndex( mTabs.size() - 1 );
-
    setUpdate();
 }
 
