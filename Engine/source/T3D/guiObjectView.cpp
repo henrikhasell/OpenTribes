@@ -525,6 +525,10 @@ void GuiObjectView::renderWorld( const RectI& updateRect )
       false
    );
 
+   // HH: Modified for Tribes 2 compatibility.
+   // A shell screen has no scene to take an ambient term from.
+   state.setAmbientLightColor( mLightAmbient );
+
    // Set up our TS render state here.   
    TSRenderState rdata;
    rdata.setSceneState( &state );

@@ -23,9 +23,8 @@ ConsoleDocClass( GuiPlayerView,
 
 GuiPlayerView::GuiPlayerView()
 {
-   mLightColor.set( 0.9f, 0.9f, 0.9f );
-   mLightAmbient.set( 0.5f, 0.5f, 0.5f );
-   mLightDirection.set( 0.f, 0.7f, -0.7f );
+   mLightColor.set( 0.f, 0.f, 0.f );
+   mLightAmbient.set( 1.f, 1.f, 1.f );
 
    mOrbitDist = 3.5f;
 }
