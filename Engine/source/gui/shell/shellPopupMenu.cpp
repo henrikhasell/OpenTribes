@@ -155,6 +155,11 @@ void ShellPopupMenu::addChildren()
    ShellScrollCtrl *scroll = new ShellScrollCtrl;
 
    scroll->setControlProfile( mProfile );
+
+   // A shell scroll control skins itself off a stem, and the one it defaults
+   // to is the entry field's border -- a different control's.  Point it at
+   // the menu's own art, which is the texture Tribes 2 hands its drop-down's
+   // container, and the panel gets the pulldown's fill and edges.
    scroll->setField( "fieldBase", mButtonBitmap );
    scroll->setField( "hScrollBar", "AlwaysOff" );
    scroll->setField( "vScrollBar", "dynamic" );
@@ -162,6 +167,62 @@ void ShellPopupMenu::addChildren()
    mSc = scroll;
 
    mBackground = new GuiPopUpBackgroundCtrl( this, mTl );
+}
+
+void ShellPopupMenu::onAction()
+{
+   Parent::onAction();
+
+   GuiControl *parent = getParent();
+
+   if ( !mSc || !mTl || !mBackground || !parent )
+      return;
+
+   // gui/shll_pulldown carries the control's glow as clear pixels down its
+   // outside edges, so the button the player sees is smaller than the control
+   // holding it: four clear columns at the left, six at the right and twelve
+   // clear rows under the face.  Tribes 2 hangs the list off the face rather
+   // than off the control, which is what keeps it no wider than the button
+   // and joined to its bottom edge instead of floating below it.
+   enum { MarginLeft = 4, MarginX = 10, MarginBottom = 12 };
+
+   const Point2I at =
+      mBackground->globalToLocalCoord( parent->localToGlobalCoord( getPosition() ) );
+
+   RectI bounds = mSc->getBounds();
+
+   // Which way the menu opened is Torque's decision and stands; the list just
+   // meets whichever edge of the button it was put against.
+   const bool above = bounds.point.y < at.y;
+
+   bounds.extent.x = getMax( getWidth() - MarginX, 1 );
+   bounds.point.x = at.x + MarginLeft;
+   bounds.point.y = above ? at.y - bounds.extent.y + MarginBottom
+                          : at.y + getHeight() - MarginBottom;
+
+   mSc->resize( bounds.point, bounds.extent );
+
+   // The rows were sized for the width Torque picked, so they have to be told
+   // about the narrower one or they run out past the panel.
+   const S32 inner = mSc->getContentExtent().x - mSc->getChildMargin().x * 2;
+
+   if ( inner > 0 )
+   {
+      Point2I cell;
+      mTl->getCellSize( cell );
+      cell.x = inner;
+
+      // Resizing the list drops whatever was selected, and which entry that
+      // is has already been settled -- including the reversal a menu that
+      // opens upward does -- so put it back rather than work it out again.
+      const Point2I selected = mTl->getSelectedCell();
+
+      mTl->setCellSize( cell );
+      mTl->setWidth( inner );
+
+      if ( selected.y >= 0 )
+         mTl->setSelectedCell( selected );
+   }
 }
 
 void ShellPopupMenu::onRender( Point2I offset, const RectI &updateRect )
