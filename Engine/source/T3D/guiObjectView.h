@@ -32,6 +32,7 @@
 
 
 class LightInfo;
+class RenderPassManager;
 
 
 /// A control that displays a TSShape in its view.
@@ -153,6 +154,12 @@ class GuiObjectView : public GuiTSCtrl
       Point3F mLightDirection;
       
       /// @}
+
+      /// HH: Modified for Tribes 2 compatibility.
+      /// The bins the shape is drawn through.  The scene's default is put
+      /// together by a script, which a game that is not Torque 3D's own does
+      /// not have.
+      virtual RenderPassManager* getRenderPass() const;
 
       ///
       void _initAnimation();
