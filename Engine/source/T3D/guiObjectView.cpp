@@ -535,6 +535,11 @@ void GuiObjectView::renderWorld( const RectI& updateRect )
    query.init( SphereF( Point3F::Zero, 1.0f ) );
    rdata.setLightQuery( &query );
 
+   // HH: Modified for Tribes 2 compatibility.
+   // The model stands at the origin; the camera went on twice without this.
+   GFX->pushWorldMatrix();
+   GFX->setWorldMatrix( MatrixF::Identity );
+
    // Render primary model.
 
    if( mModel )
@@ -560,6 +565,8 @@ void GuiObjectView::renderWorld( const RectI& updateRect )
 
       GFX->popWorldMatrix();
    }
+
+   GFX->popWorldMatrix();
 
    renderPass->renderPass( &state );
 

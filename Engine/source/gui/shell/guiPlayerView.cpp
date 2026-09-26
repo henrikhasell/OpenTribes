@@ -73,10 +73,14 @@ RenderPassManager *GuiPlayerView::getRenderPass() const
 
 bool GuiPlayerView::processCameraQuery( CameraQuery *query )
 {
+   if ( mModel )
+      mOrbitDist = mClampF( mOrbitDist, mModel->getShape()->radius, 5.f );
+
    if ( !Parent::processCameraQuery( query ) )
       return false;
 
-   query->fov = mDegToRad( 45.f );
+   query->nearPlane = 0.1f;
+   query->fov = 0.8975979f;
 
    return true;
 }
