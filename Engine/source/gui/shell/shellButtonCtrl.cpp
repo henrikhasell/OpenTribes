@@ -83,11 +83,7 @@ void ShellBitmapButton::onRender( Point2I offset, const RectI &updateRect )
 
       draw->setBitmapModulation( color );
 
-      // The offset is a margin, so it comes off both sides: the label is
-      // centred across what it leaves rather than across the whole button.
-      // Down the button it is the offset alone that places the label -- the
-      // shell's own buttons write it "0 10" -- and centring under that put
-      // the label a row below where stock has it.
+      // The offset is a margin, so it comes off both sides.
       renderJustifiedText( offset + mProfile->mTextOffset,
                            getExtent() - mProfile->mTextOffset * 2, mButtonText, false );
       draw->clearBitmapModulation();
@@ -513,10 +509,7 @@ void ShellTabGroupCtrl::onRender( Point2I offset, const RectI &updateRect )
             color = set ? set->fontColorHL : mProfile->mFontColorHL;
 
          // The open tab's label sits a pixel down and right of where the
-         // others sit, the way a pressed button's does.  The offset places it
-         // across the tab and says nothing about where it sits down the face:
-         // a tab centres its label on its own height, and the offset is a
-         // margin, so it comes off both ends of the width.
+         // others sit, the way a pressed button's does.
          Point2I at = tab.point + Point2I( mProfile->mTextOffset.x, 0 );
          if ( i == mSelected )
             at += Point2I( 1, 1 );

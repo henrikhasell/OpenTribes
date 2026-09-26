@@ -231,10 +231,6 @@ void GuiTextCtrl::onRender(Point2I offset, const RectI &updateRect)
    renderBorder( RectI( offset, getExtent() ), mProfile );
 
    GFX->getDrawUtil()->setBitmapModulation( mProfile->mFontColor );
-   // HH: Modified for Tribes 2 compatibility.
-   // A label is drawn from the top of its box, not centred in it.  The shell
-   // writes its labels in boxes four pixels taller than their font, so
-   // centring put every one of them two rows below where stock has it.
    renderJustifiedText(offset, getExtent(), (char*)mText, false);
 
    //render the child controls

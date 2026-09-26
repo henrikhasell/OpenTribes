@@ -614,10 +614,6 @@ void GuiControl::renderJustifiedText(Point2I offset, Point2I extent, const char 
    if( !font )
       return;
 
-   // HH: Modified for Tribes 2 compatibility.
-   // Justify against the advance the string actually takes, not the ink it
-   // leaves: trimming the last glyph's bearing moves right- and
-   // centre-justified text two pixels off where Tribes 2 puts it.
    S32 textWidth = font->getStrWidth((const UTF8*)text);
    U32 textHeight = font->getHeight();
 
@@ -651,10 +647,6 @@ void GuiControl::renderJustifiedText(Point2I offset, Point2I extent, const char 
    
    // Align vertical.
 
-   // HH: Modified for Tribes 2 compatibility.
-   // A caller that places its own text asks for the top of the box: Tribes 2
-   // draws from there and lets the profile's textOffset say where the text
-   // goes, and centring on top of that puts it low.
    if( !centerVertically )
       start.y = 0;
    else if( textHeight > extent.y )
@@ -667,11 +659,11 @@ void GuiControl::renderJustifiedText(Point2I offset, Point2I extent, const char 
          case GuiControlProfile::TopJustify:
             start.y = 0;
             break;
-
+            
          case GuiControlProfile::BottomJustify:
             start.y = extent.y - textHeight - 1;
             break;
-
+            
          default:
             // Center vertical.
             start.y = ( extent.y - font->getHeight() ) / 2;
