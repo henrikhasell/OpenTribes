@@ -180,11 +180,11 @@ void ShellPopupMenu::onAction()
 
    // gui/shll_pulldown carries the control's glow as clear pixels down its
    // outside edges, so the button the player sees is smaller than the control
-   // holding it: four clear columns at the left, six at the right and twelve
-   // clear rows under the face.  Tribes 2 hangs the list off the face rather
-   // than off the control, which is what keeps it no wider than the button
-   // and joined to its bottom edge instead of floating below it.
-   enum { MarginLeft = 4, MarginX = 10, MarginBottom = 12 };
+   // holding it: its face starts eight columns in, stops ten short, and
+   // leaves twelve rows clear underneath.  Tribes 2 hangs the list off the
+   // face rather than off the control, which is what keeps it no wider than
+   // the button and joined to its bottom edge instead of floating below it.
+   enum { FaceLeft = 8, FaceRight = 10, FaceBottom = 12 };
 
    const Point2I at =
       mBackground->globalToLocalCoord( parent->localToGlobalCoord( getPosition() ) );
@@ -195,10 +195,15 @@ void ShellPopupMenu::onAction()
    // meets whichever edge of the button it was put against.
    const bool above = bounds.point.y < at.y;
 
-   bounds.extent.x = getMax( getWidth() - MarginX, 1 );
-   bounds.point.x = at.x + MarginLeft;
-   bounds.point.y = above ? at.y - bounds.extent.y + MarginBottom
-                          : at.y + getHeight() - MarginBottom;
+   // The container insets its own frame inside its bounds, so the bounds have
+   // to be let out by that much for the frame to land on the button's face
+   // rather than beside it.
+   const S32 frame = mSc->getBorderThickness();
+
+   bounds.extent.x = getMax( getWidth() - FaceLeft - FaceRight + frame * 2, 1 );
+   bounds.point.x = at.x + FaceLeft - frame;
+   bounds.point.y = above ? at.y - bounds.extent.y + FaceBottom
+                          : at.y + getHeight() - FaceBottom;
 
    mSc->resize( bounds.point, bounds.extent );
 
