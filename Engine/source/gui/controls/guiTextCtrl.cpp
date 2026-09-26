@@ -231,7 +231,7 @@ void GuiTextCtrl::onRender(Point2I offset, const RectI &updateRect)
    renderBorder( RectI( offset, getExtent() ), mProfile );
 
    GFX->getDrawUtil()->setBitmapModulation( mProfile->mFontColor );
-   renderJustifiedText(offset, getExtent(), (char*)mText);
+   renderJustifiedText(offset, getExtent(), (char*)mText, false);
 
    //render the child controls
    renderChildControls(offset, updateRect);
