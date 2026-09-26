@@ -712,7 +712,14 @@ void HuffmanProcessor::buildTables()
    for (i = 0; i < 256; i++) {
       HuffLeaf& rLeaf = m_huffLeaves[i];
 
-      rLeaf.pop    = csm_charFreqs[i] + 1;
+      // HH: Modified for Tribes 2 compatibility.
+      // Tribes 2 weights a letter or a digit one above the table, which
+      // reshapes the tree and so the codes on the wire.
+      const bool alnum = ( i >= '0' && i <= '9' )
+                      || ( i >= 'A' && i <= 'Z' )
+                      || ( i >= 'a' && i <= 'z' );
+
+      rLeaf.pop    = csm_charFreqs[i] + ( alnum ? 1 : 0 ) + 1;
       rLeaf.symbol = U8(i);
 
       dMemset(&rLeaf.code, 0, sizeof(rLeaf.code));

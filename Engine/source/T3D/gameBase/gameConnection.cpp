@@ -50,8 +50,10 @@
 
 #define ControlRequestTime 5000
 
-const U32 GameConnection::CurrentProtocolVersion = 12;
-const U32 GameConnection::MinRequiredProtocolVersion = 12;
+// HH: Modified for Tribes 2 compatibility.
+// What a Tribes 2 server requires of a client before it will answer it.
+const U32 GameConnection::CurrentProtocolVersion = 51;
+const U32 GameConnection::MinRequiredProtocolVersion = 51;
 
 //----------------------------------------------------------------------------
 

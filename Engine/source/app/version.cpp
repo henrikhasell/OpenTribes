@@ -31,6 +31,11 @@ U32 getVersionNumber()
    return csgVersionNumber;
 }
 
+U32 getT2VersionNumber()
+{
+   return TRIBES2_BUILD_NUMBER;
+}
+
 const char* getVersionString()
 {
    return TORQUE_GAME_ENGINE_VERSION_STRING;
@@ -87,6 +92,12 @@ ConsoleFunction( getVersionString, const char*, 1, 1, "Get the version of the bu
 				"@ingroup Debugging")
 {
    return getVersionString();
+}
+
+ConsoleFunction( getT2VersionNumber, S32, 1, 1, "getT2VersionNumber()" )
+{
+   TORQUE_UNUSED(argc); TORQUE_UNUSED(argv);
+   return getT2VersionNumber();
 }
 
 ConsoleFunction( getEngineName, const char*, 1, 1, "Get the name of the engine product that this is running from, as a string.\n\n"
