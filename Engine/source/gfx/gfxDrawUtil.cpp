@@ -616,12 +616,7 @@ void GFXDrawUtil::drawLine( F32 x1, F32 y1, F32 z1, F32 x2, F32 y2, F32 z2, cons
 
    mDevice->setVertexBuffer( verts );
    mDevice->setStateBlock( mRectFillSB );
-   // HH: Modified for Tribes 2 compatibility.
-   // Every other primitive here binds the generic shader before it draws.
-   // This one did not, so a line came out under whatever the last draw had
-   // left bound and vanished whenever that was a transparent texel -- which
-   // is what happened to a text edit's caret with no text in front of it to
-   // leave the font sheet bound.
+
    mDevice->setupGenericShaders();
    mDevice->drawPrimitive( GFXLineList, 0, 1 );
 }
