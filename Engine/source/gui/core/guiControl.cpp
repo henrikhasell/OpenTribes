@@ -613,7 +613,11 @@ void GuiControl::renderJustifiedText(Point2I offset, Point2I extent, const char 
    if( !font )
       return;
 
-   S32 textWidth = font->getStrWidthPrecise((const UTF8*)text);
+   // HH: Modified for Tribes 2 compatibility.
+   // Justify against the advance the string actually takes, not the ink it
+   // leaves: trimming the last glyph's bearing moves right- and
+   // centre-justified text two pixels off where Tribes 2 puts it.
+   S32 textWidth = font->getStrWidth((const UTF8*)text);
    U32 textHeight = font->getHeight();
 
    Point2I start( 0, 0 );
@@ -645,27 +649,23 @@ void GuiControl::renderJustifiedText(Point2I offset, Point2I extent, const char 
       }
    
    // Align vertical.
-
-   if( textHeight > extent.y )
+   //
+   // HH: Modified for Tribes 2 compatibility.
+   // Torque centres the text in the box.  Tribes 2 never did: it draws from
+   // the top and lets whoever placed the text say where it goes, which is
+   // what a profile's textOffset is for.  Centring on top of that drops a
+   // shell label two pixels and a button's caption one, because their boxes
+   // are taller than the font by those amounts.
+   switch( mProfile->mAlignment )
    {
-      start.y = 0 - ( textHeight - extent.y ) / 2;
+      case GuiControlProfile::BottomJustify:
+         start.y = extent.y - textHeight - 1;
+         break;
+
+      default:
+         start.y = 0;
+         break;
    }
-   else
-      switch( mProfile->mAlignment )
-      {
-         case GuiControlProfile::TopJustify:
-            start.y = 0;
-            break;
-            
-         case GuiControlProfile::BottomJustify:
-            start.y = extent.y - textHeight - 1;
-            break;
-            
-         default:
-            // Center vertical.
-            start.y = ( extent.y - font->getHeight() ) / 2;
-            break;
-      }
 
    GFX->getDrawUtil()->drawText( font, start + offset, text, mProfile->mFontColors );
 }
