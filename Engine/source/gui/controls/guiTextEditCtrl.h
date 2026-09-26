@@ -150,7 +150,7 @@ public:
    void onRender(Point2I offset, const RectI &updateRect);
    /// HH: Modified for Tribes 2 compatibility.
    /// centerVertically false starts the text at the top of drawRect instead
-   /// of centring it there, which is how Tribes 2 draws a shell entry field.
+   /// of centring it there.
    virtual void drawText( const RectI &drawRect, bool isFocused,
                           bool centerVertically = true );
 
