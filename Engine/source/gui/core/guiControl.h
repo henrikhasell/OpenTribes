@@ -808,7 +808,8 @@ class GuiControl : public SimGroup
       /// Renders justified text using the profile.
       ///
       /// @note This should move into the graphics library at some point
-      void renderJustifiedText(Point2I offset, Point2I extent, const char *text);
+      void renderJustifiedText(Point2I offset, Point2I extent, const char *text,
+                               bool centerVertically = true);
       
       /// Returns text clipped to fit within a pixel width. The clipping 
       /// occurs on the right side and "..." is appended.  It returns width

@@ -605,7 +605,8 @@ void GuiControl::setUpdate()
 
 //-----------------------------------------------------------------------------
 
-void GuiControl::renderJustifiedText(Point2I offset, Point2I extent, const char *text)
+void GuiControl::renderJustifiedText(Point2I offset, Point2I extent, const char *text,
+                                     bool centerVertically)
 {
    GFont *font = mProfile->mFont;
    // HH: Modified for Tribes 2 compatibility.
@@ -613,7 +614,7 @@ void GuiControl::renderJustifiedText(Point2I offset, Point2I extent, const char 
    if( !font )
       return;
 
-   S32 textWidth = font->getStrWidthPrecise((const UTF8*)text);
+   S32 textWidth = font->getStrWidth((const UTF8*)text);
    U32 textHeight = font->getHeight();
 
    Point2I start( 0, 0 );
@@ -646,7 +647,9 @@ void GuiControl::renderJustifiedText(Point2I offset, Point2I extent, const char 
    
    // Align vertical.
 
-   if( textHeight > extent.y )
+   if( !centerVertically )
+      start.y = 0;
+   else if( textHeight > extent.y )
    {
       start.y = 0 - ( textHeight - extent.y ) / 2;
    }
