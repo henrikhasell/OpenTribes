@@ -110,7 +110,6 @@
 // cafTODO: breaks T2D
 #include "T3D/gameBase/gameConnection.h"
 
-// This is basically the server query protocol version now:
 // HH: Modified for Tribes 2 compatibility.
 // What Tribes 2 answers a ping with; a server that says anything else is
 // dropped as a different game.
