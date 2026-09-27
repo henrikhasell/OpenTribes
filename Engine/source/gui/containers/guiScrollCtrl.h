@@ -192,6 +192,12 @@ class GuiScrollCtrl : public GuiContainer
       // Tribes 2's scroll art slices into thirteen rects, not thirty-nine.
       bool splitBitmapStates();
 
+      // HH: Modified for Tribes 2 compatibility.
+      /// How far in from the control's own edge the content rect and the
+      /// bars sit.  Torque reads it off the profile; Tribes 2's profile has
+      /// no such field and the number belongs to the control.
+      virtual S32 borderThickness() const;
+
       virtual bool calcChildExtents();
       virtual void calcScrollRects(void);
       void calcThumbs();
@@ -235,7 +241,10 @@ class GuiScrollCtrl : public GuiContainer
       Point2I getChildExtent() { return mChildExt; }
       Point2I getContentExtent() { return mContentExt; }
       Point2I getChildMargin() { return mChildMargin; } //  Added to aid in sizing calculations
-      S32 getBorderThickness(void) { return mBorderThickness; }
+      // HH: Modified for Tribes 2 compatibility.
+      // The control's own inset, which is not always the profile's.
+      S32 getBorderThickness(void) { return borderThickness(); }
+      void setBorderThickness( S32 thickness ) { mBorderThickness = thickness; }
       S32 scrollBarThickness() const                        { return(mScrollBarThickness); }
       S32 scrollBarArrowBtnLength() const                   { return(mScrollBarArrowBtnLength); }
       bool hasHScrollBar() const                            { return(mHasHScrollBar); }

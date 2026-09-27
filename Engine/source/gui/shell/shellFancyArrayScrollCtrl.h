@@ -27,11 +27,14 @@ class ShellFancyArrayScrollCtrl : public GuiControl
    SimObjectPtr< ShellFancyArray > mArray;
    SimObjectPtr< VirtualScrollCtrl > mScroll;
 
-   Point2I mArrayMargin;
-   Point2I mScrollPos;
-   Point2I mScrollMargin;
+   Point2I mContentSize;
+   Point2I mOffset;
+
+   GuiControl *contents() const;
 
    void arrange();
+
+   void sync();
 
 public:
    ShellFancyArrayScrollCtrl();
@@ -51,6 +54,7 @@ public:
    bool resize( const Point2I &position, const Point2I &extent );
    void childResized( GuiControl *child );
 
+   void onPreRender();
    void onRender( Point2I offset, const RectI &updateRect );
 };
 
