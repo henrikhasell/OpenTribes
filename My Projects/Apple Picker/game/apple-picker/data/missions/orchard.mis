@@ -3,7 +3,7 @@ new SimGroup(MissionGroup) {
 
    new ScriptObject(MissionInfo) {
          desc0 = "Five apples on a flat plain.  Walk over all five.";
-         name = "The Orchard";
+         levelName = "The Orchard";
    };
    new MissionArea(MissionArea) {
       Area = "-360 -648 720 1296";

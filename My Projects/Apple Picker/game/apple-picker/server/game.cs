@@ -71,6 +71,27 @@ function onMissionEnded()
 
 function onMissionReset() { }
 
+// The name and description the loading screen shows.
+//
+// buildLoadInfo() reads either of the two blocks a mission can carry its load
+// info in -- Torque 3D's LevelInfo(theLevelInfo) or TGE's
+// ScriptObject(MissionInfo) -- but what it leaves behind is named after
+// whichever it found, and core's version of this only ever looks for the first.
+// This game's missions carry the second, so it has to look for both.
+function sendLoadInfoToClient(%client)
+{
+   %info = theLevelInfo;
+   if (!isObject(%info))
+      %info = MissionInfo;
+
+   messageClient(%client, 'MsgLoadInfo', "", %info.levelName);
+
+   for (%i = 0; %info.desc[%i] !$= ""; %i++)
+      messageClient(%client, 'MsgLoadDescripition', "", %info.desc[%i]);
+
+   messageClient(%client, 'MsgLoadInfoDone');
+}
+
 // The clearCenterPrintAll/clearBottomPrintAll stubs this file used to carry are
 // gone: core/scripts/server/centerPrint.cs defines both, and initBaseServer()
 // execs it.
