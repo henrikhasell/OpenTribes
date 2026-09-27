@@ -118,15 +118,9 @@ function ChooseLevelDlg::onWake( %this )
       // Find the preview image
       %levelPreview = filePath(%file) @ "/" @ fileBase(%file) @ "_preview";
 
-      // Test against all of the different image formats
-      // This should probably be moved into an engine function
-      if (isFile(%levelPreview @ ".png") ||
-          isFile(%levelPreview @ ".jpg") ||
-          isFile(%levelPreview @ ".bmp") ||
-          isFile(%levelPreview @ ".gif") ||
-          isFile(%levelPreview @ ".jng") ||
-          isFile(%levelPreview @ ".mng") ||
-          isFile(%levelPreview @ ".tga"))
+      // A preview is a texture and so does not live where it is named; only
+      // the engine knows where to look, and which extensions it can read.
+      if (isImageFile(%levelPreview))
       {
          %preview.setBitmap(%levelPreview);
       }
