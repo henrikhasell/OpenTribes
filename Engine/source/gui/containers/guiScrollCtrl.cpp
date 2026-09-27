@@ -382,12 +382,23 @@ void GuiScrollCtrl::addObject(SimObject *object)
 
 //-----------------------------------------------------------------------------
 
+// HH: Modified for Tribes 2 compatibility.
+S32 GuiScrollCtrl::borderThickness() const
+{
+   return mProfile ? mProfile->mBorderThickness : 1;
+}
+
+//-----------------------------------------------------------------------------
+
 GuiControl* GuiScrollCtrl::findHitControl(const Point2I &pt, S32 initialLayer)
 {
-   if(pt.x < mProfile->mBorderThickness || pt.y < mProfile->mBorderThickness)
+   // HH: Modified for Tribes 2 compatibility.
+   const S32 thickness = borderThickness();
+
+   if(pt.x < thickness || pt.y < thickness)
       return this;
-   if(pt.x >= getWidth() - mProfile->mBorderThickness - (mHasVScrollBar ? mScrollBarThickness : 0) ||
-      pt.y >= getHeight() - mProfile->mBorderThickness - (mHasHScrollBar ? mScrollBarThickness : 0))
+   if(pt.x >= getWidth() - thickness - (mHasVScrollBar ? mScrollBarThickness : 0) ||
+      pt.y >= getHeight() - thickness - (mHasHScrollBar ? mScrollBarThickness : 0))
       return this;
    return Parent::findHitControl(pt, initialLayer);
 }
@@ -396,7 +407,8 @@ GuiControl* GuiScrollCtrl::findHitControl(const Point2I &pt, S32 initialLayer)
 
 void GuiScrollCtrl::computeSizes()
 {
-   S32 thickness = (mProfile ? mProfile->mBorderThickness : 1);
+   // HH: Modified for Tribes 2 compatibility.
+   S32 thickness = borderThickness();
    Point2I borderExtent(thickness, thickness);
    mContentPos = borderExtent + mChildMargin;
    mContentExt = getExtent() - (mChildMargin * 2)
@@ -520,7 +532,8 @@ void GuiScrollCtrl::computeSizes()
 
 void GuiScrollCtrl::calcScrollRects(void)
 {
-   S32 thickness = ( mProfile ? mProfile->mBorderThickness : 1 );
+   // HH: Modified for Tribes 2 compatibility.
+   S32 thickness = borderThickness();
    if (mHasHScrollBar)
    {
       mLeftArrowRect.set(thickness,
