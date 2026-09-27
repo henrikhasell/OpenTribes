@@ -277,10 +277,10 @@ NetSocket Net::openListenPort( U16 port )
 
 NetSocket Net::openConnectTo( const char *addressString )
 {
-   if ( dStrncmp( addressString, "ipx:", 4 ) == 0 )
+   if ( dStrnicmp( addressString, "ipx:", 4 ) == 0 )
       return InvalidSocket;
 
-   if ( dStrncmp( addressString, "ip:", 3 ) == 0 )
+   if ( dStrnicmp( addressString, "ip:", 3 ) == 0 )
       addressString += 3;
 
    char remoteAddr[ 256 ];
