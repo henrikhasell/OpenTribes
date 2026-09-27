@@ -18,6 +18,10 @@ function initClient()
    // the ordering note in main.cs).  So the Canvas, GuiDefaultProfile and
    // MessageBoxOK all exist already and there is nothing to do for them.
 
+   // The window and button art, restated over core's before anything wakes a
+   // control on them.
+   exec("./guiProfiles.cs");
+
    // PlayGui is what the game runs in.
    //
    // applePicker.cs first: it defines the two profiles PlayGui.gui names for the
