@@ -37,6 +37,12 @@ function initClient()
    exec("./loadingGui.cs");
    exec("./ui/LoadingGui.gui");
 
+   // The main menu, and the server browser its Join button opens.  Same order
+   // again: the .cs declares the profiles the .gui names.
+   exec("./mainMenu.cs");
+   exec("./ui/MainMenuGui.gui");
+   exec("./ui/JoinServerDlg.gui");
+
    // Client scripts.
    exec("./missionDownload.cs");
    exec("./serverConnection.cs");
@@ -56,17 +62,20 @@ function initClient()
    initTelnetConsole();
 
    //--------------------------------------------------------------------------
-   // Boot straight into the game.  startMission() puts LoadingGui on the Canvas
-   // before it creates the server, so the load is covered by a 2D control from
-   // its first frame; PlayGui only appears once the mission has finished
-   // arriving.
+   // Open on the menu.  startMission() is still what starts a game, from the
+   // level list behind Host Game; it puts LoadingGui on the Canvas before it
+   // creates the server, so the load is covered by a 2D control from its first
+   // frame, and PlayGui only appears once the mission has finished arriving.
    $Game::DefaultMission = "apple-picker/data/missions/orchard.mis";
 
    // -worldEditor and -guiEditor set their own Canvas content once the root
    // main.cs returns from onStart(), and the tools package initializes after
-   // this function does.  Starting the mission here would race both.
-   if (!$startWorldEditor && !$startGUIEditor)
-      startMission();
+   // this function does.  Either one wants the mission open rather than the
+   // menu, and starting it here would race both.
+   if ($startWorldEditor || $startGUIEditor)
+      return;
+
+   mainMenuOpen();
 }
 
 

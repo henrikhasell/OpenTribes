@@ -115,12 +115,13 @@ function disconnect()
 
 function disconnectedCleanup()
 {
-   // Deliberately does NOT touch the Canvas.  There is no main menu to fall
-   // back to -- the stock kits' Canvas.setContent(MainMenuGui) here would error
-   // every run.
-   //
    // alxStopAll() is TGE's; this engine's sound system is SFX.  TGE's
    // clearTextureHolds() and purgeResources() are both gone: the resource
    // manager here reference-counts and drops on its own.
    sfxStopAll();
+
+   // Back to the menu, which is where every kit puts this and where this game
+   // could not until it had one.  PlayGui must not be left on the Canvas with
+   // no connection behind it.
+   mainMenuOpen();
 }

@@ -1,0 +1,85 @@
+//--- OBJECT WRITE BEGIN ---
+new GuiControl(MainMenuGui) {
+   profile = "MainMenuProfile";
+   horizSizing = "width";
+   vertSizing = "height";
+   position = "0 0";
+   extent = "640 480";
+   minExtent = "8 8";
+   visible = "1";
+
+   new GuiControl(MainMenuPanel) {
+      profile = "MainMenuPanelProfile";
+      horizSizing = "center";
+      vertSizing = "center";
+      position = "208 120";
+      extent = "224 240";
+      minExtent = "8 8";
+      visible = "1";
+
+      new GuiTextCtrl(MainMenuTitle) {
+         profile = "MainMenuTitleProfile";
+         horizSizing = "width";
+         vertSizing = "bottom";
+         position = "0 20";
+         extent = "224 32";
+         minExtent = "8 8";
+         visible = "1";
+         text = "Apple Picker";
+         maxLength = "255";
+      };
+
+      new GuiButtonCtrl(MainMenuHostBtn) {
+         profile = "GuiButtonProfile";
+         horizSizing = "center";
+         vertSizing = "bottom";
+         position = "32 80";
+         extent = "160 28";
+         minExtent = "8 8";
+         visible = "1";
+         command = "Canvas.pushDialog(ChooseLevelDlg);";
+         text = "Host Game...";
+         buttonType = "PushButton";
+      };
+
+      new GuiButtonCtrl(MainMenuJoinBtn) {
+         profile = "GuiButtonProfile";
+         horizSizing = "center";
+         vertSizing = "bottom";
+         position = "32 116";
+         extent = "160 28";
+         minExtent = "8 8";
+         visible = "1";
+         command = "Canvas.pushDialog(JoinServerDlg);";
+         text = "Join Game...";
+         buttonType = "PushButton";
+      };
+
+      new GuiButtonCtrl(MainMenuOptionsBtn) {
+         profile = "GuiButtonProfile";
+         horizSizing = "center";
+         vertSizing = "bottom";
+         position = "32 152";
+         extent = "160 28";
+         minExtent = "8 8";
+         visible = "1";
+         command = "Canvas.pushDialog(OptionsDlg);";
+         text = "Options...";
+         buttonType = "PushButton";
+      };
+
+      new GuiButtonCtrl(MainMenuQuitBtn) {
+         profile = "GuiButtonProfile";
+         horizSizing = "center";
+         vertSizing = "bottom";
+         position = "32 196";
+         extent = "160 28";
+         minExtent = "8 8";
+         visible = "1";
+         command = "quit();";
+         text = "Quit";
+         buttonType = "PushButton";
+      };
+   };
+};
+//--- OBJECT WRITE END ---
