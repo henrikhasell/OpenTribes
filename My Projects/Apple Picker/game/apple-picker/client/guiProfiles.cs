@@ -1,5 +1,5 @@
 //-----------------------------------------------------------------------------
-// The window, the button and the entry field the game's dialogs are drawn from.
+// The window, button, entry field and slider the game's dialogs are drawn from.
 //
 // All three carry the look this game has on the engine it came from rather than
 // the Torque 3D set core/art/gui/profiles.cs points at.  Only the window is a
@@ -14,7 +14,7 @@
 // re-declaration and would fail.  client/init.cs execs this before anything
 // wakes a control on any of them, so what is named here is what gets read.
 //
-// The editors take the same three profiles, so their chrome follows.
+// The editors take the same four profiles, so their chrome follows.
 //-----------------------------------------------------------------------------
 
 singleton GuiControlProfile (GuiWindowProfile)
@@ -89,4 +89,17 @@ singleton GuiControlProfile (GuiTextEditProfile)
    autoSizeHeight = true;
    tab = true;
    canKeyFocus = true;
+};
+
+// The slider has no art over there at all -- its profile is declared and left
+// empty, and the control draws a rule, its tick marks and a raised thumb.  This
+// engine does the same whenever the profile names no bitmap
+// (guiSliderCtrl.cpp:432), so clearing core's images/slider is the whole of it.
+// The two colours are the thumb's, through renderRaisedBox.
+singleton GuiControlProfile (GuiSliderProfile)
+{
+   bitmap = "";
+   hasBitmapArray = false;
+   fillColor = "192 192 192";
+   borderColor = "0 0 0";
 };
