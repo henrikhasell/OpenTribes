@@ -17,4 +17,4 @@ release:
 run dir=gamedata:
     cp "{{game}}/OpenTribes" "{{dir}}/OpenTribes"
     ln -sfn "{{shaders}}" "{{dir}}/shaders"
-    cd "{{dir}}" && ./OpenTribes -mod base
+    cd "{{dir}}" && ./OpenTribes -nologin -mod base
