@@ -73,13 +73,9 @@ const ShellChatMemberList::Style *ShellChatMemberList::styleFor( S32 row ) const
 
 ColorI ShellChatMemberList::runColor( S32 run, S32 state, const Style *style ) const
 {
-   // A style that names a colour for this state paints the whole row in it,
-   // nick and tribe alike.
    if ( style && style->given[ state ] )
       return style->color[ state ];
 
-   // Otherwise the profile carries three colours per state: a plain one, then
-   // the nick's and the tribe's out of the fontColors table.
    static const U32 nick[ StateCount ] = { 4, 5, 6 };
    static const U32 tribe[ StateCount ] = { 7, 8, 9 };
 
@@ -117,8 +113,6 @@ void ShellChatMemberList::onRenderCell( Point2I offset, Point2I cell,
 
    if ( style )
    {
-      // The badges hang off the right-hand end of the row, at the two fixed
-      // insets the binary uses rather than anywhere the art decides.
       if ( style->left )
          draw->drawBitmap( style->left,
             Point2I( offset.x + mCellSize.x - 0x24, offset.y ) );
@@ -150,7 +144,6 @@ void ShellChatMemberList::onRenderCell( Point2I offset, Point2I cell,
       if ( !open )
          break;
 
-      // Anything ahead of the first section is the row's own text.
       if ( open != at )
       {
          draw->setBitmapModulation( runColor( RunPlain, state, style ) );
@@ -158,9 +151,6 @@ void ShellChatMemberList::onRenderCell( Point2I offset, Point2I cell,
                                    mProfile->mFontColors );
       }
 
-      // "<tribe:" then one digit then ">" -- the digit is which set of
-      // colours the section takes, not where it goes.  Script writes the
-      // sections in the order it wants them read.
       const S32 run = open[ 7 ] == '1' ? RunTribe : RunNick;
 
       const char *body = open + 9;

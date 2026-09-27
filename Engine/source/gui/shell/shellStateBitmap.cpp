@@ -15,10 +15,6 @@ ShellStateBitmap::ShellStateBitmap()
 
 void ShellStateBitmap::update( GuiControlProfile *profile )
 {
-   // bitmapBase wins over bitmap.  A profile that names a family is the only
-   // one that named anything: GuiControlProfile copies mBitmapName down from
-   // GuiDefaultProfile, so every shell profile appears to carry a window frame
-   // it never asked for.
    if ( !profile )
       return;
 
@@ -101,15 +97,12 @@ void ShellStateBitmap::draw( S32 state, const RectI &bounds ) const
 
    const S32 span = bounds.extent.x - left.extent.x - right.extent.x;
 
-   // Too narrow to carry both caps: stretch the middle over the whole of it
-   // rather than drawing caps that overlap.
    if ( span <= 0 )
    {
       draw->drawBitmapStretchSR( mTexture, bounds, middle );
       return;
    }
 
-   // The caps are drawn at the size they were drawn at; only the middle gives.
    draw->drawBitmapSR( mTexture, bounds.point, left );
 
    draw->drawBitmapStretchSR( mTexture,

@@ -9,13 +9,6 @@
 #include "gui/shell/shellSkin.h"
 #endif
 
-/// Tribes 2's list of rows.
-///
-/// A row is drawn from art rather than from a filled border: the profile's
-/// stem carries `_rol` and `_act`, one bar the width of the list stretched
-/// under the row the mouse is on and one under the row that is chosen.  There
-/// is no grid in either of them -- the whole bitmap is the bar, which is why
-/// nothing here slices.
 class ShellTextList : public GuiTextListCtrl
 {
    typedef GuiTextListCtrl Parent;

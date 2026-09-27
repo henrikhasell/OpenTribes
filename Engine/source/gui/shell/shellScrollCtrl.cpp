@@ -85,9 +85,6 @@ bool ShellScrollCtrl::onWake()
 
    if ( mVert.ready )
    {
-      // The thumb's caps and the arrows are drawn a little proud of the track,
-      // so what the control has to reserve for them is the art less that
-      // overhang at each end.
       mBaseThumbSize = mVert.thumbPiece( 0, Resting ).extent.y
                      + mVert.thumbPiece( 2, Resting ).extent.y
                      - mOverhang * 2;
@@ -137,8 +134,6 @@ void ShellScrollCtrl::drawVScrollBar( const Point2I &offset )
    draw->drawBitmapSR( mVert.buttons, at,
       mVert.button( 0, artState( UpArrow, mVBarEnabled ) ) );
 
-   // The track sits inside the overhang the arrows claimed, and starts below
-   // the arrow rather than below the art that overhangs it.
    const RectI &top = mVert.trackPiece( 0, mVBarEnabled );
    const RectI &mid = mVert.trackPiece( 1, mVBarEnabled );
    const RectI &bot = mVert.trackPiece( 2, mVBarEnabled );
@@ -173,8 +168,6 @@ void ShellScrollCtrl::drawVScrollBar( const Point2I &offset )
       draw->drawBitmapSR( mVert.thumb, at, capTop );
       at.y += capTop.extent.y;
 
-      // The thumb is measured without its overhang, so the run between the
-      // caps gets it back at both ends.
       const S32 body_h = mVThumbSize - capTop.extent.y - capBot.extent.y
                        + mOverhang * 2;
 
@@ -273,8 +266,6 @@ void ShellScrollCtrl::drawScrollCorner( const Point2I &offset )
 
 void ShellScrollCtrl::onRender( Point2I offset, const RectI &updateRect )
 {
-   // Torque's GuiScrollCtrl declares drawBorder virtual but never calls it,
-   // where Tribes 2's does -- so the frame is drawn here, behind the content.
    drawBorder( offset, isFirstResponder() );
 
    Parent::onRender( offset, updateRect );

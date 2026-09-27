@@ -28,9 +28,6 @@ class ShellWindowCtrl : public GuiTextCtrl
    RectI mTitleCell[ 2 ];
    RectI mCloseCell[ 3 ];
 
-   /// The stem the title tab, the close button and the corner come off.  It
-   /// is not the profile's: the binary keeps "gui/window" for these three and
-   /// takes only the fill and the gradient from the profile.
    StringTableEntry mWindowBase;
 
    bool mSliced;

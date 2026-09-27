@@ -85,9 +85,6 @@ void ShellFancyTextList::onRenderRow( const Point2I &offset, const Column &colum
    if ( !font )
       return;
 
-   // Which column's worth of the row this is comes from where the column sits,
-   // not from its key -- the key is script's handle on it and need not be an
-   // index.
    S32 which = 0;
 
    for ( U32 i = 0; i < mColumns.size(); i++ )
@@ -127,9 +124,6 @@ void ShellFancyTextList::onRenderRow( const Point2I &offset, const Column &colum
 
    GFXDrawUtil *draw = GFX->getDrawUtil();
 
-   // Narrow the clip to this column so a long field cannot run into the next
-   // one, then put back what the row loop set -- leaving it narrowed would
-   // clip away every row after this one.
    const RectI saved = GFX->getClipRect();
 
    RectI clip( offset.x, offset.y, column.width, mRowHeight );
@@ -313,12 +307,8 @@ void ShellFancyTextList::sort( S32 key, bool increasing )
    if ( which < 0 || mRows.size() < 2 )
       return;
 
-   // The chosen row has to come back out the other side still chosen, and the
-   // rows are moving, so remember what it was rather than where.
    const S32 chosen = getSelectedId();
 
-   // A short insertion sort: these lists are a screenful, and it keeps rows
-   // that compare equal in the order script added them.
    for ( U32 i = 1; i < mRows.size(); i++ )
    {
       Row row = mRows[ i ];

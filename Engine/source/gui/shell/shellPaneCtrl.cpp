@@ -56,8 +56,6 @@ void ShellPaneCtrl::updateSkin()
    if ( !tab )
       return;
 
-   // Two cells stacked: the chamfered left end, and the length that runs
-   // between the ends.
    mHaveTitleCells = shellSliceGrid( tab->getBitmap(), mTitleCell, 1, 2 ) == 2;
 }
 
@@ -89,7 +87,6 @@ void ShellPaneCtrl::drawTitleBar( const Point2I &offset )
    if ( !tab )
       return;
 
-   // The bar sits between the rails rather than over them.
    const S32 railWidth = rail ? S32( rail->getBitmapWidth() ) : 0;
    const S32 capWidth = mTitleCell[ 0 ].extent.x;
 
@@ -109,7 +106,6 @@ void ShellPaneCtrl::drawTitleBar( const Point2I &offset )
       x += span;
    }
 
-   // The right end is the left one turned round; there is no separate art.
    draw->drawBitmapSR( tab, Point2I( x, offset.y ), mTitleCell[ 0 ], GFXBitmapFlip_X );
 
    if ( mProfile->mFont && mText && mText[ 0 ] )
@@ -139,9 +135,6 @@ void ShellPaneCtrl::drawFrame( const Point2I &offset )
    GFXDrawUtil *draw = GFX->getDrawUtil();
    draw->clearBitmapModulation();
 
-   // The bitmap's size, not the texture's: the device pads up to a power of
-   // two -- gui/shll_frame_end is 238 tall and lands in a 256-tall texture --
-   // and drawBitmapStretch here is laying out from the art, not the page.
    const S32 railWidth = S32( rail->getBitmapWidth() );
    const S32 edgeHeight = S32( edge->getBitmapHeight() );
    const S32 gradeHeight = S32( grade->getBitmapHeight() );
@@ -150,11 +143,6 @@ void ShellPaneCtrl::drawFrame( const Point2I &offset )
    const S32 insideWidth = getWidth() - railWidth * 2;
    const S32 insideHeight = getHeight() - top - edgeHeight;
 
-   // The interior is three bands, not a fill with a gradient over it: the
-   // gradient runs down from under the title, the fill carries the middle, and
-   // the gradient runs again at the bottom turned over, so the panel is lit
-   // from both edges towards its centre.  A panel too short to hold both
-   // gradients gets the two of them and no fill.
    if ( insideWidth > 0 && insideHeight > 0 )
    {
       const bool roomForFill = insideHeight > gradeHeight * 2;
@@ -177,9 +165,6 @@ void ShellPaneCtrl::drawFrame( const Point2I &offset )
       draw->drawBitmapStretch( grade, RectI( x, y, insideWidth, last ), GFXBitmapFlip_Y );
    }
 
-   // And the frame hangs off the bottom rather than boxing the panel in: the
-   // title bar is its top edge, and the two rails rise from the bottom corners
-   // as far as their own art is tall.
    const S32 railHeight = getMin( getHeight(), S32( rail->getBitmapHeight() ) );
    const S32 railTop = offset.y + getHeight() - railHeight;
 

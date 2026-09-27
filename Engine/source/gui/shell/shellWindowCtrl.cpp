@@ -36,9 +36,6 @@ bool ShellWindowCtrl::onWake()
    if ( !Parent::onWake() )
       return false;
 
-   // The binary keeps "gui/window" to fall back on when a profile names no
-   // stem of its own (its constructor writes it at 0x004f6a11).  Every shipped
-   // profile does name one, so this only matters to content that does not.
    const char *stem = mProfile->mBitmapBase;
 
    if ( !stem || !stem[ 0 ] )
@@ -120,8 +117,6 @@ void ShellWindowCtrl::onRender( Point2I offset, const RectI &updateRect )
 
       at.x += span;
 
-      // The far cap is the near one turned round, which is why the art only
-      // carries one of them.
       draw->drawBitmapSR( mTitleTexture, at, mTitleCell[ TitleCap ], GFXBitmapFlip_X );
 
       if ( mCloseTexture )
@@ -156,9 +151,6 @@ void ShellWindowCtrl::onRender( Point2I offset, const RectI &updateRect )
       }
    }
 
-   // The body: the gradient at the top, the fill stretched through the middle
-   // and the gradient again upside down at the foot.  A body too short for
-   // two gradients gets half of itself each way and no fill.
    const S32 bodyTop = offset.y + ( mSliced ? mTitleHeight : 0 );
    const S32 body = getHeight() - ( mSliced ? mTitleHeight : 0 );
 
@@ -187,7 +179,6 @@ void ShellWindowCtrl::onRender( Point2I offset, const RectI &updateRect )
 
    renderChildControls( offset, updateRect );
 
-   // The corner sits over the contents, not under them.
    if ( mCornerTexture )
    {
       draw->clearBitmapModulation();

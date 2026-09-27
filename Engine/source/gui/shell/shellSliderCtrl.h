@@ -40,11 +40,8 @@ class ShellSliderCtrl : public GuiSliderCtrl
 
    bool mUsePlusMinus;
 
-   /// How much room each end label takes, and both of them together.  Zero
-   /// unless the slider is labelled.
    S32 mLabelWidth;
 
-   /// How far the thumb art hangs over the track it runs in.
    S32 mInset;
 
    const RectI &trackPiece( S32 piece, bool enabled ) const
@@ -59,13 +56,10 @@ class ShellSliderCtrl : public GuiSliderCtrl
 
    S32 thumbState() const;
 
-   /// How far the thumb's left edge travels between the ends of the range.
    S32 trackSpan() const;
 
-   /// Where the thumb's left edge sits for the value it is carrying.
    S32 thumbLeft() const;
 
-   /// The value that puts the thumb's middle under @a x, clamped to the range.
    F32 valueAt( S32 x ) const;
 
 public:

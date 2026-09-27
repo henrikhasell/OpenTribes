@@ -31,7 +31,6 @@ class ShellChatMemberList : public GuiTextListCtrl
       RunCount = 3,
    };
 
-   /// A look a row can be put in: two badges and a colour per state.
    struct Style
    {
       S32 id;
@@ -39,14 +38,12 @@ class ShellChatMemberList : public GuiTextListCtrl
       GFXTexHandle left;
       GFXTexHandle right;
 
-      /// Which of the three colours script actually gave, by state.
       bool given[ StateCount ];
       ColorI color[ StateCount ];
    };
 
    Vector< Style > mStyles;
 
-   /// Which style each row is in, by row.  Rows script never styled are -1.
    Vector< S32 > mRowStyle;
 
    GFXTexHandle mRollover;
@@ -54,7 +51,6 @@ class ShellChatMemberList : public GuiTextListCtrl
 
    const Style *styleFor( S32 row ) const;
 
-   /// The colour a run of the given kind takes in the given state.
    ColorI runColor( S32 run, S32 state, const Style *style ) const;
 
 public:
@@ -69,7 +65,6 @@ public:
 
    void onRenderCell( Point2I offset, Point2I cell, bool selected, bool mouseOver );
 
-   //-- what script drives -----------------------------------------------------
    bool addStyle( S32 id, const char *left, const char *right,
                   const char *color, const char *colorHL, const char *colorSEL );
 
