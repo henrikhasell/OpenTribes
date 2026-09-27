@@ -193,7 +193,7 @@ RectI ShellFancyArray::rowRegion() const
    const S32 right = mFramed ? S32( mFrame[ TopRight ]->getBitmapWidth() ) : 0;
    const S32 foot = mFramed ? S32( mFrame[ BotLeft ]->getBitmapHeight() ) : 0;
 
-   const S32 top = mHeaderHeight + mGlowOffset + mStartScrollRegion.y;
+   const S32 top = mHeaderHeight - mGlowOffset + mStartScrollRegion.y;
 
    return RectI( mGlowOffset + left + mStartScrollRegion.x, top,
                  getWidth() - mGlowOffset * 2 - left - right - mStartScrollRegion.x,
@@ -288,8 +288,7 @@ void ShellFancyArray::drawHeader( const Point2I &offset )
 
       if ( mHeaderSliced )
       {
-         const S32 state = column.key == mSortColumn ? 1
-                           : S32( i ) == mMouseOverColumn ? 2 : 0;
+         const S32 state = S32( i ) == mMouseOverColumn ? 2 : 0;
 
          const S32 cap = mHeaderCell[ 0 ].extent.x;
          const S32 span = column.width - cap * 2;
@@ -317,14 +316,14 @@ void ShellFancyArray::drawHeader( const Point2I &offset )
       {
          const S32 width = S32( font->getStrWidth( column.name ) );
 
-         S32 at = x + 2;
+         S32 at = x + ( column.width - width ) / 2;
 
-         if ( column.flags & AlignCenter )
-            at = x + ( column.width - width ) / 2;
+         if ( column.flags & AlignLeft )
+            at = x + 2;
          else if ( column.flags & AlignRight )
             at = x + column.width - width - 2;
 
-         draw->setBitmapModulation( S32( i ) == mSortColumn
+         draw->setBitmapModulation( S32( i ) == mMouseOverColumn
             ? mHeaderFontColorHL : mHeaderFontColor );
 
          draw->drawText( font, Point2I( at, y ), column.name, mProfile->mFontColors );
@@ -339,7 +338,7 @@ void ShellFancyArray::drawHeader( const Point2I &offset )
          draw->drawBitmap( mSortArrow,
             Point2I( x + column.width - arrowW - 2,
                      offset.y + ( mHeaderHeight - arrowH ) / 2 ),
-            mSortIncreasing ? GFXBitmapFlip_None : GFXBitmapFlip_Y );
+            mSortIncreasing ? GFXBitmapFlip_Y : GFXBitmapFlip_None );
       }
 
       x += column.width;
@@ -427,6 +426,7 @@ void ShellFancyArray::onMouseDown( const GuiEvent &event )
    if ( row >= 0 )
    {
       setSelectedRow( row );
+      onCellClicked( row, columnAt( local.x ) );
 
       if ( event.mouseClickCount > 1 )
          execAltConsoleCallback();
@@ -468,7 +468,7 @@ void ShellFancyArray::addColumn( S32 key, const char *name, S32 width,
    Column &column = mColumns.last();
 
    column.key = key;
-   column.name = StringTable->insert( name ? name : "" );
+   column.name = StringTable->insert( name ? name : "", true );
    column.width = width;
    column.minWidth = minWidth;
    column.maxWidth = maxWidth;
@@ -480,6 +480,8 @@ void ShellFancyArray::addColumn( S32 key, const char *name, S32 width,
          column.flags |= AlignCenter;
       if ( dStrstr( flags, "right" ) )
          column.flags |= AlignRight;
+      if ( dStrstr( flags, "left" ) )
+         column.flags |= AlignLeft;
       if ( dStrstr( flags, "numeric" ) )
          column.flags |= Numeric;
       if ( dStrstr( flags, "headericon" ) )

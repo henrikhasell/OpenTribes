@@ -76,9 +76,16 @@ void ShellFancyArrayScrollCtrl::addObject( SimObject *object )
    Parent::addObject( object );
 
    if ( ShellFancyArray *array = dynamic_cast< ShellFancyArray * >( object ) )
+   {
       mArray = array;
+      mArrayMargin = getExtent() - array->getExtent();
+   }
    else if ( VirtualScrollCtrl *scroll = dynamic_cast< VirtualScrollCtrl * >( object ) )
+   {
       mScroll = scroll;
+      mScrollPos = scroll->getPosition();
+      mScrollMargin = getExtent() - scroll->getPosition() - scroll->getExtent();
+   }
 
    arrange();
 }
@@ -101,7 +108,12 @@ void ShellFancyArrayScrollCtrl::arrange()
    if ( !mScroll )
       return;
 
-   mScroll->resize( Point2I( 0, 0 ), getExtent() );
+   mScroll->resize( mScrollPos, getExtent() - mScrollPos - mScrollMargin );
+
+   const Point2I wanted = getExtent() - mArrayMargin;
+
+   if ( mArray->getExtent() != wanted )
+      mArray->resize( mArray->getPosition(), wanted );
 
    if ( GuiControl *content = mScroll->size() ? dynamic_cast< GuiControl * >( ( *mScroll )[ 0 ] ) : NULL )
    {
@@ -135,10 +147,10 @@ void ShellFancyArrayScrollCtrl::onRender( Point2I offset, const RectI &updateRec
    if ( mVertSpacer && mScroll )
    {
       const S32 width = S32( mVertSpacer->getBitmapWidth() );
-      const S32 bar = getWidth() - mScroll->getContentExtent().x;
+      const S32 bar = mScroll->getPosition().x + mScroll->getContentExtent().x;
 
       draw->drawBitmapStretch( mVertSpacer,
-         RectI( offset.x + getWidth() - bar - width, offset.y, width, getHeight() ) );
+         RectI( offset.x + bar - width, offset.y, width, getHeight() ) );
    }
 
    if ( mHorzSpacer && mArray )

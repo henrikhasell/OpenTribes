@@ -2009,6 +2009,7 @@ void GuiMLTextCtrl::reflow()
          }
 
          U32 margin;
+         U32 clipWidth;
 
          if(!dStrnicmp(str + 1, "lmargin%:", 9))
          {
@@ -2068,14 +2069,27 @@ setrightmargin:
             continue;
          }
 
+         // HH: Modified for Tribes 2 compatibility.
+         // Tribes 2 clips a column to a share of the width, the way the
+         // margins can already be given as one.
+         if(!dStrnicmp(str + 1, "clip%:", 6))
+         {
+            idx = 7;
+            if(!scanforchar(str, idx, '>'))
+               goto textemit;
+            clipWidth = (getWidth() * dAtoi(str + 7)) / 100;
+            mScanPos += idx + 1;
+            goto setclip;
+         }
+
          if(!dStrnicmp(str + 1, "clip:", 5))
          {
-            U32 clipWidth = 0;
             idx = 6;
             if(!scanforchar(str, idx, '>'))
                goto textemit;
             clipWidth = dAtoi(str + 6);
             mScanPos += idx + 1;
+setclip:
             processEmitAtoms();
             if (clipWidth > 0)
                mCurClipX = mCurX + clipWidth;
@@ -2329,6 +2343,15 @@ setleftmargin:
                goto textemit;
             bufPtr += idx + 1;
 setrightmargin:
+            continue;
+         }
+
+         if(!dStrnicmp(bufPtr + 1, "clip%:", 6))
+         {
+            idx = 7;
+            if(!scanforchar((char*)bufPtr, idx, '>'))
+               goto textemit;
+            bufPtr += idx + 1;
             continue;
          }
 
