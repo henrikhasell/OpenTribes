@@ -1,5 +1,6 @@
 //-----------------------------------------------------------------------------
-// The window, button, entry field and slider the game's dialogs are drawn from.
+// The window, button, entry field, slider and check box the game's dialogs are
+// drawn from.
 //
 // All three carry the look this game has on the engine it came from rather than
 // the Torque 3D set core/art/gui/profiles.cs points at.  Only the window is a
@@ -14,7 +15,7 @@
 // re-declaration and would fail.  client/init.cs execs this before anything
 // wakes a control on any of them, so what is named here is what gets read.
 //
-// The editors take the same four profiles, so their chrome follows.
+// The editors take the same five profiles, so their chrome follows.
 //-----------------------------------------------------------------------------
 
 singleton GuiControlProfile (GuiWindowProfile)
@@ -102,4 +103,24 @@ singleton GuiControlProfile (GuiSliderProfile)
    hasBitmapArray = false;
    fillColor = "192 192 192";
    borderColor = "0 0 0";
+};
+
+// The check box.  Four cells where core's sheet has six -- unchecked, checked,
+// and the two again under the mouse, with no pair for an inactive box -- which
+// GuiCheckBoxCtrl calls the old style and handles by drawing index 2 for one
+// (guiCheckBoxCtrl.cpp:120).  A checked box over there is a filled square
+// rather than core's tick.
+singleton GuiControlProfile (GuiCheckBoxProfile)
+{
+   opaque = false;
+   fillColor = "232 232 232";
+   border = false;
+   borderColor = "0 0 0";
+   fontSize = 14;
+   fontColor = "0 0 0";
+   fontColorHL = "32 100 100";
+   fixedExtent = true;
+   justify = "left";
+   bitmap = "./ui/torqueCheck";
+   hasBitmapArray = true;
 };
