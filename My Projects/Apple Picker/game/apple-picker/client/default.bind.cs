@@ -14,14 +14,13 @@ new ActionMap(moveMap);
 //-----------------------------------------------------------------------------
 // Leaving the game.
 //
-// This mod boots straight into the mission and has no main menu, so there is
-// nothing to disconnect *to*: stock's bare disconnect() would leave the Canvas
-// showing a dead PlayGui with no mission behind it.  Leaving the orchard is
-// leaving the game.
+// There is somewhere to disconnect to now, so leaving the orchard is no longer
+// leaving the game: disconnect() ends up in disconnectedCleanup(), which opens
+// the menu.  Quit is on the menu.
 
 function escapeFromGame()
 {
-   MessageBoxYesNo("Quit", "Leave the orchard?", "disconnect(); quit();", "");
+   MessageBoxYesNo("Leave", "Leave the orchard?", "disconnect();", "");
 }
 
 moveMap.bindCmd(keyboard, "escape", "", "escapeFromGame();");
