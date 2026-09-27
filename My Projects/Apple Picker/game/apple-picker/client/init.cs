@@ -27,9 +27,11 @@ function initClient()
    exec("./ui/PlayGui.gui");
    exec("./playGui.cs");
 
-   // The loading screen.  Unlike TGE's common/, this engine's core ships one --
-   // see client/missionDownload.cs for why we use it rather than our own.
+   // The loading screen.  loadingGui.cs first: it declares the profiles the
+   // .gui names, and takes core's LoadingGui out of the way so this one can
+   // have the name.
    exec("./loadingGui.cs");
+   exec("./ui/LoadingGui.gui");
 
    // Client scripts.
    exec("./missionDownload.cs");

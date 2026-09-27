@@ -66,9 +66,8 @@ function onMissionDownloadComplete() { }
 // from the LevelInfo object in the .mis, so the names on the far end changed
 // but the messages did not.
 //
-// Core's LoadingGui has no map-name or description control to put them in, so
-// these only echo.  The mission name still reaches the player: core's
-// LoadingProgressTxt shows the phase, which is what the progress bar is for.
+// The description arrives a line at a time and is reassembled here, which is
+// why the lines are kept on the control rather than appended to it.
 
 addMessageCallback('MsgLoadInfo', handleLoadInfoMessage);
 addMessageCallback('MsgLoadDescripition', handleLoadDescriptionMessage);
@@ -76,13 +75,25 @@ addMessageCallback('MsgLoadInfoDone', handleLoadInfoDoneMessage);
 
 function handleLoadInfoMessage(%msgType, %msgString, %mapName)
 {
-   echo("*** Mission: " @ %mapName);
    loadingGuiOpen();
+
+   for (%i = 0; %i < LoadingGui.qLineCount; %i++)
+      LoadingGui.qLine[%i] = "";
+   LoadingGui.qLineCount = 0;
+
+   LOAD_MapName.setText(%mapName);
 }
 
 function handleLoadDescriptionMessage(%msgType, %msgString, %line)
 {
-   echo("*** " @ %line);
+   LoadingGui.qLine[LoadingGui.qLineCount] = %line;
+   LoadingGui.qLineCount++;
+
+   %text = "<spush><font:Arial:16>";
+   for (%i = 0; %i < LoadingGui.qLineCount; %i++)
+      %text = %text @ LoadingGui.qLine[%i] @ " ";
+
+   LOAD_MapDescription.setText(%text @ "<spop>");
 }
 
 function handleLoadInfoDoneMessage(%msgType, %msgString) { }
