@@ -67,11 +67,7 @@ function clientCmdAppleVictory(%total)
    // CanvasCursor package turns the cursor on as the dialog goes up and off
    // again when it comes down -- which is also what releases the mouse from
    // camera look and hands it back afterwards.  Nothing to do here for that.
-   //
-   // The game is over when this box is up, so closing it goes back to the menu
-   // rather than returning the player to a finished orchard.  disconnect()
-   // ends up in disconnectedCleanup(), which is what opens the menu.
    MessageBoxOK("Victory!",
                 "You picked up all " @ %total @ " apples.",
-                "disconnect();");
+                "");
 }
