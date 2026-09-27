@@ -61,11 +61,8 @@ protected:
    bool mSortIncreasing;
    bool mSecondarySortIncreasing;
 
-   /// How far down the rows are scrolled, in pixels.  The scroll control
-   /// beside the array drives this; the array never scrolls itself.
    S32 mScrollOffset;
 
-   //-- what the .gui sets -----------------------------------------------------
    StringTableEntry mHeaderBitmap;
    StringTableEntry mSortArrowBitmap;
    StringTableEntry mBarBase;
@@ -88,14 +85,12 @@ protected:
    bool mAllowReposition;
    bool mNoSelect;
 
-   //-- worked out at wake -----------------------------------------------------
    GFXTexHandle mFrame[ FrameCount ];
    GFXTexHandle mBarSelected;
    GFXTexHandle mBarRollover;
    GFXTexHandle mHeader;
    GFXTexHandle mSortArrow;
 
-   /// The header's art is a tab in three pieces, in three states.
    RectI mHeaderCell[ 3 * 3 ];
    bool mHeaderSliced;
 
@@ -105,7 +100,6 @@ protected:
 
    bool mFramed;
 
-   /// Where the rows start, below the header and inside the frame.
    RectI rowRegion() const;
 
    S32 columnAt( S32 x ) const;
@@ -114,8 +108,6 @@ protected:
    void drawFrame( const Point2I &offset );
    void drawHeader( const Point2I &offset );
 
-   /// One cell's worth of a row: the bar behind it and the separator after
-   /// it.  What goes on top is the deriving class's.
    virtual void onRenderRow( const Point2I &offset, const Column &column,
                              S32 row, bool selected, bool mouseOver );
 
@@ -137,7 +129,6 @@ public:
    void onMouseMove( const GuiEvent &event );
    void onMouseLeave( const GuiEvent &event );
 
-   //-- what script drives -----------------------------------------------------
    void addColumn( S32 key, const char *name, S32 width, S32 minWidth,
                    S32 maxWidth, const char *flags );
    void clearColumns();
@@ -167,8 +158,6 @@ public:
    void scrollVisible( S32 row );
    virtual void forceUpdate();
 
-   /// How tall the rows would be if nothing clipped them -- what the scroll
-   /// control beside the array needs in order to size its thumb.
    S32 contentHeight() const { return mRowCount * mRowHeight; }
 
    S32 getRowHeight() const { return mRowHeight; }

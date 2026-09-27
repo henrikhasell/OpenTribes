@@ -98,17 +98,11 @@ void ShellFancyArrayScrollCtrl::arrange()
    if ( !mArray )
       return;
 
-   // How big the array is was settled by whoever wrote the .gui: it is laid
-   // out to leave room beside it for the bar and the spacer art, and sizing it
-   // from this control would take that room back.
    if ( !mScroll )
       return;
 
    mScroll->resize( Point2I( 0, 0 ), getExtent() );
 
-   // What the array would need if nothing clipped it is what the bar has to
-   // size its thumb against, and the scroll works that out from its content
-   // control's extent.
    if ( GuiControl *content = mScroll->size() ? dynamic_cast< GuiControl * >( ( *mScroll )[ 0 ] ) : NULL )
    {
       const S32 wanted = mArray->getHeaderHeight() + mArray->contentHeight();
@@ -138,8 +132,6 @@ void ShellFancyArrayScrollCtrl::onRender( Point2I offset, const RectI &updateRec
    GFXDrawUtil *draw = GFX->getDrawUtil();
    draw->clearBitmapModulation();
 
-   // The spacers fill what neither the array nor the bar covers: a strip down
-   // the side where the bar stops short, and one along the foot.
    if ( mVertSpacer && mScroll )
    {
       const S32 width = S32( mVertSpacer->getBitmapWidth() );

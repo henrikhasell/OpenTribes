@@ -9,17 +9,6 @@
 #include "gfx/gfxTextureHandle.h"
 #endif
 
-/// Tribes 2's radio button.
-///
-/// The art is one column of five cells rather than a grid of states: the box
-/// unlit, the box lit, a rail, a right cap, and a glow over the whole of the
-/// box.  The first four are laid left to right with only the rail stretched,
-/// so the label sits on a bar as wide as the control; the glow is drawn back
-/// over the box when the button has the mouse or the focus.
-///
-/// The two caps are what the button must be to draw at all, so waking one
-/// sets its minimum extent from them -- 26 by 27 for stock art, which is what
-/// every Tribes 2 .gui gives a radio button.
 class ShellRadioButton : public GuiButtonBaseCtrl
 {
    typedef GuiButtonBaseCtrl Parent;

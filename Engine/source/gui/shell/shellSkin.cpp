@@ -25,8 +25,6 @@ S32 shellSliceGrid( GBitmap *bitmap, RectI *out, S32 cols, S32 rows )
    {
       ColorI color;
 
-      // The rule that opens the row states how wide a cell is: it runs in the
-      // separator colour exactly, and stops where the art begins.
       S32 cellWidth = 0;
       while ( cellWidth < width )
       {
@@ -37,8 +35,6 @@ S32 shellSliceGrid( GBitmap *bitmap, RectI *out, S32 cols, S32 rows )
 
       y++;
 
-      // And column zero below it states how tall: the run that is not the
-      // separator.
       S32 cellHeight = 0;
       while ( cellHeight + y < height )
       {
@@ -47,7 +43,6 @@ S32 shellSliceGrid( GBitmap *bitmap, RectI *out, S32 cols, S32 rows )
          cellHeight++;
       }
 
-      // A row that does not fit is the sheet saying it has no more rows.
       if ( cellWidth < 3 || cellHeight < 3 || cellWidth * cols > width + 1 )
          break;
 
@@ -111,12 +106,6 @@ GFXTexHandle ShellSkin::get( const char *suffix )
    const U32 slot = mCount++;
    mSuffix[ slot ] = key;
 
-   // A missing part is not an error: one stem serves several controls, and
-   // each uses only the suffixes it knows about.
-   //
-   // The name is built from the interned copy rather than from what the caller
-   // passed.  avar formats into one static buffer, so a caller that reached it
-   // through avar would have its suffix overwritten by this very call.
    mTexture[ slot ].set( avar( "%s%s", mBase, key ), &GFXDefaultPersistentProfile,
                          avar( "%s() - mTexture (line %d)", __FUNCTION__, __LINE__ ) );
 

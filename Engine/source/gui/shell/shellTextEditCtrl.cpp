@@ -108,11 +108,6 @@ void ShellTextEditCtrl::onRender( Point2I offset, const RectI &updateRect )
    {
       GFX->setClipRect( clip );
 
-      // A shell field puts its text just inside the left cap and leaves it
-      // there: stock moves it for neither the profile's justify nor its
-      // textOffset, and the host screen's fields are written "center" and
-      // "14 0" without either one showing.  Both are still the profile's to
-      // answer for elsewhere, so borrow them rather than changing them.
       const GuiControlProfile::AlignmentType align = mProfile->mAlignment;
       const Point2I textOffset = mProfile->mTextOffset;
 

@@ -67,8 +67,6 @@ bool ShellSliderCtrl::onWake()
 
    if ( mSliced )
    {
-      // The thumb is the two caps with nothing between them, and they overlap
-      // the track by the inset at each end.
       mThumbSize.set(
          thumbPiece( LeftCap, Resting ).extent.x + thumbPiece( RightCap, Resting ).extent.x
             - mInset * 2,
@@ -86,8 +84,6 @@ bool ShellSliderCtrl::onWake()
 
 S32 ShellSliderCtrl::trackSpan() const
 {
-   // What the thumb has to move in: the track less its own width, so that it
-   // stops with its far edge on the track's rather than beyond it.
    return getMax( getWidth() - mLabelWidth * 2 - mThumbSize.x, 0 );
 }
 
@@ -105,8 +101,6 @@ F32 ShellSliderCtrl::valueAt( S32 x ) const
    if ( span <= 0 )
       return mRange.x;
 
-   // The thumb centres on the cursor, so the value is read from where its
-   // left edge would land rather than from the cursor itself.
    const F32 along = F32( x - mLabelWidth - mThumbSize.x / 2 ) / F32( span );
 
    return mRange.x + mClampF( along, 0.0f, 1.0f ) * ( mRange.y - mRange.x );
@@ -219,8 +213,6 @@ void ShellSliderCtrl::onRender( Point2I offset, const RectI &updateRect )
       const RectI &capLeft = thumbPiece( LeftCap, state );
       const RectI &capRight = thumbPiece( RightCap, state );
 
-      // The art is the two caps butted together, which is the thumb plus the
-      // inset it overhangs the track by at each end.
       at.set( offset.x + thumbLeft() - mInset,
               offset.y + ( getHeight() - mThumbSize.y ) / 2 );
 

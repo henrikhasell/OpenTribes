@@ -27,8 +27,6 @@ protected:
       StateCount = 4,
    };
 
-   /// One direction's worth of art: the two arrows, the thumb's three pieces
-   /// and the track's three, off three sheets that share a stem.
    struct Bar
    {
       GFXTexHandle buttons;
@@ -68,7 +66,6 @@ protected:
    ShellSkin mFieldSkin;
    StringTableEntry mFieldBase;
 
-   /// How far the arrow and thumb art hangs outside the track it runs in.
    S32 mOverhang;
 
    bool loadBar( Bar &bar, const char *stem, const char *which );

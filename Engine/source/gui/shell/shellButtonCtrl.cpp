@@ -62,9 +62,6 @@ void ShellBitmapButton::onRender( Point2I offset, const RectI &updateRect )
    {
       draw->clearBitmapModulation();
 
-      // simpleStyle is a different drawing altogether rather than a variation
-      // on one: the state is drawn at the size it was drawn, where the control
-      // starts, with no caps and nothing stretched.
       if ( mSimpleStyle )
          mArt.drawCell( artState(), offset );
       else
@@ -83,7 +80,6 @@ void ShellBitmapButton::onRender( Point2I offset, const RectI &updateRect )
 
       draw->setBitmapModulation( color );
 
-      // The offset is a margin, so it comes off both sides.
       renderJustifiedText( offset + mProfile->mTextOffset,
                            getExtent() - mProfile->mTextOffset * 2, mButtonText, false );
       draw->clearBitmapModulation();
@@ -92,7 +88,6 @@ void ShellBitmapButton::onRender( Point2I offset, const RectI &updateRect )
    renderChildControls( offset, updateRect );
 }
 
-//-----------------------------------------------------------------------------
 IMPLEMENT_CONOBJECT( ShellTabGroupCtrl );
 
 ConsoleDocClass( ShellTabGroupCtrl,
@@ -144,17 +139,10 @@ bool ShellTabGroupCtrl::onWake()
    if ( !Parent::onWake() )
       return false;
 
-   // The set every tab belongs to unless script says otherwise.  It is added
-   // rather than special-cased so that the profile is just another set, and it
-   // is added here rather than in the constructor because the profile is not
-   // resolved until now -- by which time script's own onAdd has already
-   // registered any sets of its own, which is why this one is not first.
    if ( mProfile->mBitmapBase && mProfile->mBitmapBase[ 0 ] )
       addSet( 0, mProfile->mBitmapBase, mProfile->mFontColor,
               mProfile->mFontColorHL, mProfile->mFontColorSEL );
 
-   // The narrowest a tab may be is both its caps and room for one letter --
-   // a tab squeezed past that is two caps touching with nothing between them.
    mMinTabWidth = 0;
 
    if ( mSets.size() && mSets[ 0 ].art.isValid() )
@@ -163,23 +151,13 @@ bool ShellTabGroupCtrl::onWake()
    if ( mProfile->mFont )
       mMinTabWidth += mProfile->mFont->getStrWidth( "W" );
 
-   // A cap smaller than that is raised to it rather than fighting it.
    if ( mMaxTabWidth > 0 && mMaxTabWidth < mMinTabWidth )
       mMaxTabWidth = mMinTabWidth;
 
-   // Across the bar a tab is the art's height less the glow's margin.  The art
-   // carries that margin as transparent pixels along its outside edges -- in
-   // gui/shll_horztabbutton the first seven rows and the first and last seven
-   // columns of a resting tab are clear, and it is the lit state that fills
-   // them -- so a tab set glowOffset inside the bar has its face where the bar
-   // is and its glow room outside it.
    const S32 artThickness = mSets.size() ? mSets[ 0 ].art.getStateHeight() : 0;
 
    mTabThickness = getMax( artThickness - mGlowOffset, 0 );
 
-   // A bar declared thinner than its art would cut the tabs off.  Raise the
-   // minimum to what the art needs and resize to it, which is how the launch
-   // bar -- written 29 tall against gui/lnch_tab's 31 -- ends up 31.
    Point2I minExtent = getMinExtent();
 
    if ( horizontal() )
@@ -195,9 +173,6 @@ bool ShellTabGroupCtrl::onWake()
 
 RectI ShellTabGroupCtrl::tabRect( S32 along, S32 size ) const
 {
-   // The glow's margin comes off every edge the row does not run along: the
-   // tabs start that far in and stop that far short, which is what leaves the
-   // art room to overhang the bar without being drawn outside it.
    return horizontal()
       ? RectI( mGlowOffset + along, mGlowOffset, size, mTabThickness )
       : RectI( mGlowOffset, mGlowOffset + along, mTabThickness, size );
@@ -264,24 +239,17 @@ S32 ShellTabGroupCtrl::tabExtent( S32 *remainder ) const
    if ( !count )
       return 0;
 
-   // The glow is taken off the room before it is divided, not after: the art
-   // is allowed to overhang the bar by that much at each end.
    const S32 span = ( horizontal() ? getWidth() : getHeight() ) - mGlowOffset * 2;
 
-   // The spacing comes off every tab rather than off the gaps between them,
-   // which leaves the last tab's worth of it spare at the end.
    S32 each = span / count - mTabSpacing;
 
    if ( each < mMinTabWidth )
       each = mMinTabWidth;
 
-   // stretchToFit is what lets a tab grow past its cap to fill the bar.
    if ( !mStretchToFit && mMaxTabWidth > 0 && each > mMaxTabWidth )
       each = mMaxTabWidth;
    else if ( remainder )
    {
-      // Whatever the division left over is handed out a pixel at a time to the
-      // tabs at the front, so the row ends where the bar does.
       const S32 used = each * count + mTabSpacing * ( count - 1 );
       *remainder = getMax( span - used, 0 );
    }
@@ -296,8 +264,6 @@ S32 ShellTabGroupCtrl::hitTab( const Point2I &point ) const
    if ( each < 1 )
       return -1;
 
-   // The row starts the glow's margin in, so anything before that is the bar
-   // rather than a tab.
    S32 along = ( horizontal() ? point.x : point.y ) - mGlowOffset;
    if ( along < 0 )
       return -1;
@@ -326,8 +292,6 @@ void ShellTabGroupCtrl::addTab( S32 id, const char *text, S32 set )
 
    mTabs.push_back( tab );
 
-   // The first tab to arrive is the one showing: a bar with tabs and nothing
-   // selected is a state Tribes 2's scripts never expect to see.
    if ( mSelected == -1 )
       setSelectedByIndex( mTabs.size() - 1 );
 
@@ -341,8 +305,6 @@ void ShellTabGroupCtrl::removeTabByIndex( S32 index )
 
    mTabs.erase( index );
 
-   // Follow the tab, not the slot.  Closing one to the left of the open tab
-   // must not silently change which screen is up.
    if ( mSelected == index )
       mSelected = -1;
    else if ( mSelected > index )
@@ -416,9 +378,6 @@ void ShellTabGroupCtrl::setSelectedByIndex( S32 index )
    mSelected = index;
    setUpdate();
 
-   // onSelect is where the launch bar puts the screen on the canvas.  It is
-   // handed the id and the label because that is what a Torque list callback
-   // is handed; Tribes 2's own handler ignores both and reads getSelectedTab().
    Con::executef( this, "onSelect", Con::getIntArg( mTabs[ index ].id ), mTabs[ index ].text );
 }
 
@@ -484,10 +443,6 @@ void ShellTabGroupCtrl::onRender( Point2I offset, const RectI &updateRect )
 
       if ( set && set->art.isValid() )
       {
-         // The art is drawn back out over the margin the tab was set in by, so
-         // it lands on the bar's own edges: a resting tab's face stops at the
-         // tab, and a lit one's glow fills the margin and overhangs its
-         // neighbours rather than being clipped to its own rect.
          RectI art = tab;
          art.inset( -mGlowOffset, -mGlowOffset );
 
@@ -497,9 +452,6 @@ void ShellTabGroupCtrl::onRender( Point2I offset, const RectI &updateRect )
 
       if ( mProfile->mFont && entry.text[ 0 ] )
       {
-         // The colours come from the set too, all but the one for a tab that
-         // cannot be selected: a set carries three, and Tribes 2 leaves the
-         // inactive colour to the profile.
          ColorI color = set ? set->fontColor : mProfile->mFontColor;
          if ( !entry.active )
             color = mProfile->mFontColorNA;
@@ -508,8 +460,6 @@ void ShellTabGroupCtrl::onRender( Point2I offset, const RectI &updateRect )
          else if ( i == mMouseOver )
             color = set ? set->fontColorHL : mProfile->mFontColorHL;
 
-         // The open tab's label sits a pixel down and right of where the
-         // others sit, the way a pressed button's does.
          Point2I at = tab.point + Point2I( mProfile->mTextOffset.x, 0 );
          if ( i == mSelected )
             at += Point2I( 1, 1 );
@@ -525,7 +475,6 @@ void ShellTabGroupCtrl::onRender( Point2I offset, const RectI &updateRect )
    renderChildControls( offset, updateRect );
 }
 
-//-----------------------------------------------------------------------------
 DefineEngineMethod( ShellTabGroupCtrl, tabCount, S32, (), ,
    "@brief How many tabs the bar is carrying.\n\n@ingroup GuiShell" )
 {
@@ -564,7 +513,6 @@ static ColorI shellParseColor( const char *text )
 {
    S32 r = 255, g = 255, b = 255, a = 255;
 
-   // Tribes 2 writes these three-wide -- "50 50 0" -- and means them opaque.
    if ( text && dSscanf( text, "%d %d %d %d", &r, &g, &b, &a ) < 3 )
       return ColorI( 255, 255, 255 );
 

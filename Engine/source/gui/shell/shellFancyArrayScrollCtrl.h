@@ -27,7 +27,6 @@ class ShellFancyArrayScrollCtrl : public GuiControl
    SimObjectPtr< ShellFancyArray > mArray;
    SimObjectPtr< VirtualScrollCtrl > mScroll;
 
-   /// Put the array and the bar beside it back in step with each other.
    void arrange();
 
 public:

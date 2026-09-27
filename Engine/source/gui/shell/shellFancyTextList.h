@@ -26,7 +26,6 @@ class ShellFancyTextList : public ShellFancyArray
       S32 style;
    };
 
-   /// A typeface and three colours a row can be drawn in.
    struct Style
    {
       S32 id;
@@ -44,7 +43,6 @@ class ShellFancyTextList : public ShellFancyArray
 
    Style *styleFor( S32 row );
 
-   /// The `index`th tab-separated field of a row's text.
    static const char *field( const char *text, S32 index, S32 &length );
 
 protected:
@@ -63,7 +61,6 @@ public:
    void clearList();
    void setSortColumn( S32 key );
 
-   //-- what script drives -----------------------------------------------------
    void addRow( S32 id, const char *text, S32 index = -1 );
    void setRowById( S32 id, const char *text );
 

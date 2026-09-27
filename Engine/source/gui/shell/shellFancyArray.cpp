@@ -48,8 +48,6 @@ ShellFancyArray::ShellFancyArray()
    mSortArrowBitmap = StringTable->insert( "gui/shll_sortarrow" );
    mBarBase = StringTable->insert( "gui/shll_bar" );
 
-   // fieldBase is the one the constructor really does leave empty, so an
-   // array has no frame unless a .gui asks for one.
    mFieldBase = StringTable->EmptyString();
 
    mRowHeight = 16;
@@ -158,8 +156,6 @@ bool ShellFancyArray::onWake()
       mSortArrow.set( mSortArrowBitmap, &GFXDefaultPersistentProfile,
                       avar( "%s() - arrow", __FUNCTION__ ) );
 
-   // A header font of its own, or the profile's where the .gui left it out --
-   // headerFontSize of zero is how the shipped content asks for that.
    const char *face = mHeaderFontType && mHeaderFontType[ 0 ]
       ? mHeaderFontType : mProfile->mFontType;
 
@@ -290,8 +286,6 @@ void ShellFancyArray::drawHeader( const Point2I &offset )
    {
       const Column &column = mColumns[ i ];
 
-      // Each column wears its own tab: a cap at either end and the middle
-      // stretched between them, out of a sheet three pieces by three states.
       if ( mHeaderSliced )
       {
          const S32 state = column.key == mSortColumn ? 1
@@ -336,8 +330,6 @@ void ShellFancyArray::drawHeader( const Point2I &offset )
          draw->drawText( font, Point2I( at, y ), column.name, mProfile->mFontColors );
       }
 
-      // The arrow marks the column the rows are in the order of, and which
-      // way round that order runs.
       if ( mSortArrow && column.key == mSortColumn )
       {
          const S32 arrowW = S32( mSortArrow->getBitmapWidth() );
@@ -412,7 +404,6 @@ void ShellFancyArray::onMouseDown( const GuiEvent &event )
 {
    const Point2I local = globalToLocalCoord( event.mousePoint );
 
-   // A click on the header is a click on the order, not on a row.
    if ( mHeaderSort && local.y < mHeaderHeight )
    {
       const S32 column = columnAt( local.x );
@@ -495,8 +486,6 @@ void ShellFancyArray::addColumn( S32 key, const char *name, S32 width,
          column.flags |= HeaderIcon;
    }
 
-   // A header-icon column names art rather than text, and the name is a leaf:
-   // the binary formats it as "gui/%s" before loading.
    if ( column.flags & HeaderIcon )
    {
       char icon[ 256 ];

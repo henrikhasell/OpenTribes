@@ -25,8 +25,6 @@ ShellLaunchMenu::ShellLaunchMenu()
    mLabel = NULL;
    mButtonFontType = NULL;
    mButtonFontSize = 0;
-   // Transparent stands for "not given", so that a profile that has said what
-   // colour its text is does not have to say it twice.
    mButtonFontColor.set( 0, 0, 0, 0 );
    mButtonFontColorHL.set( 0, 0, 0, 0 );
 }
@@ -50,8 +48,6 @@ bool ShellLaunchMenu::onAdd()
    if ( !Parent::onAdd() )
       return false;
 
-   // Before anything has been added to the menu, and so before the first
-   // clear() writes over it.
    mLabel = StringTable->insert( mText ? mText : "", true );
    return true;
 }
@@ -82,8 +78,6 @@ GFont *ShellLaunchMenu::buttonFont()
 
 void ShellLaunchMenu::addSeparator()
 {
-   // Tribes 2 draws a rule here.  Torque's popup has no row that cannot be
-   // picked, so this is a row with an id no handler matches.
    addEntry( "", -1 );
 }
 
@@ -91,8 +85,6 @@ void ShellLaunchMenu::onRender( Point2I offset, const RectI &updateRect )
 {
    mSkin.setBase( mProfile->mBitmapBase );
 
-   // Resting, under the mouse, and held open.  Each is a whole image rather
-   // than a band of one sheet.
    const char *suffix = "";
    if ( mInAction )
       suffix = "_act";
@@ -107,9 +99,6 @@ void ShellLaunchMenu::onRender( Point2I offset, const RectI &updateRect )
 
    if ( art )
    {
-      // At the size it was drawn, where the control starts.  The art and the
-      // control are both 115x56 here, so stretching looked the same -- but the
-      // art is what decides the size, not the layout.
       draw->clearBitmapModulation();
       draw->drawBitmap( art, offset );
    }
@@ -137,7 +126,6 @@ void ShellLaunchMenu::onRender( Point2I offset, const RectI &updateRect )
    renderChildControls( offset, updateRect );
 }
 
-//-----------------------------------------------------------------------------
 DefineEngineMethod( ShellLaunchMenu, add, void, ( S32 id, const char *text ), ,
    "@brief Put a row on the end of the menu.\n\n"
 

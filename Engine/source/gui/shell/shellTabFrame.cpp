@@ -78,17 +78,11 @@ void ShellTabFrame::onRender( Point2I offset, const RectI &updateRect )
    GFXTexHandle rail = part( "grad" );
    GFXTexHandle line = part( "gradedge" );
 
-   // A palette the art does not carry draws nothing rather than falling back
-   // to the other one, which would tint the panel to the wrong tab.
    if ( rail && line )
    {
       GFXDrawUtil *draw = GFX->getDrawUtil();
       draw->clearBitmapModulation();
 
-      // getWidth() and getHeight() are the texture's, which the device may
-      // have padded up to a power of two -- gui/shll_horztabframegrad is 9
-      // wide and lands in a 16-wide texture.  drawBitmap lays the art down at
-      // its bitmap size, so stepping past it by anything else opens a gap.
       const S32 railWidth = S32( rail->getBitmapWidth() );
       const S32 railHeight = S32( rail->getBitmapHeight() );
 
@@ -96,8 +90,6 @@ void ShellTabFrame::onRender( Point2I offset, const RectI &updateRect )
 
       if ( mIsVertical )
       {
-         // edgeInset is the horizontal layout's alone; nothing shifts the line
-         // when the rails run across the top and bottom.
          const S32 span = getHeight() - railHeight * 2;
 
          draw->drawBitmap( rail, at );

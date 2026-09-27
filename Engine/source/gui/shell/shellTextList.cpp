@@ -48,8 +48,6 @@ void ShellTextList::onRenderCell( Point2I offset, Point2I cell, bool selected, b
 
    if ( entry.active )
    {
-      // Chosen wins over under-the-mouse, and each bar is drawn only if the
-      // stem carries it.
       GFXTexHandle bar;
       if ( selected )
          bar = mSkin.get( "_act" );

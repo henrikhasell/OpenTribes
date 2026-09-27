@@ -40,9 +40,6 @@ bool ShellRadioButton::onWake()
 
    if ( mSliced )
    {
-      // The two caps are what the button has to carry before any of it is
-      // drawn whole, so they are its minimum.  Resizing to the extent it
-      // already has is what applies that.
       setMinExtent( Point2I( mCell[ BoxOff ].extent.x + mCell[ RightCap ].extent.x,
                              mCell[ BoxOff ].extent.y ) );
       resize( getPosition(), getExtent() );
@@ -64,9 +61,6 @@ void ShellRadioButton::onRender( Point2I offset, const RectI &updateRect )
 {
    GFXDrawUtil *draw = GFX->getDrawUtil();
 
-   // The bar runs from the box to the right cap, and is as tall as the rail
-   // was drawn rather than as tall as the control.  Without art there is no
-   // box, and the label has the whole of the control to itself.
    const S32 barLeft = mSliced ? mCell[ BoxOff ].extent.x : 0;
    const S32 span = getWidth() - barLeft -
       ( mSliced ? mCell[ RightCap ].extent.x : 0 );
@@ -74,8 +68,6 @@ void ShellRadioButton::onRender( Point2I offset, const RectI &updateRect )
 
    if ( mSliced )
    {
-      // An inactive button is the same art at half brightness; there is no
-      // separate cell for it.
       if ( mActive )
          draw->clearBitmapModulation();
       else
@@ -103,7 +95,6 @@ void ShellRadioButton::onRender( Point2I offset, const RectI &updateRect )
 
    if ( text && text[ 0 ] && mProfile->mFont )
    {
-      // Art that gave no rail leaves the label the whole height to sit in.
       if ( !barHeight )
          barHeight = getHeight();
 

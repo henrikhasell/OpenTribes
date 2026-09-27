@@ -9,17 +9,6 @@
 #include "gui/shell/shellSkin.h"
 #endif
 
-/// The frame Tribes 2's shell puts around a screen.
-///
-/// A title bar across the top with the screen's name centred in it, side rails
-/// down the edges, and a lit-from-above interior the screen's own controls sit
-/// in.  It is the root of every shell layout: GameGui.gui is one of these with
-/// everything else inside it.
-///
-/// Its art is a family the profile names by its stem -- "gui/shll" for the
-/// shell's frames -- which the control completes with the five suffixes it
-/// knows.  A stem that resolves to none of them draws nothing rather than
-/// drawing wrong.
 class ShellPaneCtrl : public GuiControl
 {
    typedef GuiControl Parent;
@@ -30,14 +19,11 @@ protected:
 
    ShellSkin mSkin;
 
-   /// The two cells of the title bar's art: the left end, which is chamfered,
-   /// and the length that runs between the ends.
    RectI mTitleCell[ 2 ];
    bool mHaveTitleCells;
 
    void updateSkin();
 
-   /// How tall the title bar is, and so where the interior starts.
    S32 titleHeight();
 
    void drawTitleBar( const Point2I &offset );

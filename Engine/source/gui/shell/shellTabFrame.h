@@ -9,21 +9,6 @@
 #include "gui/shell/shellSkin.h"
 #endif
 
-/// The panel a row of tabs stands on.
-///
-/// Two rails with chamfered outer corners and a line stretched between them --
-/// no more than that.  The rails are a gradient that is solid where the tabs
-/// meet them and fades away down the panel, which is what makes the open tab
-/// look joined to what it opened.
-///
-/// It draws in one of two palettes.  Script switches between them with
-/// setAltColor, and what it passes is which set the open tab belongs to:
-///
-///   GM_TabFrame.setAltColor( %this.getTabSet( %id ) != 0 );
-///
-/// so the panel is tinted to match the tab above it, and the art comes in
-/// pairs -- grad and grada, gradedge and gradedgea -- rather than being
-/// modulated.
 class ShellTabFrame : public GuiControl
 {
    typedef GuiControl Parent;
@@ -36,8 +21,6 @@ class ShellTabFrame : public GuiControl
 
    bool mUseAltColor;
 
-   /// The art for the palette in use.  Tribes 2 spells these without a
-   /// separator, so the stem runs straight into them.
    GFXTexHandle part( const char *name );
 
 public:
