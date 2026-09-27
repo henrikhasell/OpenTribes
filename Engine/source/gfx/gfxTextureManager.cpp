@@ -47,6 +47,15 @@ static const String  sDDSExt( "dds" );
 
 static const String  sTextureSearchDir( "textures" );
 
+// HH: Tribes2 compatibility.
+// Every texture resolves under the search directory, so a path that is not
+// already there is put there.
+static void applyTextureSearchDir( Torque::Path &path )
+{
+   if( !path.getPath().startsWith( sTextureSearchDir ) )
+      path.setPath( Torque::Path::Join( sTextureSearchDir, '/', path.getPath() ) );
+}
+
 void GFXTextureManager::init()
 {
    Con::addVariable( "$pref::Video::textureReductionLevel", TypeS32, &smTextureReductionLevel,
@@ -667,8 +676,7 @@ GFXTextureObject *GFXTextureManager::createTexture( const Torque::Path &path, GF
       return retTexObj;
 
    // HH: Tribes2 compatibility.
-   if( !correctPath.getPath().startsWith( sTextureSearchDir ) )
-      correctPath.setPath( Torque::Path::Join( sTextureSearchDir, '/', correctPath.getPath() ) );
+   applyTextureSearchDir( correctPath );
 
    const U32 scalePower = getTextureDownscalePower( profile );
 
@@ -1233,4 +1241,22 @@ DefineEngineFunction( reloadTextures, void, (),,
       return;
 
    TEXMGR->reloadTextures();
+}
+
+// HH: Tribes2 compatibility.
+// A texture does not live where it is named -- it lives under the search
+// directory -- so isFile() is the wrong question to ask about one.
+DefineEngineFunction( isImageFile, bool, ( const char *path ),,
+   "Test whether an image can be loaded from this path.\n"
+   "The path is resolved the way a texture's is, so it is answered for the "
+   "same name that would be passed to setBitmap, extension or not.\n"
+   "@ingroup GFX\n" )
+{
+   Torque::Path filePath( path );
+   applyTextureSearchDir( filePath );
+
+   if ( Torque::FS::IsFile( filePath ) )
+      return true;
+
+   return GBitmap::sFindFile( filePath, NULL );
 }
