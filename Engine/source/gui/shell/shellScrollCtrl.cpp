@@ -27,6 +27,7 @@ ShellScrollCtrl::ShellScrollCtrl()
 {
    mFieldBase = StringTable->EmptyString();
    mOverhang = 4;
+   mBorderThickness = 4;
 }
 
 void ShellScrollCtrl::initPersistFields()
@@ -266,7 +267,7 @@ void ShellScrollCtrl::drawScrollCorner( const Point2I &offset )
 
 S32 ShellScrollCtrl::borderThickness() const
 {
-   return 4;
+   return mBorderThickness;
 }
 
 void ShellScrollCtrl::calcScrollRects()

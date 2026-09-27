@@ -1223,7 +1223,8 @@ void GuiPopUpMenuCtrl::onAction()
       if ( S32(mProfile->mFont->getStrWidth( mEntries[i].buf )) > textWidth )
          textWidth = mProfile->mFont->getStrWidth( mEntries[i].buf );
 
-   S32 sbWidth = mSc->getControlProfile()->mBorderThickness * 2 + mSc->scrollBarThickness(); //  Calculate the scroll bar width
+   // HH: Modified for Tribes 2 compatibility.
+   S32 sbWidth = mSc->getBorderThickness() * 2 + mSc->scrollBarThickness();
    if ( textWidth > ( getWidth() - sbWidth-mProfile->mTextOffset.x - mSc->getChildMargin().x * 2 ) ) //  The text draw area to test against is the width of the drop-down minus the scroll bar width, the text margin and the scroll bar child margins.
    {
       textWidth +=sbWidth + mProfile->mTextOffset.x + mSc->getChildMargin().x * 2; //  The new width is the width of the text plus the scroll bar width plus the text margin size plus the scroll bar child margins.
@@ -1248,7 +1249,9 @@ void GuiPopUpMenuCtrl::onAction()
 
    //Calc max Y distance, so Scroll Ctrl will fit on window 
 
-   S32 sbBorder = mSc->getControlProfile()->mBorderThickness * 2 + mSc->getChildMargin().y * 2;
+   // HH: Modified for Tribes 2 compatibility.
+   // The list is given room for the inset the scroll actually reserves.
+   S32 sbBorder = mSc->getBorderThickness() * 2 + mSc->getChildMargin().y * 2;
    S32 maxYdis = windowExt.y - pointInGC.y - getHeight() - sbBorder;
 
    //If scroll bars need to be added

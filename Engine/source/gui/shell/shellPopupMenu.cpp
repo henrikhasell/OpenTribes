@@ -145,6 +145,11 @@ void ShellPopupMenu::addChildren()
 
    scroll->setControlProfile( mProfile );
 
+   // HH: Modified for Tribes 2 compatibility.
+   // The shell's field scrolls inset by four; the drop-down was measured
+   // against the profile's, and the list is sized to fit that exactly.
+   scroll->setBorderThickness( mProfile ? mProfile->mBorderThickness : 1 );
+
    scroll->setField( "fieldBase", mButtonBitmap );
    scroll->setField( "hScrollBar", "AlwaysOff" );
    scroll->setField( "vScrollBar", "dynamic" );
