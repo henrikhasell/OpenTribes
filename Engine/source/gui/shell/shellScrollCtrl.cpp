@@ -261,7 +261,45 @@ void ShellScrollCtrl::drawScrollCorner( const Point2I &offset )
                offset.y + mRightArrowRect.point.y - mOverhang );
 
    GFX->getDrawUtil()->clearBitmapModulation();
-   GFX->getDrawUtil()->drawBitmapSR( mScaleTexture, at, mScaleCell[ Resting ] );
+   GFX->getDrawUtil()->drawBitmapSR( mScaleTexture, at, mScaleCell[ Disabled ] );
+}
+
+S32 ShellScrollCtrl::borderThickness() const
+{
+   return 4;
+}
+
+void ShellScrollCtrl::calcScrollRects()
+{
+   const S32 inset = borderThickness();
+   const S32 bar = mScrollBarThickness;
+   const S32 arrow = mScrollBarArrowBtnLength;
+
+   if ( mHasHScrollBar )
+   {
+      const S32 y = getHeight() - inset - bar - 1;
+
+      mLeftArrowRect.set( inset, y, arrow, bar );
+
+      mRightArrowRect.set( getWidth() - inset - ( mHasVScrollBar ? bar : 0 ) - arrow,
+                           y, arrow, bar );
+
+      mHTrackRect.set( inset + arrow, y,
+                       mRightArrowRect.point.x - inset - arrow, bar );
+   }
+
+   if ( mHasVScrollBar )
+   {
+      const S32 x = getWidth() - inset - bar;
+
+      mUpArrowRect.set( x, inset, bar, arrow );
+
+      mDownArrowRect.set( x,
+         getHeight() - inset - ( mHasHScrollBar ? bar + 1 : 0 ) - arrow, bar, arrow );
+
+      mVTrackRect.set( x, inset + arrow, bar,
+                       mDownArrowRect.point.y - inset - arrow );
+   }
 }
 
 void ShellScrollCtrl::onRender( Point2I offset, const RectI &updateRect )
@@ -296,15 +334,23 @@ void ShellScrollCtrl::drawBorder( const Point2I &offset, bool isFirstResponder )
    GFXDrawUtil *draw = GFX->getDrawUtil();
    draw->clearBitmapModulation();
 
-   const S32 inset = mBorderThickness;
+   const S32 inset = borderThickness();
+
+   Point2I extent( getWidth() - inset * 2, getHeight() - inset * 2 );
+
+   if ( mHasVScrollBar )
+      extent.x -= mScrollBarThickness;
+
+   if ( mHasHScrollBar )
+      extent.y -= mScrollBarThickness + 1;
 
    const S32 left = S32( part[ 0 ]->getBitmapWidth() );
    const S32 right = S32( part[ 2 ]->getBitmapWidth() );
-   const S32 span = getWidth() - inset * 2 - left - right;
+   const S32 span = extent.x - left - right;
 
    const S32 topH = S32( part[ 0 ]->getBitmapHeight() );
    const S32 botH = S32( part[ 6 ]->getBitmapHeight() );
-   const S32 midH = getHeight() - inset * 2 - topH - botH;
+   const S32 midH = extent.y - topH - botH;
 
    Point2I at( offset.x + inset, offset.y + inset );
 

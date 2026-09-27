@@ -72,6 +72,10 @@ protected:
 
    S32 artState( Region region, bool enabled );
 
+   S32 borderThickness() const;
+
+   void calcScrollRects();
+
 public:
    ShellScrollCtrl();
 
