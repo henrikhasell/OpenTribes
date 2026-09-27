@@ -33,8 +33,15 @@
 /// Human readable engine version string.
 #define TORQUE_GAME_ENGINE_VERSION_STRING  "2011"
 
+/// HH: Modified for Tribes 2 compatibility.
+/// The build of the game, which is not the build of the engine under it: a
+/// server reports it and a browser marks out whoever does not match.
+#define TRIBES2_BUILD_NUMBER        25034
+
 /// Gets the specified version number.  The version number is specified as a global in version.cc
 U32 getVersionNumber();
+/// Gets the build of the game, as opposed to the build of the engine.
+U32 getT2VersionNumber();
 /// Gets the version number in string form
 const char* getVersionString();
 /// Gets the engine product name in string form

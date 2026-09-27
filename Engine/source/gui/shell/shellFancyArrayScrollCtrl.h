@@ -27,6 +27,10 @@ class ShellFancyArrayScrollCtrl : public GuiControl
    SimObjectPtr< ShellFancyArray > mArray;
    SimObjectPtr< VirtualScrollCtrl > mScroll;
 
+   Point2I mArrayMargin;
+   Point2I mScrollPos;
+   Point2I mScrollMargin;
+
    void arrange();
 
 public:

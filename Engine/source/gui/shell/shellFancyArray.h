@@ -23,6 +23,7 @@ public:
       AlignRight = BIT( 1 ),
       Numeric = BIT( 2 ),
       HeaderIcon = BIT( 3 ),
+      AlignLeft = BIT( 4 ),
    };
 
    struct Column
@@ -110,6 +111,8 @@ protected:
 
    virtual void onRenderRow( const Point2I &offset, const Column &column,
                              S32 row, bool selected, bool mouseOver );
+
+   virtual void onCellClicked( S32 row, S32 column ) { }
 
 public:
    ShellFancyArray();

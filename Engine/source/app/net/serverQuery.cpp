@@ -110,8 +110,10 @@
 // cafTODO: breaks T2D
 #include "T3D/gameBase/gameConnection.h"
 
-// This is basically the server query protocol version now:
-static const char* versionString = "VER1";
+// HH: Modified for Tribes 2 compatibility.
+// What Tribes 2 answers a ping with; a server that says anything else is
+// dropped as a different game.
+static const char* versionString = "VER5";
 
 struct MasterInfo
 {
@@ -297,6 +299,18 @@ Vector<MasterInfo>* getMasterServerList();
 bool pickMasterServer();
 void clearServerList();
 
+// HH: Modified for Tribes 2 compatibility.
+// Torque 3D's content defines onServerQueryStatus and Tribes 2's defines
+// updateServerBrowserStatus, so whichever the loaded game brings is called.
+static void browserStatus( const char *status, const char *message, const char *progress )
+{
+   if ( Con::isFunction( "onServerQueryStatus" ) )
+      Con::executef( "onServerQueryStatus", status, message, progress );
+
+   if ( Con::isFunction( "updateServerBrowserStatus" ) )
+      Con::executef( "updateServerBrowserStatus", message, progress );
+}
+
 
 //-----------------------------------------------------------------------------
 // Events
@@ -405,7 +419,7 @@ void queryLanServers(U32 port, U8 flags, const char* gameType, const char* missi
    Net::stringToAddress( addrText, &addr );
    pushPingBroadcast( &addr );
 
-   Con::executef("onServerQueryStatus", "start", "Querying LAN servers", "0");
+   browserStatus( "start", "Querying LAN servers", "0" );
    processPingsAndQueries( gPingSession );
 }
 
@@ -443,32 +457,16 @@ ConsoleFunction( queryAllServers, void, 12, 12, "queryAllServers(...);" )
    dFree(missionType);
 
 }
-ConsoleFunction( queryLanServers, void, 12, 12, "queryLanServers(...);" )
+// HH: Modified for Tribes 2 compatibility.
+// A broadcast has nobody to send a filter to, so Tribes 2 asks for the port
+// and nothing else.
+ConsoleFunction( queryLanServers, void, 2, 3, "queryLanServers( port{, flags} );" )
 {
-   TORQUE_UNUSED(argc);
-
-   U32 lanPort = dAtoi(argv[1]);
-   U8 flags = dAtoi(argv[2]);
-
-   // It's not a good idea to hold onto args, recursive calls to
-   // console exec will trash them.
-   char* gameType = dStrdup(argv[3]);
-   char* missionType = dStrdup(argv[4]);
-
-   U8 minPlayers = dAtoi(argv[5]);
-   U8 maxPlayers = dAtoi(argv[6]);
-   U8 maxBots = dAtoi(argv[7]);
-   U32 regionMask = dAtoi(argv[8]);
-   U32 maxPing = dAtoi(argv[9]);
-   U16 minCPU = dAtoi(argv[10]);
-   U8 filterFlags = dAtoi(argv[11]);
+   const U32 lanPort = dAtoi( argv[ 1 ] );
+   const U8 flags = argc > 2 ? dAtoi( argv[ 2 ] ) : 0;
 
    clearServerList();
-   queryLanServers(lanPort, flags, gameType, missionType, minPlayers, maxPlayers, maxBots,
-	   regionMask, maxPing, minCPU, filterFlags);
-
-   dFree(gameType);
-   dFree(missionType);
+   queryLanServers( lanPort, flags, "Any", "Any", 0, 255, 16, 0xFFFFFFFF, 0, 0, 0 );
 }
 
 //-----------------------------------------------------------------------------
@@ -495,7 +493,7 @@ void queryMasterServer(U8 flags, const char* gameType, const char* missionType,
    gGotFirstListPacket = false;
    sgServerQueryActive = true;
 
-   Con::executef( "onServerQueryStatus", "start", "Querying master server", "0");
+   browserStatus( "start", "Querying master server", "0" );
 
    if ( buddyCount == 0 )
    {
@@ -551,49 +549,103 @@ void queryMasterServer(U8 flags, const char* gameType, const char* missionType,
       processMasterServerQuery( gPingSession );
 }
 
-ConsoleFunction( queryMasterServer, void, 11, 11, "queryMasterServer(...);" )
+// HH: Modified for Tribes 2 compatibility.
+// Tribes 2 leads with the game port -- which the master query has no use for,
+// its list carrying one per server -- and drops whatever filters it has no
+// opinion about.
+ConsoleFunction( queryMasterServer, void, 2, 13,
+   "queryMasterServer( port{, flags{, rulesSet{, missionType{, minPlayers{, "
+   "maxPlayers{, maxBots{, regionMask{, maxPing{, minCPUSpeed{, filterFlags{, "
+   "buddyList }}}}}}}}}}} );" )
 {
-   TORQUE_UNUSED(argc);
+   const U8 flags = argc > 2 ? dAtoi( argv[ 2 ] ) : 0;
 
-   U8 flags = dAtoi(argv[1]);
+   // argv points into an argument stack a nested console call reuses.
+   char *gameType = dStrdup( argc > 3 ? argv[ 3 ] : "Any" );
+   char *missionType = dStrdup( argc > 4 ? argv[ 4 ] : "Any" );
 
-   // It's not a good idea to hold onto args, recursive calls to
-   // console exec will trash them.
-   char* gameType = dStrdup(argv[2]);
-   char* missionType = dStrdup(argv[3]);
+   const U8 minPlayers = argc > 5 ? dAtoi( argv[ 5 ] ) : 0;
+   const U8 maxPlayers = argc > 6 ? dAtoi( argv[ 6 ] ) : 255;
+   const U8 maxBots = argc > 7 ? dAtoi( argv[ 7 ] ) : 16;
+   const U32 regionMask = argc > 8 ? dAtoui( argv[ 8 ] ) : 0xFFFFFFFF;
+   const U32 maxPing = argc > 9 ? dAtoi( argv[ 9 ] ) : 0;
+   const U16 minCPU = argc > 10 ? dAtoi( argv[ 10 ] ) : 0;
+   const U8 filterFlags = argc > 11 ? dAtoi( argv[ 11 ] ) : 0;
 
-   U8 minPlayers = dAtoi(argv[4]);
-   U8 maxPlayers = dAtoi(argv[5]);
-   U8 maxBots = dAtoi(argv[6]);
-   U32 regionMask = dAtoi(argv[7]);
-   U32 maxPing = dAtoi(argv[8]);
-   U16 minCPU = dAtoi(argv[9]);
-   U8 filterFlags = dAtoi(argv[10]);
-   U32 buddyList = 0;
+   // The buddy list arrives as one string of tab-separated player GUIDs.
+   Vector< U32 > buddies;
+
+   if ( argc > 12 )
+      for ( const char *at = argv[ 12 ]; *at; )
+      {
+         buddies.push_back( dAtoui( at ) );
+
+         const char *tab = dStrchr( at, '\t' );
+
+         at = tab ? tab + 1 : at + dStrlen( at );
+      }
 
    clearServerList();
-   queryMasterServer(flags,gameType,missionType,minPlayers,maxPlayers,
-      maxBots,regionMask,maxPing,minCPU,filterFlags,0,&buddyList);
+   queryMasterServer( flags, gameType, missionType, minPlayers, maxPlayers,
+      maxBots, regionMask, maxPing, minCPU, filterFlags,
+      U8( buddies.size() ), buddies.address() );
 
-   dFree(gameType);
-   dFree(missionType);
+   dFree( gameType );
+   dFree( missionType );
 }
 
 //-----------------------------------------------------------------------------
 
-ConsoleFunction( querySingleServer, void, 3, 3, "querySingleServer(address, flags);" )
+ConsoleFunction( querySingleServer, void, 2, 3, "querySingleServer( address{, flags} );" )
+{
+   NetAddress addr;
+
+   Net::stringToAddress( argv[ 1 ], &addr );
+   querySingleServer( &addr, argc > 2 ? dAtoi( argv[ 2 ] ) : 0 );
+}
+
+//-----------------------------------------------------------------------------
+
+ConsoleFunction( queryFavoriteServers, void, 1, 2, "queryFavoriteServers( {flags} );" )
+{
+   queryFavoriteServers( argc > 1 ? dAtoi( argv[ 1 ] ) : 0 );
+}
+
+//-----------------------------------------------------------------------------
+
+ConsoleFunction( isServerQueryActive, bool, 1, 1, "isServerQueryActive();" )
+{
+   TORQUE_UNUSED(argc); TORQUE_UNUSED(argv);
+   return sgServerQueryActive;
+}
+
+//-----------------------------------------------------------------------------
+
+// An address typed in by hand goes onto the ping list beside whatever the
+// last query found.
+ConsoleFunction( pushServerAddress, void, 2, 2, "pushServerAddress( address );" )
 {
    TORQUE_UNUSED(argc);
 
    NetAddress addr;
-   char* addrText;
 
-   addrText = dStrdup(argv[1]);
-   U8 flags = dAtoi(argv[2]);
+   if ( !Net::stringToAddress( argv[ 1 ], &addr ) )
+   {
+      Con::errorf( "pushServerAddress: %s is not an address.", argv[ 1 ] );
+      return;
+   }
 
+   sgServerQueryActive = true;
 
-   Net::stringToAddress( addrText, &addr );
-   querySingleServer(&addr,flags);
+   for ( U32 i = 0; i < gFinishedList.size(); i++ )
+      if ( Net::compareAddresses( &addr, &gFinishedList[ i ] ) )
+      {
+         gFinishedList.erase( i );
+         break;
+      }
+
+   pushPingRequest( &addr );
+   processPingsAndQueries( gPingSession );
 }
 
 //-----------------------------------------------------------------------------
@@ -605,7 +657,7 @@ void queryFavoriteServers( U8 /*flags*/ )
    sActiveFilter.type = ServerFilter::Favorites;
    pushServerFavorites();
 
-   Con::executef( "onServerQueryStatus", "start", "Query favorites...", "0" );
+   browserStatus( "start", "Query favorites...", "0" );
    processPingsAndQueries( gPingSession );
 }
 
@@ -628,7 +680,7 @@ void querySingleServer( const NetAddress* addr, U8 /*flags*/ )
       }
    }
 
-   Con::executef( "onServerQueryStatus", "start", "Refreshing server...", "0" );
+   browserStatus( "start", "Refreshing server...", "0" );
    gServerPingCount = gServerQueryCount = 0;
    pushPingRequest( addr );
    processPingsAndQueries( gPingSession );
@@ -1191,7 +1243,7 @@ static void processMasterServerQuery( U32 session )
             keepGoing = pickMasterServer();
             if ( keepGoing )
             {
-               Con::executef( "onServerQueryStatus", "update", "Switching master servers...", "0" );
+               browserStatus( "update", "Switching master servers...", "0" );
                Net::addressToString( &gMasterServerPing.address, addressString );
             }
          }
@@ -1214,7 +1266,7 @@ static void processMasterServerQuery( U32 session )
             out->write( sActiveFilter.minPlayers );
             out->write( sActiveFilter.maxPlayers );
             out->write( sActiveFilter.regionMask );
-            U32 version = ( sActiveFilter.filterFlags & ServerFilter::CurrentVersion ) ? getVersionNumber() : 0;
+            U32 version = ( sActiveFilter.filterFlags & ServerFilter::CurrentVersion ) ? getT2VersionNumber() : 0;
             out->write( version );
             out->write( sActiveFilter.filterFlags );
             out->write( sActiveFilter.maxBots );
@@ -1227,7 +1279,7 @@ static void processMasterServerQuery( U32 session )
 
             Con::printf( "Requesting the server list from master server %s (%d tries left)...", addressString, gMasterServerPing.tryCount );
             if ( gMasterServerPing.tryCount < gMasterServerRetryCount - 1 )
-               Con::executef( "onServerQueryStatus", "update", "Retrying the master server...", "0" );
+               browserStatus( "update", "Retrying the master server...", "0" );
          }
       }
 
@@ -1239,7 +1291,7 @@ static void processMasterServerQuery( U32 session )
       else
       {
          Con::errorf( "There are no more master servers to try!" );
-         Con::executef( "onServerQueryStatus", "done", "No master servers found.", "0" );
+         browserStatus( "done", "No master servers found.", "0" );
       }
    }
 }
@@ -1371,7 +1423,8 @@ static void processPingsAndQueries( U32 session, bool schedule )
       else
          dSprintf( msg, sizeof( msg ), "%d servers found.", foundCount );
 
-      Con::executef( "onServerQueryStatus", "done", msg, "1");
+      sgServerQueryActive = false;
+      browserStatus( "done", msg, "0" );
    }
 }
 
@@ -1466,7 +1519,7 @@ static void updatePingProgress()
       progress = F32( gServerPingCount - pingsLeft ) / F32( gServerPingCount * 2 );
 
    //Con::errorf( ConsoleLogEntry::General, "Ping progress - %d of %d left - progress = %.2f", pingsLeft, gServerPingCount, progress );
-   Con::executef( "onServerQueryStatus", "ping", msg, Con::getFloatArg( progress ) );
+   browserStatus( "ping", msg, Con::getFloatArg( progress ) );
 }
 
 //-----------------------------------------------------------------------------
@@ -1486,7 +1539,7 @@ static void updateQueryProgress()
       progress += ( F32( gServerQueryCount - queriesLeft ) / F32( gServerQueryCount * 2 ) );
 
    //Con::errorf( ConsoleLogEntry::General, "Query progress - %d of %d left - progress = %.2f", queriesLeft, gServerQueryCount, progress );
-   Con::executef( "onServerQueryStatus", "query", msg, Con::getFloatArg( progress ) );
+   browserStatus( "query", msg, Con::getFloatArg( progress ) );
 }
 
 
@@ -1641,7 +1694,7 @@ static void handleGameMasterInfoRequest( const NetAddress* address, U32 key, U8 
       out->write( temp8 );
       temp32 = Con::getIntVariable( "pref::Server::RegionMask" );
       out->write( temp32 );
-      temp32 = getVersionNumber();
+      temp32 = getT2VersionNumber();
       out->write( temp32 );
       temp8 = 0;
 #if defined(TORQUE_OS_LINUX) || defined(TORQUE_OS_OPENBSD)
@@ -1712,7 +1765,7 @@ static void handleGamePingRequest( const NetAddress* address, U32 key, U8 flags 
          out->writeString( versionString );
       out->write( GameConnection::CurrentProtocolVersion );
       out->write( GameConnection::MinRequiredProtocolVersion );
-      out->write( getVersionNumber() );
+      out->write( getT2VersionNumber() );
 
       // Enforce a 24-character limit on the server name:
       char serverName[25];
@@ -1836,7 +1889,7 @@ static void handleGamePingResponse( const NetAddress* address, BitStream* stream
    stream->read( &temp32 );
    if ( applyFilter
      && ( sActiveFilter.filterFlags & ServerFilter::CurrentVersion )
-     && ( temp32 != getVersionNumber() ) )
+     && ( temp32 != getT2VersionNumber() ) )
    {
       Con::printf( "Server %s filtered out by version number.", addrString );
       gFinishedList.push_back( *address );
