@@ -21,6 +21,7 @@ ConsoleDocClass( ShellBitmapButton,
 ShellBitmapButton::ShellBitmapButton()
 {
    mSimpleStyle = false;
+   mButtonText = StringTable->EmptyString();
 }
 
 void ShellBitmapButton::initPersistFields()
