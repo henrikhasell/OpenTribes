@@ -223,7 +223,10 @@ void ShellPopupMenu::onRender( Point2I offset, const RectI &updateRect )
                          : mMouseOver ? mProfile->mFontColorHL
                                       : mProfile->mFontColor;
 
-   draw->clearBitmapModulation();
+   if ( mActive )
+      draw->clearBitmapModulation();
+   else
+      draw->setBitmapModulation( ColorI( 128, 128, 128 ) );
 
    const S32 left = cell( LeftCap, Resting ).extent.x;
    const S32 span = getWidth() - left - cell( RightCap, Resting ).extent.x;
