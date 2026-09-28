@@ -2,6 +2,7 @@
 #include "gui/shell/shellRadioButton.h"
 
 #include "console/console.h"
+#include "core/stringTable.h"
 #include "console/engineAPI.h"
 #include "gfx/gfxDevice.h"
 #include "gfx/gfxDrawUtil.h"
@@ -27,6 +28,7 @@ ShellRadioButton::ShellRadioButton()
 {
    mButtonType = ButtonTypeRadio;
    mSliced = false;
+   mButtonText = StringTable->EmptyString();
 }
 
 bool ShellRadioButton::onWake()
