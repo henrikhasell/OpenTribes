@@ -45,6 +45,7 @@
 #include "console/debugOutputConsumer.h"
 #include "console/consoleTypes.h"
 #include "console/engineAPI.h"
+#include "core/volume.h"
 
 #include "gfx/bitmap/gBitmap.h"
 #include "gfx/gFont.h"
@@ -367,6 +368,12 @@ void StandardMainLoop::preShutdown()
       Con::executef("onExit");
 }
 
+// HH: Added for Tribes 2 compatibility.
+static S32 comparePatchNames( const String *a, const String *b )
+{
+   return dStricmp( a->c_str(), b->c_str() );
+}
+
 bool StandardMainLoop::handleCommandLine( S32 argc, const char **argv )
 {
    // Allow the window manager to process command line inputs; this is
@@ -537,6 +544,22 @@ bool StandardMainLoop::handleCommandLine( S32 argc, const char **argv )
       *ptr = 0;
    Platform::setMainDotCsDir(buffer);
    Platform::setCurrentDirectory(buffer);
+
+   // HH: Added for Tribes 2 compatibility.
+   // The game's client patch scripts are not exec'd by anything it ships; the
+   // stock executable runs them itself.  They have to be in before the entry
+   // script loads the GUIs, because what they change is taken at onAdd -- the
+   // IP button on the Join Game pane is added there.  Each file is a package
+   // that guards its own version and activates itself, so all this has to get
+   // right is that they run, in name order.
+   Vector< String > patches;
+
+   Torque::FS::FindByPattern( Torque::FS::GetCwd(), "console_client_*.cs", false, patches );
+
+   patches.sort( comparePatchNames );
+
+   for( U32 i = 0; i < patches.size(); i++ )
+      Con::evaluatef( "exec(\"%s\");", Torque::Path( patches[ i ] ).getFullFileName().c_str() );
 
    Con::evaluate(script, false, useDefaultScript ? defaultScriptName : argv[1]); 
    delete[] script;
