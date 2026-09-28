@@ -292,7 +292,10 @@ void PlatformWindowManagerSDL::_handleEvents()
             // WindowInputGenerator::handleMouseButton adds KEY_BUTTON0 itself,
             // so this passes the zero-based index. Sending the offset code here
             // made the engine compute KEY_BUTTON0 + 256, which is no button.
-            const U16 button = U16( event.button.button - 1 );
+            static const U16 sButtonOrder[] = { 0, 2, 1 };
+
+            const U16 sdlButton = U16( event.button.button - 1 );
+            const U16 button = sdlButton < 3 ? sButtonOrder[ sdlButton ] : sdlButton;
 
             window->buttonEvent.trigger( window->getWindowId(), sdlModifiers(), action, button );
             break;
