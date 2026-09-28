@@ -356,9 +356,15 @@ ConsoleMethod( GuiPopUpMenuCtrl, clear, void, 2, 2, "Clear the popup list.")
 }
 
 //FIXME: clashes with SimSet.sort
-ConsoleMethod(GuiPopUpMenuCtrl, sort, void, 2, 2, "Sort the list alphabetically.")
+// HH: Modified for Tribes 2 compatibility.
+ConsoleMethod(GuiPopUpMenuCtrl, sort, void, 2, 4,
+   "( bool ascending=true, int firstSorted=0 )"
+   "Sort the list alphabetically, leaving the first firstSorted entries alone." )
 {
-   object->sort();
+   const bool ascending = argc > 2 ? dAtob( argv[ 2 ] ) : true;
+   const S32 firstSorted = argc > 3 ? dAtoi( argv[ 3 ] ) : 0;
+
+   object->sort( ascending, firstSorted );
 }
 
 //  Added to sort the entries by ID
@@ -583,6 +589,12 @@ static S32 QSORT_CALLBACK textCompare(const void *a,const void *b)
    return (dStrnatcasecmp(ea->buf, eb->buf));
 } 
 
+// HH: Added for Tribes 2 compatibility.
+static S32 QSORT_CALLBACK textCompareDescending(const void *a,const void *b)
+{
+   return textCompare( b, a );
+}
+
 //  Added to sort by entry ID
 //------------------------------------------------------------------------------
 static S32 QSORT_CALLBACK idCompare(const void *a,const void *b)
@@ -624,14 +636,23 @@ void GuiPopUpMenuCtrl::setBitmap( const char *name )
 }   
 
 //------------------------------------------------------------------------------
-void GuiPopUpMenuCtrl::sort()
+void GuiPopUpMenuCtrl::sort( bool ascending, S32 firstSorted )
 {
+   // HH: Modified for Tribes 2 compatibility.
+   // The entries before firstSorted stay where the content put them -- a filter
+   // popup pins "Any" at the top and sorts what follows -- and an offset outside
+   // the list sorts nothing at all, which is what 0x004c92e0 does with it.
+   if( firstSorted < 0 || firstSorted >= mEntries.size() )
+      return;
+
    S32 selId = getSelected();
-   
-   S32 size = mEntries.size();
-   if( size > 0 )
-      dQsort( mEntries.address(), size, sizeof(Entry), textCompare);
-      
+
+   const S32 count = mEntries.size() - firstSorted;
+
+   if( count > 1 )
+      dQsort( mEntries.address() + firstSorted, count, sizeof(Entry),
+              ascending ? textCompare : textCompareDescending );
+
    if( selId != -1 )
       setSelected( selId, false );
 }
