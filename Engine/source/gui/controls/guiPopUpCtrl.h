@@ -132,7 +132,9 @@ public:
    bool onAdd();
    void onSleep();
    void setBitmap(const char *name); //  Added
-   void sort();
+   // HH: Modified for Tribes 2 compatibility.
+   // Tribes 2 sorts from an offset, so a popup can pin leading entries.
+   void sort( bool ascending = true, S32 firstSorted = 0 );
    void sortID(); //  Added
    void addEntry(const char *buf, S32 id = -1, U32 scheme = 0);
    void addScheme(U32 id, ColorI fontColor, ColorI fontColorHL, ColorI fontColorSEL);
