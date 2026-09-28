@@ -46,7 +46,8 @@ S32 ShellBitmapButton::artState()
       return 0;
    if ( mDepressed || mStateOn )
       return 1;
-   if ( mMouseOver )
+
+   if ( mMouseOver || isFirstResponder() )
       return 2;
 
    return 0;
@@ -60,7 +61,10 @@ void ShellBitmapButton::onRender( Point2I offset, const RectI &updateRect )
 
    if ( mArt.isValid() )
    {
-      draw->clearBitmapModulation();
+      if ( mActive )
+         draw->clearBitmapModulation();
+      else
+         draw->setBitmapModulation( ColorI( 128, 128, 128 ) );
 
       if ( mSimpleStyle )
          mArt.drawCell( artState(), offset );

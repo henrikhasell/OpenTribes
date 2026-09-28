@@ -84,8 +84,12 @@ void GuiServerBrowser::onPreRender()
 
    if ( gServerBrowserDirty )
    {
-      sort();
       gServerBrowserDirty = false;
+
+      if ( Con::isFunction( "updateServerBrowser" ) )
+         Con::executef( "updateServerBrowser" );
+      else
+         sort();
    }
 }
 
