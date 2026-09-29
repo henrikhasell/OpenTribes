@@ -230,6 +230,13 @@ static const U16 *writeT2(BitStream *stream, const U16 *p,
    }
 }
 
+void DataBlockT2::runProgram(BitStream *stream, const U16 *program,
+                             Vector<U32> &value, Vector<StringTableEntry> &string)
+{
+   sTraceFields = Con::getBoolVariable("$T2::traceFields");
+   readT2(stream, program, value, string);
+}
+
 void DataBlockT2::unpackData(BitStream *stream)
 {
    sTraceFields = Con::getBoolVariable("$T2::traceFields");

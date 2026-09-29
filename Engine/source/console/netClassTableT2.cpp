@@ -106,7 +106,7 @@ const char *t2NameFor( const char *className )
 
 bool isPorted( U32 classType, const char *className )
 {
-   if( classType == NetClassTypeEvent )
+   if( classType == NetClassTypeEvent || classType == NetClassTypeObject )
       return true;
 
    if( classType == NetClassTypeDataBlock )

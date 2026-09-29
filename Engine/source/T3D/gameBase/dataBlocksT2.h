@@ -56,6 +56,10 @@ public:
 
    DECLARE_CONOBJECT(DataBlockT2);
 
+   /// Take the fields a read program names off the stream.
+   static void runProgram(BitStream *stream, const U16 *program,
+                          Vector<U32> &value, Vector<StringTableEntry> &string);
+
    /// Read a datablock the port has a class for but writes differently.
    ///
    /// The part of the chain that is ported reads as it stands; the rest is

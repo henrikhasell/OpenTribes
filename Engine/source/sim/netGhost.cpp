@@ -25,6 +25,7 @@
 #include "console/simBase.h"
 #include "sim/netConnection.h"
 #include "console/netClassTableT2.h"
+#include "T3D/gameBase/ghostsT2.h"
 #include "core/stream/bitStream.h"
 #include "sim/netObject.h"
 //#include "core/resManager.h"
@@ -609,7 +610,9 @@ void NetConnection::ghostReadPacket(BitStream *bstream)
                Con::warnf("Dropped a packet updating ghost %d, which we never made.", index);
                return;
             }
-            mLocalGhosts[index]->unpackUpdate(this, bstream);
+            // HH: Modified for Tribes 2 compatibility.
+            if(!GhostT2::unpackUpdate(mLocalGhosts[index], this, bstream))
+               mLocalGhosts[index]->unpackUpdate(this, bstream);
 #ifdef TORQUE_NET_STATS
             mLocalGhosts[index]->getClassRep()->updateNetStatUnpack(bstream->getBitPosition() - beginSize);
 #endif
@@ -658,7 +661,9 @@ void NetConnection::ghostReadPacket(BitStream *bstream)
 #ifdef TORQUE_NET_STATS
             U32 beginSize = bstream->getBitPosition();
 #endif
-            mLocalGhosts[index]->unpackUpdate(this, bstream);
+            // HH: Modified for Tribes 2 compatibility.
+            if(!GhostT2::unpackUpdate(mLocalGhosts[index], this, bstream))
+               mLocalGhosts[index]->unpackUpdate(this, bstream);
 #ifdef TORQUE_NET_STATS
             mLocalGhosts[index]->getClassRep()->updateNetStatUnpack(bstream->getBitPosition() - beginSize);
 #endif

@@ -678,13 +678,17 @@ ShapeBaseData::Tribes2Rest::Tribes2Rest()
       haveBlock[i] = false;
       block[i] = 0;
    }
+   dMemset(bit, 0, sizeof(bit));
    visibleDistance = 0.0f;
    haveOffset = false;
    offset.set(0.0f, 0.0f, 0.0f);
-   haveSound = false;
-   sound = StringTable->EmptyString();
-   haveSoundLoop = false;
-   soundLoop = StringTable->EmptyString();
+   for(U32 i = 0; i < NumSlots; i++)
+   {
+      haveSound[i] = false;
+      sound[i] = StringTable->EmptyString();
+      haveSoundLoop[i] = false;
+      soundLoop[i] = StringTable->EmptyString();
+   }
    dMemset(slot, 0, sizeof(slot));
 }
 
@@ -736,9 +740,15 @@ void ShapeBaseData::packData(BitStream* stream)
    stream->writeString(debrisShapeName);
    stream->writeString(mTribes2Rest.hudName);
 
+   for(U32 i = 0; i < 6; i++)
+      stream->writeFlag(mTribes2Rest.bit[i]);
+
    for(U32 i = 0; i < 4; i++)
       if(stream->writeFlag(mTribes2Rest.haveBlock[i]))
          stream->writeInt(mTribes2Rest.block[i], DataBlockObjectIdBitSize);
+
+   for(U32 i = 6; i < Tribes2Rest::NumBits; i++)
+      stream->writeFlag(mTribes2Rest.bit[i]);
 
    stream->write(mTribes2Rest.visibleDistance);
 
@@ -749,16 +759,18 @@ void ShapeBaseData::packData(BitStream* stream)
       stream->write(mTribes2Rest.offset.z);
    }
 
-   if(stream->writeFlag(mTribes2Rest.haveSound))
-   {
-      stream->writeString(mTribes2Rest.sound);
-      if(stream->writeFlag(mTribes2Rest.haveSoundLoop))
-         stream->writeString(mTribes2Rest.soundLoop);
-   }
-
    for(U32 i = 0; i < Tribes2Rest::NumSlots; i++)
+   {
+      if(!stream->writeFlag(mTribes2Rest.haveSound[i]))
+         continue;
+
+      stream->writeString(mTribes2Rest.sound[i]);
+      if(stream->writeFlag(mTribes2Rest.haveSoundLoop[i]))
+         stream->writeString(mTribes2Rest.soundLoop[i]);
+
       for(U32 j = 0; j < Tribes2Rest::SlotFlags; j++)
          stream->writeFlag(mTribes2Rest.slot[i][j]);
+   }
 }
 
 void ShapeBaseData::unpackData(BitStream* stream)
@@ -812,12 +824,18 @@ void ShapeBaseData::unpackData(BitStream* stream)
    stream->readString(buffer);
    mTribes2Rest.hudName = StringTable->insert(buffer);
 
+   for(U32 i = 0; i < 6; i++)
+      mTribes2Rest.bit[i] = stream->readFlag();
+
    for(U32 i = 0; i < 4; i++)
    {
       mTribes2Rest.haveBlock[i] = stream->readFlag();
       if(mTribes2Rest.haveBlock[i])
          mTribes2Rest.block[i] = stream->readInt(DataBlockObjectIdBitSize);
    }
+
+   for(U32 i = 6; i < Tribes2Rest::NumBits; i++)
+      mTribes2Rest.bit[i] = stream->readFlag();
 
    stream->read(&mTribes2Rest.visibleDistance);
 
@@ -829,22 +847,25 @@ void ShapeBaseData::unpackData(BitStream* stream)
       stream->read(&mTribes2Rest.offset.z);
    }
 
-   mTribes2Rest.haveSound = stream->readFlag();
-   if(mTribes2Rest.haveSound)
+   for(U32 i = 0; i < Tribes2Rest::NumSlots; i++)
    {
+      mTribes2Rest.haveSound[i] = stream->readFlag();
+      if(!mTribes2Rest.haveSound[i])
+         continue;
+
       stream->readString(buffer);
-      mTribes2Rest.sound = StringTable->insert(buffer);
-      mTribes2Rest.haveSoundLoop = stream->readFlag();
-      if(mTribes2Rest.haveSoundLoop)
+      mTribes2Rest.sound[i] = StringTable->insert(buffer);
+
+      mTribes2Rest.haveSoundLoop[i] = stream->readFlag();
+      if(mTribes2Rest.haveSoundLoop[i])
       {
          stream->readString(buffer);
-         mTribes2Rest.soundLoop = StringTable->insert(buffer);
+         mTribes2Rest.soundLoop[i] = StringTable->insert(buffer);
       }
-   }
 
-   for(U32 i = 0; i < Tribes2Rest::NumSlots; i++)
       for(U32 j = 0; j < Tribes2Rest::SlotFlags; j++)
          mTribes2Rest.slot[i][j] = stream->readFlag();
+   }
 }
 
 

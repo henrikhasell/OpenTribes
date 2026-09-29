@@ -600,7 +600,7 @@ public:
    // They are read and written back as they came so the stream stays in step.
    struct Tribes2Rest
    {
-      enum { NumSlots = 8, SlotFlags = 5 };
+      enum { NumSlots = 8, SlotFlags = 5, NumBits = 9 };
 
       bool              haveIcon;
       U32               icon;
@@ -608,15 +608,16 @@ public:
       bool              haveScale;
       F32               scale;
       StringTableEntry  hudName;
+      bool              bit[NumBits];
       bool              haveBlock[4];
       U32               block[4];
       F32               visibleDistance;
       bool              haveOffset;
       Point3F           offset;
-      bool              haveSound;
-      StringTableEntry  sound;
-      bool              haveSoundLoop;
-      StringTableEntry  soundLoop;
+      bool              haveSound[NumSlots];
+      StringTableEntry  sound[NumSlots];
+      bool              haveSoundLoop[NumSlots];
+      StringTableEntry  soundLoop[NumSlots];
       bool              slot[NumSlots][SlotFlags];
 
       Tribes2Rest();
