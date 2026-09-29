@@ -678,7 +678,7 @@ void NetConnection::setLastError(const char *fmt, ...)
 {
    va_list argptr;
    va_start(argptr, fmt);
-   mErrorBuffer = String::ToString(fmt, argptr);
+   mErrorBuffer = String::VToString(fmt, argptr);
    va_end(argptr);
 
 #ifdef TORQUE_DEBUG_NET
