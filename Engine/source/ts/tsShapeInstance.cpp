@@ -305,10 +305,18 @@ void TSShapeInstance::reSkin( String newBaseName, String oldBaseName )
    {
       // Try changing base
       const String &pName = materialNames[i];
-      if ( pName.compare( oldBaseName, oldBaseNameLength, String::NoCase ) == 0 )
+
+      String::SizeType fileAt = 0;
+      for ( String::SizeType c = 0; c < pName.length(); c++ )
+         if ( pName[ c ] == '/' || pName[ c ] == '\\' )
+            fileAt = c + 1;
+
+      const String file = pName.substr( fileAt, pName.length() - fileAt );
+
+      if ( file.compare( oldBaseName, oldBaseNameLength, String::NoCase ) == 0 )
       {
          String newName( pName );
-         newName.replace( 0, oldBaseNameLength, newBaseName );
+         newName.replace( fileAt, oldBaseNameLength, newBaseName );
          pMatList->renameMaterial( i, newName );
       }
    }

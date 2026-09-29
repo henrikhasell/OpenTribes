@@ -746,42 +746,6 @@ GFXTextureObject *GFXTextureManager::createTexture( const Torque::Path &path, GF
       }
    }
 
-   // HH: Modified for Tribes 2 compatibility.
-   // A Tribes 2 shape names its textures bare -- "base.hmale", "weapon_disc" --
-   // and the game's resource manager answers with the file wherever it lives,
-   // which for a shape's materials is textures/skins rather than beside the
-   // shape.  Ask for it by name when the path it was asked for has nothing.
-   if( retTexObj == NULL )
-   {
-      const String name = correctPath.getFullFileName();
-
-      Vector< String > byName;
-
-      // The name as it came and the name with any extension, in one walk:
-      // findByPattern splits multiple expressions on a tab.
-      Torque::FS::FindByPattern( Torque::FS::GetCwd(),
-         name + String( ".*\t" ) + name, true, byName, true );
-
-      // A name can go by more than one file -- weapon_disc is a shape as well
-      // as a texture, and a skin ships as a .bm8 beside its .png -- so take
-      // the first that is a kind of bitmap this engine reads.
-      for( U32 i = 0; i < byName.size() && retTexObj == NULL; i++ )
-      {
-         const Torque::Path candidate( byName[ i ] );
-
-         if ( !GBitmap::sFindRegInfo( candidate.getExtension() ) )
-            continue;
-
-         bitmap = GBitmap::load( candidate );
-
-         if ( bitmap != NULL )
-         {
-            realPath = bitmap.getPath();
-            retTexObj = createTexture( bitmap, pathNoExt, profile, false );
-         }
-      }
-   }
-
    if ( retTexObj )
    {
       // Store the path for later use.

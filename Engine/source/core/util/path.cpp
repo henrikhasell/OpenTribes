@@ -34,7 +34,7 @@ void Path::_split(String name)
    S32   idx = 0;
 
    // Make sure we have platform separators
-   name = PathToPlatform(name);
+   name = Path::CleanSeparators( PathToPlatform( name ) );
 
    // root:
    idx = name.find(':');
