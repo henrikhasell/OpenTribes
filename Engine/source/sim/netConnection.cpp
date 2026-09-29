@@ -55,19 +55,23 @@ SimObjectPtr<NetConnection> NetConnection::mServerConnection;
 SimObjectPtr<NetConnection> NetConnection::mLocalClientConnection;
 
 //----------------------------------------------------------------------
-/// ConnectionMessageEvent
+/// GhostingMessageEvent
+///
+/// HH: Renamed for Tribes 2 compatibility.
+/// Tribes 2 calls the connection's own sequencing event by this name, and a
+/// class answers on the wire by its name.
 ///
 /// This event is used inside by the connection and subclasses to message
 /// itself when sequencing events occur.  Right now, the message event
 /// only uses 6 bits to transmit the message, so
-class ConnectionMessageEvent : public NetEvent
+class GhostingMessageEvent : public NetEvent
 {
    U32 sequence;
    U32 message;
    U32 ghostCount;
 public:
    typedef NetEvent Parent;
-   ConnectionMessageEvent(U32 msg=0, U32 seq=0, U32 gc=0)
+   GhostingMessageEvent(U32 msg=0, U32 seq=0, U32 gc=0)
       { message = msg; sequence = seq; ghostCount = gc;}
    void pack(NetConnection *, BitStream *bstream)
    {
@@ -91,19 +95,19 @@ public:
    {
       ps->handleConnectionMessage(message, sequence, ghostCount);
    }
-   DECLARE_CONOBJECT(ConnectionMessageEvent);
+   DECLARE_CONOBJECT(GhostingMessageEvent);
 };
 
-IMPLEMENT_CO_NETEVENT_V1(ConnectionMessageEvent);
+IMPLEMENT_CO_NETEVENT_V1(GhostingMessageEvent);
 
-ConsoleDocClass( ConnectionMessageEvent,
+ConsoleDocClass( GhostingMessageEvent,
 				"@brief This event is used inside by the connection and subclasses to message itself when sequencing events occur.\n\n"
 				"Not intended for game development, for editors or internal use only.\n\n "
 				"@internal");
 
 void NetConnection::sendConnectionMessage(U32 message, U32 sequence, U32 ghostCount)
 {
-   postNetEvent(new ConnectionMessageEvent(message, sequence, ghostCount));
+   postNetEvent(new GhostingMessageEvent(message, sequence, ghostCount));
 }
 
 //--------------------------------------------------------------------

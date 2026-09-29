@@ -917,7 +917,7 @@ public:
    ///
    /// As part of the ghost connection process, extensive hand-shaking must be performed.
    ///
-   /// This is done by passing ConnectionMessageEvents; this is a helper function
+   /// This is done by passing GhostingMessageEvents; this is a helper function
    /// to more effectively perform this task. Messages are dealt with by
    /// handleConnectionMessage().
    ///
