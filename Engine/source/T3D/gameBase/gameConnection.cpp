@@ -998,7 +998,8 @@ void GameConnection::ghostWriteExtra(NetObject * nobj, BitStream * bstream)
 
 void GameConnection::readPacket(BitStream *bstream)
 {
-   bstream->clearStringBuffer();
+   char stringBuffer[256];
+   bstream->setStringBuffer(stringBuffer);
    bstream->clearCompressionPoint();
 
    if (isConnectionToServer())
@@ -1172,7 +1173,8 @@ void GameConnection::readPacket(BitStream *bstream)
 void GameConnection::writePacket(BitStream *bstream, PacketNotify *note)
 {
    bstream->clearCompressionPoint();
-   bstream->clearStringBuffer();
+   char stringBuffer[256];
+   bstream->setStringBuffer(stringBuffer);
 
    GamePacketNotify *gnote = (GamePacketNotify *) note;
 

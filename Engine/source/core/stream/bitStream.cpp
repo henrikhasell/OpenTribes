@@ -35,16 +35,19 @@ static U8 gPacketBuffer[Net::MaxPacketDataSize];
 
 // bitstream utility functions
 
-void BitStream::clearStringBuffer() 
+// HH: Modified for Tribes 2 compatibility.
+// Torque left the shared string prefix turned off; Tribes 2 hands every
+// connection packet a buffer and so writes that prefix.
+void BitStream::clearStringBuffer()
 {
-   static char stringBuf[256];
-   stringBuf[0] = 0; 
-//   setStringBuffer( stringBuf ); 
+   stringBuffer = NULL;
 }
 
 void BitStream::setStringBuffer(char buffer[256])
 {
-//   stringBuffer = buffer;
+   stringBuffer = buffer;
+   if(stringBuffer)
+      stringBuffer[0] = 0;
 }
 
 BitStream *BitStream::getPacketStream(U32 writeSize)
@@ -54,6 +57,7 @@ BitStream *BitStream::getPacketStream(U32 writeSize)
 
    gPacketStream.setBuffer(gPacketBuffer, writeSize, Net::MaxPacketDataSize);
    gPacketStream.setPosition(0);
+   gPacketStream.clearStringBuffer();
 
    return &gPacketStream;
 }
