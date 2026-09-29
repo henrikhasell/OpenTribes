@@ -538,10 +538,22 @@ void NetConnection::ghostReadPacket(BitStream *bstream)
       U32 index;
       //S32 startPos = bstream->getCurPos();
       index = (U32) bstream->readInt(idSize);
+      if(index >= MaxGhostCount)
+      {
+         Con::warnf("Dropped a packet naming ghost %d, which is past our table.", index);
+         return;
+      }
       if(bstream->readFlag()) // is this ghost being deleted?
       {
-		 mGhostsActive--;
-         AssertFatal(mLocalGhosts[index] != NULL, "Error, NULL ghost encountered.");
+         // HH: Modified for Tribes 2 compatibility.
+         // A server ghosting before we could follow it names ghosts we never
+         // made, so drop the packet rather than the connection.
+         if(!mLocalGhosts[index])
+         {
+            Con::warnf("Dropped a packet retiring ghost %d, which we never made.", index);
+            return;
+         }
+         mGhostsActive--;
          mLocalGhosts[index]->deleteObject();
          mLocalGhosts[index] = NULL;
       }
@@ -562,8 +574,9 @@ void NetConnection::ghostReadPacket(BitStream *bstream)
             {
                // HH: Modified for Tribes 2 compatibility.
                // Name the class we have not ported, which is the one thing
-               // that says what to write next.
-               setLastError("No ghost class %d (%s).", classId,
+               // that says what to write next, and drop only the packet.
+               mGhostsActive--;
+               Con::warnf("Dropped a packet ghosting a %s, which we lack.",
                   NetClassTableT2::Objects[classId]);
                return;
             }
@@ -591,6 +604,11 @@ void NetConnection::ghostReadPacket(BitStream *bstream)
 #ifdef TORQUE_NET_STATS
             U32 beginSize = bstream->getBitPosition();
 #endif
+            if(!mLocalGhosts[index])
+            {
+               Con::warnf("Dropped a packet updating ghost %d, which we never made.", index);
+               return;
+            }
             mLocalGhosts[index]->unpackUpdate(this, bstream);
 #ifdef TORQUE_NET_STATS
             mLocalGhosts[index]->getClassRep()->updateNetStatUnpack(bstream->getBitPosition() - beginSize);

@@ -65,6 +65,11 @@ const U32 ObjectBits    = 7;
 const U32 DataBlockBits = 7;
 const U32 EventBits     = 6;
 
+bool isPorted( U32 classType )
+{
+   return classType == NetClassTypeEvent;
+}
+
 const char *const *tableFor( U32 classType, U32 *countOut, U32 *bitsOut )
 {
    switch( classType )
