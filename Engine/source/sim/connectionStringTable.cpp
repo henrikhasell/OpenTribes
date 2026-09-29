@@ -38,22 +38,30 @@ public:
       mIndex = index;
       mString = string;
    }
+   // HH: Modified for Tribes 2 compatibility.
+   // Tribes 2 flags whether a string follows, so it can retire an index
+   // without naming anything.
    virtual void pack(NetConnection* /*ps*/, BitStream *bstream)
    {
       bstream->writeInt(mIndex, ConnectionStringTable::EntryBitSize);
-      bstream->writeString(mString.getString());
+      if(bstream->writeFlag(mString.isValidString()))
+         bstream->writeString(mString.getString());
    }
-   virtual void write(NetConnection* /*ps*/, BitStream *bstream)
+   virtual void write(NetConnection* ps, BitStream *bstream)
    {
-      bstream->writeInt(mIndex, ConnectionStringTable::EntryBitSize);
-      bstream->writeString(mString.getString());
+      pack(ps, bstream);
    }
    virtual void unpack(NetConnection* /*con*/, BitStream *bstream)
    {
-      char buf[256];
       mIndex = bstream->readInt(ConnectionStringTable::EntryBitSize);
-      bstream->readString(buf);
-      mString = NetStringHandle(buf);
+      if(bstream->readFlag())
+      {
+         char buf[256];
+         bstream->readString(buf);
+         mString = NetStringHandle(buf);
+      }
+      else
+         mString = NetStringHandle();
    }
    virtual void notifyDelivered(NetConnection *ps, bool madeit)
    {
