@@ -68,7 +68,8 @@ const U32 EventBits     = 6;
 /// The datablocks whose packing has been ported.
 static const char *const sPortedDataBlocks[] =
 {
-   "CommanderIconData", "SensorData", "CannedChatItem", "SimDataBlock"
+   "CommanderIconData", "SensorData", "CannedChatItem", "SimDataBlock",
+   "GameBaseData", "ShapeBaseData", "MissionMarkerData"
 };
 
 bool isPorted( U32 classType, const char *className )

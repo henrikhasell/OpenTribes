@@ -227,3 +227,120 @@ IMPLEMENT_CO_CLIENTEVENT_V1(SetObjectActiveImageEvent);
 
 ConsoleDocClass( SetObjectActiveImageEvent,
    "@brief Tells a client which image slot an object is holding up.\n\n@internal" );
+
+//----------------------------------------------------------------------------
+
+/// Tribes 2 asks a client to checksum a stretch of its own files, so that a
+/// server can tell a patched client from a stock one.  The port answers the
+/// challenge's shape without the sum, which a server only insists on when it
+/// is asking for accounts as well.
+class CRCChallengeEvent : public NetEvent
+{
+   typedef NetEvent Parent;
+   U32  mSeed;
+   U32  mStart;
+   U32  mLength;
+   bool mWhole;
+
+public:
+   CRCChallengeEvent()
+   {
+      mGuaranteeType = GuaranteedOrdered;
+      mSeed = mStart = mLength = 0;
+      mWhole = false;
+   }
+
+   void pack(NetConnection *, BitStream *stream)
+   {
+      stream->write(mSeed);
+      stream->write(mStart);
+      stream->write(mLength);
+      stream->writeFlag(mWhole);
+   }
+   void write(NetConnection *conn, BitStream *stream) { pack(conn, stream); }
+   void unpack(NetConnection *, BitStream *stream)
+   {
+      stream->read(&mSeed);
+      stream->read(&mStart);
+      stream->read(&mLength);
+      mWhole = stream->readFlag();
+   }
+   void process(NetConnection *) {}
+
+   DECLARE_CONOBJECT(CRCChallengeEvent);
+};
+
+IMPLEMENT_CO_CLIENTEVENT_V1(CRCChallengeEvent);
+
+ConsoleDocClass( CRCChallengeEvent,
+   "@brief Asks a client to checksum part of its install.\n\n@internal" );
+
+//----------------------------------------------------------------------------
+
+class CRCChallengeResponseEvent : public NetEvent
+{
+   typedef NetEvent Parent;
+   U32 mSeed;
+   U32 mSum;
+   U32 mLength;
+
+public:
+   CRCChallengeResponseEvent(U32 seed = 0, U32 sum = 0, U32 length = 0)
+   {
+      mGuaranteeType = GuaranteedOrdered;
+      mSeed = seed;
+      mSum = sum;
+      mLength = length;
+   }
+
+   void pack(NetConnection *, BitStream *stream)
+   {
+      stream->write(mSeed);
+      stream->write(mSum);
+      stream->write(mLength);
+   }
+   void write(NetConnection *conn, BitStream *stream) { pack(conn, stream); }
+   void unpack(NetConnection *, BitStream *stream)
+   {
+      stream->read(&mSeed);
+      stream->read(&mSum);
+      stream->read(&mLength);
+   }
+   void process(NetConnection *) {}
+
+   DECLARE_CONOBJECT(CRCChallengeResponseEvent);
+};
+
+IMPLEMENT_CO_SERVEREVENT_V1(CRCChallengeResponseEvent);
+
+ConsoleDocClass( CRCChallengeResponseEvent,
+   "@brief A client's answer to a checksum challenge.\n\n@internal" );
+
+//----------------------------------------------------------------------------
+
+class FogChallengeEvent : public NetEvent
+{
+   typedef NetEvent Parent;
+   U32 mKey;
+
+public:
+   FogChallengeEvent(U32 key = 0)
+   {
+      mGuaranteeType = GuaranteedOrdered;
+      mKey = key;
+   }
+
+   void pack(NetConnection *, BitStream *stream) { stream->writeInt(mKey, KeyBits); }
+   void write(NetConnection *, BitStream *stream) { stream->writeInt(mKey, KeyBits); }
+   void unpack(NetConnection *, BitStream *stream) { mKey = stream->readInt(KeyBits); }
+   void process(NetConnection *) {}
+
+   enum { KeyBits = 16 };
+
+   DECLARE_CONOBJECT(FogChallengeEvent);
+};
+
+IMPLEMENT_CO_CLIENTEVENT_V1(FogChallengeEvent);
+
+ConsoleDocClass( FogChallengeEvent,
+   "@brief Asks a client how far it can see through fog.\n\n@internal" );

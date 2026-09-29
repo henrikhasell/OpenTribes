@@ -595,6 +595,33 @@ public:
 
    bool              observeThroughObject;   // observe this object through its camera transform and default fov
 
+   // HH: Added for Tribes 2 compatibility.
+   // The parts of Tribes 2's shape datablock the port has no use for yet.
+   // They are read and written back as they came so the stream stays in step.
+   struct Tribes2Rest
+   {
+      enum { NumSlots = 8, SlotFlags = 5 };
+
+      bool              haveIcon;
+      U32               icon;
+      U8                iconColour[4];
+      bool              haveScale;
+      F32               scale;
+      StringTableEntry  hudName;
+      bool              haveBlock[4];
+      U32               block[4];
+      F32               visibleDistance;
+      bool              haveOffset;
+      Point3F           offset;
+      bool              haveSound;
+      StringTableEntry  sound;
+      bool              haveSoundLoop;
+      StringTableEntry  soundLoop;
+      bool              slot[NumSlots][SlotFlags];
+
+      Tribes2Rest();
+   } mTribes2Rest;
+
    /// @name Collision Data
    /// @{
    Vector<S32>   collisionDetails;  ///< Detail level used to collide with.

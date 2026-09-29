@@ -1492,6 +1492,21 @@ void GameConnection::preloadNextDataBlock(bool hadNewFiles)
       mFilesWereDownloaded = hadNewFiles;
       if(!object->preload(false, mErrorBuffer))
       {
+         // HH: Modified for Tribes 2 compatibility.
+         // A Tribes 2 client already holds every file, so a datablock that
+         // will not load is an asset we cannot read rather than one we are
+         // missing.  Asking the server for it never ends; say so and carry on
+         // with the rest of the mission.
+         Con::warnf("Skipped datablock %s: %s", object->getName() ? object->getName() : object->getClassName(),
+            mErrorBuffer.isEmpty() ? "would not preload" : mErrorBuffer.c_str());
+         mErrorBuffer = String();
+         mFilesWereDownloaded = false;
+         mDataBlockLoadList.pop_front();
+         hadNewFiles = true;
+         continue;
+      }
+      if(false)
+      {
          mFilesWereDownloaded = false;
          // make sure there's an error message if necessary
          if(mErrorBuffer.isEmpty())

@@ -230,18 +230,19 @@ void Move::clamp()
 }
 
 // HH: Modified for Tribes 2 compatibility.
-// Tribes 2 flags only the three angles.  The axes, the free look and every
-// trigger go out whether or not they moved, and no checksum follows.
+// Tribes 2 flags only the three angles, and against nought rather than
+// against the move before -- a move stands on its own.  The axes, the free
+// look and every trigger go out whether or not they moved, and no checksum
+// follows.
 void Move::pack(BitStream *stream, const Move * basemove)
 {
-   if (!basemove)
-      basemove = &NullMove;
+   TORQUE_UNUSED(basemove);
 
-   if(stream->writeFlag(pyaw != basemove->pyaw))
+   if(stream->writeFlag(pyaw != 0))
       stream->writeInt(pyaw, 16);
-   if(stream->writeFlag(ppitch != basemove->ppitch))
+   if(stream->writeFlag(ppitch != 0))
       stream->writeInt(ppitch, 16);
-   if(stream->writeFlag(proll != basemove->proll))
+   if(stream->writeFlag(proll != 0))
       stream->writeInt(proll, 16);
 
    stream->writeInt(px, 6);
@@ -255,12 +256,11 @@ void Move::pack(BitStream *stream, const Move * basemove)
 
 void Move::unpack(BitStream *stream, const Move * basemove)
 {
-   if (!basemove)
-      basemove = &NullMove;
+   TORQUE_UNUSED(basemove);
 
-   pyaw   = stream->readFlag() ? stream->readInt(16) : basemove->pyaw;
-   ppitch = stream->readFlag() ? stream->readInt(16) : basemove->ppitch;
-   proll  = stream->readFlag() ? stream->readInt(16) : basemove->proll;
+   pyaw   = stream->readFlag() ? stream->readInt(16) : 0;
+   ppitch = stream->readFlag() ? stream->readInt(16) : 0;
+   proll  = stream->readFlag() ? stream->readInt(16) : 0;
 
    px = stream->readInt(6);
    py = stream->readInt(6);
