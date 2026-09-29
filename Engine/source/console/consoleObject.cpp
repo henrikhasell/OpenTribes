@@ -236,12 +236,13 @@ void AbstractClassRep::initialize()
             if(walk->mClassType != type || !(walk->mClassGroupMask & groupMask))
                continue;
 
-            if(!NetClassTableT2::isPorted(type, walk->getClassName()))
+            const char *t2Name = NetClassTableT2::t2NameFor(walk->getClassName());
+            if(!NetClassTableT2::isPorted(type, t2Name))
                continue;
 
             for(U32 i = 0; i < count; i++)
             {
-               if(dStrcmp(walk->getClassName(), names[i]))
+               if(dStrcmp(t2Name, names[i]))
                   continue;
 
                AssertFatal(!classTable[group][type][i], "Two classes claim one net class id!");

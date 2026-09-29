@@ -31,6 +31,9 @@ namespace NetClassTableT2
    extern const U32 EventBits;
 
    /// The names for a class type, or NULL when the type has no table.
+   /// The name Tribes 2 gives a class the port had to name otherwise.
+   const char *t2NameFor( const char *className );
+
    const char *const *tableFor(U32 classType, U32 *countOut, U32 *bitsOut);
 
    /// Whether we have ported the packing this class puts on the wire.

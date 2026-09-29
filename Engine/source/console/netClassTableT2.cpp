@@ -38,8 +38,9 @@ const char *const DataBlocks[] =
   "SeekerProjectileData", "SensorData", "ShapeBaseData",
   "ShapeBaseImageData", "ShockLanceProjectileData", "ShockwaveData",
   "SimDataBlock", "SniperProjectileData", "SplashData", "StaticShapeData",
-  "StationFXPersonalData", "StationFXVehicleData", "TSShapeConstructor",
-  "TargetProjectileData", "TracerProjectileData", "TriggerData",
+  "StationFXPersonalData", "StationFXVehicleData",
+  "TSShapeConstructor", "TargetProjectileData",
+  "TracerProjectileData", "TriggerData",
   "TurretData", "TurretImageData", "WheeledVehicleData"
 };
 
@@ -69,8 +70,39 @@ const U32 EventBits     = 6;
 static const char *const sPortedDataBlocks[] =
 {
    "CommanderIconData", "SensorData", "CannedChatItem", "SimDataBlock",
-   "GameBaseData", "ShapeBaseData", "MissionMarkerData"
+   "GameBaseData", "ShapeBaseData", "MissionMarkerData", "AudioDescription",
+   "AudioEnvironment", "AudioProfile", "AudioSampleEnvironment",
+   "BombProjectileData", "ELFProjectileData", "EffectProfile",
+   "EnergyProjectileData", "FireballAtmosphereData", "FlareProjectileData",
+   "ForceFieldBareData", "GrenadeProjectileData", "JetEffectData",
+   "LinearFlareProjectileData", "LinearProjectileData",
+   "ParticleEmissionDummyData", "RepairProjectileData", "RunningLightData",
+   "SeekerProjectileData", "ShockLanceProjectileData", "ShockwaveData",
+   "SniperProjectileData", "StationFXPersonalData", "StationFXVehicleData",
+   "TargetProjectileData", "TracerProjectileData", "TurretData",
+   "TurretImageData", "CameraData", "DebrisData", "DecalData",
+   "ExplosionData", "FlyingVehicleData", "HoverVehicleData", "ItemData",
+   "LightningData", "ParticleData", "ParticleEmitterData", "PlayerData",
+   "PrecipitationData", "ProjectileData", "ShapeBaseImageData",
+   "SplashData", "StaticShapeData", "TriggerData", "WheeledVehicleData",
+   "TSShapeConstructor"
 };
+
+/// The port keeps a TSShapeConstructor of its own that is no datablock, so
+/// Tribes 2's carries a name of its own and is matched up here.
+static const char *const sAliases[][ 2 ] =
+{
+   { "TSShapeConstructorT2", "TSShapeConstructor" }
+};
+
+const char *t2NameFor( const char *className )
+{
+   for( U32 i = 0; i < sizeof( sAliases ) / sizeof( sAliases[ 0 ] ); i++ )
+      if( !dStrcmp( className, sAliases[ i ][ 0 ] ) )
+         return sAliases[ i ][ 1 ];
+
+   return className;
+}
 
 bool isPorted( U32 classType, const char *className )
 {

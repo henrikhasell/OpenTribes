@@ -33,6 +33,7 @@
 #include "app/game.h"
 #include "T3D/gameBase/gameConnection.h"
 #include "T3D/gameBase/gameConnectionEvents.h"
+#include "T3D/gameBase/dataBlocksT2.h"
 
 #define DebugChecksum 0xF00DBAAD
 
@@ -195,7 +196,16 @@ void SimDataBlockEvent::unpack(NetConnection *cptr, BitStream *bstream)
          Con::printf(" - SimDataBlockEvent: unpacking event of type: %s", mObj->getClassName());
          #endif
          
-         mObj->unpackData( bstream );
+         // HH: Modified for Tribes 2 compatibility.
+         bool trace = Con::getBoolVariable( "$T2::traceDataBlocks" );
+         if( trace )
+            Con::printf( "DB %d/%d %s at %d", mIndex, mTotal,
+                         mObj->getClassName(), bstream->getCurPos() );
+         U32 was = bstream->getCurPos();
+         if( !DataBlockT2::unpackDelta( mObj, bstream ) )
+            mObj->unpackData( bstream );
+         if( trace )
+            Con::printf( "DB %d done, %d bits", mIndex, bstream->getCurPos() - was );
       }
       else
       {
