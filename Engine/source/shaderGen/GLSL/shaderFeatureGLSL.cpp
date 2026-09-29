@@ -2079,15 +2079,8 @@ void VisibilityFeatGLSL::setTexData( Material::StageData &stageDat,
                                      RenderPassData &passData,
                                      U32 &texIndex )
 {
-   if ( !fd.features[ MFT_IsTranslucent ] )
-   {   
-      GFXTexHandle texHandle( "core/art/fizz_noise.dds", &GFXDefaultStaticDiffuseProfile, "VisibilityFeatHLSL_fizz_noise" );
-      stageDat.setTex( MFT_Visibility, texHandle );
-
-      GFXTextureObject *tex = stageDat.getTex( MFT_Visibility );
-      if ( tex )
-         passData.mTexSlot[ texIndex++ ].texObject = tex;
-   }
+   // HH: Modified for Tribes 2 compatibility.
+   // The fizzle's noise art is Torque 3D's own and not in the game's tree.
 }
 
 
