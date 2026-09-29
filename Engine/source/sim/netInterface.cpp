@@ -350,6 +350,7 @@ void NetInterface::handleConnectRequest(const NetAddress *address, BitStream *st
    conn->setNetworkConnection(true);
    conn->setSequence(connectSequence);
    conn->setConnectToken(connectToken);
+   conn->setConnectSequence(connectSequence ^ connectToken);
 
    const char *errorString = NULL;
    if(!conn->readConnectRequest(stream, &errorString))
@@ -395,6 +396,7 @@ void NetInterface::handleConnectAccept(const NetAddress *address, BitStream *str
 
    removePendingConnection(conn); // remove from the pending connection list
    conn->setConnectToken(connectToken);
+   conn->setConnectSequence(connectSequence ^ connectToken);
    conn->setNetworkConnection(true);
    conn->onConnectionEstablished(true); // notify the connection that it has been established
    conn->setEstablished(); // installs the connection in the connection table, and causes pings/timeouts to happen
@@ -479,8 +481,8 @@ void NetInterface::startConnection(NetConnection *conn)
    conn->mConnectionSendCount = 0;
 
    // HH: Modified for Tribes 2 compatibility.
-   // This numbers the handshake, not the protocol's parity bit, which Tribes 2
-   // leaves clear and which drops every packet that does not share it.
+   // This numbers the handshake.  The protocol's own parity bit comes off that
+   // number and the server's word together, once both are known.
    conn->setSequence(Platform::getVirtualMilliseconds());
    conn->setConnectionState(NetConnection::AwaitingChallengeResponse);
 
