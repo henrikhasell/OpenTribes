@@ -162,6 +162,13 @@ IMPLEMENT_GLOBAL_CALLBACK( onDataBlockObjectReceived, void, (U32 index, U32 tota
    "@see GameConnection, GameConnection::transmitDataBlocks(), GameConnection::onDataBlocksDone()\n\n"
    "@ingroup Networking\n");
 
+// HH: Added for Tribes 2 compatibility.
+IMPLEMENT_CALLBACK( GameConnection, sensorPing, void, (bool state), (state),
+   "@brief Called on the client when a sensor sweeps over the control object.\n\n" );
+
+IMPLEMENT_CALLBACK( GameConnection, sensorJammed, void, (bool state), (state),
+   "@brief Called on the client when the control object's sensors are jammed.\n\n" );
+
 IMPLEMENT_CALLBACK( GameConnection, onFlash, void, (bool state), (state),
    "@brief Called on the client when the damage flash or white out states change.\n\n"
    "When the server changes the damage flash or white out values, this callback is called "
@@ -195,6 +202,13 @@ GameConnection::GameConnection()
    mJoinPassword = NULL;
 
    setProtocolVersion(CurrentProtocolVersion);
+
+   mIndicator[0] = mIndicator[1] = false;
+   mSensorPing = false;
+   mSensorJammed = false;
+   mObserverMode = 0;
+   mObserverPos.set(0.0f, 0.0f, 0.0f);
+   mObserverRot.set(0.0f, 0.0f, 0.0f);
 
    mMissionCRC = 0xffffffff;
 
@@ -1039,6 +1053,56 @@ void GameConnection::readPacket(BitStream *bstream)
          onFlash_callback(false);
       }
 
+      // HH: Modified for Tribes 2 compatibility.
+      // Tribes 2 sends a pair of indicators and its observer camera here,
+      // then two sensor flags, and only then the control object.
+      if(bstream->readFlag())
+      {
+         mIndicator[0] = bstream->readFlag();
+         mIndicator[1] = bstream->readFlag();
+      }
+      else
+         mIndicator[0] = mIndicator[1] = false;
+
+      if(bstream->readFlag())
+      {
+         if(bstream->readFlag())
+         {
+            bstream->read(&mObserverPos.x);
+            bstream->read(&mObserverPos.y);
+            bstream->read(&mObserverPos.z);
+         }
+
+         mObserverMode = bstream->readInt(ObserverModeBits);
+         if(mObserverMode == ObserverFollowsObject)
+         {
+            GameBase *obj = NULL;
+            if(bstream->readFlag())
+               obj = dynamic_cast<GameBase*>(resolveGhost(bstream->readInt(NetConnection::GhostIdBitSize)));
+            setCameraObject(obj);
+         }
+         else if(mObserverMode == ObserverFacesDirection)
+         {
+            bstream->read(&mObserverRot.x);
+            bstream->read(&mObserverRot.y);
+            bstream->read(&mObserverRot.z);
+         }
+         else
+            setCameraObject(0);
+      }
+
+      if(mSensorPing != bstream->readFlag())
+      {
+         mSensorPing = !mSensorPing;
+         sensorPing_callback(mSensorPing);
+      }
+
+      if(mSensorJammed != bstream->readFlag())
+      {
+         mSensorJammed = !mSensorJammed;
+         sensorJammed_callback(mSensorJammed);
+      }
+
       if ( bstream->readFlag() ) // gIndex != -1
       {         
          if ( bstream->readFlag() ) // mMoveList->isMismatch() || mControlForceMismatch
@@ -1053,7 +1117,10 @@ void GameConnection::readPacket(BitStream *bstream)
             GameBase* obj = dynamic_cast<GameBase*>(resolveGhost(gIndex));
             if(!obj)
             {
-               setLastError("Server named a control object we do not hold.");
+               // HH: Modified for Tribes 2 compatibility.
+               // A packet is framed on its own, so one we cannot follow is one
+               // to drop rather than a reason to drop the connection.
+               Con::warnf("Dropped a packet naming control ghost %d.", gIndex);
                return;
             }
             if (mControlObject != obj)
@@ -1093,26 +1160,11 @@ void GameConnection::readPacket(BitStream *bstream)
          }
       }
 
-      if (bstream->readFlag())
+      // Tribes 2 marks its client targets dirty a word at a time.
+      while(bstream->readFlag())
       {
-         S32 gIndex = bstream->readInt(NetConnection::GhostIdBitSize);
-         GameBase* obj = dynamic_cast<GameBase*>(resolveGhost(gIndex));
-         if(!obj)
-         {
-            setLastError("Server named a camera object we do not hold.");
-            return;
-         }
-         setCameraObject(obj);
-         obj->readPacketData(this, bstream);
-      }
-      else
-         setCameraObject(0);
-
-      // server changed first person
-      if(bstream->readFlag())
-      {
-         setFirstPerson(bstream->readFlag());
-         mUpdateFirstPerson = false;
+         bstream->readInt(TargetWordBits);
+         bstream->readInt(32);
       }
 
       // server forcing a fov change?
@@ -1132,18 +1184,17 @@ void GameConnection::readPacket(BitStream *bstream)
    }
    else
    {
-      mMoveList->serverReadMovePacket(bstream);
+      // HH: Modified for Tribes 2 compatibility.
+      // A Tribes 2 client leads with its camera and the hash of the control
+      // object state it last took, and sends its moves after both.
+      mCameraPos = bstream->readFlag() ? 0.0f : 1.0f;
 
-      mCameraPos = bstream->readFlag() ? 1.0f : 0.0f;
-      if (bstream->readFlag())
+      U32 checksum;
+      bstream->read(&checksum);
+      if(mControlObject.isNull() || checksum != mControlObject->getPacketDataChecksum(this))
          mControlForceMismatch = true;
 
-      // client changed first person
-      if(bstream->readFlag())
-      {
-         setFirstPerson(bstream->readFlag());
-         mUpdateFirstPerson = false;
-      }
+      mMoveList->serverReadMovePacket(bstream);
 
       // check fov change.. 1degree granularity on server
       if(bstream->readFlag())
@@ -1181,32 +1232,24 @@ void GameConnection::writePacket(BitStream *bstream, PacketNotify *note)
    U32 startPos = bstream->getBitPosition();
    if (isConnectionToServer())
    {
-      mMoveList->clientWriteMovePacket(bstream);
+      // HH: Modified for Tribes 2 compatibility.
+      // The camera, then the hash of the control object state we last took,
+      // then the moves.  Sending a nought hash asks the server to send that
+      // state again, which we do on a timer so a drift cannot settle in.
+      bstream->writeFlag(mCameraPos == 0);
 
-      bstream->writeFlag(mCameraPos == 1);
-
-      // if we're recording, we want to make sure that we get periodic updates of the
-      // control object "just in case" - ie if the math copro is different between the
-      // recording machine (SIMD vs FPU), we get periodic corrections
-
-      bool forceUpdate = false;
-      if(isRecording())
+      U32 checksum = 0;
+      if(!mControlObject.isNull())
       {
          U32 currentTime = Platform::getVirtualMilliseconds();
          if(currentTime - mLastControlRequestTime > ControlRequestTime)
-         {
             mLastControlRequestTime = currentTime;
-            forceUpdate=true;;
-         }
+         else
+            checksum = mControlObject->getPacketDataChecksum(this);
       }
-      bstream->writeFlag(forceUpdate);
+      bstream->write(checksum);
 
-      // first person changed?
-      if(bstream->writeFlag(mUpdateFirstPerson)) 
-      {
-         bstream->writeFlag(mFirstPerson);
-         mUpdateFirstPerson = false;
-      }
+      mMoveList->clientWriteMovePacket(bstream);
 
       // camera fov changed? (server fov resolution is 1 degree)
       if(bstream->writeFlag(mUpdateCameraFov))
@@ -1240,6 +1283,24 @@ void GameConnection::writePacket(BitStream *bstream, PacketNotify *note)
       }
       else
          bstream->writeFlag(false);
+
+      // HH: Modified for Tribes 2 compatibility.
+      // The indicators, the observer camera and the two sensor flags all go
+      // out ahead of the control object.
+      bstream->writeFlag(false);
+
+      if(bstream->writeFlag(!mCameraObject.isNull() && mCameraObject != mControlObject))
+      {
+         bstream->writeFlag(false);
+         bstream->writeInt(ObserverFollowsObject, ObserverModeBits);
+
+         S32 camIndex = getGhostIndex(mCameraObject);
+         if(bstream->writeFlag(camIndex != -1))
+            bstream->writeInt(camIndex, NetConnection::GhostIdBitSize);
+      }
+
+      bstream->writeFlag(mSensorPing);
+      bstream->writeFlag(mSensorJammed);
 
       if (bstream->writeFlag(gIndex != -1))
       {
@@ -1277,24 +1338,8 @@ void GameConnection::writePacket(BitStream *bstream, PacketNotify *note)
       DEBUG_LOG(("PKLOG %d CONTROLOBJECTSTATE: %d", getId(), bstream->getCurPos() - startPos));
       startPos = bstream->getBitPosition();
 
-      if (!mCameraObject.isNull() && mCameraObject != mControlObject)
-      {
-         gIndex = getGhostIndex(mCameraObject);
-         if (bstream->writeFlag(gIndex != -1))
-         {
-            bstream->writeInt(gIndex, NetConnection::GhostIdBitSize);
-            mCameraObject->writePacketData(this, bstream);
-         }
-      }
-      else
-         bstream->writeFlag( false );
-
-      // first person changed?
-      if(bstream->writeFlag(mUpdateFirstPerson)) 
-      {
-         bstream->writeFlag(mFirstPerson);
-         mUpdateFirstPerson = false;
-      }
+      // no client target went dirty
+      bstream->writeFlag(false);
 
       // server forcing client fov?
       gnote->cameraFov = -1;
