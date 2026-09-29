@@ -733,14 +733,14 @@ void NetConnection::handlePacket(BitStream *bstream)
 
    if(bstream->readFlag())
    {
-      mCurRate.updateDelay = bstream->readInt(12);
-      mCurRate.packetSize = bstream->readInt(12);
+      mCurRate.updateDelay = bstream->readInt(RateBitSize);
+      mCurRate.packetSize = bstream->readInt(RateBitSize);
    }
 
    if(bstream->readFlag())
    {
-      U32 omaxDelay = bstream->readInt(12);
-      S32 omaxSize = bstream->readInt(12);
+      U32 omaxDelay = bstream->readInt(RateBitSize);
+      S32 omaxSize = bstream->readInt(RateBitSize);
       if(omaxDelay < mMaxRate.updateDelay)
          omaxDelay = mMaxRate.updateDelay;
       if(omaxSize > mMaxRate.packetSize)
@@ -828,16 +828,18 @@ void NetConnection::checkPacketSend(bool force)
    note->rateChanged = mCurRate.changed;
    note->maxRateChanged = mMaxRate.changed;
 
+   // HH: Modified for Tribes 2 compatibility.
+   // Tribes 2 spends ten bits on each half of a rate, not twelve.
    if(stream->writeFlag(mCurRate.changed))
    {
-      stream->writeInt(mCurRate.updateDelay, 12);
-      stream->writeInt(mCurRate.packetSize, 12);
+      stream->writeInt(mCurRate.updateDelay, RateBitSize);
+      stream->writeInt(mCurRate.packetSize, RateBitSize);
       mCurRate.changed = false;
    }
    if(stream->writeFlag(mMaxRate.changed))
    {
-      stream->writeInt(mMaxRate.updateDelay, 12);
-      stream->writeInt(mMaxRate.packetSize, 12);
+      stream->writeInt(mMaxRate.updateDelay, RateBitSize);
+      stream->writeInt(mMaxRate.packetSize, RateBitSize);
       mMaxRate.changed = false;
    }
 #ifdef TORQUE_DEBUG_NET

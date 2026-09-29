@@ -828,6 +828,13 @@ protected:
 public:
    /// Some configuration values.
    // HH: Modified for Tribes 2 compatibility.
+   // How many bits Tribes 2 spends on each half of a rate.
+   enum RateConstants
+   {
+      RateBitSize = 10
+   };
+
+   // HH: Modified for Tribes 2 compatibility.
    // Tribes 2 names a ghost in ten bits, so it holds a thousand of them.
    enum GhostConstants
    {
