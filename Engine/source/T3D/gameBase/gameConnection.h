@@ -136,6 +136,7 @@ public:
    /// @name Packet I/O
    /// @{
 
+   virtual void writeConnectChallengeRequest(BitStream *stream);
    virtual void writeConnectRequest(BitStream *stream);
    virtual bool readConnectRequest(BitStream *stream, const char **errorString);
    virtual void writeConnectAccept(BitStream *stream);

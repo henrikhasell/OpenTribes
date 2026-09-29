@@ -445,6 +445,11 @@ public:
    virtual void onConnectionEstablished(bool isInitiator);
    virtual void handleStartupError(const char *errorString);
 
+   // HH: Added for Tribes 2 compatibility.
+   // Only the client writes this: at challenge time the server has no
+   // connection to read it into.
+   virtual void writeConnectChallengeRequest(BitStream *stream);
+
    virtual void writeConnectRequest(BitStream *stream);
    virtual bool  readConnectRequest(BitStream *stream, const char **errorString);
 
@@ -501,7 +506,10 @@ private:
    U32 mProtocolVersion;
    U32 mSendDelayCredit;
    U32 mConnectSequence;
-   U32 mAddressDigest[4];
+
+   // HH: Modified for Tribes 2 compatibility.
+   // The one word a Tribes 2 challenge hands out to be quoted back.
+   U32 mConnectToken;
 
    bool mEstablished;
    bool mMissionPathsSent;
@@ -588,8 +596,8 @@ public:
 
    void setSequence(U32 connectSequence);
 
-   void setAddressDigest(U32 digest[4]);
-   void getAddressDigest(U32 digest[4]);
+   void setConnectToken(U32 token) { mConnectToken = token; }
+   U32 getConnectToken() const     { return mConnectToken; }
 
    U32 getSequence();
 

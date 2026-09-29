@@ -194,6 +194,8 @@ GameConnection::GameConnection()
 
    mJoinPassword = NULL;
 
+   setProtocolVersion(CurrentProtocolVersion);
+
    mMissionCRC = 0xffffffff;
 
    mDamageFlash = mWhiteOut = 0;
@@ -272,6 +274,42 @@ ConsoleMethod(GameConnection, setConnectArgs, void, 3, 17,
    "@see GameConnection::onConnect()\n\n")
 {
    object->setConnectArgs(argc - 2, argv + 2);
+}
+
+// HH: Added for Tribes 2 compatibility.
+// The one function Tribes 2's shell joins a server through.
+ConsoleFunction(connect, void, 2, 3 + GameConnection::MaxConnectArgs,
+   "connect(addr [, password [, args ...]]);")
+{
+   NetAddress address;
+   if(!Net::stringToAddress(argv[1], &address))
+   {
+      Con::errorf("connect: invalid address - %s", argv[1]);
+      return;
+   }
+
+   if(GameConnection *old = dynamic_cast<GameConnection *>(Sim::findObject("ServerConnection")))
+      old->deleteObject();
+
+   GameConnection *conn = new GameConnection;
+   conn->setJoinPassword(argc > 2 ? argv[2] : "");
+   if(argc > 3)
+      conn->setConnectArgs(argc - 3, argv + 3);
+
+   if(!conn->registerObject("ServerConnection"))
+   {
+      delete conn;
+      return;
+   }
+   conn->connect(&address);
+}
+
+ConsoleFunction(disconnect, void, 1, 1, "disconnect();")
+{
+   TORQUE_UNUSED(argc); TORQUE_UNUSED(argv);
+
+   if(GameConnection *conn = dynamic_cast<GameConnection *>(Sim::findObject("ServerConnection")))
+      conn->deleteObject();
 }
 
 void GameConnection::onTimedOut()
@@ -355,6 +393,7 @@ void GameConnection::writeConnectAccept(BitStream *stream)
 {
    Parent::writeConnectAccept(stream);
    stream->write(getProtocolVersion());
+   stream->write(getId());
 }
 
 bool GameConnection::readConnectAccept(BitStream *stream, const char **errorString)
@@ -362,23 +401,32 @@ bool GameConnection::readConnectAccept(BitStream *stream, const char **errorStri
    if(!Parent::readConnectAccept(stream, errorString))
       return false;
 
-   U32 protocolVersion;
+   U32 protocolVersion, clientId;
    stream->read(&protocolVersion);
-   if(protocolVersion < MinRequiredProtocolVersion || protocolVersion > CurrentProtocolVersion)
+   stream->read(&clientId);
+   if(protocolVersion < MinRequiredProtocolVersion)
    {
       *errorString = "CHR_PROTOCOL"; // this should never happen unless someone is faking us out.
       return false;
    }
+   Con::printf("Connection accepted - id %d  protocol %d", clientId, protocolVersion);
    return true;
+}
+
+// HH: Modified for Tribes 2 compatibility.
+// Tribes 2 carries the password on the challenge and names no game.  The
+// flag stands for the key a retail client signs on with.
+void GameConnection::writeConnectChallengeRequest(BitStream *stream)
+{
+   stream->writeString(mJoinPassword);
+   stream->writeFlag(false);
 }
 
 void GameConnection::writeConnectRequest(BitStream *stream)
 {
    Parent::writeConnectRequest(stream);
-   stream->writeString(GameString);
-   stream->write(CurrentProtocolVersion);
-   stream->write(MinRequiredProtocolVersion);
-   stream->writeString(mJoinPassword);
+   stream->write(getProtocolVersion());
+   stream->writeFlag(false);
 
    stream->write(mConnectArgc);
    for(U32 i = 0; i < mConnectArgc; i++)
@@ -389,42 +437,16 @@ bool GameConnection::readConnectRequest(BitStream *stream, const char **errorStr
 {
    if(!Parent::readConnectRequest(stream, errorString))
       return false;
-   U32 currentProtocol, minProtocol;
-   char gameString[256];
-   stream->readString(gameString);
-   if(dStrcmp(gameString, GameString))
-   {
-      *errorString = "CHR_GAME";
-      return false;
-   }
-
+   U32 currentProtocol;
    stream->read(&currentProtocol);
-   stream->read(&minProtocol);
-
-   char joinPassword[256];
-   stream->readString(joinPassword);
+   stream->readFlag();
 
    if(currentProtocol < MinRequiredProtocolVersion)
    {
       *errorString = "CHR_PROTOCOL_LESS";
       return false;
    }
-   if(minProtocol > CurrentProtocolVersion)
-   {
-      *errorString = "CHR_PROTOCOL_GREATER";
-      return false;
-   }
    setProtocolVersion(currentProtocol < CurrentProtocolVersion ? currentProtocol : CurrentProtocolVersion);
-
-   const char *serverPassword = Con::getVariable("pref::Server::Password");
-   if(serverPassword[0])
-   {
-      if(dStrcmp(joinPassword, serverPassword))
-      {
-         *errorString = "CHR_PASSWORD";
-         return false;
-      }
-   }
 
    stream->read(&mConnectArgc);
    if(mConnectArgc > MaxConnectArgs)

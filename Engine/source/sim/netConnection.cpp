@@ -1228,22 +1228,6 @@ NetStringHandle NetConnection::unpackNetStringHandleU(BitStream *stream)
 //----------------------------------------------------------------------------
 //----------------------------------------------------------------------------
 
-void NetConnection::setAddressDigest(U32 digest[4])
-{
-   mAddressDigest[0] = digest[0];
-   mAddressDigest[1] = digest[1];
-   mAddressDigest[2] = digest[2];
-   mAddressDigest[3] = digest[3];
-}
-
-void NetConnection::getAddressDigest(U32 digest[4])
-{
-   digest[0] = mAddressDigest[0];
-   digest[1] = mAddressDigest[1];
-   digest[2] = mAddressDigest[2];
-   digest[3] = mAddressDigest[3];
-}
-
 bool NetConnection::canRemoteCreate()
 {
    return false;
@@ -1289,23 +1273,23 @@ void NetConnection::handleStartupError(const char *errorString)
 
 }
 
+void NetConnection::writeConnectChallengeRequest(BitStream *stream)
+{
+   TORQUE_UNUSED(stream);
+}
+
+// HH: Modified for Tribes 2 compatibility.
+// Tribes 2 names no class group and no class hash; its version stands in.
 void NetConnection::writeConnectRequest(BitStream *stream)
 {
-   stream->write(mNetClassGroup);
-   stream->write(U32(AbstractClassRep::getClassCRC(mNetClassGroup)));
+   TORQUE_UNUSED(stream);
 }
 
 bool NetConnection::readConnectRequest(BitStream *stream, const char **errorString)
 {
-   U32 classGroup, classCRC;
-   stream->read(&classGroup);
-   stream->read(&classCRC);
-
-   if(classGroup == mNetClassGroup && classCRC == AbstractClassRep::getClassCRC(mNetClassGroup))
-      return true;
-
-   *errorString = "CHR_INVALID";
-   return false;
+   TORQUE_UNUSED(stream);
+   TORQUE_UNUSED(errorString);
+   return true;
 }
 
 void NetConnection::writeConnectAccept(BitStream *stream)
