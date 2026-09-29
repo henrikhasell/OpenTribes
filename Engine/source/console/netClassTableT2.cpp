@@ -65,9 +65,25 @@ const U32 ObjectBits    = 7;
 const U32 DataBlockBits = 7;
 const U32 EventBits     = 6;
 
-bool isPorted( U32 classType )
+/// The datablocks whose packing has been ported.
+static const char *const sPortedDataBlocks[] =
 {
-   return classType == NetClassTypeEvent;
+   "CommanderIconData", "SensorData", "CannedChatItem", "SimDataBlock"
+};
+
+bool isPorted( U32 classType, const char *className )
+{
+   if( classType == NetClassTypeEvent )
+      return true;
+
+   if( classType == NetClassTypeDataBlock )
+   {
+      for( U32 i = 0; i < sizeof( sPortedDataBlocks ) / sizeof( sPortedDataBlocks[ 0 ] ); i++ )
+         if( !dStrcmp( className, sPortedDataBlocks[ i ] ) )
+            return true;
+   }
+
+   return false;
 }
 
 const char *const *tableFor( U32 classType, U32 *countOut, U32 *bitsOut )

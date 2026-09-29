@@ -33,13 +33,13 @@ namespace NetClassTableT2
    /// The names for a class type, or NULL when the type has no table.
    const char *const *tableFor(U32 classType, U32 *countOut, U32 *bitsOut);
 
-   /// Whether we have ported the packing a class type puts on the wire.
+   /// Whether we have ported the packing this class puts on the wire.
    ///
    /// A class seated under a Tribes 2 name still answers with Torque's own
    /// packing until somebody ports it, and reading that is worse than reading
-   /// nothing.  A type that is not ported keeps its numbering and its names,
-   /// so a packet asking for one says which it wanted.
-   bool isPorted(U32 classType);
+   /// nothing.  A class that is not ported keeps its number and its name, so
+   /// a packet asking for one says which it wanted.
+   bool isPorted(U32 classType, const char *className);
 }
 
 #endif

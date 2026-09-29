@@ -231,12 +231,12 @@ void AbstractClassRep::initialize()
          for(U32 i = 0; i < count; i++)
             classTable[group][type][i] = NULL;
 
-         if(!NetClassTableT2::isPorted(type))
-            continue;
-
          for (walk = classLinkList; walk; walk = walk->nextClass)
          {
             if(walk->mClassType != type || !(walk->mClassGroupMask & groupMask))
+               continue;
+
+            if(!NetClassTableT2::isPorted(type, walk->getClassName()))
                continue;
 
             for(U32 i = 0; i < count; i++)

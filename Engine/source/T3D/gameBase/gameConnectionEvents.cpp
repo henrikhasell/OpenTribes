@@ -23,6 +23,7 @@
 #include "platform/platform.h"
 #include "core/dnet.h"
 #include "core/stream/bitStream.h"
+#include "console/netClassTableT2.h"
 #include "console/consoleTypes.h"
 #include "console/simBase.h"
 #include "scene/pathManager.h"
@@ -202,8 +203,14 @@ void SimDataBlockEvent::unpack(NetConnection *cptr, BitStream *bstream)
          Con::printf(" - SimDataBlockEvent: INVALID PACKET!  Could not create class with classID: %d", classId);
          #endif
          
+         // HH: Modified for Tribes 2 compatibility.
+         // Name the datablock we have not ported: its contents ride with no
+         // length in front, so the stream cannot go on without it.
          delete ptr;
-         cptr->setLastError("Invalid packet in SimDataBlockEvent::unpack()");
+         cptr->setLastError("No datablock class %d (%s), %d of %d.", classId,
+            classId >= 0 && classId < (S32)NetClassTableT2::DataBlockCount
+               ? NetClassTableT2::DataBlocks[classId] : "out of range",
+            mIndex, mTotal);
       }
 
 #ifdef TORQUE_DEBUG_NET
