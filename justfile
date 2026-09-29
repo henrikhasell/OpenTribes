@@ -14,7 +14,10 @@ release:
     cmake -S . -B {{builddir}}/release -G Ninja -DCMAKE_BUILD_TYPE=Release
     cmake --build {{builddir}}/release
 
-run dir=gamedata:
+opentribes dir=gamedata: release
     cp "{{game}}/OpenTribes" "{{dir}}/OpenTribes"
     ln -sfn "{{shaders}}" "{{dir}}/shaders"
-    cd "{{dir}}" && ./OpenTribes -nologin -mod base
+    cd "{{dir}}" && ./OpenTribes -nologin -telnetParams 2323 '' '' -mod Classic
+
+stock dir=gamedata:
+    cd "{{dir}}" && WINEPREFIX="{{home_directory()}}/.wine" /usr/bin/wine Tribes2.exe -nologin -telnetParams 2323 '' '' -mod Classic
