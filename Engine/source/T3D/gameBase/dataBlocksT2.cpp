@@ -71,8 +71,16 @@ static const U16 *readT2(BitStream *stream, const U16 *p,
          case DataBlockT2::OpRaw:
          {
             U32 bytes = *p++;
+            U32 word = 0;
             for(U32 i = 0; i < bytes; i++)
-               value.push_back(stream->readInt(8));
+            {
+               U32 byte = stream->readInt(8);
+               value.push_back(byte);
+               word |= byte << (8 * i);
+            }
+            if(sTraceFields)
+               Con::printf("   @%d raw%d %u (%g)", stream->getCurPos(), bytes,
+                           word, *(F32 *)&word);
             break;
          }
 
@@ -420,6 +428,7 @@ IMPLEMENT_DATABLOCK_T2( TurretImageData, sProgTurretImageData );
 // The classes the port has whose fields Tribes 2 writes differently.  The
 // hand-ported part of the chain runs as it stands, then the rest of the
 // block is taken off by its field widths, read out of the retail binary.
+
 
 
 

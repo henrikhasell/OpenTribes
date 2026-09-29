@@ -679,7 +679,7 @@ ShapeBaseData::Tribes2Rest::Tribes2Rest()
       block[i] = 0;
    }
    dMemset(bit, 0, sizeof(bit));
-   visibleDistance = 0.0f;
+   visibleDistance = 0;
    haveOffset = false;
    offset.set(0.0f, 0.0f, 0.0f);
    for(U32 i = 0; i < NumSlots; i++)
@@ -846,6 +846,10 @@ void ShapeBaseData::unpackData(BitStream* stream)
       stream->read(&mTribes2Rest.offset.y);
       stream->read(&mTribes2Rest.offset.z);
    }
+
+   if(Con::getBoolVariable("$T2::traceFields"))
+      Con::printf("   SB '%s' mass=%g drag=%g vis=%d @%d", shapeName, mass, drag,
+                  mTribes2Rest.visibleDistance, stream->getCurPos());
 
    for(U32 i = 0; i < Tribes2Rest::NumSlots; i++)
    {

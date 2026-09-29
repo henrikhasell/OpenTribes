@@ -611,7 +611,7 @@ public:
       bool              bit[NumBits];
       bool              haveBlock[4];
       U32               block[4];
-      F32               visibleDistance;
+      S32               visibleDistance;
       bool              haveOffset;
       Point3F           offset;
       bool              haveSound[NumSlots];
