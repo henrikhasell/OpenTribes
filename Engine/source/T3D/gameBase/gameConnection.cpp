@@ -1050,6 +1050,11 @@ void GameConnection::readPacket(BitStream *bstream)
 
             S32 gIndex = bstream->readInt(NetConnection::GhostIdBitSize);
             GameBase* obj = dynamic_cast<GameBase*>(resolveGhost(gIndex));
+            if(!obj)
+            {
+               setLastError("Server named a control object we do not hold.");
+               return;
+            }
             if (mControlObject != obj)
             {
                setControlObject(obj);
@@ -1091,6 +1096,11 @@ void GameConnection::readPacket(BitStream *bstream)
       {
          S32 gIndex = bstream->readInt(NetConnection::GhostIdBitSize);
          GameBase* obj = dynamic_cast<GameBase*>(resolveGhost(gIndex));
+         if(!obj)
+         {
+            setLastError("Server named a camera object we do not hold.");
+            return;
+         }
          setCameraObject(obj);
          obj->readPacketData(this, bstream);
       }
