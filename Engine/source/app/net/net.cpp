@@ -138,7 +138,12 @@ public:
             mArgv[i+1] = dStrdup(mBuf);
          }
       }
-      const char *rmtCommandName = dStrchr(mArgv[1], ' ') + 1;
+      // HH: Modified for Tribes 2 compatibility.
+      // A tag we never learnt expands to nothing, which has no name in it.
+      const char *spaceAt = dStrchr(mArgv[1], ' ');
+      if(!spaceAt)
+         return;
+      const char *rmtCommandName = spaceAt + 1;
       if(conn->isConnectionToServer())
       {
          dStrcpy(mBuf, "clientCmd");

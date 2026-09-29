@@ -16,13 +16,18 @@
 class ResetClientTargetsEvent : public NetEvent
 {
    typedef NetEvent Parent;
+   bool mAll;
 
 public:
-   ResetClientTargetsEvent() { mGuaranteeType = GuaranteedOrdered; }
+   ResetClientTargetsEvent(bool all = false)
+   {
+      mGuaranteeType = GuaranteedOrdered;
+      mAll = all;
+   }
 
-   void pack(NetConnection *, BitStream *) {}
-   void write(NetConnection *, BitStream *) {}
-   void unpack(NetConnection *, BitStream *) {}
+   void pack(NetConnection *, BitStream *stream) { stream->writeFlag(mAll); }
+   void write(NetConnection *, BitStream *stream) { stream->writeFlag(mAll); }
+   void unpack(NetConnection *, BitStream *stream) { mAll = stream->readFlag(); }
    void process(NetConnection *) {}
 
    DECLARE_CONOBJECT(ResetClientTargetsEvent);

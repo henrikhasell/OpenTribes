@@ -229,74 +229,46 @@ void Move::clamp()
    unclamp();
 }
 
+// HH: Modified for Tribes 2 compatibility.
+// Tribes 2 flags only the three angles.  The axes, the free look and every
+// trigger go out whether or not they moved, and no checksum follows.
 void Move::pack(BitStream *stream, const Move * basemove)
 {
-   bool alwaysWriteAll = basemove!=NULL;
    if (!basemove)
       basemove = &NullMove;
 
-   S32 i;
-   bool triggerDifferent = false;
-   for (i=0; i < MaxTriggerKeys; i++)
-      if (trigger[i] != basemove->trigger[i])
-         triggerDifferent = true;
-   bool somethingDifferent = (pyaw!=basemove->pyaw)     ||
-                             (ppitch!=basemove->ppitch) ||
-                             (proll!=basemove->proll)   ||
-                             (px!=basemove->px)         ||
-                             (py!=basemove->py)         ||
-                             (pz!=basemove->pz)         ||
-                             (deviceIsKeyboardMouse!=basemove->deviceIsKeyboardMouse) ||
-                             (freeLook!=basemove->freeLook) ||
-                             triggerDifferent;
-   
-   if (alwaysWriteAll || stream->writeFlag(somethingDifferent))
-   {
-      if(stream->writeFlag(pyaw != basemove->pyaw))
+   if(stream->writeFlag(pyaw != basemove->pyaw))
       stream->writeInt(pyaw, 16);
-      if(stream->writeFlag(ppitch != basemove->ppitch))
+   if(stream->writeFlag(ppitch != basemove->ppitch))
       stream->writeInt(ppitch, 16);
-      if(stream->writeFlag(proll != basemove->proll))
+   if(stream->writeFlag(proll != basemove->proll))
       stream->writeInt(proll, 16);
 
-      if (stream->writeFlag(px != basemove->px))
-         stream->writeInt(px, 6);
-      if (stream->writeFlag(py != basemove->py))
-         stream->writeInt(py, 6);
-      if (stream->writeFlag(pz != basemove->pz))
-         stream->writeInt(pz, 6);
-      stream->writeFlag(freeLook);
-      stream->writeFlag(deviceIsKeyboardMouse);
+   stream->writeInt(px, 6);
+   stream->writeInt(py, 6);
+   stream->writeInt(pz, 6);
 
-      if (stream->writeFlag(triggerDifferent))
-         for(i = 0; i < MaxTriggerKeys; i++)
+   stream->writeFlag(freeLook);
+   for(S32 i = 0; i < MaxTriggerKeys; i++)
       stream->writeFlag(trigger[i]);
-   }
 }
 
 void Move::unpack(BitStream *stream, const Move * basemove)
 {
-   bool alwaysReadAll = basemove!=NULL;
    if (!basemove)
-      basemove=&NullMove;
+      basemove = &NullMove;
 
-   if (alwaysReadAll || stream->readFlag())
-   {
-      pyaw = stream->readFlag() ? stream->readInt(16) : basemove->pyaw;
-      ppitch = stream->readFlag() ? stream->readInt(16) : basemove->ppitch;
-      proll = stream->readFlag() ? stream->readInt(16) : basemove->proll;
+   pyaw   = stream->readFlag() ? stream->readInt(16) : basemove->pyaw;
+   ppitch = stream->readFlag() ? stream->readInt(16) : basemove->ppitch;
+   proll  = stream->readFlag() ? stream->readInt(16) : basemove->proll;
 
-      px = stream->readFlag() ? stream->readInt(6) : basemove->px;
-      py = stream->readFlag() ? stream->readInt(6) : basemove->py;
-      pz = stream->readFlag() ? stream->readInt(6) : basemove->pz;
-      freeLook = stream->readFlag();
-      deviceIsKeyboardMouse = stream->readFlag();
+   px = stream->readInt(6);
+   py = stream->readInt(6);
+   pz = stream->readInt(6);
 
-      bool triggersDiffer = stream->readFlag();
-      for (S32 i = 0; i< MaxTriggerKeys; i++)
-         trigger[i] = triggersDiffer ? stream->readFlag() : basemove->trigger[i];
-      unclamp();
-   }
-   else
-      *this = *basemove;
+   unclamp();
+
+   freeLook = stream->readFlag();
+   for(S32 i = 0; i < MaxTriggerKeys; i++)
+      trigger[i] = stream->readFlag();
 }

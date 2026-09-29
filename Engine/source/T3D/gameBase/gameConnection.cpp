@@ -351,6 +351,12 @@ void GameConnection::onConnectionEstablished(bool isInitiator)
       setTranslatesStrings(true);
       setIsConnectionToServer();
       mServerConnection = this;
+
+      // HH: Added for Tribes 2 compatibility.
+      // The move list counts from where the last session left it unless we
+      // say otherwise, and a Tribes 2 server reads a move that far ahead as a
+      // bad packet and drops us.
+      mMoveList->init();
       Con::printf("Connection established %d", getId());
       onConnectionAccepted_callback();
    }
