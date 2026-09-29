@@ -131,15 +131,19 @@ DefineEngineFunction( setModPaths, void, ( const char *paths ),,
    "@ingroup FileSystem" )
 {
    Vector<String> modDirs;
-   String( paths ).split( ";", modDirs );
+   ( String( paths ) + ";base" ).split( ";", modDirs );
 
+   Vector<String> mountDirs;
    for ( S32 i = 0; i < modDirs.size(); ++i )
    {
       const String modDir = modDirs[ i ].trim();
-      if ( modDir.isEmpty() )
+      if ( modDir.isEmpty() || mountDirs.contains( modDir ) )
          continue;
 
-      if ( !Platform::FS::MountModDir( "game", modDir ) )
-         Con::errorf( "setModPaths - could not mount mod directory '%s'", modDir.c_str() );
+      mountDirs.push_back( modDir );
    }
+
+   for ( S32 i = mountDirs.size() - 1; i >= 0; --i )
+      if ( !Platform::FS::MountModDir( "game", mountDirs[ i ] ) )
+         Con::errorf( "setModPaths - could not mount mod directory '%s'", mountDirs[ i ].c_str() );
 }
