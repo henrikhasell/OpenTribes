@@ -827,12 +827,14 @@ protected:
 
 public:
    /// Some configuration values.
+   // HH: Modified for Tribes 2 compatibility.
+   // Tribes 2 names a ghost in ten bits, so it holds a thousand of them.
    enum GhostConstants
    {
-      GhostIdBitSize = 12,
-      MaxGhostCount = 1 << GhostIdBitSize, //4096,
-      GhostLookupTableSize = 1 << GhostIdBitSize, //4096
-      GhostIndexBitSize = 4 // number of bits GhostIdBitSize-3 fits into
+      GhostIdBitSize = 10,
+      MaxGhostCount = 1 << GhostIdBitSize, //1024,
+      GhostLookupTableSize = 1 << GhostIdBitSize, //1024
+      GhostIndexBitSize = 3 // number of bits GhostIdBitSize-3 fits into
    };
 
    U32 getGhostsActive() { return mGhostsActive;};
