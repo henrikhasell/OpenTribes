@@ -359,11 +359,9 @@ void GuiTSCtrl::onRender(Point2I offset, const RectI &updateRect)
    }
       
    RectI tempRect = updateRect;
-   
-#ifdef TORQUE_OS_MAC
+
    Point2I screensize = getRoot()->getWindowSize();
    tempRect.point.y = screensize.y - (tempRect.point.y + tempRect.extent.y);
-#endif
 
    GFX->setViewport( tempRect );
 
