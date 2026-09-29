@@ -24,6 +24,7 @@
 #include "core/dnet.h"
 #include "console/simBase.h"
 #include "sim/netConnection.h"
+#include "console/netClassTableT2.h"
 #include "core/stream/bitStream.h"
 #include "sim/netObject.h"
 //#include "core/resManager.h"
@@ -559,7 +560,11 @@ void NetConnection::ghostReadPacket(BitStream *bstream)
             NetObject *obj = (NetObject *) ConsoleObject::create(getNetClassGroup(), NetClassTypeObject, classId);
             if(!obj)
             {
-               setLastError("Invalid packet. (failed to create new ghost)");
+               // HH: Modified for Tribes 2 compatibility.
+               // Name the class we have not ported, which is the one thing
+               // that says what to write next.
+               setLastError("No ghost class %d (%s).", classId,
+                  NetClassTableT2::Objects[classId]);
                return;
             }
             // remove all flags associated with netobject

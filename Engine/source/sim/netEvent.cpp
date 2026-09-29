@@ -24,6 +24,7 @@
 #include "core/dnet.h"
 #include "console/simBase.h"
 #include "sim/netConnection.h"
+#include "console/netClassTableT2.h"
 #include "core/stream/bitStream.h"
 
 #define DebugChecksum 0xF00DBAAD
@@ -313,7 +314,11 @@ void NetConnection::eventReadPacket(BitStream *bstream)
       NetEvent *evt = (NetEvent *) ConsoleObject::create(getNetClassGroup(), NetClassTypeEvent, classId);
       if(!evt)
       {
-         setLastError("Invalid packet. (bad ghost class id)");
+         // HH: Modified for Tribes 2 compatibility.
+         // Name the class we have not ported, which is the one thing that
+         // says what to write next.
+         setLastError("No event class %d (%s).", classId,
+            NetClassTableT2::Events[classId]);
          return;
       }
       AbstractClassRep *rep = evt->getClassRep();
