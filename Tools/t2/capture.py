@@ -19,6 +19,7 @@ srv = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 srv.bind(("0.0.0.0", listen_port))
 
 out = open(out_path, "wb")
+up_out = open(out_path + ".toserver", "wb")
 lock = threading.Lock()
 stats = {"to_client": 0, "to_server": 0, "bytes": 0}
 t0 = time.time()
@@ -70,4 +71,8 @@ while True:
         print("client %s:%d" % addr)
         sys.stdout.flush()
     clients[addr].send(data)
+    with lock:
+        up_out.write(struct.pack("<I", len(data)))
+        up_out.write(data)
+        up_out.flush()
     stats["to_server"] += 1

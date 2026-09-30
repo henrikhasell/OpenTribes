@@ -360,6 +360,27 @@ def read_events(st, S):
             msg = st.rint(3)
             gc = st.rint(GhostIdBitSize + 1)
             S.conn_messages.append((msg, seq, gc))
+        elif name == "CRCChallengeEvent":
+            st.rint(32), st.rint(32), st.rint(32)
+            st.flag()
+        elif name == "SetMissionCRCEvent":
+            st.rint(32)
+        elif name == "LightningStrikeEvent":
+            # A flag, then a ghost id, two positions and an optional target.
+            # A clear flag ends it, which is what the port's own reader does.
+            if st.flag():
+                st.rint(11)
+                st.rint(10), st.rint(10)
+                if st.flag():
+                    st.rint(11)
+        elif name == "Sim2DAudioEvent":
+            st.rint(DataBlockObjectIdBitSize)
+        elif name == "Sim3DAudioEvent":
+            st.rint(DataBlockObjectIdBitSize)
+            if st.flag():
+                st.rint(8), st.rint(8), st.rint(8)
+                st.flag()
+            st.point(0.5)
         elif name == "GhostAlwaysObjectEvent":
             index = st.rint(GhostIdBitSize)
             if st.flag():

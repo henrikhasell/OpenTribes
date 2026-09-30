@@ -40,7 +40,8 @@ static const char *const sByHand[] =
 {
    "SimDataBlockEvent", "RemoteCommandEvent", "NetStringEvent",
    "GhostAlwaysObjectEvent", "GhostingMessageEvent", "CRCChallengeEvent",
-   "SetMissionCRCEvent"
+   "SetMissionCRCEvent", "SimpleMessageEvent", "LightningStrikeEvent",
+   "Sim2DAudioEvent", "Sim3DAudioEvent"
 };
 
 bool EventT2::unpack( NetEvent *evt, NetConnection *, BitStream *stream )
