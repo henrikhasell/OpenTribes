@@ -58,6 +58,10 @@ public:
    void setTextureLookupPath(const String& path) { mLookupPath = path; }
    void setMaterialName(U32 index, const String& name);
 
+   /// HH: Added for Tribes 2 compatibility.
+   /// Where a material's texture lives, given the directory it named.
+   String getTexturePath(const String& name) const;
+
    void set(U32 materialCount, const char **materialNames);
    U32  push_back(const String &filename, Material* = 0);
 

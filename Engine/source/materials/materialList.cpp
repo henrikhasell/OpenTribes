@@ -174,18 +174,23 @@ bool MaterialList::read(Stream &stream)
          return false;
       }
 
-      // Material paths are a legacy of Tribes tools,
-      // strip them off...
-      char *name = &buffer[dStrlen(buffer)];
-      while (name != buffer && name[-1] != '/' && name[-1] != '\\')
-         name--;
-
       // Add it to the list
-      mMaterialNames.push_back(name);
+      mMaterialNames.push_back(buffer);
       mMatInstList.push_back(NULL);
    }
 
    return (stream.getStatus() == Stream::Ok);
+}
+
+// HH: Added for Tribes 2 compatibility.
+// Stock Torque strips the directory a material names, which in Tribes 2 is
+// where the texture lives.  Loading and reskinning both need it back.
+String MaterialList::getTexturePath(const String& name) const
+{
+   if (mLookupPath.isEmpty() || name.find('/') != String::NPos || name.find('\\') != String::NPos)
+      return name;
+
+   return String::ToString( "%s/%s", mLookupPath.c_str(), name.c_str() );
 }
 
 //--------------------------------------
@@ -328,17 +333,8 @@ void MaterialList::mapMaterial( U32 i )
 
          // First see if there is a valid diffuse texture
          GFXTexHandle texHandle;
-         if (mLookupPath.isEmpty())
-         {
-            texHandle.set( mMaterialNames[i], &GFXDefaultStaticDiffuseProfile, avar("%s() - handle (line %d)", __FUNCTION__, __LINE__) );
-         }
-         else
-         {
-            // Should we strip off the extension of the path here before trying
-            // to load the texture?
-            String fullPath = String::ToString( "%s/%s", mLookupPath.c_str(), mMaterialNames[i].c_str() );
-            texHandle.set( fullPath, &GFXDefaultStaticDiffuseProfile, avar("%s() - handle (line %d)", __FUNCTION__, __LINE__) );
-         }
+         texHandle.set( getTexturePath( mMaterialNames[i] ), &GFXDefaultStaticDiffuseProfile,
+            avar("%s() - handle (line %d)", __FUNCTION__, __LINE__) );
 
          if ( texHandle.isValid() )
          {
