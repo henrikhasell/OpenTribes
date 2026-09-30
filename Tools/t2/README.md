@@ -27,6 +27,11 @@ reports how far it got and what stopped it:
     ghosts created : 21, updates 22, live 144
     control object : Camera
 
+A packet that reads out with bits left over is reported as a failure, not
+passed over: a body read short is otherwise only caught by whatever fails
+after it, and the last thing in a packet has nothing after it. Without that
+check a session looks understood when it is not.
+
 `T2_KEEP=1` carries on past a packet that will not read and lists every
 failure rather than the first. `T2_TRACE=<class>` prints every node of that
 class's layout as it is walked, with the bit each one took, which is how a
@@ -54,3 +59,11 @@ measures the rest off the capture, so the workbook says what the code says
 rather than what anyone remembers. It leaves `coverage.json` behind as an
 intermediate. The workbook itself is not tracked -- it is regenerated, not
 edited.
+
+## Joining with the test client
+
+`connect()` takes the five arguments `JoinGame()` sends: name, race and
+gender, skin, voice, voice pitch. The race and gender has to be one of
+`"Human Male"`, `"Human Female"` or `"Bioderm"` -- anything else and the
+server logs "Invalid race/gender combo passed" and falls back, which is worth
+not triggering while chasing a protocol fault.

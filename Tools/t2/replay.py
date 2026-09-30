@@ -471,6 +471,15 @@ def main(path):
             read_events(st, S)
             where = "ghosts"
             read_ghosts(st, S)
+
+            # A body read short is only caught by whatever fails after it, and
+            # the last thing in a packet has nothing after it -- the leftover
+            # bits are the only sign.  Counting them is what turns "the packet
+            # ended cleanly" into "the packet was understood".
+            where = "tail"
+            left = len(p) * 8 - st.p
+            if left > 7:
+                raise RuntimeError("%d bits left unread" % left)
         except Exception as e:
             first = ("packet %d (%d of them data), in the %s, after %d "
                      "datablocks (last %s): %s"

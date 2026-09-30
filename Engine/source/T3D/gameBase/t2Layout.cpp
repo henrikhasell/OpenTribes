@@ -210,6 +210,11 @@ static bool runNamed(BitStream *stream, const char *name,
    if(!name)
       return false;
 
+   // HH: naming a class here walks its layout aloud, which is how a reader
+   // that disagrees with its layout is tracked down.
+   const char *want = Con::getVariable("$T2::traceLayout");
+   sTrace = want && want[0] && (!dStrcmp(want, "*") || !dStrcmp(want, name));
+
    for(U32 i = 0; i < count; i++)
    {
       if(dStrcmp(table[i].name, name))

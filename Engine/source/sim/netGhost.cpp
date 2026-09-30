@@ -125,8 +125,12 @@ public:
          // Tribes 2 frames this event exactly as it is framed here -- the
          // ghost index, a flag, a class id, then the body -- so only the body
          // is read differently, from the class's recovered layout.
+         const U32 wasAt = bstream->getCurPos();
          object->mReadByLayoutT2 = T2Layout::readGhost(bstream,
             NetClassTableT2::t2NameFor(object->getClassName()));
+         if(Con::getBoolVariable("$T2::traceGhosts"))
+            Con::printf("GA %d %s %d bits", ghostIndex, object->getClassName(),
+                        bstream->getCurPos() - wasAt);
          if(!object->mReadByLayoutT2)
             object->unpackUpdate(ps, bstream);
 #ifdef TORQUE_NET_STATS

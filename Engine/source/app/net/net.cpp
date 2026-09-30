@@ -146,8 +146,16 @@ public:
       // A tag we never learnt expands to nothing, which has no name in it.
       const char *spaceAt = dStrchr(mArgv[1], ' ');
       if(!spaceAt)
+      {
+         if(Con::getBoolVariable("$T2::traceCommands"))
+            Con::warnf("CMD in dropped: %s", mArgv[1]);
          return;
+      }
       const char *rmtCommandName = spaceAt + 1;
+      // HH: Modified for Tribes 2 compatibility.
+      if(Con::getBoolVariable("$T2::traceCommands"))
+         Con::printf("CMD in %s (%d args)", rmtCommandName, mArgc);
+
       if(conn->isConnectionToServer())
       {
          dStrcpy(mBuf, "clientCmd");
@@ -201,6 +209,23 @@ static void sendRemoteCommand(NetConnection *conn, S32 argc, const char **argv)
    }
    for(i = 0; i < argc; i++)
       conn->validateSendString(argv[i]);
+
+   // HH: Modified for Tribes 2 compatibility.
+   // The name is a tag by the time it reaches here, so print what it stands
+   // for: the mission handshake turns on the client answering by name.
+   if(Con::getBoolVariable("$T2::traceCommands"))
+   {
+      NetStringHandle h(dAtoi(argv[0] + 1));
+      char args[256] = { 0 };
+      for(S32 a = 1; a < argc && a < 6; a++)
+      {
+         dStrcat(args, " ");
+         dStrcat(args, argv[a]);
+      }
+      Con::printf("CMD out %s (%d args)%s",
+                  h.isValidString() ? h.getString() : argv[0], argc, args);
+   }
+
    RemoteCommandEvent *cevt = new RemoteCommandEvent(argc, argv, conn);
    conn->postNetEvent(cevt);
 }

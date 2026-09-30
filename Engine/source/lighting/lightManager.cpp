@@ -461,10 +461,21 @@ DefineEngineFunction( lightScene, bool, ( const char *completeCallbackFn, const 
    "@return Returns true if the scene lighting process was started.\n"
    "@ingroup Lighting\n" )
 {
+   // HH: Modified for Tribes 2 compatibility.
+   // Tribes 2's mission handshake will not finish without the callback this
+   // is asked for, so say plainly whether it is going to arrive.
    if ( !LIGHTMGR )
+   {
+      Con::warnf( "lightScene: no light manager, so %s will never be called",
+                  completeCallbackFn ? completeCallbackFn : "the callback" );
       return false;
+   }
 
-   return LIGHTMGR->lightScene( completeCallbackFn, mode );
+   const bool started = LIGHTMGR->lightScene( completeCallbackFn, mode );
+   if ( Con::getBoolVariable( "$T2::traceCommands" ) )
+      Con::printf( "lightScene(%s) -> %d",
+                   completeCallbackFn ? completeCallbackFn : "", (S32)started );
+   return started;
 }
 
 DefineEngineFunction( getLightManagerNames, String, (),,
