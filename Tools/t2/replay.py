@@ -33,13 +33,13 @@ def slurp(path):
 def parse_layouts(src, table):
     """name -> (nodes, select, root); a node is (op, bits, a, b)."""
     nodes = {}
-    for m in re.finditer(r"sT2(?:Ev|Gh|Pd)?Nodes_(\w+)\[\]\s*=\s*\{(.*?)\};", src, re.S):
+    for m in re.finditer(r"sT2(?:Ev|Gh|Pd|Rc)?Nodes_(\w+)\[\]\s*=\s*\{(.*?)\};", src, re.S):
         nodes[m.group(1)] = [
             (r[0], int(r[1]), int(r[2]), int(r[3]))
             for r in re.findall(
                 r"\{\s*(\w+),\s*(-?\d+),\s*(-?\d+),\s*(-?\d+)\s*\}", m.group(2))]
     sel = {}
-    for m in re.finditer(r"sT2(?:Ev|Gh|Pd)?Sel_(\w+)\[\]\s*=\s*\{([^}]*)\};", src):
+    for m in re.finditer(r"sT2(?:Ev|Gh|Pd|Rc)?Sel_(\w+)\[\]\s*=\s*\{([^}]*)\};", src):
         sel[m.group(1)] = [int(x) for x in m.group(2).split(",") if x.strip()]
     out = {}
     m = re.search(r"%s\[\]\s*=\s*\{(.*?)\};" % table, src, re.S)
@@ -58,6 +58,12 @@ def parse_class_table(name):
 
 DBL = parse_layouts(slurp(os.path.join(GB, "t2DataBlockTables.h")), "sT2DataBlocks")
 GHL = parse_layouts(slurp(os.path.join(GB, "t2GhostTables.h")), "sT2Ghosts")
+# the recovered layouts take precedence, as they do in the engine
+try:
+    GHL.update(parse_layouts(slurp(os.path.join(GB, "t2GhostTablesRecovered.h")),
+                             "sT2GhostsRecovered"))
+except Exception:
+    pass
 EVL = parse_layouts(slurp(os.path.join(GB, "t2EventTables.h")), "sT2Events")
 PDL = parse_layouts(slurp(os.path.join(GB, "t2PacketDataTables.h")), "sT2PacketData")
 

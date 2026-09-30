@@ -1,0 +1,1052 @@
+/// @file
+/// Ghost update layouts recovered a second time, with the walk able to
+/// follow a class into its parent.
+///
+/// The tables in t2GhostTables.h came from a walk that halted on a call it
+/// could not enter, so a class whose reading sits below its parent's
+/// unpackUpdate came out a stub: AudioEmitter's graph had six nodes and
+/// took 37 bits where its neighbours take six hundred, which lost the rest
+/// of any packet it shared.  These were walked with every function the
+/// emulator might enter already in its map, and with calls it still cannot
+/// resolve stepped over rather than halted on.
+///
+/// A class here whose walk rested on stepping over a call carries the count
+/// in its comment: those layouts are the ones to doubt first when a packet
+/// will not read.  The rest are exact.
+///
+/// Recovered by scratchpad/ghostwalk.py; see Tools/t2/README.md.
+
+#ifndef _T2GHOSTTABLESRECOVERED_H_
+#define _T2GHOSTTABLESRECOVERED_H_
+
+namespace T2Protocol
+{
+   static const S16 sT2RcSel_BombProjectile[] = { 29, 29, 29, 29, 29, 29, 29, 29, 41, 41, 52, 55 };
+   /// BombProjectile: 56 nodes from 448 explored, 4 calls stepped over
+   static const T2DataNode sT2RcNodes_BombProjectile[] =
+   {
+      { OpFlag, 1, 1, 51 },
+      { OpFlag, 1, 2, 40 },
+      { OpFlag, 1, 3, 19 },
+      { OpFlag, 1, 4, 13 },
+      { OpFlag, 1, 5, 6 },
+      { OpEnd, 0, -1, -1 },
+      { OpRaw, 32, 7, -1 },
+      { OpRaw, 32, 8, -1 },
+      { OpRaw, 32, 9, -1 },
+      { OpRaw, 32, 10, -1 },
+      { OpRaw, 32, 11, -1 },
+      { OpRaw, 32, 12, -1 },
+      { OpFlag, 1, 5, 5 },
+      { OpRaw, 32, 14, -1 },
+      { OpRaw, 32, 15, -1 },
+      { OpRaw, 32, 16, -1 },
+      { OpRaw, 32, 17, -1 },
+      { OpRaw, 32, 18, -1 },
+      { OpRaw, 32, 4, -1 },
+      { OpRaw, 32, 20, -1 },
+      { OpRaw, 32, 21, -1 },
+      { OpRaw, 32, 22, -1 },
+      { OpRaw, 32, 23, -1 },
+      { OpRaw, 32, 24, -1 },
+      { OpRaw, 32, 25, -1 },
+      { OpInt, 12, 26, -1 },
+      { OpFlag, 1, 27, 27 },
+      { OpFlag, 1, 28, 33 },
+      { OpFlag, 1, 29, 31 },
+      { OpFlag, 1, 5, 30 },
+      { OpInt, 11, 5, -1 },
+      { OpInt, 11, 32, -1 },
+      { OpSelect, 3, 0, -1 },
+      { OpRaw, 32, 34, -1 },
+      { OpRaw, 32, 35, -1 },
+      { OpRaw, 32, 36, -1 },
+      { OpRaw, 32, 37, -1 },
+      { OpRaw, 32, 38, -1 },
+      { OpRaw, 32, 39, -1 },
+      { OpFlag, 1, 28, 28 },
+      { OpFlag, 1, 41, 50 },
+      { OpFlag, 1, 42, 19 },
+      { OpFlag, 1, 43, 44 },
+      { OpFlag, 1, 5, 33 },
+      { OpRaw, 32, 45, -1 },
+      { OpRaw, 32, 46, -1 },
+      { OpRaw, 32, 47, -1 },
+      { OpRaw, 32, 48, -1 },
+      { OpRaw, 32, 49, -1 },
+      { OpRaw, 32, 43, -1 },
+      { OpReadBr, 9, 8, -1 },
+      { OpReadBr, 11, 10, -1 },
+      { OpFlag, 1, 41, 53 },
+      { OpFlag, 1, 41, 54 },
+      { OpInt, 9, 41, -1 },
+      { OpFlag, 1, 41, 40 },
+   };
+
+   static const S16 sT2RcSel_Debris[] = { 2, 2 };
+   /// Debris: 6 nodes from 22 explored, 1 call stepped over
+   static const T2DataNode sT2RcNodes_Debris[] =
+   {
+      { OpFlag, 1, 1, 5 },
+      { OpFlag, 1, 2, 3 },
+      { OpEnd, 0, -1, -1 },
+      { OpFlag, 1, 2, 4 },
+      { OpReadBr, 9, 0, -1 },
+      { OpDataBlockId, 11, 1, -1 },
+   };
+
+   static const S16 sT2RcSel_ELFProjectile[] = { 7, 7, 7, 7, 7, 7, 7, 7, 2, 2 };
+   /// ELFProjectile: 11 nodes from 96 explored, 1 call stepped over
+   static const T2DataNode sT2RcNodes_ELFProjectile[] =
+   {
+      { OpFlag, 1, 1, 10 },
+      { OpFlag, 1, 2, 8 },
+      { OpFlag, 1, 3, 4 },
+      { OpEnd, 0, -1, -1 },
+      { OpFlag, 1, 3, 5 },
+      { OpInt, 11, 6, -1 },
+      { OpSelect, 3, 0, -1 },
+      { OpInt, 11, 3, -1 },
+      { OpFlag, 1, 2, 9 },
+      { OpReadBr, 9, 8, -1 },
+      { OpDataBlockId, 11, 1, -1 },
+   };
+
+   static const S16 sT2RcSel_EnergyProjectile[] = { 29, 29, 29, 29, 29, 29, 29, 29, 41, 41, 52, 55 };
+   /// EnergyProjectile: 56 nodes from 540 explored, 4 calls stepped over
+   static const T2DataNode sT2RcNodes_EnergyProjectile[] =
+   {
+      { OpFlag, 1, 1, 51 },
+      { OpFlag, 1, 2, 40 },
+      { OpFlag, 1, 3, 19 },
+      { OpFlag, 1, 4, 13 },
+      { OpFlag, 1, 5, 6 },
+      { OpEnd, 0, -1, -1 },
+      { OpRaw, 32, 7, -1 },
+      { OpRaw, 32, 8, -1 },
+      { OpRaw, 32, 9, -1 },
+      { OpRaw, 32, 10, -1 },
+      { OpRaw, 32, 11, -1 },
+      { OpRaw, 32, 12, -1 },
+      { OpFlag, 1, 5, 5 },
+      { OpRaw, 32, 14, -1 },
+      { OpRaw, 32, 15, -1 },
+      { OpRaw, 32, 16, -1 },
+      { OpRaw, 32, 17, -1 },
+      { OpRaw, 32, 18, -1 },
+      { OpRaw, 32, 4, -1 },
+      { OpRaw, 32, 20, -1 },
+      { OpRaw, 32, 21, -1 },
+      { OpRaw, 32, 22, -1 },
+      { OpRaw, 32, 23, -1 },
+      { OpRaw, 32, 24, -1 },
+      { OpRaw, 32, 25, -1 },
+      { OpInt, 12, 26, -1 },
+      { OpFlag, 1, 27, 27 },
+      { OpFlag, 1, 28, 33 },
+      { OpFlag, 1, 29, 31 },
+      { OpFlag, 1, 5, 30 },
+      { OpInt, 11, 5, -1 },
+      { OpInt, 11, 32, -1 },
+      { OpSelect, 3, 0, -1 },
+      { OpRaw, 32, 34, -1 },
+      { OpRaw, 32, 35, -1 },
+      { OpRaw, 32, 36, -1 },
+      { OpRaw, 32, 37, -1 },
+      { OpRaw, 32, 38, -1 },
+      { OpRaw, 32, 39, -1 },
+      { OpFlag, 1, 28, 28 },
+      { OpFlag, 1, 41, 50 },
+      { OpFlag, 1, 42, 19 },
+      { OpFlag, 1, 43, 44 },
+      { OpFlag, 1, 5, 33 },
+      { OpRaw, 32, 45, -1 },
+      { OpRaw, 32, 46, -1 },
+      { OpRaw, 32, 47, -1 },
+      { OpRaw, 32, 48, -1 },
+      { OpRaw, 32, 49, -1 },
+      { OpRaw, 32, 43, -1 },
+      { OpReadBr, 9, 8, -1 },
+      { OpReadBr, 11, 10, -1 },
+      { OpFlag, 1, 41, 53 },
+      { OpFlag, 1, 41, 54 },
+      { OpInt, 9, 41, -1 },
+      { OpFlag, 1, 41, 40 },
+   };
+
+   static const S16 sT2RcSel_FireballAtmosphere[] = { 2, 2 };
+   /// FireballAtmosphere: 16 nodes from 55 explored, 1 call stepped over
+   static const T2DataNode sT2RcNodes_FireballAtmosphere[] =
+   {
+      { OpFlag, 1, 1, 15 },
+      { OpFlag, 1, 2, 13 },
+      { OpFlag, 1, 3, 4 },
+      { OpEnd, 0, -1, -1 },
+      { OpRaw, 32, 5, -1 },
+      { OpRaw, 32, 6, -1 },
+      { OpRaw, 32, 7, -1 },
+      { OpRaw, 32, 8, -1 },
+      { OpRaw, 32, 9, -1 },
+      { OpRaw, 32, 10, -1 },
+      { OpRaw, 32, 11, -1 },
+      { OpRaw, 32, 12, -1 },
+      { OpRaw, 32, 3, -1 },
+      { OpFlag, 1, 2, 14 },
+      { OpReadBr, 9, 0, -1 },
+      { OpDataBlockId, 11, 1, -1 },
+   };
+
+   static const S16 sT2RcSel_FlareProjectile[] = { 29, 29, 29, 29, 29, 29, 29, 29, 41, 41, 52, 55 };
+   /// FlareProjectile: 56 nodes from 448 explored, 4 calls stepped over
+   static const T2DataNode sT2RcNodes_FlareProjectile[] =
+   {
+      { OpFlag, 1, 1, 51 },
+      { OpFlag, 1, 2, 40 },
+      { OpFlag, 1, 3, 19 },
+      { OpFlag, 1, 4, 13 },
+      { OpFlag, 1, 5, 6 },
+      { OpEnd, 0, -1, -1 },
+      { OpRaw, 32, 7, -1 },
+      { OpRaw, 32, 8, -1 },
+      { OpRaw, 32, 9, -1 },
+      { OpRaw, 32, 10, -1 },
+      { OpRaw, 32, 11, -1 },
+      { OpRaw, 32, 12, -1 },
+      { OpFlag, 1, 5, 5 },
+      { OpRaw, 32, 14, -1 },
+      { OpRaw, 32, 15, -1 },
+      { OpRaw, 32, 16, -1 },
+      { OpRaw, 32, 17, -1 },
+      { OpRaw, 32, 18, -1 },
+      { OpRaw, 32, 4, -1 },
+      { OpRaw, 32, 20, -1 },
+      { OpRaw, 32, 21, -1 },
+      { OpRaw, 32, 22, -1 },
+      { OpRaw, 32, 23, -1 },
+      { OpRaw, 32, 24, -1 },
+      { OpRaw, 32, 25, -1 },
+      { OpInt, 12, 26, -1 },
+      { OpFlag, 1, 27, 27 },
+      { OpFlag, 1, 28, 33 },
+      { OpFlag, 1, 29, 31 },
+      { OpFlag, 1, 5, 30 },
+      { OpInt, 11, 5, -1 },
+      { OpInt, 11, 32, -1 },
+      { OpSelect, 3, 0, -1 },
+      { OpRaw, 32, 34, -1 },
+      { OpRaw, 32, 35, -1 },
+      { OpRaw, 32, 36, -1 },
+      { OpRaw, 32, 37, -1 },
+      { OpRaw, 32, 38, -1 },
+      { OpRaw, 32, 39, -1 },
+      { OpFlag, 1, 28, 28 },
+      { OpFlag, 1, 41, 50 },
+      { OpFlag, 1, 42, 19 },
+      { OpFlag, 1, 43, 44 },
+      { OpFlag, 1, 5, 33 },
+      { OpRaw, 32, 45, -1 },
+      { OpRaw, 32, 46, -1 },
+      { OpRaw, 32, 47, -1 },
+      { OpRaw, 32, 48, -1 },
+      { OpRaw, 32, 49, -1 },
+      { OpRaw, 32, 43, -1 },
+      { OpReadBr, 9, 8, -1 },
+      { OpReadBr, 11, 10, -1 },
+      { OpFlag, 1, 41, 53 },
+      { OpFlag, 1, 41, 54 },
+      { OpInt, 9, 41, -1 },
+      { OpFlag, 1, 41, 40 },
+   };
+
+   static const S16 sT2RcSel_ForceFieldBare[] = { 5, 7, 7, 5, 2, 2 };
+   /// ForceFieldBare: 21 nodes from 127 explored, 1 call stepped over
+   static const T2DataNode sT2RcNodes_ForceFieldBare[] =
+   {
+      { OpFlag, 1, 1, 20 },
+      { OpFlag, 1, 2, 18 },
+      { OpFlag, 1, 3, 8 },
+      { OpFlag, 1, 4, 8 },
+      { OpFlag, 1, 5, 6 },
+      { OpEnd, 0, -1, -1 },
+      { OpSelect, 2, 0, -1 },
+      { OpRaw, 32, 5, -1 },
+      { OpRaw, 32, 9, -1 },
+      { OpRaw, 32, 10, -1 },
+      { OpRaw, 32, 11, -1 },
+      { OpRaw, 32, 12, -1 },
+      { OpRaw, 32, 13, -1 },
+      { OpRaw, 32, 14, -1 },
+      { OpFlag, 1, 15, 15 },
+      { OpRaw, 32, 16, -1 },
+      { OpRaw, 32, 17, -1 },
+      { OpRaw, 32, 4, -1 },
+      { OpFlag, 1, 2, 19 },
+      { OpReadBr, 9, 4, -1 },
+      { OpDataBlockId, 11, 1, -1 },
+   };
+
+   static const S16 sT2RcSel_GameBase[] = { 2, 2 };
+   /// GameBase: 6 nodes from 22 explored, 1 call stepped over
+   static const T2DataNode sT2RcNodes_GameBase[] =
+   {
+      { OpFlag, 1, 1, 5 },
+      { OpFlag, 1, 2, 3 },
+      { OpEnd, 0, -1, -1 },
+      { OpFlag, 1, 2, 4 },
+      { OpReadBr, 9, 0, -1 },
+      { OpDataBlockId, 11, 1, -1 },
+   };
+
+   static const S16 sT2RcSel_GrenadeProjectile[] = { 29, 29, 29, 29, 29, 29, 29, 29, 41, 41, 52, 55 };
+   /// GrenadeProjectile: 56 nodes from 448 explored, 4 calls stepped over
+   static const T2DataNode sT2RcNodes_GrenadeProjectile[] =
+   {
+      { OpFlag, 1, 1, 51 },
+      { OpFlag, 1, 2, 40 },
+      { OpFlag, 1, 3, 19 },
+      { OpFlag, 1, 4, 13 },
+      { OpFlag, 1, 5, 6 },
+      { OpEnd, 0, -1, -1 },
+      { OpRaw, 32, 7, -1 },
+      { OpRaw, 32, 8, -1 },
+      { OpRaw, 32, 9, -1 },
+      { OpRaw, 32, 10, -1 },
+      { OpRaw, 32, 11, -1 },
+      { OpRaw, 32, 12, -1 },
+      { OpFlag, 1, 5, 5 },
+      { OpRaw, 32, 14, -1 },
+      { OpRaw, 32, 15, -1 },
+      { OpRaw, 32, 16, -1 },
+      { OpRaw, 32, 17, -1 },
+      { OpRaw, 32, 18, -1 },
+      { OpRaw, 32, 4, -1 },
+      { OpRaw, 32, 20, -1 },
+      { OpRaw, 32, 21, -1 },
+      { OpRaw, 32, 22, -1 },
+      { OpRaw, 32, 23, -1 },
+      { OpRaw, 32, 24, -1 },
+      { OpRaw, 32, 25, -1 },
+      { OpInt, 12, 26, -1 },
+      { OpFlag, 1, 27, 27 },
+      { OpFlag, 1, 28, 33 },
+      { OpFlag, 1, 29, 31 },
+      { OpFlag, 1, 5, 30 },
+      { OpInt, 11, 5, -1 },
+      { OpInt, 11, 32, -1 },
+      { OpSelect, 3, 0, -1 },
+      { OpRaw, 32, 34, -1 },
+      { OpRaw, 32, 35, -1 },
+      { OpRaw, 32, 36, -1 },
+      { OpRaw, 32, 37, -1 },
+      { OpRaw, 32, 38, -1 },
+      { OpRaw, 32, 39, -1 },
+      { OpFlag, 1, 28, 28 },
+      { OpFlag, 1, 41, 50 },
+      { OpFlag, 1, 42, 19 },
+      { OpFlag, 1, 43, 44 },
+      { OpFlag, 1, 5, 33 },
+      { OpRaw, 32, 45, -1 },
+      { OpRaw, 32, 46, -1 },
+      { OpRaw, 32, 47, -1 },
+      { OpRaw, 32, 48, -1 },
+      { OpRaw, 32, 49, -1 },
+      { OpRaw, 32, 43, -1 },
+      { OpReadBr, 9, 8, -1 },
+      { OpReadBr, 11, 10, -1 },
+      { OpFlag, 1, 41, 53 },
+      { OpFlag, 1, 41, 54 },
+      { OpInt, 9, 41, -1 },
+      { OpFlag, 1, 41, 40 },
+   };
+
+   /// InteriorInstance: 54 nodes from 282 explored, 1 call stepped over
+   static const T2DataNode sT2RcNodes_InteriorInstance[] =
+   {
+      { OpFlag, 1, 1, 30 },
+      { OpFlag, 1, 2, 11 },
+      { OpFlag, 1, 3, 3 },
+      { OpFlag, 1, 4, 10 },
+      { OpFlag, 1, 5, 6 },
+      { OpEnd, 0, -1, -1 },
+      { OpFlag, 1, 7, 9 },
+      { OpFlag, 1, 5, 8 },
+      { OpDataBlockId, 11, 5, -1 },
+      { OpDataBlockId, 11, 7, -1 },
+      { OpString, 0, 4, -1 },
+      { OpRaw, 32, 12, -1 },
+      { OpRaw, 32, 13, -1 },
+      { OpRaw, 32, 14, -1 },
+      { OpRaw, 32, 15, -1 },
+      { OpRaw, 32, 16, -1 },
+      { OpRaw, 32, 17, -1 },
+      { OpRaw, 32, 18, -1 },
+      { OpRaw, 32, 19, -1 },
+      { OpRaw, 32, 20, -1 },
+      { OpRaw, 32, 21, -1 },
+      { OpRaw, 32, 22, -1 },
+      { OpRaw, 32, 23, -1 },
+      { OpRaw, 32, 24, -1 },
+      { OpRaw, 32, 25, -1 },
+      { OpRaw, 32, 26, -1 },
+      { OpRaw, 32, 27, -1 },
+      { OpRaw, 32, 28, -1 },
+      { OpRaw, 32, 29, -1 },
+      { OpRaw, 32, 2, -1 },
+      { OpRaw, 32, 31, -1 },
+      { OpString, 0, 32, -1 },
+      { OpFlag, 1, 33, 33 },
+      { OpRaw, 32, 34, -1 },
+      { OpRaw, 32, 35, -1 },
+      { OpRaw, 32, 36, -1 },
+      { OpRaw, 32, 37, -1 },
+      { OpRaw, 32, 38, -1 },
+      { OpRaw, 32, 39, -1 },
+      { OpRaw, 32, 40, -1 },
+      { OpRaw, 32, 41, -1 },
+      { OpRaw, 32, 42, -1 },
+      { OpRaw, 32, 43, -1 },
+      { OpRaw, 32, 44, -1 },
+      { OpRaw, 32, 45, -1 },
+      { OpRaw, 32, 46, -1 },
+      { OpRaw, 32, 47, -1 },
+      { OpRaw, 32, 48, -1 },
+      { OpRaw, 32, 49, -1 },
+      { OpRaw, 32, 50, -1 },
+      { OpRaw, 32, 51, -1 },
+      { OpRaw, 32, 52, -1 },
+      { OpFlag, 1, 53, 53 },
+      { OpString, 0, 6, -1 },
+   };
+
+   static const S16 sT2RcSel_Lightning[] = { 2, 2 };
+   /// Lightning: 25 nodes from 73 explored, 1 call stepped over
+   static const T2DataNode sT2RcNodes_Lightning[] =
+   {
+      { OpFlag, 1, 1, 24 },
+      { OpFlag, 1, 2, 22 },
+      { OpFlag, 1, 3, 4 },
+      { OpEnd, 0, -1, -1 },
+      { OpRaw, 32, 5, -1 },
+      { OpRaw, 32, 6, -1 },
+      { OpRaw, 32, 7, -1 },
+      { OpRaw, 32, 8, -1 },
+      { OpRaw, 32, 9, -1 },
+      { OpRaw, 32, 10, -1 },
+      { OpRaw, 32, 11, -1 },
+      { OpRaw, 32, 12, -1 },
+      { OpRaw, 32, 13, -1 },
+      { OpRaw, 32, 14, -1 },
+      { OpRaw, 32, 15, -1 },
+      { OpRaw, 32, 16, -1 },
+      { OpRaw, 32, 17, -1 },
+      { OpRaw, 32, 18, -1 },
+      { OpRaw, 32, 19, -1 },
+      { OpRaw, 32, 20, -1 },
+      { OpRaw, 8, 21, -1 },
+      { OpRaw, 32, 3, -1 },
+      { OpFlag, 1, 2, 23 },
+      { OpReadBr, 9, 0, -1 },
+      { OpDataBlockId, 11, 1, -1 },
+   };
+
+   static const S16 sT2RcSel_LinearFlareProjectile[] = { 17, 17, 17, 17, 17, 17, 17, 17, 2, 2 };
+   /// LinearFlareProjectile: 29 nodes from 230 explored, 3 calls stepped over
+   static const T2DataNode sT2RcNodes_LinearFlareProjectile[] =
+   {
+      { OpFlag, 1, 1, 25 },
+      { OpFlag, 1, 2, 23 },
+      { OpFlag, 1, 3, 8 },
+      { OpSignedFloat, 15, 4, -1 },
+      { OpSignedFloat, 14, 5, -1 },
+      { OpFlag, 1, 6, 6 },
+      { OpFlag, 1, 7, 7 },
+      { OpEnd, 0, -1, -1 },
+      { OpFlag, 1, 9, 21 },
+      { OpSignedFloat, 15, 10, -1 },
+      { OpSignedFloat, 14, 11, -1 },
+      { OpInt, 9, 12, -1 },
+      { OpFlag, 1, 13, 15 },
+      { OpFlag, 1, 7, 14 },
+      { OpInt, 10, 7, -1 },
+      { OpInt, 10, 16, -1 },
+      { OpSelect, 3, 0, -1 },
+      { OpFlag, 1, 13, 18 },
+      { OpInt, 8, 19, -1 },
+      { OpSignedFloat, 8, 20, -1 },
+      { OpSignedFloat, 7, 13, -1 },
+      { OpSignedFloat, 15, 22, -1 },
+      { OpSignedFloat, 14, 6, -1 },
+      { OpFlag, 1, 2, 24 },
+      { OpReadBr, 9, 8, -1 },
+      { OpDataBlockId, 11, 26, -1 },
+      { OpFlag, 1, 2, 27 },
+      { OpFlag, 1, 2, 28 },
+      { OpInt, 9, 2, -1 },
+   };
+
+   static const S16 sT2RcSel_LinearProjectile[] = { 17, 17, 17, 17, 17, 17, 17, 17, 2, 2 };
+   /// LinearProjectile: 29 nodes from 230 explored, 3 calls stepped over
+   static const T2DataNode sT2RcNodes_LinearProjectile[] =
+   {
+      { OpFlag, 1, 1, 25 },
+      { OpFlag, 1, 2, 23 },
+      { OpFlag, 1, 3, 8 },
+      { OpSignedFloat, 15, 4, -1 },
+      { OpSignedFloat, 14, 5, -1 },
+      { OpFlag, 1, 6, 6 },
+      { OpFlag, 1, 7, 7 },
+      { OpEnd, 0, -1, -1 },
+      { OpFlag, 1, 9, 21 },
+      { OpSignedFloat, 15, 10, -1 },
+      { OpSignedFloat, 14, 11, -1 },
+      { OpInt, 9, 12, -1 },
+      { OpFlag, 1, 13, 15 },
+      { OpFlag, 1, 7, 14 },
+      { OpInt, 10, 7, -1 },
+      { OpInt, 10, 16, -1 },
+      { OpSelect, 3, 0, -1 },
+      { OpFlag, 1, 13, 18 },
+      { OpInt, 8, 19, -1 },
+      { OpSignedFloat, 8, 20, -1 },
+      { OpSignedFloat, 7, 13, -1 },
+      { OpSignedFloat, 15, 22, -1 },
+      { OpSignedFloat, 14, 6, -1 },
+      { OpFlag, 1, 2, 24 },
+      { OpReadBr, 9, 8, -1 },
+      { OpDataBlockId, 11, 26, -1 },
+      { OpFlag, 1, 2, 27 },
+      { OpFlag, 1, 2, 28 },
+      { OpInt, 9, 2, -1 },
+   };
+
+   /// Marker: 4 nodes from 8 explored, 1 call stepped over
+   static const T2DataNode sT2RcNodes_Marker[] =
+   {
+      { OpRaw, 32, 1, -1 },
+      { OpRaw, 32, 2, -1 },
+      { OpRaw, 32, 3, -1 },
+      { OpEnd, 0, -1, -1 },
+   };
+
+   /// ParticleEmissionDummy: 27 nodes from 180 explored, 1 call stepped over
+   static const T2DataNode sT2RcNodes_ParticleEmissionDummy[] =
+   {
+      { OpFlag, 1, 1, 26 },
+      { OpFlag, 1, 2, 24 },
+      { OpRaw, 32, 3, -1 },
+      { OpRaw, 32, 4, -1 },
+      { OpRaw, 32, 5, -1 },
+      { OpRaw, 32, 6, -1 },
+      { OpRaw, 32, 7, -1 },
+      { OpRaw, 32, 8, -1 },
+      { OpRaw, 32, 9, -1 },
+      { OpRaw, 32, 10, -1 },
+      { OpRaw, 32, 11, -1 },
+      { OpRaw, 32, 12, -1 },
+      { OpRaw, 32, 13, -1 },
+      { OpRaw, 32, 14, -1 },
+      { OpRaw, 32, 15, -1 },
+      { OpRaw, 32, 16, -1 },
+      { OpRaw, 32, 17, -1 },
+      { OpRaw, 32, 18, -1 },
+      { OpRaw, 32, 19, -1 },
+      { OpRaw, 32, 20, -1 },
+      { OpRaw, 32, 21, -1 },
+      { OpFlag, 1, 22, 23 },
+      { OpEnd, 0, -1, -1 },
+      { OpDataBlockId, 11, 22, -1 },
+      { OpFlag, 1, 2, 25 },
+      { OpInt, 9, 2, -1 },
+      { OpDataBlockId, 11, 1, -1 },
+   };
+
+   static const S16 sT2RcSel_PhysicalZone[] = { 26, 28, 27, 27, 36, 37, 28, 28, 42, 44, 43, 43 };
+   /// PhysicalZone: 45 nodes from 164 explored, 3 calls stepped over
+   static const T2DataNode sT2RcNodes_PhysicalZone[] =
+   {
+      { OpFlag, 1, 1, 3 },
+      { OpFlag, 1, 2, 2 },
+      { OpEnd, 0, -1, -1 },
+      { OpRaw, 32, 4, -1 },
+      { OpRaw, 32, 5, -1 },
+      { OpRaw, 32, 6, -1 },
+      { OpRaw, 32, 7, -1 },
+      { OpRaw, 32, 8, -1 },
+      { OpRaw, 32, 9, -1 },
+      { OpRaw, 32, 10, -1 },
+      { OpRaw, 32, 11, -1 },
+      { OpRaw, 32, 12, -1 },
+      { OpRaw, 32, 13, -1 },
+      { OpRaw, 32, 14, -1 },
+      { OpRaw, 32, 15, -1 },
+      { OpRaw, 32, 16, -1 },
+      { OpRaw, 32, 17, -1 },
+      { OpRaw, 32, 18, -1 },
+      { OpRaw, 32, 19, -1 },
+      { OpRaw, 32, 20, -1 },
+      { OpRaw, 32, 21, -1 },
+      { OpRaw, 32, 22, -1 },
+      { OpCount, 32, 23, 0 },
+      { OpLoop, 0, 29, 24 },
+      { OpRaw, 32, 25, -1 },
+      { OpReadBr, 32, 0, -1 },
+      { OpRaw, 32, 27, -1 },
+      { OpEndBody, 0, -1, -1 },
+      { OpReadBr, 32, 2, -1 },
+      { OpCount, 32, 30, 1 },
+      { OpLoop, 1, 32, 31 },
+      { OpRaw, 32, 24, -1 },
+      { OpCount, 32, 33, 2 },
+      { OpLoop, 2, 38, 34 },
+      { OpRaw, 32, 35, -1 },
+      { OpReadBr, 32, 4, -1 },
+      { OpRaw, 32, 26, -1 },
+      { OpReadBr, 32, 6, -1 },
+      { OpRaw, 32, 39, -1 },
+      { OpRaw, 32, 40, -1 },
+      { OpRaw, 32, 41, -1 },
+      { OpReadBr, 32, 8, -1 },
+      { OpRaw, 32, 43, -1 },
+      { OpLoop, 3, 1, 27 },
+      { OpReadBr, 32, 10, 3 },
+   };
+
+   static const S16 sT2RcSel_Projectile[] = { 2, 2 };
+   /// Projectile: 6 nodes from 22 explored, 1 call stepped over
+   static const T2DataNode sT2RcNodes_Projectile[] =
+   {
+      { OpFlag, 1, 1, 5 },
+      { OpFlag, 1, 2, 3 },
+      { OpEnd, 0, -1, -1 },
+      { OpFlag, 1, 2, 4 },
+      { OpReadBr, 9, 0, -1 },
+      { OpDataBlockId, 11, 1, -1 },
+   };
+
+   static const S16 sT2RcSel_RepairProjectile[] = { 7, 7, 7, 7, 7, 7, 7, 7, 2, 2 };
+   /// RepairProjectile: 11 nodes from 96 explored, 1 call stepped over
+   static const T2DataNode sT2RcNodes_RepairProjectile[] =
+   {
+      { OpFlag, 1, 1, 10 },
+      { OpFlag, 1, 2, 8 },
+      { OpFlag, 1, 3, 4 },
+      { OpEnd, 0, -1, -1 },
+      { OpFlag, 1, 3, 5 },
+      { OpInt, 11, 6, -1 },
+      { OpSelect, 3, 0, -1 },
+      { OpInt, 11, 3, -1 },
+      { OpFlag, 1, 2, 9 },
+      { OpReadBr, 9, 8, -1 },
+      { OpDataBlockId, 11, 1, -1 },
+   };
+
+   static const S16 sT2RcSel_ShockLanceProjectile[] = { 4, 4, 4, 4, 4, 4, 4, 4, 2, 2 };
+   /// ShockLanceProjectile: 19 nodes from 93 explored, 1 call stepped over
+   static const T2DataNode sT2RcNodes_ShockLanceProjectile[] =
+   {
+      { OpFlag, 1, 1, 18 },
+      { OpFlag, 1, 2, 16 },
+      { OpFlag, 1, 3, 15 },
+      { OpFlag, 1, 4, 5 },
+      { OpEnd, 0, -1, -1 },
+      { OpRaw, 32, 6, -1 },
+      { OpRaw, 32, 7, -1 },
+      { OpRaw, 32, 8, -1 },
+      { OpRaw, 32, 9, -1 },
+      { OpRaw, 32, 10, -1 },
+      { OpRaw, 32, 11, -1 },
+      { OpFlag, 1, 12, 12 },
+      { OpFlag, 1, 4, 13 },
+      { OpInt, 11, 14, -1 },
+      { OpSelect, 3, 0, -1 },
+      { OpInt, 11, 3, -1 },
+      { OpFlag, 1, 2, 17 },
+      { OpReadBr, 9, 8, -1 },
+      { OpDataBlockId, 11, 1, -1 },
+   };
+
+   static const S16 sT2RcSel_Shockwave[] = { 2, 2 };
+   /// Shockwave: 13 nodes from 49 explored, 1 call stepped over
+   static const T2DataNode sT2RcNodes_Shockwave[] =
+   {
+      { OpFlag, 1, 1, 12 },
+      { OpFlag, 1, 2, 10 },
+      { OpFlag, 1, 3, 4 },
+      { OpEnd, 0, -1, -1 },
+      { OpRaw, 32, 5, -1 },
+      { OpRaw, 32, 6, -1 },
+      { OpRaw, 32, 7, -1 },
+      { OpRaw, 32, 8, -1 },
+      { OpRaw, 32, 9, -1 },
+      { OpRaw, 32, 3, -1 },
+      { OpFlag, 1, 2, 11 },
+      { OpReadBr, 9, 0, -1 },
+      { OpDataBlockId, 11, 1, -1 },
+   };
+
+   /// SimpleNetObject: 2 nodes from 4 explored, exact
+   static const T2DataNode sT2RcNodes_SimpleNetObject[] =
+   {
+      { OpString, 0, 1, -1 },
+      { OpEnd, 0, -1, -1 },
+   };
+
+   static const S16 sT2RcSel_SniperProjectile[] = { 14, 14, 14, 14, 14, 14, 14, 14, 10, 10, 10, 10, 10, 10, 10, 10, 2, 2 };
+   /// SniperProjectile: 30 nodes from 215 explored, 1 call stepped over
+   static const T2DataNode sT2RcNodes_SniperProjectile[] =
+   {
+      { OpFlag, 1, 1, 29 },
+      { OpFlag, 1, 2, 27 },
+      { OpFlag, 1, 3, 15 },
+      { OpFlag, 1, 4, 12 },
+      { OpRaw, 32, 5, -1 },
+      { OpRaw, 32, 6, -1 },
+      { OpRaw, 32, 7, -1 },
+      { OpRaw, 32, 8, -1 },
+      { OpRaw, 32, 9, -1 },
+      { OpRaw, 32, 10, -1 },
+      { OpFlag, 1, 11, 11 },
+      { OpEnd, 0, -1, -1 },
+      { OpInt, 11, 13, -1 },
+      { OpSelect, 3, 0, -1 },
+      { OpFlag, 1, 7, 7 },
+      { OpFloat, 7, 16, -1 },
+      { OpRaw, 32, 17, -1 },
+      { OpRaw, 32, 18, -1 },
+      { OpRaw, 32, 19, -1 },
+      { OpRaw, 32, 20, -1 },
+      { OpRaw, 32, 21, -1 },
+      { OpRaw, 32, 22, -1 },
+      { OpFlag, 1, 23, 23 },
+      { OpFlag, 1, 24, 24 },
+      { OpFlag, 1, 11, 25 },
+      { OpInt, 11, 26, -1 },
+      { OpSelect, 3, 8, -1 },
+      { OpFlag, 1, 2, 28 },
+      { OpReadBr, 9, 16, -1 },
+      { OpDataBlockId, 11, 1, -1 },
+   };
+
+   static const S16 sT2RcSel_Splash[] = { 2, 2 };
+   /// Splash: 10 nodes from 43 explored, 1 call stepped over
+   static const T2DataNode sT2RcNodes_Splash[] =
+   {
+      { OpFlag, 1, 1, 9 },
+      { OpFlag, 1, 2, 7 },
+      { OpFlag, 1, 3, 4 },
+      { OpEnd, 0, -1, -1 },
+      { OpRaw, 32, 5, -1 },
+      { OpRaw, 32, 6, -1 },
+      { OpRaw, 32, 3, -1 },
+      { OpFlag, 1, 2, 8 },
+      { OpReadBr, 9, 0, -1 },
+      { OpDataBlockId, 11, 1, -1 },
+   };
+
+   static const S16 sT2RcSel_StationFXPersonal[] = { 2, 2 };
+   /// StationFXPersonal: 9 nodes from 46 explored, 1 call stepped over
+   static const T2DataNode sT2RcNodes_StationFXPersonal[] =
+   {
+      { OpFlag, 1, 1, 8 },
+      { OpFlag, 1, 2, 6 },
+      { OpFlag, 1, 3, 4 },
+      { OpEnd, 0, -1, -1 },
+      { OpFlag, 1, 3, 5 },
+      { OpInt, 11, 3, -1 },
+      { OpFlag, 1, 2, 7 },
+      { OpReadBr, 9, 0, -1 },
+      { OpDataBlockId, 11, 1, -1 },
+   };
+
+   static const S16 sT2RcSel_StationFXVehicle[] = { 2, 2 };
+   /// StationFXVehicle: 9 nodes from 46 explored, 1 call stepped over
+   static const T2DataNode sT2RcNodes_StationFXVehicle[] =
+   {
+      { OpFlag, 1, 1, 8 },
+      { OpFlag, 1, 2, 6 },
+      { OpFlag, 1, 3, 4 },
+      { OpEnd, 0, -1, -1 },
+      { OpFlag, 1, 3, 5 },
+      { OpInt, 11, 3, -1 },
+      { OpFlag, 1, 2, 7 },
+      { OpReadBr, 9, 0, -1 },
+      { OpDataBlockId, 11, 1, -1 },
+   };
+
+   /// TSStatic: 21 nodes from 76 explored, 1 call stepped over
+   static const T2DataNode sT2RcNodes_TSStatic[] =
+   {
+      { OpRaw, 32, 1, -1 },
+      { OpRaw, 32, 2, -1 },
+      { OpRaw, 32, 3, -1 },
+      { OpRaw, 32, 4, -1 },
+      { OpRaw, 32, 5, -1 },
+      { OpRaw, 32, 6, -1 },
+      { OpRaw, 32, 7, -1 },
+      { OpRaw, 32, 8, -1 },
+      { OpRaw, 32, 9, -1 },
+      { OpRaw, 32, 10, -1 },
+      { OpRaw, 32, 11, -1 },
+      { OpRaw, 32, 12, -1 },
+      { OpRaw, 32, 13, -1 },
+      { OpRaw, 32, 14, -1 },
+      { OpRaw, 32, 15, -1 },
+      { OpRaw, 32, 16, -1 },
+      { OpRaw, 32, 17, -1 },
+      { OpRaw, 32, 18, -1 },
+      { OpRaw, 32, 19, -1 },
+      { OpString, 0, 20, -1 },
+      { OpEnd, 0, -1, -1 },
+   };
+
+   static const S16 sT2RcSel_TargetProjectile[] = { 14, 14, 14, 14, 14, 14, 14, 14, 10, 10, 10, 10, 10, 10, 10, 10, 2, 2 };
+   /// TargetProjectile: 28 nodes from 205 explored, 2 calls stepped over
+   static const T2DataNode sT2RcNodes_TargetProjectile[] =
+   {
+      { OpFlag, 1, 1, 27 },
+      { OpFlag, 1, 2, 25 },
+      { OpFlag, 1, 3, 15 },
+      { OpFlag, 1, 4, 12 },
+      { OpRaw, 32, 5, -1 },
+      { OpRaw, 32, 6, -1 },
+      { OpRaw, 32, 7, -1 },
+      { OpRaw, 32, 8, -1 },
+      { OpRaw, 32, 9, -1 },
+      { OpRaw, 32, 10, -1 },
+      { OpFlag, 1, 11, 11 },
+      { OpEnd, 0, -1, -1 },
+      { OpInt, 11, 13, -1 },
+      { OpSelect, 3, 0, -1 },
+      { OpFlag, 1, 7, 7 },
+      { OpRaw, 32, 16, -1 },
+      { OpRaw, 32, 17, -1 },
+      { OpRaw, 32, 18, -1 },
+      { OpRaw, 32, 19, -1 },
+      { OpRaw, 32, 20, -1 },
+      { OpRaw, 32, 21, -1 },
+      { OpFlag, 1, 22, 22 },
+      { OpFlag, 1, 11, 23 },
+      { OpInt, 11, 24, -1 },
+      { OpSelect, 3, 8, -1 },
+      { OpFlag, 1, 2, 26 },
+      { OpReadBr, 9, 16, -1 },
+      { OpDataBlockId, 11, 1, -1 },
+   };
+
+   static const S16 sT2RcSel_TerrainBlock[] = { 2, 4, 6, 6, 8, 13, 11, 11, 2, 12, 2, 2, 11, 16, 2, 17 };
+   /// TerrainBlock: 18 nodes from 67 explored, exact
+   static const T2DataNode sT2RcNodes_TerrainBlock[] =
+   {
+      { OpFlag, 1, 1, 7 },
+      { OpFlag, 1, 2, 3 },
+      { OpEnd, 0, -1, -1 },
+      { OpReadBr, 32, 0, 0 },
+      { OpLoop, 0, 2, 5 },
+      { OpReadBr, 32, 2, -1 },
+      { OpEndBody, 0, -1, -1 },
+      { OpReadBr, 32, 4, -1 },
+      { OpString, 0, 9, -1 },
+      { OpString, 0, 10, -1 },
+      { OpReadBr, 32, 6, -1 },
+      { OpReadBr, 32, 8, -1 },
+      { OpReadBr, 32, 10, -1 },
+      { OpString, 0, 14, -1 },
+      { OpString, 0, 15, -1 },
+      { OpReadBr, 32, 12, -1 },
+      { OpReadBr, 32, 14, 1 },
+      { OpLoop, 1, 2, 5 },
+   };
+
+   static const S16 sT2RcSel_TracerProjectile[] = { 17, 17, 17, 17, 17, 17, 17, 17, 2, 2 };
+   /// TracerProjectile: 29 nodes from 230 explored, 3 calls stepped over
+   static const T2DataNode sT2RcNodes_TracerProjectile[] =
+   {
+      { OpFlag, 1, 1, 25 },
+      { OpFlag, 1, 2, 23 },
+      { OpFlag, 1, 3, 8 },
+      { OpSignedFloat, 15, 4, -1 },
+      { OpSignedFloat, 14, 5, -1 },
+      { OpFlag, 1, 6, 6 },
+      { OpFlag, 1, 7, 7 },
+      { OpEnd, 0, -1, -1 },
+      { OpFlag, 1, 9, 21 },
+      { OpSignedFloat, 15, 10, -1 },
+      { OpSignedFloat, 14, 11, -1 },
+      { OpInt, 9, 12, -1 },
+      { OpFlag, 1, 13, 15 },
+      { OpFlag, 1, 7, 14 },
+      { OpInt, 10, 7, -1 },
+      { OpInt, 10, 16, -1 },
+      { OpSelect, 3, 0, -1 },
+      { OpFlag, 1, 13, 18 },
+      { OpInt, 8, 19, -1 },
+      { OpSignedFloat, 8, 20, -1 },
+      { OpSignedFloat, 7, 13, -1 },
+      { OpSignedFloat, 15, 22, -1 },
+      { OpSignedFloat, 14, 6, -1 },
+      { OpFlag, 1, 2, 24 },
+      { OpReadBr, 9, 8, -1 },
+      { OpDataBlockId, 11, 26, -1 },
+      { OpFlag, 1, 2, 27 },
+      { OpFlag, 1, 2, 28 },
+      { OpInt, 9, 2, -1 },
+   };
+
+   static const S16 sT2RcSel_Trigger[] = { 12, 41, 16, 33, 21, 23, 22, 22, 25, 27, 30, 32, 23, 23, 34, 17, 35, 36, 39, 32, 42, 51, 43, 48, 26, 44, 47, 32, 26, 50, 53, 60, 54, 55, 58, 32, 62, 63, 66, 32, 72, 13 };
+   /// Trigger: 87 nodes from 361 explored, 3 calls stepped over
+   static const T2DataNode sT2RcNodes_Trigger[] =
+   {
+      { OpFlag, 1, 1, 85 },
+      { OpFlag, 1, 2, 73 },
+      { OpRaw, 32, 3, -1 },
+      { OpRaw, 32, 4, -1 },
+      { OpRaw, 32, 5, -1 },
+      { OpRaw, 32, 6, -1 },
+      { OpRaw, 32, 7, -1 },
+      { OpRaw, 32, 8, -1 },
+      { OpFlag, 1, 9, 68 },
+      { OpRaw, 32, 10, -1 },
+      { OpRaw, 32, 11, -1 },
+      { OpReadBr, 32, 0, -1 },
+      { OpRaw, 32, 13, -1 },
+      { OpRaw, 32, 14, -1 },
+      { OpRaw, 32, 15, -1 },
+      { OpReadBr, 32, 2, -1 },
+      { OpRaw, 32, 17, -1 },
+      { OpLoop, 9, 24, 18 },
+      { OpRaw, 32, 19, -1 },
+      { OpRaw, 32, 20, -1 },
+      { OpReadBr, 32, 4, -1 },
+      { OpRaw, 32, 22, -1 },
+      { OpEndBody, 0, -1, -1 },
+      { OpReadBr, 32, 6, -1 },
+      { OpReadBr, 32, 8, 10 },
+      { OpLoop, 11, 26, 22 },
+      { OpEnd, 0, -1, -1 },
+      { OpLoop, 10, 25, 28 },
+      { OpRaw, 32, 29, -1 },
+      { OpReadBr, 32, 10, -1 },
+      { OpRaw, 32, 31, -1 },
+      { OpCount, 32, 22, 11 },
+      { OpReadBr, 32, 12, -1 },
+      { OpReadBr, 32, 14, 9 },
+      { OpReadBr, 32, 16, 12 },
+      { OpLoop, 13, 26, 22 },
+      { OpLoop, 12, 35, 37 },
+      { OpRaw, 32, 38, -1 },
+      { OpReadBr, 32, 18, -1 },
+      { OpRaw, 32, 40, -1 },
+      { OpCount, 32, 22, 13 },
+      { OpReadBr, 32, 20, 0 },
+      { OpReadBr, 32, 22, 6 },
+      { OpReadBr, 32, 24, 8 },
+      { OpLoop, 8, 26, 45 },
+      { OpRaw, 32, 46, -1 },
+      { OpReadBr, 32, 26, -1 },
+      { OpRaw, 32, 21, -1 },
+      { OpLoop, 6, 49, 18 },
+      { OpReadBr, 32, 28, 7 },
+      { OpLoop, 7, 26, 45 },
+      { OpLoop, 0, 52, 19 },
+      { OpReadBr, 32, 30, 1 },
+      { OpReadBr, 32, 32, 4 },
+      { OpLoop, 5, 26, 22 },
+      { OpLoop, 4, 54, 56 },
+      { OpRaw, 32, 57, -1 },
+      { OpReadBr, 32, 34, -1 },
+      { OpRaw, 32, 59, -1 },
+      { OpCount, 32, 22, 5 },
+      { OpLoop, 1, 61, 18 },
+      { OpReadBr, 32, 36, 2 },
+      { OpLoop, 3, 26, 22 },
+      { OpLoop, 2, 62, 64 },
+      { OpRaw, 32, 65, -1 },
+      { OpReadBr, 32, 38, -1 },
+      { OpRaw, 32, 67, -1 },
+      { OpCount, 32, 22, 3 },
+      { OpRaw, 32, 69, -1 },
+      { OpRaw, 32, 70, -1 },
+      { OpRaw, 32, 71, -1 },
+      { OpReadBr, 32, 40, -1 },
+      { OpRaw, 32, 48, -1 },
+      { OpFlag, 1, 74, 84 },
+      { OpRaw, 32, 75, -1 },
+      { OpRaw, 32, 76, -1 },
+      { OpRaw, 32, 77, -1 },
+      { OpRaw, 32, 78, -1 },
+      { OpRaw, 32, 79, -1 },
+      { OpRaw, 32, 80, -1 },
+      { OpFlag, 1, 81, 68 },
+      { OpRaw, 32, 82, -1 },
+      { OpRaw, 32, 83, -1 },
+      { OpRaw, 32, 12, -1 },
+      { OpInt, 9, 74, -1 },
+      { OpDataBlockId, 11, 86, -1 },
+      { OpFlag, 1, 74, 73 },
+   };
+
+   /// VehicleBlocker: 23 nodes from 80 explored, 1 call stepped over
+   static const T2DataNode sT2RcNodes_VehicleBlocker[] =
+   {
+      { OpRaw, 32, 1, -1 },
+      { OpRaw, 32, 2, -1 },
+      { OpRaw, 32, 3, -1 },
+      { OpRaw, 32, 4, -1 },
+      { OpRaw, 32, 5, -1 },
+      { OpRaw, 32, 6, -1 },
+      { OpRaw, 32, 7, -1 },
+      { OpRaw, 32, 8, -1 },
+      { OpRaw, 32, 9, -1 },
+      { OpRaw, 32, 10, -1 },
+      { OpRaw, 32, 11, -1 },
+      { OpRaw, 32, 12, -1 },
+      { OpRaw, 32, 13, -1 },
+      { OpRaw, 32, 14, -1 },
+      { OpRaw, 32, 15, -1 },
+      { OpRaw, 32, 16, -1 },
+      { OpRaw, 32, 17, -1 },
+      { OpRaw, 32, 18, -1 },
+      { OpRaw, 32, 19, -1 },
+      { OpRaw, 32, 20, -1 },
+      { OpRaw, 32, 21, -1 },
+      { OpRaw, 32, 22, -1 },
+      { OpEnd, 0, -1, -1 },
+   };
+
+   static const T2DataBlockLayout sT2GhostsRecovered[] =
+   {
+      { "BombProjectile", sT2RcNodes_BombProjectile, 56, sT2RcSel_BombProjectile, 0 },
+      { "Debris", sT2RcNodes_Debris, 6, sT2RcSel_Debris, 0 },
+      { "ELFProjectile", sT2RcNodes_ELFProjectile, 11, sT2RcSel_ELFProjectile, 0 },
+      { "EnergyProjectile", sT2RcNodes_EnergyProjectile, 56, sT2RcSel_EnergyProjectile, 0 },
+      { "FireballAtmosphere", sT2RcNodes_FireballAtmosphere, 16, sT2RcSel_FireballAtmosphere, 0 },
+      { "FlareProjectile", sT2RcNodes_FlareProjectile, 56, sT2RcSel_FlareProjectile, 0 },
+      { "ForceFieldBare", sT2RcNodes_ForceFieldBare, 21, sT2RcSel_ForceFieldBare, 0 },
+      { "GameBase", sT2RcNodes_GameBase, 6, sT2RcSel_GameBase, 0 },
+      { "GrenadeProjectile", sT2RcNodes_GrenadeProjectile, 56, sT2RcSel_GrenadeProjectile, 0 },
+      { "InteriorInstance", sT2RcNodes_InteriorInstance, 54, NULL, 0 },
+      { "Lightning", sT2RcNodes_Lightning, 25, sT2RcSel_Lightning, 0 },
+      { "LinearFlareProjectile", sT2RcNodes_LinearFlareProjectile, 29, sT2RcSel_LinearFlareProjectile, 0 },
+      { "LinearProjectile", sT2RcNodes_LinearProjectile, 29, sT2RcSel_LinearProjectile, 0 },
+      { "Marker", sT2RcNodes_Marker, 4, NULL, 0 },
+      { "ParticleEmissionDummy", sT2RcNodes_ParticleEmissionDummy, 27, NULL, 0 },
+      { "PhysicalZone", sT2RcNodes_PhysicalZone, 45, sT2RcSel_PhysicalZone, 0 },
+      { "Projectile", sT2RcNodes_Projectile, 6, sT2RcSel_Projectile, 0 },
+      { "RepairProjectile", sT2RcNodes_RepairProjectile, 11, sT2RcSel_RepairProjectile, 0 },
+      { "ShockLanceProjectile", sT2RcNodes_ShockLanceProjectile, 19, sT2RcSel_ShockLanceProjectile, 0 },
+      { "Shockwave", sT2RcNodes_Shockwave, 13, sT2RcSel_Shockwave, 0 },
+      { "SimpleNetObject", sT2RcNodes_SimpleNetObject, 2, NULL, 0 },
+      { "SniperProjectile", sT2RcNodes_SniperProjectile, 30, sT2RcSel_SniperProjectile, 0 },
+      { "Splash", sT2RcNodes_Splash, 10, sT2RcSel_Splash, 0 },
+      { "StationFXPersonal", sT2RcNodes_StationFXPersonal, 9, sT2RcSel_StationFXPersonal, 0 },
+      { "StationFXVehicle", sT2RcNodes_StationFXVehicle, 9, sT2RcSel_StationFXVehicle, 0 },
+      { "TSStatic", sT2RcNodes_TSStatic, 21, NULL, 0 },
+      { "TargetProjectile", sT2RcNodes_TargetProjectile, 28, sT2RcSel_TargetProjectile, 0 },
+      { "TerrainBlock", sT2RcNodes_TerrainBlock, 18, sT2RcSel_TerrainBlock, 0 },
+      { "TracerProjectile", sT2RcNodes_TracerProjectile, 29, sT2RcSel_TracerProjectile, 0 },
+      { "Trigger", sT2RcNodes_Trigger, 87, sT2RcSel_Trigger, 0 },
+      { "VehicleBlocker", sT2RcNodes_VehicleBlocker, 23, NULL, 0 },
+   };
+}
+
+#endif

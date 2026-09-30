@@ -67,3 +67,26 @@ gender, skin, voice, voice pitch. The race and gender has to be one of
 `"Human Male"`, `"Human Female"` or `"Bioderm"` -- anything else and the
 server logs "Invalid race/gender combo passed" and falls back, which is worth
 not triggering while chasing a protocol fault.
+
+## Recovering a ghost layout
+
+`t2GhostTables.h` came from a walk that halted on any call it could not step
+into, so a class whose reading sits below its parent's `unpackUpdate` came out
+a stub -- `AudioEmitter`'s graph had six nodes and took 37 bits where its
+neighbours take six hundred, which loses the rest of any packet it shares.
+
+    python3 Tools/t2/ghostwalk.py --all      # writes ghost_graphs.json
+    python3 Tools/t2/genghost.py             # writes t2GhostTablesRecovered.h
+
+walks each object's `unpackUpdate` with every function the emulator might
+enter already in its map, steps over the pure-maths helpers rather than
+halting on their MMX, and steps over calls it still cannot resolve -- counting
+those, so a layout that rests on the assumption says so in its comment.
+
+A recovered graph is only written out if it is **acyclic**. A counted loop that
+failed to unroll shows up as a back edge, and such a graph reads whichever way
+out of the cycle the bits happen to steer: that is how a six hundred bit body
+comes out as thirty-six. A layout like that is worse than none, because it
+looks like an answer. `t2GhostTables.h` answers for whatever is dropped, and
+`T2Layout::readGhost` consults the recovered table first, falling back only
+when the name is absent -- never after a walk has already moved the stream.

@@ -25,6 +25,7 @@ namespace T2Layout
 // the layout struct with them.
 #include "T3D/gameBase/t2DataBlockTables.h"
 #include "T3D/gameBase/t2GhostTables.h"
+#include "T3D/gameBase/t2GhostTablesRecovered.h"
 #include "T3D/gameBase/t2EventTables.h"
 #include "T3D/gameBase/t2PacketDataTables.h"
 
@@ -204,8 +205,12 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
    return at < 0;
 }
 
+/// Walk a named layout.  `found` says whether the table had the name at all,
+/// which is not the same as the walk succeeding: a walk that fails has moved
+/// the stream, so a second table must not be tried after it.
 static bool runNamed(BitStream *stream, const char *name,
-                     const T2DataBlockLayout *table, U32 count)
+                     const T2DataBlockLayout *table, U32 count,
+                     bool *found = NULL)
 {
    if(!name)
       return false;
@@ -219,6 +224,9 @@ static bool runNamed(BitStream *stream, const char *name,
    {
       if(dStrcmp(table[i].name, name))
          continue;
+
+      if(found)
+         *found = true;
 
       U32 slots[8] = { 0, 0, 0, 0, 0, 0, 0, 0 };
       return runGraph(stream, &table[i], table[i].root, slots, 0);
@@ -237,6 +245,16 @@ bool readDataBlock(BitStream *stream, const char *className)
 
 bool readGhost(BitStream *stream, const char *className)
 {
+   // The recovered layouts first: they were walked with the emulator able to
+   // follow a class into its parent, where the older table halted and left a
+   // stub.  The older table still answers for the classes the walk cannot
+   // reach yet.
+   bool found = false;
+   const bool ok = runNamed(stream, className, sT2GhostsRecovered,
+                            ELEMENTS(sT2GhostsRecovered), &found);
+   if(found)
+      return ok;
+
    return runNamed(stream, className, sT2Ghosts, ELEMENTS(sT2Ghosts));
 }
 
