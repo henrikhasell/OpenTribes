@@ -1511,7 +1511,12 @@ void ShapeBase::onCameraScopeQuery(NetConnection *cr, CameraScopeQuery * query)
 //----------------------------------------------------------------------------
 F32 ShapeBase::getEnergyLevel()
 {
-   if ( mDataBlock->inheritEnergyFromMount && mShapeBaseMount )
+   // HH: Modified for Tribes 2 compatibility.
+   // Reached before a datablock is set.  Tribes 2 hands a client an object to
+   // control whose fields this port has not built, and writePacketData asks it
+   // for the energy level to hash -- which walked a null datablock and took the
+   // game down the moment the server gave us the camera.
+   if ( mDataBlock && mDataBlock->inheritEnergyFromMount && mShapeBaseMount )
       return mShapeBaseMount->getEnergyLevel();
    return mEnergy; 
 }
