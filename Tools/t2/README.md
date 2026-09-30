@@ -38,3 +38,19 @@ frequency table; the default is the usual Wine install.
 
 Nothing from the game is kept here -- neither the capture nor the binary --
 only the code that reads them.
+
+## The coverage workbook
+
+    T2_CAPTURE=stock.capture python3 Tools/t2/collect.py
+    python3 Tools/t2/mkbook.py
+
+writes `tribes2-wire-protocol.xlsx` in the root of the tree: the wire layer by
+layer with every field's width, the constants beside stock Torque's, and a row
+per net class saying whether its layout is known, what reads it, and whether a
+recorded session ever exercised it.
+
+`collect.py` reads the class table and the layout headers out of the tree and
+measures the rest off the capture, so the workbook says what the code says
+rather than what anyone remembers. It leaves `coverage.json` behind as an
+intermediate. The workbook itself is not tracked -- it is regenerated, not
+edited.
