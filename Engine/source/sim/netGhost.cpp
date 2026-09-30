@@ -127,7 +127,7 @@ public:
          // is read differently, from the class's recovered layout.
          const U32 wasAt = bstream->getCurPos();
          object->mReadByLayoutT2 = T2Layout::readGhost(bstream,
-            NetClassTableT2::t2NameFor(object->getClassName()));
+            NetClassTableT2::t2NameFor(object->getClassName()), true);
          if(Con::getBoolVariable("$T2::traceGhosts"))
             Con::printf("GA %d %s %d bits", ghostIndex, object->getClassName(),
                         bstream->getCurPos() - wasAt);
@@ -640,7 +640,7 @@ void NetConnection::ghostReadPacket(BitStream *bstream)
                Con::printf("GH new %d %s @%d", index, obj->getClassName(),
                            bstream->getCurPos());
             obj->mReadByLayoutT2 = T2Layout::readGhost(bstream,
-               NetClassTableT2::t2NameFor(obj->getClassName()));
+               NetClassTableT2::t2NameFor(obj->getClassName()), true);
             if(!obj->mReadByLayoutT2)
                mLocalGhosts[index]->unpackUpdate(this, bstream);
             if(trace)
@@ -666,13 +666,29 @@ void NetConnection::ghostReadPacket(BitStream *bstream)
                }
             }
 
+            // HH: Modified for Tribes 2 compatibility.
+            // The same as a ghost-always object read from its layout: the bits
+            // are understood but the fields are not set, so registering builds
+            // from defaults and a shape without a datablock fails onAdd -- the
+            // first normal ghost the server sends is the player's Camera, and
+            // losing it dropped the connection the moment phase four began.
+            // Keeping the slot without building the object leaves the table in
+            // step, which is what a later update to the index needs.
+            // The slot and the active count are already taken above, so the
+            // table stays in step by doing nothing more here.
+            if(obj->mReadByLayoutT2)
+            {
+               lastGhost = obj;
+               continue;
+            }
+
             if(!obj->registerObject())
             {
                if(mErrorBuffer.isEmpty())
                   setLastError("Invalid packet. (failed to register ghost)");
                return;
             }
-         
+
             addObject(obj);
             ghostReadExtra(mLocalGhosts[index],bstream,true);
          }
@@ -694,8 +710,16 @@ void NetConnection::ghostReadPacket(BitStream *bstream)
             U32 beginSize = bstream->getBitPosition();
 #endif
             // HH: Modified for Tribes 2 compatibility.
-            if(!T2Layout::readGhost(bstream, NetClassTableT2::t2NameFor(
-                                       mLocalGhosts[index]->getClassName())))
+            const U32 updWas = bstream->getCurPos();
+            const bool updOk = T2Layout::readGhost(bstream,
+               NetClassTableT2::t2NameFor(mLocalGhosts[index]->getClassName()),
+               false);
+            if(trace)
+               Con::printf("GH %d upd %s %s %d bits", index,
+                           mLocalGhosts[index]->getClassName(),
+                           updOk ? "ok" : "FAILED",
+                           bstream->getCurPos() - updWas);
+            if(!updOk)
                mLocalGhosts[index]->unpackUpdate(this, bstream);
 
 #ifdef TORQUE_NET_STATS
@@ -717,18 +741,20 @@ void NetConnection::ghostReadPacket(BitStream *bstream)
          // HH: Modified for Tribes 2 compatibility.
          // A layout that reads a ghost short leaves the loop on a clear flag
          // with the rest of the packet unread, and the damage shows up
-         // somewhere else entirely -- so name the class here rather than let
-         // it corrupt the table quietly.  Measured against a recorded
-         // session, Turret's is about a hundred bits short of what a server
-         // writes; see Tools/t2/replay.py.
+         // somewhere else entirely -- so name the class that was last read
+         // rather than let it corrupt the table quietly.
          lastGhost = mLocalGhosts[index];
       }
-
-      const S32 left = bstream->getStreamSize() * 8 - bstream->getCurPos();
-      if(left > 7 && lastGhost)
-         Con::warnf("Ghost stream left %d bits unread after a %s; its layout "
-                    "reads short.", left, lastGhost->getClassName());
    }
+
+   // Only once the loop has ended: bits remaining part way through it are the
+   // ghosts not read yet.  Checking inside cost an afternoon -- it warned
+   // about every ghost in every packet, each time naming a class that had
+   // read exactly what a recorded session says it should.
+   const S32 left = bstream->getStreamSize() * 8 - bstream->getCurPos();
+   if(left > 7 && lastGhost)
+      Con::warnf("Ghost stream left %d bits unread after a %s; its layout "
+                 "reads short.", left, lastGhost->getClassName());
 }
 
 //-----------------------------------------------------------------------------

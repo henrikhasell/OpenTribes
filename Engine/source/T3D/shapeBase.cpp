@@ -1505,6 +1505,13 @@ bool ShapeBase::isFirstPerson() const
 
 bool ShapeBase::isValidCameraFov(F32 fov)
 {
+   // HH: Modified for Tribes 2 compatibility.
+   // A ghost read from its layout was never built from a datablock, and the
+   // first object a Tribes 2 server hands us to control is one of those.  No
+   // datablock means no range to judge against, which the caller already
+   // treats as "pick the nearest instead".
+   if(!mDataBlock)
+      return false;
    return((fov >= mDataBlock->cameraMinFov) && (fov <= mDataBlock->cameraMaxFov));
 }
 
@@ -1514,6 +1521,13 @@ void ShapeBase::setCameraFov(F32 fov)
    if ( !isGhost() && isMethod( "validateCameraFov" ) )
    {
       fov = validateCameraFov_callback( fov );
+   }
+
+   // HH: Modified for Tribes 2 compatibility.  See isValidCameraFov above.
+   if(!mDataBlock)
+   {
+      mCameraFov = fov;
+      return;
    }
 
    mCameraFov = mClampF(fov, mDataBlock->cameraMinFov, mDataBlock->cameraMaxFov);
@@ -1553,7 +1567,12 @@ void ShapeBase::onCameraScopeQuery(NetConnection *cr, CameraScopeQuery * query)
 //----------------------------------------------------------------------------
 F32 ShapeBase::getEnergyLevel()
 {
-   if ( mDataBlock->inheritEnergyFromMount && mShapeBaseMount )
+   // HH: Modified for Tribes 2 compatibility.
+   // Reached before a datablock is set.  Tribes 2 hands a client an object to
+   // control whose fields this port has not built, and writePacketData asks it
+   // for the energy level to hash -- which walked a null datablock and took the
+   // game down the moment the server gave us the camera.
+   if ( mDataBlock && mDataBlock->inheritEnergyFromMount && mShapeBaseMount )
       return mShapeBaseMount->getEnergyLevel();
    return mEnergy; 
 }
@@ -1914,6 +1933,16 @@ void ShapeBase::getEyeTransform(MatrixF* mat)
 
 void ShapeBase::getEyeBaseTransform(MatrixF* mat)
 {
+   // HH: Modified for Tribes 2 compatibility.
+   // The eye node is a node of the shape, and a ghost read from its layout has
+   // neither shape nor datablock -- the object the server gives us to control
+   // is one of those.  Its own transform is the only answer available.
+   if(!mDataBlock || !mShapeInstance)
+   {
+      *mat = getTransform();
+      return;
+   }
+
    // Returns eye to world space transform
    S32 eyeNode = mDataBlock->eyeNode;
    if (eyeNode != -1)
@@ -1929,6 +1958,16 @@ void ShapeBase::getRenderEyeTransform(MatrixF* mat)
 
 void ShapeBase::getRenderEyeBaseTransform(MatrixF* mat)
 {
+   // HH: Modified for Tribes 2 compatibility.
+   // The eye node is a node of the shape, and a ghost read from its layout has
+   // neither shape nor datablock -- the object the server gives us to control
+   // is one of those.  Its own transform is the only answer available.
+   if(!mDataBlock || !mShapeInstance)
+   {
+      *mat = getRenderTransform();
+      return;
+   }
+
    // Returns eye to world space transform
    S32 eyeNode = mDataBlock->eyeNode;
    if (eyeNode != -1)

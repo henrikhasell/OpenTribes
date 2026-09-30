@@ -309,8 +309,8 @@ void NetConnection::eventReadPacket(BitStream *bstream)
       S32 at = bstream->getCurPos();
       S32 classId = bstream->readClassId(NetClassTypeEvent, getNetClassGroup());
       if(Con::getBoolVariable("$T2::traceEvents"))
-         Con::printf("EVT id %d at %d of %d", classId, at,
-                     bstream->getStreamSize() * 8);
+         Con::printf("EVT id %d seq %d (want %d) at %d of %d", classId, seq,
+                     mNextRecvEventSeq, at, bstream->getStreamSize() * 8);
       if(classId == -1)
       {
          // HH: Modified for Tribes 2 compatibility.
@@ -385,15 +385,24 @@ void NetConnection::eventReadPacket(BitStream *bstream)
       *waitInsert = note;
       waitInsert = &(note->mNextEvent);
    }
-   while(mWaitSeqEvents && mWaitSeqEvents->mSeqCount == mNextRecvEventSeq)
+   // HH: Modified for Tribes 2 compatibility.
+   // A sequence already passed has to be dropped, not waited for.  A Tribes 2
+   // server sometimes sends a guaranteed event whose sequence we have already
+   // processed; the note then sits at the head of the list with a count below
+   // the one wanted, the strict test never matches it, and every later event
+   // waits behind it for good.  That is how a client that had read all fifty
+   // ghost-always objects sat in phase two holding twelve remote commands --
+   // MissionStartPhase3 among them -- that it would never act on.
+   while(mWaitSeqEvents && mWaitSeqEvents->mSeqCount <= mNextRecvEventSeq)
    {
-      mNextRecvEventSeq++;
       NetEventNote *temp = mWaitSeqEvents;
       mWaitSeqEvents = temp->mNextEvent;
+      const bool due = temp->mSeqCount == mNextRecvEventSeq;
+      if(due)
+         mNextRecvEventSeq++;
 
       //Con::printf("EVT  %d: PROCESS - %d", getId(), temp->mSeqCount);
-      // HH: Modified for Tribes 2 compatibility.
-      if(!temp->mEvent->mReadByLayoutT2)
+      if(due && !temp->mEvent->mReadByLayoutT2)
          temp->mEvent->process(this);
       temp->mEvent->decRef();
       mEventNoteChunker.free(temp);

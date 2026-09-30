@@ -285,6 +285,10 @@ protected:
    GhostInfo *mFirstObjectRef;      ///< Head of a linked list storing GhostInfos referencing this NetObject.
 
 public:
+   /// HH: Added for Tribes 2 compatibility.
+   /// Whether this ghost was read by layout, so it holds no usable fields.
+   bool wasReadByLayoutT2() const { return mReadByLayoutT2; }
+
    NetObject();
    ~NetObject();
 

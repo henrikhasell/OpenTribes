@@ -22,6 +22,8 @@
 
 #include "platform/platform.h"
 #include "T3D/gameBase/gameConnection.h"
+#include "console/netClassTableT2.h"   // HH: Added for Tribes 2 compatibility.
+#include "T3D/gameBase/t2Layout.h"      // HH: Added for Tribes 2 compatibility.
 
 #include "platform/profiler.h"
 #include "core/dnet.h"
@@ -1016,6 +1018,18 @@ void GameConnection::ghostWriteExtra(NetObject * nobj, BitStream * bstream)
 
 //----------------------------------------------------------------------------
 
+// HH: Added for Tribes 2 compatibility.
+// What class the object in a ghost slot is, for a layout that reads another
+// object's packet data.  Player::readPacketData does when it is piloting: the
+// width of what follows is the vehicle's, and only the ghost table says which
+// vehicle it is.
+static const char *ghostClassNameT2(void *ctx, U32 ghostIndex)
+{
+   NetConnection *conn = (NetConnection *)ctx;
+   NetObject *obj = conn ? conn->resolveGhost(ghostIndex) : NULL;
+   return obj ? NetClassTableT2::t2NameFor(obj->getClassName()) : NULL;
+}
+
 void GameConnection::readPacket(BitStream *bstream)
 {
    char stringBuffer[256];
@@ -1060,8 +1074,16 @@ void GameConnection::readPacket(BitStream *bstream)
       }
 
       // HH: Modified for Tribes 2 compatibility.
-      // Tribes 2 sends a pair of indicators and its observer camera here,
-      // then two sensor flags, and only then the control object.
+      // Tribes 2 sends a pair of indicators and a three-way block here, then
+      // two sensor flags, and only then the control object.
+      //
+      // What the pair and the block mean is not settled.  These names read
+      // them as the observer camera; t2-demo-parser reads the same bits as
+      // missile lock -- selfLocked and selfHomed, then a seeker's tracking
+      // position, its mode, and either the ghost it tracks or a target
+      // position.  The widths are the same either way and both readers agree
+      // on them across four thousand packets, so nothing here depends on
+      // which reading is right; only what the fields should be called does.
       if(bstream->readFlag())
       {
          mIndicator[0] = bstream->readFlag();
@@ -1137,7 +1159,25 @@ void GameConnection::readPacket(BitStream *bstream)
 #ifdef TORQUE_NET_STATS
             U32 beginSize = bstream->getBitPosition();
 #endif
-            obj->readPacketData(this, bstream);
+            // HH: Modified for Tribes 2 compatibility.
+            // An object whose ghost was read from its layout has no fields, so
+            // its own readPacketData walks state that was never built --
+            // ShapeBase's took a null datablock and killed the game the moment
+            // the server handed us the Camera to control.  Read the bits from
+            // the layout instead, which keeps the packet in step.
+            if(obj->wasReadByLayoutT2())
+            {
+               if(!T2Layout::readPacketData(bstream,
+                     NetClassTableT2::t2NameFor(obj->getClassName()),
+                     ghostClassNameT2, this))
+               {
+                  Con::warnf("Dropped a packet carrying %s control data, which "
+                             "we have no layout for.", obj->getClassName());
+                  return;
+               }
+            }
+            else
+               obj->readPacketData(this, bstream);
 #ifdef TORQUE_NET_STATS
             obj->getClassRep()->updateNetStatReadData(bstream->getBitPosition() - beginSize);
 #endif
