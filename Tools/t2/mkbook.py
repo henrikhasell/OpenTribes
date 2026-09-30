@@ -492,6 +492,86 @@ def events():
     return ("Events", r, [7, 30, 17, 12, 22, 36, 15, 14, 72], True)
 
 
+def unknowns():
+    r = [("Question", "Answer", "Evidence")]
+    r += [
+        ("== Could Tribes 2 have net classes we have never heard of?", "", ""),
+        ("Short answer", "Only at the alphabetical tail of a list, and not "
+         "many. The bigger risk is a wrong layout for a class we do know, not "
+         "a class we do not.", ""),
+        ("== The width puts a ceiling on each list", "", ""),
+        ("How a width is set", "binLog2(nextPow2(count)) + 1",
+         "One bit wider than the count needs. Confirmed against the wire for "
+         "events, where a server's first event is SetMissionCRCEvent and its "
+         "body is the mission CRC the telnet console reports: the id before "
+         "it reads as 13 at six bits, which is that class's index, and as 6 "
+         "at five bits, naming an event a server has no reason to send."),
+        ("objects", "7 bits, so between 33 and 64 classes",
+         "53 are known, leaving room for at most 11 unknown"),
+        ("datablocks", "7 bits, so between 33 and 64 classes",
+         "54 are known, leaving room for at most 10 unknown"),
+        ("events", "6 bits, so between 17 and 32 classes",
+         "26 are known, leaving room for at most 6 unknown"),
+        ("The one id seen outside a table", "cannot be a real class",
+         "A ghost class id of 79 appears once, in packet 235. The width "
+         "allows at most 64 object classes, so 79 is not a class id at all. "
+         "It follows two packets in which a Turret was read short, which "
+         "leaves the ghost table disagreeing with the server about which "
+         "indices are live, so an index the server treats as known is read "
+         "as new and a class id is taken where none was written."),
+        ("== What the wire pins down", "", ""),
+        ("datablocks", "the list is closed at both ends",
+         "49 of the 54 ids appear, the highest being 53, which is "
+         "WheeledVehicleData -- the last name in the list. An unknown "
+         "datablock would have to sort after it. All 1508 bodies decode, and "
+         "a list with an extra name in it would shift every id after that "
+         "name and the bodies would not."),
+        ("objects", "pinned to id 49",
+         "The highest id seen is 49, VehicleBlocker. WaterBlock, WayPoint and "
+         "WheeledVehicle were never sent, so an unknown object class could "
+         "hide among or after those three."),
+        ("events", "pinned to id 24",
+         "The highest id seen is 24, TargetInfoEvent. Only TargetToEvent sits "
+         "after it, so an unknown event could hide there."),
+        ("Names decode sensibly", "144 objects, every one plausible",
+         "Buildings decode as InteriorInstance, scenery as TSStatic, the "
+         "ground as TerrainBlock, one Sky, two SpawnSphere. A list off by one "
+         "anywhere would name buildings something else."),
+        ("== Two independent reads of the binary agree", "", ""),
+        ("this tree", "53 objects, 54 datablocks, 26 events",
+         "The ConcreteClassRep<X> RTTI strings, sorted by the rule "
+         "AbstractClassRep::initialize uses"),
+        ("BananaEngine tools/t2", "53 objects, 54 datablocks, 26 events",
+         "A different method: walking each class's static initialiser and "
+         "reading its fields, self-checking because every class names itself "
+         "correctly"),
+        ("== Things mods and patches cannot change", "", ""),
+        ("A script mod", "cannot add a net class",
+         "They are compiled C++; -mod Classic changes no id"),
+        ("TribesNext", "adds no net class",
+         "The server tested against is TribesNext-patched -- it advertises "
+         "protocol 52 -- and the stock table decodes its whole session"),
+        ("== What is genuinely still open", "", ""),
+        ("Coverage, not completeness", "14 of 53 object classes and 12 of 26 "
+         "events were ever exercised",
+         "The unexercised ones are what a different mission or game type "
+         "uses: vehicles, projectiles in flight, voice. A wrong layout for a "
+         "class we know is far likelier than a class we do not, and Turret "
+         "proves wrong layouts are in there."),
+        ("Four classes unaccounted for", "287 RTTI strings against 283 "
+         "initialisers the other method parsed",
+         "The four are not identified. Every one of the 287 has a located "
+         "class rep, so they are real classes, but whether any is a net "
+         "class has not been established -- reading the type out of the "
+         "initialisers needs the register tracking that method uses, and a "
+         "proximity heuristic was not good enough."),
+        ("Only one mission observed", "Firestorm, one game type",
+         "A second capture of a different mission would exercise different "
+         "classes and is the cheapest way to widen this"),
+    ]
+    return ("Unknowns", r, [34, 44, 84], False)
+
+
 def summary():
     r = [("Kind", "Classes", "With a layout", "Acted on", "Read and discarded",
           "Not read", "Exercised by the recorded session")]
@@ -538,6 +618,7 @@ def summary():
 wb = Workbook()
 wb.remove(wb.active)
 for title, rows, widths, filt in (overview(), protocol(), constants(), summary(),
+                                  unknowns(),
                                   datablocks(), objects(), events()):
     add_sheet(wb, title, rows, widths, filt)
 wb.save(OUT)
