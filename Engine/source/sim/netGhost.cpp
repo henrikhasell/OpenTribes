@@ -521,12 +521,19 @@ void NetConnection::ghostReadPacket(BitStream *bstream)
 
    if(!isGhostingTo())
       return;
+   // HH: Modified for Tribes 2 compatibility.
+   bool trace = Con::getBoolVariable("$T2::traceGhosts");
+   if(trace)
+      Con::printf("GH start @%d", bstream->getCurPos());
+
    if(!bstream->readFlag())
       return;
 
    S32 idSize;
    idSize = bstream->readInt( GhostIndexBitSize);
    idSize += 3;
+   if(trace)
+      Con::printf("GH idSize %d @%d", idSize, bstream->getCurPos());
 
    // while there's an object waiting...
    gGhostUpdates = 0;
@@ -539,6 +546,8 @@ void NetConnection::ghostReadPacket(BitStream *bstream)
       U32 index;
       //S32 startPos = bstream->getCurPos();
       index = (U32) bstream->readInt(idSize);
+      if(trace)
+         Con::printf("GH index %d @%d", index, bstream->getCurPos());
       if(index >= MaxGhostCount)
       {
          Con::warnf("Dropped a packet naming ghost %d, which is past our table.", index);
@@ -611,8 +620,13 @@ void NetConnection::ghostReadPacket(BitStream *bstream)
                return;
             }
             // HH: Modified for Tribes 2 compatibility.
+            if(trace)
+               Con::printf("GH new %d %s @%d", index, obj->getClassName(),
+                           bstream->getCurPos());
             if(!GhostT2::unpackUpdate(mLocalGhosts[index], this, bstream))
                mLocalGhosts[index]->unpackUpdate(this, bstream);
+            if(trace)
+               Con::printf("GH new done @%d", bstream->getCurPos());
 #ifdef TORQUE_NET_STATS
             mLocalGhosts[index]->getClassRep()->updateNetStatUnpack(bstream->getBitPosition() - beginSize);
 #endif

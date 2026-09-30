@@ -440,6 +440,7 @@ IMPLEMENT_DATABLOCK_T2( TurretImageData, sProgTurretImageData );
 
 
 
+
 static const U16 sDeltaCameraData[] = { OpEnd };
 static const U16 sDeltaDebrisData[] = { OpRaw, 4, OpRaw, 4, OpRaw, 4, OpRaw, 4, OpRaw, 4, OpRaw, 4, OpRaw, 1, OpRaw, 1, OpRaw, 1, OpRaw, 1, OpRaw, 4, OpRaw, 4, OpRaw, 4, OpRaw, 4, OpRaw, 4, OpRaw, 4, OpRaw, 1, OpRaw, 1, OpRaw, 4, OpRaw, 4, OpRaw, 4, OpRaw, 1, OpString, OpString, OpLoop, 2, 5, OpIf, 2, OpBlock, OpEnd, OpEnd, OpIf, 2, OpBlock, OpEnd, OpEnd };
 static const U16 sDeltaDecalData[] = { OpRaw, 4, OpRaw, 4, OpString, OpEnd };

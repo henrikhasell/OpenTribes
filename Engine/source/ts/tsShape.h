@@ -566,6 +566,8 @@ class TSShape
    void write(Stream *, bool saveOldFormat=false);
    bool read(Stream *);
    void readOldShape(Stream * s, S32 * &, S16 * &, S8 * &, S32 &, S32 &, S32 &);
+   void rearrangeKeyframeData(Sequence & seq, S32 startKeyframe, U8 * pRot, U8 * pTrans, U8 * pos, U8 * pds, S32 rotSize, S32 tranSize, S32 osSize, S32 dsSize);
+   void rearrangeStates(S32 start, S32 a, S32 b, U8 * dat, S32 size);
    void writeName(Stream *, S32 nameIndex);
    S32  readName(Stream *, bool addName);
 

@@ -1,29 +1,771 @@
-//-----------------------------------------------------------------------------
-// Copyright (c) 2012 GarageGames, LLC
-//
-// Permission is hereby granted, free of charge, to any person obtaining a copy
-// of this software and associated documentation files (the "Software"), to
-// deal in the Software without restriction, including without limitation the
-// rights to use, copy, modify, merge, publish, distribute, sublicense, and/or
-// sell copies of the Software, and to permit persons to whom the Software is
-// furnished to do so, subject to the following conditions:
-//
-// The above copyright notice and this permission notice shall be included in
-// all copies or substantial portions of the Software.
-//
-// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
-// FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
-// IN THE SOFTWARE.
-//-----------------------------------------------------------------------------
-
-#include "core/strings/stringFunctions.h"
-#include "core/util/endian.h"
-
+// HH: Added for Tribes 2 compatibility.
+// Reading a shape older than version 19, which Torque 3D dropped.  Tribes
+// 2's own shapes are version 18, so without this the port has nothing to
+// draw.  Taken from Torque Game Engine 1.5's tsShapeOldRead.cc.
+#include "ts/tsShape.h"
 #include "ts/tsShapeInstance.h"
+
+// methods in this file are used for reading pre-version 19 shapes
+// methods for reading/writing sequences still used...
+
+#define OldPageSize 25000 // old page size must be mutliple of 4 so that we can always "over-read" up to next dword
+
+struct OldAlloc
+{
+   static S32 sz32;
+   static S32 cnt32;
+
+   static S32 sz16;
+   static S32 cnt16;
+
+   static S32 sz8;
+   static S32 cnt8;
+
+   static S32 guard32;
+   static S16 guard16;
+   static S8 guard8;
+};
+
+S32 OldAlloc::sz32;
+S32 OldAlloc::cnt32;
+S32 OldAlloc::sz16;
+S32 OldAlloc::cnt16;
+S32 OldAlloc::sz8;
+S32 OldAlloc::cnt8;
+S32 OldAlloc::guard32;
+S16 OldAlloc::guard16;
+S8 OldAlloc::guard8;
+
+S32 getDWordCount32()
+{
+   return OldAlloc::cnt32;
+}
+
+S32 getDWordCount16()
+{
+   if (OldAlloc::cnt16&1)
+      return (OldAlloc::cnt16+2) >> 1;
+   else
+      return OldAlloc::cnt16 >> 1;
+}
+
+S32 getDWordCount8()
+{
+   if (OldAlloc::cnt8&3)
+      return (OldAlloc::cnt8+4) >> 2;
+   else
+      return OldAlloc::cnt8 >> 2;
+}
+
+S32 * oldInitAlloc32()
+{
+   OldAlloc::sz32 = 0;
+   OldAlloc::cnt32 = 0;
+   OldAlloc::guard32 = 0;
+   return NULL;
+}
+
+S16 * oldInitAlloc16()
+{
+   OldAlloc::sz16 = 0;
+   OldAlloc::cnt16 = 0;
+   OldAlloc::guard16 = 0;
+   return NULL;
+}
+
+S8 * oldInitAlloc8()
+{
+   OldAlloc::sz8= 0;
+   OldAlloc::cnt8 = 0;
+   OldAlloc::guard8 = 0;
+   return NULL;
+}
+
+S32 oldAllocOffset(S32 *)
+{
+   return OldAlloc::cnt32;
+}
+
+S32 oldAllocOffset(S16 *)
+{
+   return OldAlloc::cnt16;
+}
+
+S8 * oldAlloc(S32 * & addr, S32 count)
+{
+   if (OldAlloc::cnt32+count>OldAlloc::sz32)
+   {
+      S32 numPages = 1+((OldAlloc::cnt32+count)/OldPageSize);
+      OldAlloc::sz32 = numPages * OldPageSize;
+      S32 * tmp = new S32[OldAlloc::sz32];
+      if (addr)
+         dMemcpy((U8*)tmp,(U8*)addr,OldAlloc::cnt32*sizeof(U32));
+      delete [] addr;
+      addr = tmp;
+   }
+   S8 * ret = (S8*) &addr[OldAlloc::cnt32];
+   OldAlloc::cnt32 += count;
+   return ret;
+}
+
+S8 * oldAlloc(S16 * & addr, S32 count)
+{
+   if (OldAlloc::cnt16+count>OldAlloc::sz16)
+   {
+      S32 numPages = 1+((OldAlloc::cnt16+count)/OldPageSize);
+      OldAlloc::sz16 = numPages * OldPageSize;
+      S16 * tmp = new S16[OldAlloc::sz16];
+      if (addr)
+         dMemcpy((U8*)tmp,(U8*)addr,OldAlloc::cnt16*sizeof(S16));
+      delete [] addr;
+      addr = tmp;
+   }
+   S8 * ret = (S8*) &addr[OldAlloc::cnt16];
+   OldAlloc::cnt16 += count;
+   return ret;
+}
+
+S8 * oldAlloc(S8 * & addr, S32 count)
+{
+   if (OldAlloc::cnt8+count>OldAlloc::sz8)
+   {
+      S32 numPages = 1+((OldAlloc::cnt8+count)/OldPageSize);
+      OldAlloc::sz8 = numPages * OldPageSize;
+      S8 * tmp = new S8[OldAlloc::sz8];
+      if (addr)
+         dMemcpy((U8*)tmp,(U8*)addr,OldAlloc::cnt8);
+      delete [] addr;
+      addr = tmp;
+   }
+   S8 * ret = (S8*) &addr[OldAlloc::cnt8];
+   OldAlloc::cnt8 += count;
+   return ret;
+}
+
+S32 readAlloc32(Stream * s, S32 * & memBuffer32)
+{
+   S32 tmp;
+   s->read(sizeof(tmp),(U8*)&tmp);  // this won't flip, which is perfect.
+   U32 * ptr = (U32*)oldAlloc(memBuffer32,1);
+   *ptr = tmp;
+   return (S32)convertLEndianToHost(tmp); // return flipped value for use.
+}
+
+S32 readAlloc32(Stream * s, S32 & storage)
+{
+   S32 tmp;
+   s->read(sizeof(tmp),(U8*)&tmp); // this won't flip, which is perfect.
+   storage = tmp;
+   return (S32)convertLEndianToHost(tmp); // return flipped value
+}
+
+void readAlloc(Stream * s, S32 * & memBuffer32, S32 size)
+{
+   s->read(sizeof(S32)*size,oldAlloc(memBuffer32,size));
+}
+
+void readAlloc(Stream * s, S16 * & memBuffer16, S32 size)
+{
+   s->read(sizeof(S16)*size,oldAlloc(memBuffer16,size));
+}
+
+void readAlloc(Stream * s, S8 * & memBuffer8, S32 size)
+{
+   s->read(sizeof(S8)*size,oldAlloc(memBuffer8,size));
+}
+
+void oldAllocGuard(S32 * & addr32, S16 * & addr16, S8 * & addr8)
+{
+   S32 * ptr32 = (S32*)oldAlloc(addr32,1);
+   *ptr32 = convertLEndianToHost(OldAlloc::guard32++); // flip, since tsShape will expect it.
+
+   S16 * ptr16 = (S16*)oldAlloc(addr16,1);
+   *ptr16 = convertLEndianToHost(OldAlloc::guard16++); // flip, since tsShape will expect it.
+
+   S8 * ptr8 = (S8*)oldAlloc(addr8,1);
+   *ptr8 = OldAlloc::guard8++;
+}
+
+#define DebugGuard() oldAllocGuard(memBuffer32,memBuffer16,memBuffer8)
+
+void readAllocMesh(Stream * s, S32 * & memBuffer32, S16 * & memBuffer16, S8 * & memBuffer8, U32 meshType)
+{
+   memBuffer8;
+
+   if (meshType==TSMesh::NullMeshType)
+      return;
+
+   // standard mesh read
+
+   DebugGuard();
+
+   // numFrames, numMatFrames
+   readAlloc(s,memBuffer32,2);
+
+   // parent mesh
+   S32 * ptr32 = (S32*)oldAlloc(memBuffer32,1);
+   *ptr32 = convertLEndianToHost(-1); // flip, since tsShape will flip back.
+
+   // allocate memory for mBounds,mCenter, and mRadius...just filler, will be computed later
+   oldAlloc(memBuffer32,10);
+
+   // read in verts
+   S32 sz = readAlloc32(s,memBuffer32);
+   readAlloc(s,memBuffer32,sz*3);
+
+   // read in tverts
+   sz = readAlloc32(s,memBuffer32);
+   readAlloc(s,memBuffer32,sz*2);
+
+   // read in normals
+   s->read(&sz); // we could assume same as verts, but apparently in file.
+   readAlloc(s,memBuffer32,sz*3);
+
+   // read in primitives
+   sz = readAlloc32(s,memBuffer32);
+   if (TSShape::smReadVersion<18)
+   {
+      for (S32 j=0; j<sz; j++)
+      {
+         S32 a,b;
+         s->read(&a);
+         s->read(&b);
+         U16 * ptr16 = (U16*)oldAlloc(memBuffer16,2);
+         ptr16[0]=convertLEndianToHost((S16)a); // flip, since tsShape will flip back.
+         ptr16[1]=convertLEndianToHost((S16)b); // flip, since tsShape will flip back.
+         readAlloc32(s,memBuffer32);
+      }
+   }
+   else
+   {
+      for (S32 j=0; j<sz; j++)
+      {
+         readAlloc(s,memBuffer16,2);
+         readAlloc(s,memBuffer32,1);
+      }
+   }
+
+   // read in indices
+   sz = readAlloc32(s,memBuffer32);
+   if (TSShape::smReadVersion<18)
+   {
+      U32 idx;
+      U16 * idxPtr = (U16*)oldAlloc(memBuffer16,sz);
+      for (S32 j=0;j<sz;j++)
+      {
+         s->read(sizeof(idx),(U8*)&idx);
+         idxPtr[j]=(U16)idx;
+      }
+   }
+   else
+      readAlloc(s,memBuffer16,sz);
+
+   // mergeIndices...none
+   ptr32 = (S32*)oldAlloc(memBuffer32,1);
+   *ptr32 = convertLEndianToHost((S32)0);
+
+   // vertsPerFrame, flags
+   readAlloc(s,memBuffer32,2);
+
+   DebugGuard();
+
+   if (meshType==TSMesh::SkinMeshType)
+   {
+      // read in initial verts
+      sz = readAlloc32(s,memBuffer32);
+      readAlloc(s,memBuffer32,sz*3);
+
+      // read in initial normals
+      s->read(&sz); // we assume same as verts
+      readAlloc(s,memBuffer32,sz*3);
+
+      // read in initial transforms
+      sz = readAlloc32(s,memBuffer32);
+      readAlloc(s,memBuffer32,sz*16);
+
+      // read in vertexIndx
+      sz = readAlloc32(s,memBuffer32);
+      readAlloc(s,memBuffer32,sz);
+
+      // read in boneIndex
+      s->read(&sz); // toss
+      readAlloc(s,memBuffer32,sz);
+
+      // read in nodeIndex -- but let's move it...
+      // vertexIndex, boneIndex, and weight have same # of entries
+      // nodeIndex is different (it's number of bones)
+      // first allocate room for weights, then read in nodeIndex list
+      S32 weightStart = oldAllocOffset(memBuffer32);
+      oldAlloc(memBuffer32,sz); // this is memory for the weights
+
+      // actually read in node index
+      sz = readAlloc32(s,memBuffer32);
+      readAlloc(s,memBuffer32,sz); // read in nodeIndex array
+
+      // read in weight
+      s->read(&sz); // toss
+      F32 * ptr32 = (F32*)(memBuffer32 + weightStart);
+      for (S32 i=0; i<sz; i++)
+         s->read(sizeof(F32),(U8*)(ptr32+i));
+
+      DebugGuard();
+   }
+   if (meshType==TSMesh::SortedMeshType)
+   {
+      // clusters...
+      sz = readAlloc32(s,memBuffer32);
+      readAlloc(s,memBuffer32,sz*8);
+
+      // start cluster...
+      sz = readAlloc32(s,memBuffer32);
+      readAlloc(s,memBuffer32,sz);
+
+      // firstVert...
+      sz = readAlloc32(s,memBuffer32);
+      readAlloc(s,memBuffer32,sz);
+
+      // numVerts...
+      sz = readAlloc32(s,memBuffer32);
+      readAlloc(s,memBuffer32,sz);
+
+      // firstTVerts...
+      sz = readAlloc32(s,memBuffer32);
+      readAlloc(s,memBuffer32,sz);
+
+      // always write z-depth?
+      bool alwaysWriteZ;
+      s->read(&alwaysWriteZ);
+      S32 * ptr32 = (S32*) oldAlloc(memBuffer32,1);
+      *ptr32 = alwaysWriteZ ? convertLEndianToHost(1) : convertLEndianToHost(0);  // flip, since tsShape will flip back.
+
+      DebugGuard();
+   }
+   if (meshType==TSMesh::DecalMeshType)
+   {
+      // startPrimitive...
+      sz = readAlloc32(s,memBuffer32);
+      readAlloc(s,memBuffer32,sz);
+
+      if (TSShape::smReadVersion>=17)
+      {
+         // obsolete, so we read it all, but throw it all away.
+
+         // startTVerts...
+         s->read(&sz);
+         S32 tmp;
+         while (sz--)
+            s->read(&tmp);
+
+         // tvertIndex...
+         s->read(&sz);
+         while (sz--)
+            s->read(&tmp);
+      }
+
+      // materialIndex...
+      readAlloc32(s,memBuffer32);
+
+      DebugGuard();
+   }
+}
+
+// versioning hack...
+Vector<S32> kfStart(__FILE__, __LINE__);
+
+// NOTE: with version 17 and on there are no more keyframes...kept around for reading old shapes
+struct Keyframe
+{
+   S32 firstNodeState;
+   S32 firstObjectState;
+   S32 firstDecalState;
+
+   void read(Stream * s) { s->read(&firstNodeState);s->read(&firstObjectState);s->read(&firstDecalState);}
+   void write(Stream * s) { s->write(firstNodeState);s->write(firstObjectState);s->write(firstDecalState);}
+};
+
+// read in and throw away
+Vector<Keyframe> keyframes(__FILE__,__LINE__);
+
+void TSShape::readOldShape(Stream * s,
+                           S32 * & memBuffer32, S16 * & memBuffer16, S8 * & memBuffer8,
+                           S32 & count32, S32 & count16, S32 & count8)
+{
+   S32 i,tmp;
+
+   // first allocate some memory
+   memBuffer32 = oldInitAlloc32();
+   memBuffer16 = oldInitAlloc16();
+   memBuffer8  = oldInitAlloc8();
+
+   // allocate storage for vector counts
+   oldAlloc(memBuffer32,15);
+   // contents of memBuffer32 might change, but eventually these will go here...
+   // numNodes = memBuffer32[0];
+   // numObjects = memBuffer32[1];
+   // numDecals = memBuffer32[2];
+   // numSubShapes = memBuffer32[3];
+   // numIflMaterials = memBuffer32[4];
+   // numNodeStates = memBuffer32[5];
+   // numObjectStates = memBuffer32[6];
+   // numDecalStates = memBuffer32[7];
+   // numTriggers = memBuffer32[8];
+   // numDetails = memBuffer32[9];
+   // numMeshes = memBuffer32[10]
+   // numSkins = memBuffer32[11];
+   // numNames = memBuffer32[12];
+   // mSmalletVisibleSize = memBuffer32[13];
+   // mSmallestVisibleDL = memBuffer32[14];
+
+   DebugGuard();
+
+   // radius
+   readAlloc(s,memBuffer32,1);
+   // tube radius
+   readAlloc(s,memBuffer32,1);
+   // center
+   readAlloc(s,memBuffer32,3);
+   // bounds
+   readAlloc(s,memBuffer32,6);
+
+   DebugGuard();
+
+   S32 numNodes = readAlloc32(s,memBuffer32[0]);
+   S32 nodeStart = oldAllocOffset(memBuffer32);
+   if (smReadVersion>=17)
+   {
+      readAlloc(s,memBuffer32,numNodes*2);
+      // compute other 3 members at load time...
+      // for now, allocate the storage and move things around
+      oldAlloc(memBuffer32,numNodes*3);
+      S32 * pNodeStart = memBuffer32+nodeStart;
+      for (i=numNodes-1; i>=0; i--)
+         dMemmove(&pNodeStart[i*5],&pNodeStart[i*2],sizeof(S32)*2);
+   }
+   else
+   {
+      // handle obsolete (bool) member
+      for (i=0; i<numNodes; i++)
+      {
+         readAlloc(s,memBuffer32,2);
+         bool obsolete;
+         s->read(&obsolete);
+         oldAlloc(memBuffer32,3);
+      }
+   }
+
+   DebugGuard();
+
+   S32 numObjects = readAlloc32(s,memBuffer32[1]);
+   S32 objectStart = oldAllocOffset(memBuffer32);
+   readAlloc(s,memBuffer32,numObjects*4);
+   // compute other 2 members at load time...
+   // for now, allocate storage and move things around
+   oldAlloc(memBuffer32,numObjects*2);
+   S32 * pObjectStart = memBuffer32 + objectStart;
+   for (i=numObjects-1; i>=0; i--)
+      dMemmove(&pObjectStart[i*6],&pObjectStart[i*4],sizeof(S32)*4);
+
+   DebugGuard();
+
+   S32 numDecals = readAlloc32(s,memBuffer32[2]);
+   S32 decalStart = oldAllocOffset(memBuffer32);
+   readAlloc(s,memBuffer32,numDecals*4);
+   // compute other 1 member at load time...
+   // for now, allocate storage and move things around
+   oldAlloc(memBuffer32,numDecals);
+   S32 * pDecalStart = memBuffer32 + decalStart;
+   for (i=numDecals-1; i>=0; i--)
+      dMemmove(&pDecalStart[i*5],&pDecalStart[i*4],sizeof(S32)*4);
+
+   DebugGuard();
+
+   S32 numIflMaterials = readAlloc32(s,memBuffer32[4]);
+   S32 iflStart = oldAllocOffset(memBuffer32);
+   readAlloc(s,memBuffer32,numIflMaterials*2);
+   // compute other 3 members at load time...
+   // for now, allocate storage and move things around
+   oldAlloc(memBuffer32,numIflMaterials*3);
+   S32 * pIflStart = memBuffer32 + iflStart;
+   for (i=numIflMaterials-1; i>=0; i--)
+      dMemmove(&pIflStart[i*5],&pIflStart[i*2],sizeof(S32)*2);
+
+   DebugGuard();
+
+   S32 numSubShapes = readAlloc32(s,memBuffer32[3]);
+   S32 subShapeFirstStart = oldAllocOffset(memBuffer32);
+   readAlloc(s,memBuffer32,numSubShapes); // subShapeFirstNode
+   s->read(&tmp); // toss
+   readAlloc(s,memBuffer32,numSubShapes); // subShapeFirstObject
+   s->read(&tmp); // toss
+   readAlloc(s,memBuffer32,numSubShapes); // subShapeFirstDecal
+
+   DebugGuard();
+
+   S32 subShapeNumStart = oldAllocOffset(memBuffer32);
+   oldAlloc(memBuffer32,3*numSubShapes);  // allocate memory for subShapeNum* vectors
+
+   DebugGuard();
+
+   // compute subShapeNum* vectors
+   S32 * pSubShapeFirstStart = memBuffer32+subShapeFirstStart;
+   S32 * pSubShapeNumStart = memBuffer32+subShapeNumStart;
+   S32 prev, first;
+   for (i=0; i<3; i++)
+   {
+      prev = ((i==0) ? numNodes : (i==1 ? numObjects : numDecals));
+      for (S32 j=numSubShapes-1; j>=0; j--)
+      {
+      	first = convertLEndianToHost(pSubShapeFirstStart[j]); // flip to get value out
+         pSubShapeNumStart[j] = prev - first;
+			pSubShapeNumStart[j] = convertLEndianToHost(pSubShapeNumStart[j]); // flip to put value in.
+         prev = first;
+      }
+      pSubShapeFirstStart += numSubShapes;
+      pSubShapeNumStart   += numSubShapes;
+   }
+
+   // if older than version 16, read in mesh index list for later use
+   if (smReadVersion<16)
+   {
+      S32 sz = readAlloc32(s,memBuffer32);
+      readAlloc(s,memBuffer32,sz); // this is the meshIndexList
+   }
+
+   // if older than version 17, read in keyframes for later use
+   // but don't add to shapes buffer because we'll be done with
+   // them on exit from this method
+   if (smReadVersion<17)
+   {
+      S32 sz;
+      s->read(&sz);
+      keyframes.setSize(sz);
+      for (i=0; i<sz; i++)
+         keyframes[i].read(s);
+   }
+
+   S32 numNodeStates = readAlloc32(s,memBuffer32[5]);
+   S32 nodeStateStart32 = oldAllocOffset(memBuffer32);
+   S32 nodeStateStart16 = oldAllocOffset(memBuffer16);
+   for (i=0;i<numNodeStates;i++)
+   {
+      readAlloc(s,memBuffer16,4);     // read Quat16....rotation
+      readAlloc(s,memBuffer32,3);     // read Point3F...translation
+   }
+
+   DebugGuard();
+
+   S32 numObjectStates = readAlloc32(s,memBuffer32[6]);
+   S32 objectStateStart = oldAllocOffset(memBuffer32);
+   readAlloc(s,memBuffer32,numObjectStates*3);
+
+   DebugGuard();
+
+   S32 numDecalStates = readAlloc32(s,memBuffer32[7]);
+   S32 decalStateStart = oldAllocOffset(memBuffer32);
+   if (smReadVersion<14)
+   {
+      // add in default decal state info
+      S32 * firstState = (S32*) oldAlloc(memBuffer32,numDecals);
+      for (i=0;i<numDecals;i++)
+         firstState[i]=convertLEndianToHost(-1);
+   }
+   readAlloc(s,memBuffer32,numDecalStates);
+
+   DebugGuard();
+
+   S32 numTriggers = readAlloc32(s,memBuffer32[8]);
+   readAlloc(s,memBuffer32,numTriggers*2);
+
+   DebugGuard();
+
+   S32 numDetails = readAlloc32(s,memBuffer32[9]);
+   S32 detailStart = oldAllocOffset(memBuffer32);
+   readAlloc(s,memBuffer32,numDetails*4);
+   // compute other 3 members at load time...
+   // for now, allocate storage and move things around
+   oldAlloc(memBuffer32,numDetails*3);
+   S32 * pDetailStart = memBuffer32 + detailStart;
+   for (i=numDetails-1; i>=0; i--)
+      dMemmove(&pDetailStart[i*7],&pDetailStart[i*4],4*sizeof(S32));
+   // now find the smallest renderable detail level and size
+   Detail * pd = (Detail*)pDetailStart;
+   memBuffer32[13] = 0; // initialize to something valid
+   memBuffer32[14] = 0; // initialize to something valid
+   for (i=0; i<numDetails; i++)
+   {
+      S32 dsize = (S32) convertLEndianToHost(pd[i].size);
+      if (dsize>=0.0f)
+      {
+         memBuffer32[13] = (S32)dsize;
+         memBuffer32[14] = i;
+      }
+      pd[i].maxError = convertLEndianToHost(-1.0f);
+      pd[i].averageError = convertLEndianToHost(-1.0f);
+      pd[i].polyCount = convertLEndianToHost(0);
+   }
+
+   DebugGuard();
+
+   // deal with sequences the old fashion way...
+   kfStart.clear(); // for older shapes...
+   S32 numSequences;
+   s->read(&numSequences);
+   sequences.setSize(numSequences);
+   for (i=0; i<numSequences; i++)
+   {
+      constructInPlace(&sequences[i]);
+      sequences[i].read(s);
+   }
+
+   // read meshes
+   S32 numMeshes = readAlloc32(s,memBuffer32[10]);
+   for (i=0; i<numMeshes; i++)
+   {
+      S32 meshType = readAlloc32(s,memBuffer32);
+      readAllocMesh(s,memBuffer32,memBuffer16,memBuffer8,meshType);
+   }
+
+   DebugGuard();
+
+   // names...
+   S32 numNames = readAlloc32(s,memBuffer32[12]);
+   for (i=0;i<numNames;i++)
+   {
+      S32 sz;
+      s->read(&sz);
+      readAlloc(s,memBuffer8,sz);
+      *oldAlloc(memBuffer8,1) = 0; // end the string
+   }
+
+   DebugGuard();
+
+   // material list...read the old fashion way
+   S32 gotList;
+   s->read(&gotList);
+   if (gotList)
+   {
+      materialList = new TSMaterialList;
+      materialList->read(*s);
+      if (mExporterVersion<116)
+      {
+         // for any material that is translucent and doesn't tile, add zero border property
+         for (i=0; i<(S32)materialList->size(); i++)
+         {
+            U32 flags = materialList->getFlags(i);
+            if ((flags & TSMaterialList::Translucent) && !(flags&(TSMaterialList::S_Wrap|TSMaterialList::T_Wrap)))
+               materialList->setFlags(i,flags|TSMaterialList::MipMap_ZeroBorder);
+         }
+      }
+   }
+   else
+      materialList = NULL;
+
+   // allocate memory for these vectors here...filled in below
+   S32 detailFirstSkinCount = oldAllocOffset(memBuffer32);
+   oldAlloc(memBuffer32,numDetails);
+   S32 detailNumSkinCount = oldAllocOffset(memBuffer32);
+   oldAlloc(memBuffer32,numDetails);
+
+   DebugGuard();
+
+   // skins
+   S32 numSkins = readAlloc32(s,memBuffer32[11]);
+   for (i=0; i<numSkins; i++)
+      readAllocMesh(s,memBuffer32,memBuffer16,memBuffer8,TSMesh::SkinMeshType);
+
+   DebugGuard();
+
+   if (numSkins==0)
+   {
+      S32 * pSkinCounts = (S32*)memBuffer32+detailFirstSkinCount;
+      for (i=0; i<2*numDetails; i++)
+         pSkinCounts[i]=convertLEndianToHost((U32)0);
+   }
+   if (numSkins)
+   {
+      S32 sz;
+      s->read(&sz);
+      S32 * pDetailFirstSkin = memBuffer32+detailFirstSkinCount;
+      S32 * pDetailNumSkin   = memBuffer32+detailNumSkinCount;
+      s->read(numDetails*sizeof(S32),(S8*)pDetailFirstSkin);
+      S32 prev = numSkins;
+      for (i=numDetails-1; i>=0; i--)
+      {
+         pDetailNumSkin[i] = convertLEndianToHost(prev - convertLEndianToHost(pDetailFirstSkin[i]));
+         prev = convertLEndianToHost(pDetailFirstSkin[i]);
+      }
+   }
+
+   DebugGuard();
+
+   if (smReadVersion<17)
+   {
+      for (i=0; i<(S32)sequences.size(); i++)
+      {
+         Sequence & seq = sequences[i];
+         rearrangeKeyframeData(seq,kfStart[i],(U8*)(memBuffer32+nodeStateStart32),(U8*)(memBuffer16+nodeStateStart16),(U8*)(memBuffer32+objectStateStart),(U8*)(memBuffer32+decalStateStart),3*sizeof(S32),4*sizeof(S16),3*sizeof(S32),sizeof(S32));
+      }
+   }
+
+   count32 = getDWordCount32();
+   count16 = getDWordCount16();
+   count8  = getDWordCount8();
+}
+
+void TSShape::rearrangeKeyframeData(Sequence & seq, S32 startKeyframe, U8 * pRot, U8 * pTrans, U8 * pos, U8 * pds, S32 rotSize, S32 tranSize, S32 osSize, S32 dsSize)
+{
+   // count nodes, objects, and decals...
+   S32 numNodes = 0;
+   S32 numObjects = 0;
+   S32 numDecals = 0;
+   S32 numKeyframes = seq.numKeyframes;
+   S32 j;
+   TSIntegerSet objectMembership = seq.frameMatters;
+   objectMembership.overlap(seq.matFrameMatters);
+   objectMembership.overlap(seq.visMatters);
+   for (j=0; j<MAX_TS_SET_SIZE; j++)
+   {
+      if (seq.rotationMatters.test(j)) // we're old sequence, so same as translationMatters
+         numNodes++;
+      if (objectMembership.test(j))
+         numObjects++;
+   }
+
+   // fill in default size and location info...
+   if (!pRot && numKeyframes*numNodes)
+      pRot = (U8*)&nodeRotations[0];
+   if (!pTrans && numKeyframes*numNodes)
+      pTrans = (U8*)&nodeTranslations[0];
+   if (rotSize<0)
+      rotSize = sizeof(Quat16);
+   if (tranSize<0)
+      tranSize = sizeof(Point3F);
+   if (!pos && numKeyframes*numObjects)
+      pos = (U8*)&objectStates[0];
+   if (osSize<0)
+      osSize = sizeof(ObjectState);
+
+   if (seq.numKeyframes)
+   {
+      seq.baseRotation = numNodes ? keyframes[startKeyframe].firstNodeState : 0;
+      seq.baseTranslation = numNodes ? keyframes[startKeyframe].firstNodeState : 0;
+      seq.baseObjectState = numObjects ? keyframes[startKeyframe].firstObjectState : 0;
+      rearrangeStates(   seq.baseRotation,   numKeyframes, numNodes, pRot,rotSize);
+      rearrangeStates(   seq.baseTranslation,   numKeyframes, numNodes, pTrans,tranSize);
+      rearrangeStates( seq.baseObjectState, numKeyframes, numObjects, pos, osSize);
+   }
+}
+
+void TSShape::rearrangeStates(S32 start, S32 a, S32 b, U8 * dat, S32 size)
+{
+   // have to account for different packing size...
+   U8 * copy = new U8[a*b*size];
+   dMemcpy(copy,&dat[start*size],a*b*size);
+   for (S32 i=0; i<a; i++)
+      for (S32 j=0; j<b; j++)
+         dMemcpy(dat + size*(start+j*a+i), copy + size*(i*b+j), size);
+   delete [] copy;
+}
 
 //-------------------------------------------------
 // put old skins into object list
@@ -31,15 +773,17 @@
 
 void TSShape::fixupOldSkins(S32 numMeshes, S32 numSkins, S32 numDetails, S32 * detailFirstSkin, S32 * detailNumSkins)
 {
-#if !defined(TORQUE_MAX_LIB)
+#if !defined(TORQUE_LIB)
    // this method not necessary in exporter, and a couple lines won't compile for exporter
    if (!objects.address() || !meshes.address() || !numSkins)
       // not ready for this yet, will catch it on the next pass
       return;
+
    S32 numObjects = objects.size();
    TSObject * newObjects = objects.address() + objects.size();
    TSSkinMesh ** skins = (TSSkinMesh**)&meshes[numMeshes];
    Vector<TSSkinMesh*> skinsCopy;
+
    // Note: newObjects has as much free space as we need, so we just need to keep track of the
    //       number of objects we use and then update objects.size
    S32 numSkinObjects = 0;
@@ -58,6 +802,7 @@ void TSShape::fixupOldSkins(S32 numMeshes, S32 numSkins, S32 numDetails, S32 * d
       object.startMeshIndex = numMeshes + skinsCopy.size();
       object.nodeIndex = -1;
       object.nextSibling = -1;
+      object.firstDecal = -1;
       for (S32 dl=0; dl<numDetails; dl++)
       {
          // find one mesh per detail to add to this object
@@ -174,260 +919,7 @@ void TSShape::fixupOldSkins(S32 numMeshes, S32 numSkins, S32 numDetails, S32 * d
       a[i + oldSz].read(s); \
 }
 
-// read a vector of simple types -- append to any existing data
-#define appendVectorSimple(a) \
-{ \
-   S32 sz; \
-   S32 oldSz = a.size(); \
-   s->read(&sz); \
-   a.setSize(oldSz + sz); \
-   for (S32 i=0;i<sz;i++) \
-      s->read(&a[i + oldSz]); \
-}
-
-//-------------------------------------------------
-// export all sequences
-//-------------------------------------------------
-void TSShape::exportSequences(Stream * s)
-{
-   // write version
-   s->write(smVersion);
-
-   S32 i,sz;
-
-   // write node names
-   // -- this is how we will map imported sequence nodes to shape nodes
-   sz = nodes.size();
-   s->write(sz);
-   for (i=0;i<nodes.size();i++)
-      writeName(s,nodes[i].nameIndex);
-
-   // legacy write -- write zero objects, don't pretend to support object export anymore
-   s->write(0);
-
-   // on import, we will need to adjust keyframe data based on number of
-   // nodes/objects in this shape...number of nodes can be inferred from
-   // above, but number of objects cannot be.  Write that quantity here:
-   s->write(objects.size());
-
-   // write node states -- skip default node states
-   s->write(nodeRotations.size());
-   for (i=0;i<nodeRotations.size();i++)
-   {
-      s->write(nodeRotations[i].x);
-      s->write(nodeRotations[i].y);
-      s->write(nodeRotations[i].z);
-      s->write(nodeRotations[i].w);
-   }
-   s->write(nodeTranslations.size());
-   for (i=0;i<nodeTranslations.size(); i++)
-   {
-      s->write(nodeTranslations[i].x);
-      s->write(nodeTranslations[i].y);
-      s->write(nodeTranslations[i].z);
-   }
-   s->write(nodeUniformScales.size());
-   for (i=0;i<nodeUniformScales.size();i++)
-      s->write(nodeUniformScales[i]);
-   s->write(nodeAlignedScales.size());
-   for (i=0;i<nodeAlignedScales.size();i++)
-   {
-      s->write(nodeAlignedScales[i].x);
-      s->write(nodeAlignedScales[i].y);
-      s->write(nodeAlignedScales[i].z);
-   }
-   s->write(nodeArbitraryScaleRots.size());
-   for (i=0;i<nodeArbitraryScaleRots.size();i++)
-   {
-      s->write(nodeArbitraryScaleRots[i].x);
-      s->write(nodeArbitraryScaleRots[i].y);
-      s->write(nodeArbitraryScaleRots[i].z);
-      s->write(nodeArbitraryScaleRots[i].w);
-   }
-   for (i=0;i<nodeArbitraryScaleFactors.size();i++)
-   {
-      s->write(nodeArbitraryScaleFactors[i].x);
-      s->write(nodeArbitraryScaleFactors[i].y);
-      s->write(nodeArbitraryScaleFactors[i].z);
-   }
-   s->write(groundTranslations.size());
-   for (i=0;i<groundTranslations.size();i++)
-   {
-      s->write(groundTranslations[i].x);
-      s->write(groundTranslations[i].y);
-      s->write(groundTranslations[i].z);
-   }
-   for (i=0;i<groundRotations.size();i++)
-   {
-      s->write(groundRotations[i].x);
-      s->write(groundRotations[i].y);
-      s->write(groundRotations[i].z);
-      s->write(groundRotations[i].w);
-   }
-
-   // write object states -- legacy..no object states
-   s->write((S32)0);
-
-   // write sequences
-   s->write(sequences.size());
-   for (i=0;i<sequences.size();i++)
-   {
-      Sequence & seq = sequences[i];
-
-      // first write sequence name
-      writeName(s,seq.nameIndex);
-
-      // now write the sequence itself
-      seq.write(s,false); // false --> don't write name index
-   }
-
-   // write out all the triggers...
-   s->write(triggers.size());
-   for (i=0; i<triggers.size(); i++)
-   {
-      s->write(triggers[i].state);
-      s->write(triggers[i].pos);
-   }
-}
-
-//-------------------------------------------------
-// export a single sequence
-//-------------------------------------------------
-void TSShape::exportSequence(Stream * s, const TSShape::Sequence& seq, bool saveOldFormat)
-{
-   S32 currentVersion = smVersion;
-   if ( saveOldFormat )
-      smVersion = 24;
-
-   // write version
-   s->write(smVersion);
-
-   // write node names
-   s->write( nodes.size() );
-   for ( S32 i = 0; i < nodes.size(); i++ )
-      writeName( s, nodes[i].nameIndex );
-
-   // legacy write -- write zero objects, don't pretend to support object export anymore
-   s->write( (S32)0 );
-
-   // on import, we will need to adjust keyframe data based on number of
-   // nodes/objects in this shape...number of nodes can be inferred from
-   // above, but number of objects cannot be.  Write that quantity here:
-   s->write( objects.size() );
-
-   // write node states -- skip default node states
-   S32 count = seq.rotationMatters.count() * seq.numKeyframes;
-   s->write( count );
-   for ( S32 i = seq.baseRotation; i < seq.baseRotation + count; i++ )
-   {
-      s->write( nodeRotations[i].x );
-      s->write( nodeRotations[i].y );
-      s->write( nodeRotations[i].z );
-      s->write( nodeRotations[i].w );
-   }
-
-   count = seq.translationMatters.count() * seq.numKeyframes;
-   s->write( count );
-   for ( S32 i = seq.baseTranslation; i < seq.baseTranslation + count; i++ )
-   {
-      s->write( nodeTranslations[i].x );
-      s->write( nodeTranslations[i].y );
-      s->write( nodeTranslations[i].z );
-   }
-
-   count = seq.scaleMatters.count() * seq.numKeyframes;
-   if ( seq.animatesUniformScale() )
-   {
-      s->write( count );
-      for ( S32 i = seq.baseScale; i < seq.baseScale + count; i++ )
-         s->write( nodeUniformScales[i] );
-   }
-   else
-      s->write( (S32)0 );
-
-   if ( seq.animatesAlignedScale() )
-   {
-      s->write( count );
-      for ( S32 i = seq.baseScale; i < seq.baseScale + count; i++ )
-      {
-         s->write( nodeAlignedScales[i].x );
-         s->write( nodeAlignedScales[i].y );
-         s->write( nodeAlignedScales[i].z );
-      }
-   }
-   else
-      s->write( (S32)0 );
-
-   if ( seq.animatesArbitraryScale() )
-   {
-      s->write( count );
-      for ( S32 i = seq.baseScale; i < seq.baseScale + count; i++ )
-      {
-         s->write( nodeArbitraryScaleRots[i].x );
-         s->write( nodeArbitraryScaleRots[i].y );
-         s->write( nodeArbitraryScaleRots[i].z );
-         s->write( nodeArbitraryScaleRots[i].w );
-      }
-      for ( S32 i = seq.baseScale; i < seq.baseScale + count; i++ )
-      {
-         s->write( nodeArbitraryScaleFactors[i].x );
-         s->write( nodeArbitraryScaleFactors[i].y );
-         s->write( nodeArbitraryScaleFactors[i].z );
-      }
-   }
-   else
-      s->write( (S32)0 );
-
-   s->write( seq.numGroundFrames );
-   for ( S32 i = seq.firstGroundFrame; i < seq.firstGroundFrame + seq.numGroundFrames; i++ )
-   {
-      s->write( groundTranslations[i].x );
-      s->write( groundTranslations[i].y );
-      s->write( groundTranslations[i].z );
-   }
-   for ( S32 i = seq.firstGroundFrame; i < seq.firstGroundFrame + seq.numGroundFrames; i++ )
-   {
-      s->write( groundRotations[i].x );
-      s->write( groundRotations[i].y );
-      s->write( groundRotations[i].z );
-      s->write( groundRotations[i].w );
-   }
-
-   // write object states -- legacy..no object states
-   s->write( (S32)0 );
-
-   // write the sequence
-   s->write( (S32)1 );
-   writeName( s, seq.nameIndex );
-   {
-      // Write a copy of the sequence with all offsets set to 0
-      TSShape::Sequence tmpSeq(seq);
-      tmpSeq.baseDecalState = 0;
-      tmpSeq.baseObjectState = 0;
-      tmpSeq.baseTranslation = 0;
-      tmpSeq.baseRotation = 0;
-      tmpSeq.baseScale = 0;
-      tmpSeq.firstGroundFrame = 0;
-      tmpSeq.firstTrigger = 0;
-
-      tmpSeq.write( s, false );
-   }
-
-   // write the sequence triggers
-   s->write( seq.numTriggers );
-   for ( S32 i = seq.firstTrigger; i < seq.firstTrigger + seq.numTriggers; i++ )
-   {
-      s->write( triggers[i].state );
-      s->write( triggers[i].pos );
-   }
-
-   smVersion = currentVersion;
-}
-
-//-------------------------------------------------
-// import sequences into existing shape
-//-------------------------------------------------
-bool TSShape::importSequences(Stream * s, const String& sequencePath)
+bool TSShape::importSequences(Stream * s, const String &)
 {
    // write version
    s->read(&smReadVersion);
@@ -436,13 +928,6 @@ bool TSShape::importSequences(Stream * s, const String& sequencePath)
       // error -- don't support future version yet :>
       Con::errorf(ConsoleLogEntry::General,
                   "Sequence import failed:  shape exporter newer than running executable.");
-      return false;
-   }
-   if (smReadVersion<19)
-   {
-      // error -- don't support future version yet :>
-      Con::errorf(ConsoleLogEntry::General,
-         "Sequence import failed:  deprecated version (%i).",smReadVersion);
       return false;
    }
 
@@ -457,101 +942,138 @@ bool TSShape::importSequences(Stream * s, const String& sequencePath)
    // -- this is how we will map imported sequence nodes to our nodes
    s->read(&sz);
    nodeMap.setSize(sz);
-
+   Vector<S32> checkForDups;
    for (i=0;i<sz;i++)
    {
       U32 startSize = names.size();
       S32 nameIndex = readName(s,true);
-      
-      nodeMap[i] = findNode(nameIndex);
-
-      if (nodeMap[i] < 0)
+      U32 count = 0;
+      if (nameIndex>=0)
       {
-         // node found in sequence but not shape => remove the added node name
-         if (names.size() != startSize)
+         while (checkForDups.size()<nameIndex+1)
+            checkForDups.push_back(0);
+         count = checkForDups[nameIndex]++;
+      }
+      if (count)
+      {
+	      // not first time this name came up...look for later instance of the node
+         S32 j;
+         nodeMap[i]=-1;
+         for (j=0; j<nodes.size(); j++)
+         {
+            if (nodes[j].nameIndex==nameIndex && count--==0)
+               break;
+         }
+         nodeMap[i]=j;
+         if (j==nodes.size())
+         {
+            Con::errorf(ConsoleLogEntry::General,"Sequence import failed: sequence node \"%s\" duplicated more in sequence than in shape.",names[nameIndex]);
+            return false;
+         }
+      }
+      else
+         nodeMap[i] = findNode(nameIndex);
+      if (nodeMap[i]<0)
+      {
+         // error -- node found in sequence but not shape
+         Con::errorf(ConsoleLogEntry::General,
+                     "Sequence import failed:  sequence node \"%s\" not found in base shape.",names[nameIndex]);
+         if (names.size()!=startSize)
          {
             names.decrement();
-
-            if (names.size() != startSize)
-               Con::errorf(ConsoleLogEntry::General, "TSShape::importSequence: failed to remove unused node correctly for dsq %s.", names[nameIndex].c_str(), sequencePath.c_str());
+            AssertFatal(names.size()==startSize,"TSShape::importSequence: assertion failed");
          }
+         return false;
       }
    }
 
    // read the following size, but won't do anything with it...legacy:  was going to support
    // import of sequences that animate objects...we don't...
-   s->read(&sz);
+   s->read(&sz); sz;
 
    // before reading keyframes, take note of a couple numbers
    S32 oldShapeNumObjects;
    s->read(&oldShapeNumObjects);
 
+   // read keyframes
+   if (smReadVersion<17)
+   {
+      keyframes.clear();
+      appendVectorStruct(keyframes);
+   }
+
    // adjust all the new keyframes
    S32 adjNodeRots = smReadVersion<22 ? nodeRotations.size() - nodeMap.size() : nodeRotations.size();
    S32 adjNodeTrans = smReadVersion<22 ? nodeTranslations.size() - nodeMap.size() : nodeTranslations.size();
+   S32 adjNodeScales1 = nodeUniformScales.size();
+   S32 adjNodeScales2 = nodeAlignedScales.size();
+   S32 adjNodeScales3 = nodeArbitraryScaleFactors.size();
+   S32 adjObjectStates = objectStates.size() - oldShapeNumObjects;
    S32 adjGroundStates = smReadVersion<22 ? 0 : groundTranslations.size(); // groundTrans==groundRot
+   for (i=0;i<keyframes.size();i++)
+   {
+      // have keyframes only for old shapes...use adjNodeRots for adjustment
+      // since same as adjNodeScales...
+      keyframes[i].firstNodeState += adjNodeRots;
+      keyframes[i].firstObjectState += adjObjectStates;
+   }
 
-   // Read the node states into temporary vectors, then use the
-   // nodeMap to discard unused transforms and map others to our nodes
-   Vector<Quat16>    seqRotations;
-   Vector<Point3F>   seqTranslations;
-   Vector<F32>       seqUniformScales;
-   Vector<Point3F>   seqAlignedScales;
-   Vector<Quat16>    seqArbitraryScaleRots;
-   Vector<Point3F>   seqArbitraryScaleFactors;
-
+   // add these node states to our own
    if (smReadVersion>21)
    {
       s->read(&sz);
-      seqRotations.setSize(sz);
-      for (i=0; i < sz; i++)
+      S32 oldSz = nodeRotations.size();
+      nodeRotations.setSize(sz+oldSz);
+      for (i=oldSz;i<oldSz+sz; i++)
       {
-         s->read(&seqRotations[i].x);
-         s->read(&seqRotations[i].y);
-         s->read(&seqRotations[i].z);
-         s->read(&seqRotations[i].w);
+         s->read(&nodeRotations[i].x);
+         s->read(&nodeRotations[i].y);
+         s->read(&nodeRotations[i].z);
+         s->read(&nodeRotations[i].w);
       }
       s->read(&sz);
-      seqTranslations.setSize(sz);
-      for (i=0; i <sz; i++)
+      oldSz = nodeTranslations.size();
+      nodeTranslations.setSize(sz+oldSz);
+      for (i=oldSz;i<sz+oldSz;i++)
       {
-         s->read(&seqTranslations[i].x);
-         s->read(&seqTranslations[i].y);
-         s->read(&seqTranslations[i].z);
+         s->read(&nodeTranslations[i].x);
+         s->read(&nodeTranslations[i].y);
+         s->read(&nodeTranslations[i].z);
       }
       s->read(&sz);
-      seqUniformScales.setSize(sz);
-      for (i = 0; i < sz; i++)
-         s->read(&seqUniformScales[i]);
+      oldSz = nodeUniformScales.size();
+      nodeUniformScales.setSize(sz+oldSz);
+      for (i=oldSz;i<sz+oldSz;i++)
+         s->read(&nodeUniformScales[i]);
       s->read(&sz);
-      seqAlignedScales.setSize(sz);
-      for (i = 0; i < sz; i++)
+      oldSz = nodeAlignedScales.size();
+      nodeAlignedScales.setSize(sz+oldSz);
+      for (i=oldSz;i<sz+oldSz;i++)
       {
-         s->read(&seqAlignedScales[i].x);
-         s->read(&seqAlignedScales[i].y);
-         s->read(&seqAlignedScales[i].z);
+         s->read(&nodeAlignedScales[i].x);
+         s->read(&nodeAlignedScales[i].y);
+         s->read(&nodeAlignedScales[i].z);
       }
       s->read(&sz);
-      seqArbitraryScaleRots.setSize(sz);
-      for (i = 0; i <sz; i++)
+      oldSz = nodeArbitraryScaleRots.size();
+      nodeArbitraryScaleRots.setSize(sz+oldSz);
+      for (i=oldSz;i<sz+oldSz;i++)
       {
-         s->read(&seqArbitraryScaleRots[i].x);
-         s->read(&seqArbitraryScaleRots[i].y);
-         s->read(&seqArbitraryScaleRots[i].z);
-         s->read(&seqArbitraryScaleRots[i].w);
+         s->read(&nodeArbitraryScaleRots[i].x);
+         s->read(&nodeArbitraryScaleRots[i].y);
+         s->read(&nodeArbitraryScaleRots[i].z);
+         s->read(&nodeArbitraryScaleRots[i].w);
       }
-      seqArbitraryScaleFactors.setSize(sz);
-      for (i = 0; i < sz; i++)
+      oldSz = nodeArbitraryScaleFactors.size();
+      nodeArbitraryScaleFactors.setSize(sz+oldSz);
+      for (i=oldSz;i<sz+oldSz;i++)
       {
-         s->read(&seqArbitraryScaleFactors[i].x);
-         s->read(&seqArbitraryScaleFactors[i].y);
-         s->read(&seqArbitraryScaleFactors[i].z);
+         s->read(&nodeArbitraryScaleFactors[i].x);
+         s->read(&nodeArbitraryScaleFactors[i].y);
+         s->read(&nodeArbitraryScaleFactors[i].z);
       }
-
-      // ground transforms can be read directly into the shape (none will be
-      // discarded)
       s->read(&sz);
-      S32 oldSz = groundTranslations.size();
+      oldSz = groundTranslations.size();
       groundTranslations.setSize(sz+oldSz);
       for (i=oldSz;i<sz+oldSz;i++)
       {
@@ -571,17 +1093,19 @@ bool TSShape::importSequences(Stream * s, const String& sequencePath)
    else
    {
       s->read(&sz);
-      seqRotations.setSize(sz);
-      seqTranslations.setSize(sz);
-      for (i = 0; i < sz; i++)
+      S32 oldSz1 = nodeRotations.size();
+      S32 oldSz2 = nodeTranslations.size();
+      nodeRotations.setSize(oldSz1+sz);
+      nodeTranslations.setSize(oldSz2+sz);
+      for (i=0; i<sz; i++)
       {
-         s->read(&seqRotations[i].x);
-         s->read(&seqRotations[i].y);
-         s->read(&seqRotations[i].z);
-         s->read(&seqRotations[i].w);
-         s->read(&seqTranslations[i].x);
-         s->read(&seqTranslations[i].y);
-         s->read(&seqTranslations[i].z);
+         s->read(&nodeRotations[i+oldSz1].x);
+         s->read(&nodeRotations[i+oldSz1].y);
+         s->read(&nodeRotations[i+oldSz1].z);
+         s->read(&nodeRotations[i+oldSz1].w);
+         s->read(&nodeTranslations[i+oldSz2].x);
+         s->read(&nodeTranslations[i+oldSz2].y);
+         s->read(&nodeTranslations[i+oldSz2].z);
       }
    }
 
@@ -591,98 +1115,57 @@ bool TSShape::importSequences(Stream * s, const String& sequencePath)
    // read sequences
    s->read(&sz);
    S32 startSeqNum = sequences.size();
+   kfStart.clear(); // versioning hack -- holds start of range of keyframes used by each sequence loaded
    for (i=0;i<sz;i++)
    {
       sequences.increment();
       Sequence & seq = sequences.last();
+      constructInPlace(&seq);
 
       // read name
       seq.nameIndex = readName(s,true);
 
       // read the rest of the sequence
       seq.read(s,false);
-      seq.baseRotation = nodeRotations.size();
-      seq.baseTranslation = nodeTranslations.size();
-
-      if (smReadVersion > 21)
+      if (smReadVersion>21)
       {
+         seq.baseRotation += adjNodeRots;
+         seq.baseTranslation += adjNodeTrans;
          if (seq.animatesUniformScale())
-            seq.baseScale = nodeUniformScales.size();
+            seq.baseScale += adjNodeScales1;
          else if (seq.animatesAlignedScale())
-            seq.baseScale = nodeAlignedScales.size();
+            seq.baseScale += adjNodeScales2;
          else if (seq.animatesArbitraryScale())
-            seq.baseScale = nodeArbitraryScaleFactors.size();
+            seq.baseScale += adjNodeScales3;
+      }
+      else if (smReadVersion>=17)
+      {
+         seq.baseRotation += adjNodeRots; // == adjNodeTrans
+         seq.baseTranslation += adjNodeTrans; // == adjNodeTrans
       }
 
-      // remap the node matters arrays
+      // not quite so easy...
+      // now we have to remap nodes from shape the sequence came from to this shape
+      // that's where nodeMap comes in handy...
+      // ditto for the objects.
+
+      // first the nodes
       S32 j;
-      TSIntegerSet newTransMembership;
-      TSIntegerSet newRotMembership;
-      TSIntegerSet newScaleMembership;
-      for (j = 0; j < (S32)nodeMap.size(); j++)
+      TSIntegerSet newMembership1;
+      TSIntegerSet newMembership2;
+      TSIntegerSet newMembership3;
+      for (j=0; j<(S32)nodeMap.size(); j++)
       {
-         if (nodeMap[j] < 0)
-            continue;
-
          if (seq.translationMatters.test(j))
-            newTransMembership.set(nodeMap[j]);
+            newMembership1.set(nodeMap[j]);
          if (seq.rotationMatters.test(j))
-            newRotMembership.set(nodeMap[j]);
+            newMembership2.set(nodeMap[j]);
          if (seq.scaleMatters.test(j))
-            newScaleMembership.set(nodeMap[j]);
+            newMembership3.set(nodeMap[j]);
       }
-
-      // resize node transform arrays
-      nodeTranslations.increment(newTransMembership.count() * seq.numKeyframes);
-      nodeRotations.increment(newRotMembership.count() * seq.numKeyframes);
-      if (seq.flags & TSShape::ArbitraryScale)
-      {
-         S32 scaleCount = newScaleMembership.count() * seq.numKeyframes;
-         nodeArbitraryScaleRots.increment(scaleCount);
-         nodeArbitraryScaleFactors.increment(scaleCount);
-      }
-      else if (seq.flags & TSShape::AlignedScale)
-         nodeAlignedScales.increment(newScaleMembership.count() * seq.numKeyframes);
-      else
-         nodeUniformScales.increment(newScaleMembership.count() * seq.numKeyframes);
-
-      // remap node transforms from temporary arrays
-      for (S32 j = 0; j < nodeMap.size(); j++)
-      {
-         if (nodeMap[j] < 0)
-            continue;
-
-         if (newTransMembership.test(nodeMap[j]))
-         {
-            S32 src = seq.numKeyframes * seq.translationMatters.count(j);
-            S32 dest = seq.baseTranslation + seq.numKeyframes * newTransMembership.count(nodeMap[j]);
-            dCopyArray(&nodeTranslations[dest], &seqTranslations[src], seq.numKeyframes);
-         }
-         if (newRotMembership.test(nodeMap[j]))
-         {
-            S32 src = seq.numKeyframes * seq.rotationMatters.count(j);
-            S32 dest = seq.baseRotation + seq.numKeyframes * newRotMembership.count(nodeMap[j]);
-            dCopyArray(&nodeRotations[dest], &seqRotations[src], seq.numKeyframes);
-         }
-         if (newScaleMembership.test(nodeMap[j]))
-         {
-            S32 src = seq.numKeyframes * seq.scaleMatters.count(j);
-            S32 dest = seq.baseScale + seq.numKeyframes * newScaleMembership.count(nodeMap[j]);
-            if (seq.flags & TSShape::ArbitraryScale)
-            {
-               dCopyArray(&nodeArbitraryScaleRots[dest], &seqArbitraryScaleRots[src], seq.numKeyframes);
-               dCopyArray(&nodeArbitraryScaleFactors[dest], &seqArbitraryScaleFactors[src], seq.numKeyframes);
-            }
-            else if (seq.flags & TSShape::AlignedScale)
-               dCopyArray(&nodeAlignedScales[dest], &seqAlignedScales[src], seq.numKeyframes);
-            else
-               dCopyArray(&nodeUniformScales[dest], &seqUniformScales[src], seq.numKeyframes);
-         }
-      }
-
-      seq.translationMatters = newTransMembership;
-      seq.rotationMatters = newRotMembership;
-      seq.scaleMatters = newScaleMembership;
+      seq.translationMatters = newMembership1;
+      seq.rotationMatters = newMembership2;
+      seq.scaleMatters = newMembership3;
 
       // adjust trigger numbers...we'll read triggers after sequences...
       seq.firstTrigger += triggers.size();
@@ -690,6 +1173,10 @@ bool TSShape::importSequences(Stream * s, const String& sequencePath)
       // finally, adjust ground transform's nodes states
       seq.firstGroundFrame += adjGroundStates;
    }
+   if (smReadVersion<17)
+      for (i=startSeqNum; i<sequences.size(); i++)
+         // rearrange some data and add some info to the sequences
+         rearrangeKeyframeData(sequences[i],kfStart[i-startSeqNum],NULL,NULL,NULL,NULL,-1,-1,-1,-1);
 
    if (smReadVersion<22)
    {
@@ -710,13 +1197,17 @@ bool TSShape::importSequences(Stream * s, const String& sequencePath)
    }
 
    // add the new triggers
-   S32 oldSz = triggers.size();
-   s->read(&sz);
-   triggers.setSize(oldSz+sz);
-   for (S32 i=0; i<sz;i++)
+   if (smReadVersion>8)
    {
-      s->read(&triggers[i+oldSz].state);
-      s->read(&triggers[i+oldSz].pos);
+      S32 sz;
+      S32 oldSz = triggers.size();
+      s->read(&sz);
+      triggers.setSize(oldSz+sz);
+      for (S32 i=0; i<sz;i++)
+      {
+         s->read(&triggers[i+oldSz].state);
+         s->read(&triggers[i+oldSz].pos);
+      }
    }
 
    if (smInitOnRead)
@@ -730,8 +1221,6 @@ bool TSShape::importSequences(Stream * s, const String& sequencePath)
 //-------------------------------------------------
 void TSShape::Sequence::read(Stream * s, bool readNameIndex)
 {
-   AssertISV(smReadVersion>=19,"Reading old sequence");
-
    if (readNameIndex)
       s->read(&nameIndex);
    flags = 0;
@@ -739,13 +1228,23 @@ void TSShape::Sequence::read(Stream * s, bool readNameIndex)
       s->read(&flags);
    else
       flags=0;
-
-   s->read(&numKeyframes);
+   if (TSShape::smReadVersion<17)
+   {
+      // prior to version 17 we had a vector of keyframes and needed to track range of keyframes not just number
+      S32 startKeyframe, endKeyframe;
+      s->read(&startKeyframe);
+      s->read(&endKeyframe);
+      numKeyframes = endKeyframe - startKeyframe;
+      kfStart.push_back(startKeyframe);
+   }
+   else
+      // just need number of keyframes...
+      s->read(&numKeyframes);
    s->read(&duration);
 
    if (TSShape::smReadVersion<22)
    {
-      bool tmp = false;
+      bool tmp;
       s->read(&tmp);
       if (tmp)
          flags |= Blend;
@@ -768,17 +1267,27 @@ void TSShape::Sequence::read(Stream * s, bool readNameIndex)
       s->read(&baseObjectState);
       s->read(&baseDecalState);
    }
-   else
+   else if (TSShape::smReadVersion>=17)
    {
       s->read(&baseRotation);
       baseTranslation=baseRotation;
       s->read(&baseObjectState);
       s->read(&baseDecalState);
    }
-
-   s->read(&firstTrigger);
-   s->read(&numTriggers);
-   s->read(&toolBegin);
+   if (TSShape::smReadVersion>8)
+   {
+      s->read(&firstTrigger);
+      s->read(&numTriggers);
+   }
+   else
+   {
+      firstTrigger = 0;
+      numTriggers = 0;
+   }
+   if (TSShape::smReadVersion>7)
+      s->read(&toolBegin);
+   else
+      toolBegin=0.0f;
 
    // now the membership sets:
    rotationMatters.read(s);
@@ -789,14 +1298,32 @@ void TSShape::Sequence::read(Stream * s, bool readNameIndex)
       translationMatters.read(s);
       scaleMatters.read(s);
    }
-
-   TSIntegerSet dummy;
-   dummy.read(s); // DEPRECIATED: Decals
-   dummy.read(s); // DEPRECIATED: Ifl materials
-
+   if (TSShape::smReadVersion<17)
+   {
+      TSIntegerSet objectMembership; // obsolete
+      objectMembership.read(s);
+   }
+   // HH: Modified for Tribes 2 compatibility.
+   // The port keeps no decal or ifl animation, but the bits are on the wire.
+   if (TSShape::smReadVersion>10)
+   {
+      TSIntegerSet decalMatters;
+      decalMatters.read(s);
+   }
+   if (TSShape::smReadVersion>5)
+   {
+      TSIntegerSet iflMatters;
+      iflMatters.read(s);
+   }
    visMatters.read(s);
    frameMatters.read(s);
    matFrameMatters.read(s);
+   if (TSShape::smReadVersion<17)
+   {
+      // obsolete...
+      TSIntegerSet nodeTransformStatic;
+      nodeTransformStatic.read(s);
+   }
 
    dirtyFlags = 0;
    if (rotationMatters.testAll() || translationMatters.testAll() || scaleMatters.testAll())
@@ -832,30 +1359,19 @@ void TSShape::Sequence::write(Stream * s, bool writeNameIndex) const
    rotationMatters.write(s);
    translationMatters.write(s);
    scaleMatters.write(s);
-
-   TSIntegerSet dummy;
-   dummy.write(s); // DEPRECIATED: Decals
-   dummy.write(s); // DEPRECIATED: Ifl materials
-
+   // HH: Modified for Tribes 2 compatibility.
+   TSIntegerSet().write(s);
+   TSIntegerSet().write(s);
    visMatters.write(s);
    frameMatters.write(s);
    matFrameMatters.write(s);
 }
 
-void TSShape::writeName(Stream * s, S32 nameIndex)
-{
-   const char * name = "";
-   if (nameIndex>=0)
-      name = names[nameIndex];
-   S32 sz = (S32)dStrlen(name);
-   s->write(sz);
-   if (sz)
-      s->write(sz*sizeof(char),name);
-}
 
+/// The name reading Torque 3D dropped along with the old shape reader.
 S32 TSShape::readName(Stream * s, bool addName)
 {
-   static char buffer[256];
+   char buffer[256];
    S32 sz;
    S32 nameIndex = -1;
    s->read(&sz);
@@ -864,23 +1380,12 @@ S32 TSShape::readName(Stream * s, bool addName)
       s->read(sz*sizeof(char),buffer);
       buffer[sz] = '\0';
       nameIndex = findName(buffer);
-
-      // Many modeling apps don't support spaces in names, so if the lookup
-      // failed, try the name again with spaces replaced by underscores
-      if (nameIndex < 0)
-      {
-         while (char *p = dStrchr(buffer, ' '))
-            *p = '_';
-         nameIndex = findName(buffer);
-      }
-
       if (nameIndex<0 && addName)
       {
          nameIndex = names.size();
          names.increment();
-         names.last() = buffer;
+         names.last() = String(buffer);
       }
    }
-
    return nameIndex;
 }

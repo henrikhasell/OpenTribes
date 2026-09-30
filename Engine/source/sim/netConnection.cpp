@@ -895,6 +895,9 @@ Net::Error NetConnection::sendPacket(BitStream *stream)
 void NetConnection::readPacket(BitStream *bstream)
 {
    eventReadPacket(bstream);
+   // HH: Modified for Tribes 2 compatibility.
+   if(Con::getBoolVariable("$T2::traceGhosts"))
+      Con::printf("EV end @%d", bstream->getCurPos());
    ghostReadPacket(bstream);
 }
 
