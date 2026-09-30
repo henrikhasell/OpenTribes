@@ -17,7 +17,8 @@ OPS = {"readFlag": "OpFlag", "readInt": "OpInt", "readFloatN": "OpFloat",
        "readSignedFloat": "OpSignedFloat", "readRangedF32": "OpRangedF32",
        "readRangedU32": "OpRangedU32", "readColor": "OpColor",
        "readRaw": "OpRaw", "readDataBlockId": "OpDataBlockId",
-       "readSTString": "OpString", "readString": "OpString"}
+       "readSTString": "OpString", "readString": "OpString",
+       "readPoint": "OpPoint"}
 
 L = []
 A = L.append
@@ -91,9 +92,28 @@ def has_cycle(nodes, root):
     return False
 
 
-cyclic = [c for c in sorted(G) if has_cycle(G[c]["nodes"], G[c]["root"])]
+cyclic = [c for c in sorted(G) if G[c].get("cyclic")
+           or has_cycle(G[c]["nodes"], G[c]["root"])]
 for c in cyclic:
     del G[c]
+
+# A graph can be acyclic and still wrong, and the only judge of that is a
+# recorded session: Tools/t2/vetghost.py replays the captures and writes the
+# classes whose layout breaks a packet here, with the reason.  The shipped
+# t2GhostTables.h answers for them instead, which is what the walk's own
+# failures already fall back to.
+VETO = os.path.join(HERE, "ghost_veto.json")
+vetoed = json.load(open(VETO)) if os.path.exists(VETO) else {}
+for c in sorted(vetoed):
+    G.pop(c, None)
+
+# And a layout the walk got wrong in a way a session could name exactly is
+# written out by hand rather than left to it.  Each fixup carries why, so the
+# next walk can be checked against the reason rather than the result.
+FIX = os.path.join(HERE, "ghost_fixups.json")
+fixups = json.load(open(FIX)) if os.path.exists(FIX) else {}
+for c, g in fixups.items():
+    G[c] = g
 
 names = sorted(G)
 for cls in names:
@@ -126,6 +146,11 @@ for cls in names:
             body.append("      { OpFlag, 1, %d, %d },"
                         % (n[1] if n[1] is not None else -1,
                            n[2] if n[2] is not None else -1))
+        elif n[0] == "initial":
+            # Not a bit off the wire: which kind of update this is.
+            body.append("      { OpInitial, 0, %d, %d },"
+                        % (n[1] if n[1] is not None else -1,
+                           n[2] if n[2] is not None else -1))
         elif n[0] == "sel":
             base = len(sel)
             for c in n[3]:
@@ -146,6 +171,8 @@ for cls in names:
     note = ("exact" if not e.get("approx")
             else "%d call%s stepped over" % (e["approx"],
                                              "" if e["approx"] == 1 else "s"))
+    if e.get("wide"):
+        note += ", walked with the object's own counters in the key"
     A("   /// %s: %d nodes from %d explored, %s"
       % (cls, len(e["nodes"]), e.get("explored", 0), note))
     A("   static const T2DataNode sT2RcNodes_%s[] =" % cls)

@@ -33,13 +33,17 @@ def slurp(path):
 def parse_layouts(src, table):
     """name -> (nodes, select, root); a node is (op, bits, a, b)."""
     nodes = {}
-    for m in re.finditer(r"sT2(?:Ev|Gh|Pd|Rc)?Nodes_(\w+)\[\]\s*=\s*\{(.*?)\};", src, re.S):
+    # The prefix says which table a node array belongs to, and there are now
+    # several -- Ev, Gh, Pd, Rc, Er, Pr.  Matching any short one rather than a
+    # list of them stops a new table being silently skipped: the recovered
+    # event layouts were, and the correction in them never took effect.
+    for m in re.finditer(r"sT2[A-Za-z]{0,3}Nodes_(\w+)\[\]\s*=\s*\{(.*?)\};", src, re.S):
         nodes[m.group(1)] = [
             (r[0], int(r[1]), int(r[2]), int(r[3]))
             for r in re.findall(
                 r"\{\s*(\w+),\s*(-?\d+),\s*(-?\d+),\s*(-?\d+)\s*\}", m.group(2))]
     sel = {}
-    for m in re.finditer(r"sT2(?:Ev|Gh|Pd|Rc)?Sel_(\w+)\[\]\s*=\s*\{([^}]*)\};", src):
+    for m in re.finditer(r"sT2[A-Za-z]{0,3}Sel_(\w+)\[\]\s*=\s*\{([^}]*)\};", src):
         sel[m.group(1)] = [int(x) for x in m.group(2).split(",") if x.strip()]
     out = {}
     m = re.search(r"%s\[\]\s*=\s*\{(.*?)\};" % table, src, re.S)
@@ -58,14 +62,28 @@ def parse_class_table(name):
 
 DBL = parse_layouts(slurp(os.path.join(GB, "t2DataBlockTables.h")), "sT2DataBlocks")
 GHL = parse_layouts(slurp(os.path.join(GB, "t2GhostTables.h")), "sT2Ghosts")
+def overlay(into, path, table):
+    """Merge a generated table over another, loudly.  Swallowing the failure
+    here hid a whole table once: the recovered events parsed to nothing
+    because their node arrays carry a prefix the pattern did not know, and the
+    correction in them silently never applied."""
+    p = os.path.join(GB, path)
+    if not os.path.exists(p):
+        return
+    got = parse_layouts(slurp(p), table)
+    if not got:
+        raise RuntimeError("%s parsed to no layouts at all" % path)
+    into.update(got)
+
+
 # the recovered layouts take precedence, as they do in the engine
-try:
-    GHL.update(parse_layouts(slurp(os.path.join(GB, "t2GhostTablesRecovered.h")),
-                             "sT2GhostsRecovered"))
-except Exception:
-    pass
+overlay(GHL, "t2GhostTablesRecovered.h", "sT2GhostsRecovered")
 EVL = parse_layouts(slurp(os.path.join(GB, "t2EventTables.h")), "sT2Events")
+# the written-out event layouts take precedence, as they do in the engine
+overlay(EVL, "t2EventTablesRecovered.h", "sT2EventsRecovered")
 PDL = parse_layouts(slurp(os.path.join(GB, "t2PacketDataTables.h")), "sT2PacketData")
+# the written-out control-object layouts take precedence, as they do in the engine
+overlay(PDL, "t2PacketDataTablesRecovered.h", "sT2PacketDataRecovered")
 
 OBJECTS   = parse_class_table("Objects")
 DATABLOCKS = parse_class_table("DataBlocks")
@@ -189,8 +207,14 @@ TRACE = os.environ.get("T2_TRACE")
 KEEP_GOING = bool(os.environ.get("T2_KEEP"))
 VERBOSE = bool(os.environ.get("T2_VERBOSE"))
 
+# Tracing the whole session buries the one packet that matters, so a single
+# packet number can be asked for by itself.
+ONLY = int(os.environ.get("T2_ONLY", 0))
+TAILS = []
+SESSION = None   # set per packet, for OpPacketDataOf
 
-def walk(st, layout, name, notes=None):
+
+def walk(st, layout, name, notes=None, initial=False):
     nodes, sel, root = layout
     slots = [0] * 8
     tr = TRACE in (name, "*")
@@ -209,6 +233,24 @@ def walk(st, layout, name, notes=None):
                 return
             if op == "OpFlag":
                 at = b if st.flag() else a
+                continue
+            if op == "OpInitial":
+                # Not a bit off the wire: which of the two this update is.
+                at = b if initial else a
+                continue
+            if op == "OpPacketDataOf":
+                # A ghost index, then that object's packet data -- whose width
+                # is the piloted vehicle's, not this class's.
+                idx = st.rint(bits)
+                cls = SESSION.ghosts.get(idx) if SESSION else None
+                if cls is None:
+                    raise RuntimeError(
+                        "%s reads the packet data of ghost %d, which we never "
+                        "made" % (name, idx))
+                if cls not in PDL:
+                    raise RuntimeError("no packet data layout for %s" % cls)
+                walk(st, PDL[cls], cls, initial=initial)
+                at = a
                 continue
             if op == "OpSelect":
                 at = sel[a + st.rint(bits)]
@@ -229,6 +271,12 @@ def walk(st, layout, name, notes=None):
                 continue
             if op == "OpCount":
                 slots[b & 7] = st.rint(bits) if bits else 0
+                at = a
+                continue
+            if op == "OpCountBits":
+                # A mask, kept as how many bits stand in it.
+                v = st.rint(bits) if bits else 0
+                slots[b & 7] = bin(v).count("1")
                 at = a
                 continue
             if op == "OpString":
@@ -263,6 +311,11 @@ class Session:
         self.commands = []
         self.shapes = []
         self.control = None
+        self.seq = -1
+        self.seqs = []
+        self.gapat = []
+        self.new_here = False
+        self.pkt = 0
 
 
 def read_body(st, S):
@@ -275,11 +328,13 @@ def read_body(st, S):
         if st.flag():
             st.rint(7)
 
-    if st.flag():                                 # the two indicators
+    if st.flag():                                 # a pair of indicators
         st.flag()
         st.flag()
 
-    if st.flag():                                 # observer camera
+    # A three-way block whose meaning is unsettled: read here as the observer
+    # camera, and by t2-demo-parser as a seeker's lock.  The widths agree.
+    if st.flag():
         if st.flag():
             st.rint(32), st.rint(32), st.rint(32)
         mode = st.rint(2)
@@ -303,7 +358,10 @@ def read_body(st, S):
                 raise RuntimeError("control object is ghost %d, which we never made" % gi)
             if name not in PDL:
                 raise RuntimeError("no packet data layout for %s" % name)
+            was = st.p
             walk(st, PDL[name], name)
+            if VERBOSE:
+                print("  control %s %d bits" % (name, st.p - was))
         else:
             # the compression point, three whole floats
             st.rint(32), st.rint(32), st.rint(32)
@@ -319,14 +377,28 @@ def read_body(st, S):
 def read_events(st, S):
     unordered = True
     while True:
+        at = st.p
         bit = st.flag()
         if unordered and not bit:
             unordered = False
             bit = st.flag()
+        if VERBOSE:
+            print("  ev top @%d %s bit=%d"
+                  % (at, "unordered" if unordered else "ordered", bit))
         if not unordered and not bit:
             break
-        if not unordered and not st.flag():
-            st.rint(7)
+        if not unordered:
+            # The sequence is either one past the last or spelt out in seven
+            # bits.  Following it is what tells a lost event from a packet that
+            # merely ends with bits nobody wrote on purpose.
+            if st.flag():
+                S.seq = (S.seq + 1) & 0x7f
+            else:
+                S.seq = st.rint(7)
+            S.seqs.append(S.seq)
+            if S.seqs[-2:-1] and S.seq != ((S.seqs[-2] + 1) & 0x7f) \
+                    and S.seq != S.seqs[-2]:
+                S.gapat.append((S.pkt, S.seqs[-2], S.seq))
 
         cid = st.rint(EventBits)
         if cid >= len(EVENTS):
@@ -346,7 +418,10 @@ def read_events(st, S):
                 if cn not in DBL:
                     raise RuntimeError("no layout for datablock %s" % cn)
                 notes = []
+                was = st.p
                 walk(st, DBL[cn], cn, notes)
+                if VERBOSE:
+                    print("  datablock %s %d bits" % (cn, st.p - was))
                 S.datablocks += 1
                 S.last_db = (idx, cn)
                 for s in notes:
@@ -396,7 +471,10 @@ def read_events(st, S):
                 cn = OBJECTS[cid]
                 if cn not in GHL:
                     raise RuntimeError("no layout for ghost always %s" % cn)
-                walk(st, GHL[cn], cn)
+                was = st.p
+                walk(st, GHL[cn], cn, initial=True)
+                if VERBOSE:
+                    print("   ga %d %s %d bits" % (index, cn, st.p - was))
                 S.ghosts[index] = cn
                 S.ghost_always += 1
         elif name in EVL:
@@ -425,13 +503,21 @@ def read_ghosts(st, S):
             if cid >= len(OBJECTS):
                 raise RuntimeError("new ghost class id %d out of range" % cid)
             S.ghosts[index] = OBJECTS[cid]
+            S.new_here = True
             S.ghost_new += 1
             if VERBOSE:
-                print("  ghost %d new %s" % (index, OBJECTS[cid]))
+                print("  ghost %d is new, a %s" % (index, OBJECTS[cid]))
         name = S.ghosts[index]
         if name not in GHL:
             raise RuntimeError("no layout for ghost %s" % name)
-        walk(st, GHL[name], name)
+        # An update's length is the only thing comparable with another reader's,
+        # so it is printed the same way a ghost-always body's is.
+        was = st.p
+        walk(st, GHL[name], name, initial=S.new_here)
+        if VERBOSE:
+            print("   ghost %d %s %s %d bits"
+                  % (index, "new" if S.new_here else "upd", name, st.p - was))
+        S.new_here = False
         S.ghost_updates += 1
 
 
@@ -450,11 +536,15 @@ def main(path):
         p = data[off:off + n]
         off += n
         pkt += 1
+        if ONLY:
+            globals()["VERBOSE"] = pkt == ONLY
         if not (p[0] & 1):
             continue                              # out of band
         if VERBOSE:
             print("packet %d (%d bytes)" % (pkt, n))
 
+        S.pkt = pkt
+        globals()["SESSION"] = S
         st = Stream(p)
         try:
             st.flag()                             # game packet
@@ -484,6 +574,7 @@ def main(path):
             # ended cleanly" into "the packet was understood".
             where = "tail"
             left = len(p) * 8 - st.p
+            TAILS.append((pkt, len(p), left))
             if left > 7:
                 raise RuntimeError("%d bits left unread" % left)
         except Exception as e:
@@ -508,6 +599,17 @@ def main(path):
           % (len(S.commands), [a[0] for a in S.commands[:6]]))
     print("events         : %s"
           % dict(sorted(S.events.items(), key=lambda kv: -kv[1])))
+    if os.environ.get("T2_TAILS"):
+        h = {}
+        for _, _, l in TAILS: h[l] = h.get(l, 0) + 1
+        print("tail bits      : %s" % dict(sorted(h.items())))
+    gaps = []
+    for a, b in zip(S.seqs, S.seqs[1:]):
+        if b != ((a + 1) & 0x7f):
+            gaps.append((a, b))
+    print("event seqs     : %d, gaps %d %s"
+          % (len(S.seqs), len(gaps), gaps[:6]))
+    print("seq gaps at    : %s" % S.gapat[:8])
     print("stopped        : %s" % stopped)
     if KEEP_GOING:
         print("packets failed : %d of %d" % (len(fails), data_pkt))

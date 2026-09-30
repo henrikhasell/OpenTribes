@@ -1,0 +1,65 @@
+{
+ "SensorGroupColorEvent": {
+  "why": "The shipped table and eventwalk.py both give this fifty-eight nodes and both read 111 bits where a session carries 133.  Its colours are not a counted list: it sends a thirty-two bit mask and then an entry for each bit standing in it, each of those being a flag and, if set, four bytes of colour.  No op could say that until OpCountBits, which keeps a mask's population count.  Measured on a spawned session: the mask came back all ones with two colours carried, 5 + 32 + 32 + 2*32 = 133.  Cross-checked against t2-demo-parser (MIT, github.com/exogen/t2-demo-parser).",
+  "root": 9,
+  "nodes": [
+   [
+    "end"
+   ],
+   [
+    "endbody"
+   ],
+   [
+    "read",
+    "readRaw",
+    8,
+    1
+   ],
+   [
+    "read",
+    "readRaw",
+    8,
+    2
+   ],
+   [
+    "read",
+    "readRaw",
+    8,
+    3
+   ],
+   [
+    "read",
+    "readRaw",
+    8,
+    4
+   ],
+   [
+    "flag",
+    1,
+    5
+   ],
+   [
+    "loop",
+    0,
+    6,
+    0
+   ],
+   [
+    "countbits",
+    32,
+    0,
+    7
+   ],
+   [
+    "read",
+    "readRaw",
+    5,
+    8
+   ]
+  ],
+  "approx": 0,
+  "explored": 0,
+  "wide": false,
+  "cyclic": false
+ }
+}

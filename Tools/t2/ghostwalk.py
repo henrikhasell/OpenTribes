@@ -15,9 +15,12 @@ import csv, json, os, re, subprocess, sys, threading, time
 sys.setrecursionlimit(2000000)
 threading.stack_size(4096 * 1024 * 1024)
 
-TOOLS = "/home/henrik/Documents/Repositories/BananaEngine/tools/t2"
-META = "/home/henrik/Documents/Repositories/Tribes2Decompiled/metadata"
-EXE = "/home/henrik/.wine/drive_c/Dynamix/Tribes2/GameData/Tribes2.exe"
+TOOLS = os.environ.get("T2_TOOLS",
+    os.path.expanduser("~/Documents/Repositories/BananaEngine/tools/t2"))
+META = os.environ.get("T2_META",
+    os.path.expanduser("~/Documents/Repositories/Tribes2Decompiled/metadata"))
+EXE = os.environ.get("TRIBES2_EXE", os.path.expanduser(
+    "~/.wine/drive_c/Dynamix/Tribes2/GameData/Tribes2.exe"))
 OPENT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 sys.path.insert(0, TOOLS)
 
@@ -159,23 +162,84 @@ def vtable_of(name):
 
 def unpack_update(name):
     """Slot 19 of the table whose slot 19 reads the stream."""
+    return (unpack_update_vt(name) or (None, 0))[0]
+
+
+def unpack_update_vt(name):
+    """Its entry and the vtable it came from, which the walk seats in the
+    object so a virtual call to the parent's unpackUpdate resolves."""
     for vt in vtable_of(name) or []:
         fn = P.u32(vt + 4 * 19)
         if fn and P.off(fn) is not None:
-            return fn
+            return fn, vt
     return None
 
 
+def has_cycle(nodes, root):
+    """A counted loop that did not unroll shows up as a back edge.
+
+    Such a graph reads whichever way out of the cycle the bits happen to
+    steer, which is how a body of six hundred bits comes out as thirty-six.
+    """
+    WHITE, GREY = 0, 1
+    colour = [WHITE] * len(nodes)
+
+    def succ(i):
+        n = nodes[i]
+        if n[0] == "loop":
+            return [x for x in (n[3], n[2]) if x is not None]
+        if n[0] == "flag":
+            return [x for x in (n[1], n[2]) if x is not None]
+        if n[0] == "sel":
+            return [x for x in n[3] if x is not None]
+        if n[0] == "br":
+            return [x for x in (n[4], n[5]) if x is not None]
+        if n[0] == "count":
+            return [x for x in (n[4],) if x is not None]
+        if n[0] in ("end", "endbody"):
+            return []
+        return [x for x in (n[3],) if x is not None]
+
+    if not (0 <= root < len(nodes)):
+        return False
+    colour[root] = GREY
+    stack = [(root, iter(succ(root)))]
+    while stack:
+        i, it = stack[-1]
+        nxt = next(it, None)
+        if nxt is None:
+            colour[i] = 2
+            stack.pop()
+            continue
+        if not (0 <= nxt < len(nodes)):
+            continue
+        if colour[nxt] == GREY:
+            return True
+        if colour[nxt] == WHITE:
+            colour[nxt] = GREY
+            stack.append((nxt, iter(succ(nxt))))
+    return False
+
+
 # ------------------------------------------------------------------ the walk
-def walk_one(entry, widefork, budget=600, cap=40000000):
+# The cap counts states explored, not nodes kept: ShapeBase explores 195,516 of
+# them and compacts to 1,032.  So it has to be loose enough to let a real class
+# through and still catch a walk that is going nowhere.
+CAP = int(os.environ.get("T2_CAP", 8000000))
+
+
+def walk_one(entry, widefork, budget=600, cap=None, wide_counters=False,
+             vtable=0):
+    cap = CAP if cap is None else cap
     mark_pure(entry)
     flat.APPROX_INDIRECT = True
     flat.APPROXIMATED.clear()
     w = flat.Walk(SPANS)
     w.budget = budget
+    w.wide_counters = wide_counters
     if not widefork:
         w.no_widefork = True
-    prog, root = w.build(entry, cap=cap, nargs=2)     # (connection, stream)
+    prog, root = w.build(entry, cap=cap, nargs=2, vtable=vtable)
     return prog, root
 
 
@@ -204,62 +268,177 @@ def min_bits(nodes, root):
     return cost(root)
 
 
+def owner_of(pc):
+    """The function start `pc` falls in, taken from the symbol spans."""
+    best = None
+    for va in SPANS:
+        if va <= pc and (best is None or va > best):
+            best = va
+    return best
+
+
+def walk_escalating(fn, widefork, wide, vt, tries=6):
+    """Walk, and on a runaway step over whatever was spinning and try again.
+
+    Two hundred thousand instructions between one stream read and the next is
+    itself proof the function is not reading: Tribes 2's printf lands there
+    formatting an assert message, and SeekerProjectile's steering loop runs a
+    trajectory search.  Neither can move the bit position, so stepping over
+    the one that spun is sound, and it is the only way past a helper whose
+    indirect call stops `touches_stream` from ruling it out up front.
+    """
+    stepped = []
+    for _ in range(tries):
+        # The profiler that names the spinning pc costs a dict update on every
+        # instruction, which is far too dear to leave on: AIObjective walks in
+        # eleven seconds without it and overran a ten minute budget with it.
+        # So the fast path runs blind, and only a walk that has already run
+        # away is run again to find out where it did.
+        flat.RUNAWAY_DIAG = False
+        try:
+            return walk_one(fn, widefork, wide_counters=wide, vtable=vt), stepped
+        except RuntimeError as e:
+            if not ("%s" % e).startswith("runaway"):
+                raise
+        flat.RUNAWAY_DIAG = True
+        try:
+            walk_one(fn, widefork, wide_counters=wide, vtable=vt)
+            raise RuntimeError("runaway that did not repeat")
+        except RuntimeError as e:
+            m = re.match(r"runaway at 0x([0-9a-f]+) hot 0x([0-9a-f]+):", "%s" % e)
+            if not m:
+                raise
+            owner = owner_of(int(m.group(2), 16))
+            if owner is None or owner in emu.NOOP or owner == fn:
+                raise
+            emu.NOOP.add(owner)
+            stepped.append(owner)
+        finally:
+            flat.RUNAWAY_DIAG = False
+    raise RuntimeError("runaway after stepping over %s"
+                       % " ".join("0x%x" % x for x in stepped))
+
+
 def report(name):
-    fn = unpack_update(name)
+    fnvt = unpack_update_vt(name)
+    fn, vt = fnvt if fnvt else (None, 0)
     if not fn:
         print("%-22s no unpackUpdate found" % name)
         return None
     result = {}
-    for widefork in (True, False):
-        try:
-            t = time.time()
-            prog, root = walk_one(fn, widefork)
-            result = {"entry": fn, "nodes": len(prog.nodes), "root": root,
-                      "widefork": widefork, "secs": round(time.time() - t, 1),
-                      "prog": prog, "rootidx": root}
+    # A first pass with the narrow key, which merges well; then, only if its
+    # graph came back with a cycle in it, a second with the object's own
+    # counters in the key as well.
+    for wide in (False, True):
+        for widefork in (True, False):
+            try:
+                t = time.time()
+                (prog, root), spun = walk_escalating(fn, widefork, wide, vt)
+                result = {"entry": fn, "nodes": len(prog.nodes), "root": root,
+                          "widefork": widefork, "secs": round(time.time() - t, 1),
+                          "prog": prog, "rootidx": root, "wide": wide,
+                          "spun": len(spun),
+                          "approx": len(flat.APPROXIMATED)}
+                break
+            except Exception as e:
+                result = {"entry": fn, "error": "%s" % e, "widefork": widefork}
+        if "prog" not in result:
+            continue
+        g = buildall.compact(result["prog"].nodes, result["rootidx"])
+        if not has_cycle(g["nodes"], g["root"]):
+            result["graph"] = g
             break
-        except Exception as e:
-            result = {"entry": fn, "error": "%s" % e, "widefork": widefork}
+        result["graph"] = g          # keep it, but try the wider key next
     if "prog" in result:
         result["approx"] = len(flat.APPROXIMATED)
-        print("%-22s 0x%06x  %6d nodes  widefork=%-5s %5.1fs  %s"
-              % (name, fn, result["nodes"], result["widefork"], result["secs"],
+        cyc = has_cycle(result["graph"]["nodes"], result["graph"]["root"]) \
+            if result.get("graph") else True
+        print("%-22s 0x%06x  %6d nodes %5.1fs  %-22s %s%s"
+              % (name, fn, result["nodes"], result["secs"],
                  "%d calls stepped over" % result["approx"]
-                 if result["approx"] else "exact"))
+                 if result["approx"] else "exact",
+                 "wide key, " if result.get("wide") else "",
+                 "CYCLIC" if cyc else "acyclic"))
     else:
         print("%-22s 0x%06x  %s" % (name, fn, result["error"]))
     return result
 
 
+def all_names():
+    src = open(os.path.join(
+        OPENT, "Engine/source/console/netClassTableT2.cpp"),
+        encoding="latin1").read()
+    m = re.search(r"const char \*const Objects\[\]\s*=\s*\{(.*?)\};", src, re.S)
+    return re.findall(r'"([A-Za-z0-9_]+)"', m.group(1))
+
+
+def one(name):
+    """Walk a single class and return its compacted graph, or None."""
+    r = report(name)
+    if not r or not r.get("graph"):
+        return None
+    g = r["graph"]
+    g["approx"] = r.get("approx", 0)
+    g["explored"] = r["nodes"]
+    g["wide"] = r.get("wide", False)
+    g["cyclic"] = has_cycle(g["nodes"], g["root"])
+    return g
+
+
+def drive(names, seconds):
+    """Walk each class in a child of its own, on a clock.
+
+    The wide key merges so much less that a class which merely ran out of
+    steps under the narrow one can run for hours under it.  A child that
+    overruns is killed and said so, which is more use than a walk that never
+    returns.
+    """
+    here = os.path.abspath(__file__)
+    out = {}
+    for n in names:
+        try:
+            r = subprocess.run([sys.executable, "-u", here, "--json", n],
+                               capture_output=True, text=True, timeout=seconds)
+        except subprocess.TimeoutExpired:
+            print("%-22s gave up after %ds" % (n, seconds), flush=True)
+            continue
+        line = [l for l in r.stdout.splitlines() if l.startswith("{")]
+        note = [l for l in r.stdout.splitlines() if not l.startswith("{")]
+        for l in note:
+            print(l, flush=True)
+        if line:
+            out[n] = json.loads(line[-1])
+    return out
+
+
 if __name__ == "__main__":
     args = [a for a in sys.argv[1:]]
-    if args == ["--all"]:
-        src = open(os.path.join(
-            OPENT, "Engine/source/console/netClassTableT2.cpp"), encoding="latin1").read()
-        m = re.search(r"const char \*const Objects\[\]\s*=\s*\{(.*?)\};", src, re.S)
-        args = re.findall(r'"([A-Za-z0-9_]+)"', m.group(1))
 
-    out = {}
+    if args and args[0] == "--json":
+        name = args[1]
 
-    def go():
-        ok = 0
-        for n in args:
-            if n not in CLASSES:
-                print("%-22s not in the decompilation metadata" % n)
-                continue
-            r = report(n)
-            if r and "prog" in r:
-                g = buildall.compact(r["prog"].nodes, r["rootidx"])
-                g["approx"] = r.get("approx", 0)
-                g["explored"] = r["nodes"]
-                out[n] = g
-                ok += 1
-        print()
-        print("%d of %d classes walked; %d nodes after compacting"
-              % (ok, len(args), sum(len(v["nodes"]) for v in out.values())))
-        json.dump(out, open(os.path.join(
-            os.path.dirname(os.path.abspath(__file__)), "ghost_graphs.json"), "w"))
+        def emit():
+            g = one(name)
+            if g is not None:
+                print(json.dumps(g))
 
-    th = threading.Thread(target=go)
-    th.start()
-    th.join()
+        th = threading.Thread(target=emit)
+        th.start()
+        th.join()
+        raise SystemExit
+
+    seconds = 150
+    if args and args[0].startswith("--seconds="):
+        seconds = int(args[0].split("=")[1])
+        args = args[1:]
+    if not args or args == ["--all"]:
+        args = all_names()
+
+    graphs = drive(args, seconds)
+    print()
+    print("%d of %d classes walked; %d nodes after compacting; %d cyclic"
+          % (len(graphs), len(args),
+             sum(len(v["nodes"]) for v in graphs.values()),
+             sum(1 for v in graphs.values() if v.get("cyclic"))))
+    json.dump(graphs, open(os.path.join(
+        os.path.dirname(os.path.abspath(__file__)), "ghost_graphs.json"), "w"))

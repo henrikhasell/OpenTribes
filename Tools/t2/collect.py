@@ -45,10 +45,26 @@ def layout_counts(header, table):
     return out
 
 
+def with_recovered(base, base_table, extra, extra_table):
+    """The shipped table plus whatever is generated over it.  Counting only
+    the shipped ones made the workbook say there was one control-object layout
+    when there are eight."""
+    out = layout_counts(base, base_table)
+    try:
+        out.update(layout_counts(extra, extra_table))
+    except Exception:
+        pass
+    return out
+
+
 DBL = layout_counts("t2DataBlockTables.h", "sT2DataBlocks")
-GHL = layout_counts("t2GhostTables.h", "sT2Ghosts")
-EVL = layout_counts("t2EventTables.h", "sT2Events")
-PDL = layout_counts("t2PacketDataTables.h", "sT2PacketData")
+GHL = with_recovered("t2GhostTables.h", "sT2Ghosts",
+                     "t2GhostTablesRecovered.h", "sT2GhostsRecovered")
+EVL = with_recovered("t2EventTables.h", "sT2Events",
+                     "t2EventTablesRecovered.h", "sT2EventsRecovered")
+PDL = with_recovered("t2PacketDataTables.h", "sT2PacketData",
+                     "t2PacketDataTablesRecovered.h",
+                     "sT2PacketDataRecovered")
 
 
 # ------------------------------------------------------- what the port declares
