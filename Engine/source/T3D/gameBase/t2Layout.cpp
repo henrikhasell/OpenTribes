@@ -27,11 +27,21 @@ namespace T2Layout
 #include "T3D/gameBase/t2GhostTables.h"
 #include "T3D/gameBase/t2GhostTablesRecovered.h"
 #include "T3D/gameBase/t2EventTables.h"
+#include "T3D/gameBase/t2EventTablesRecovered.h"
 #include "T3D/gameBase/t2PacketDataTables.h"
+#include "T3D/gameBase/t2PacketDataTablesRecovered.h"
 
 using namespace T2Protocol;
 
 static bool sTrace = false;
+
+// HH: Added for Tribes 2 compatibility.
+// Set for the length of one readPacketData: a layout that reads another
+// object's packet data needs to be told what class that object is, and only
+// the connection knows.  Kept beside the walk like sTrace rather than threaded
+// through every frame of it.
+static GhostClassFn sResolve = NULL;
+static void *sResolveCtx = NULL;
 static char sShapeName[256] = { 0 };
 
 void setTrace(bool trace)
@@ -63,7 +73,7 @@ static void noteString(const char *str)
 }
 
 static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
-                     S32 at, U32 *slots, U32 depth)
+                     S32 at, U32 *slots, U32 depth, bool isInitial)
 {
    if(depth > 8)                       // Tribes 2 nests these two deep at most
    {
@@ -90,10 +100,11 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
          {
             "End", "EndBody", "Flag", "Select", "ReadBr", "Count", "Loop",
             "Int", "Float", "SignedFloat", "RangedF32", "RangedU32",
-            "Color", "Raw", "DataBlockId", "String", "Point"
+            "Color", "Raw", "DataBlockId", "String", "Point", "Initial",
+            "PacketDataOf", "CountBits"
          };
          Con::printf("  [%4d] node %3d %-12s bits %d", stream->getCurPos(),
-                     at, n.op < 17 ? opNames[n.op] : "?", n.bits);
+                     at, n.op < 20 ? opNames[n.op] : "?", n.bits);
       }
 
       switch(n.op)
@@ -105,6 +116,42 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
          case OpFlag:
             at = stream->readFlag() ? n.b : n.a;
             continue;
+
+         // Not a bit off the wire: which of the two the caller said this is.
+         case OpInitial:
+            at = isInitial ? n.b : n.a;
+            continue;
+
+         // A mask, kept as how many bits stand in it: the loop after this one
+         // runs once per set bit rather than a counted number of times.
+         case OpCountBits:
+         {
+            U32 v = n.bits ? stream->readInt(n.bits) : 0;
+            U32 set = 0;
+            for(; v; v >>= 1)
+               set += v & 1;
+            slots[n.b & 7] = set;
+            at = n.a;
+            continue;
+         }
+
+         // A ghost index, then that object's packet data -- whose width is the
+         // piloted vehicle's, not this class's.
+         case OpPacketDataOf:
+         {
+            const U32 idx = stream->readInt(n.bits);
+            const char *cls = sResolve ? sResolve(sResolveCtx, idx) : NULL;
+            if(!cls)
+            {
+               Con::warnf("T2 layout: %s reads the packet data of ghost %d, "
+                          "which we cannot name", layout->name, idx);
+               return false;
+            }
+            if(!readPacketData(stream, cls, sResolve, sResolveCtx))
+               return false;
+            at = n.a;
+            continue;
+         }
 
          // A few bits that are not a field but a count -- how many colours a
          // ParticleData carries, say -- so the path after them depends on the
@@ -156,7 +203,7 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
                return false;
             }
             for(U32 i = 0; i < count; i++)
-               if(!runGraph(stream, layout, n.b, slots, depth + 1))
+               if(!runGraph(stream, layout, n.b, slots, depth + 1, isInitial))
                   return false;
             at = n.a;
             continue;
@@ -210,7 +257,7 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
 /// the stream, so a second table must not be tried after it.
 static bool runNamed(BitStream *stream, const char *name,
                      const T2DataBlockLayout *table, U32 count,
-                     bool *found = NULL)
+                     bool *found = NULL, bool isInitial = false)
 {
    if(!name)
       return false;
@@ -229,7 +276,8 @@ static bool runNamed(BitStream *stream, const char *name,
          *found = true;
 
       U32 slots[8] = { 0, 0, 0, 0, 0, 0, 0, 0 };
-      return runGraph(stream, &table[i], table[i].root, slots, 0);
+      return runGraph(stream, &table[i], table[i].root, slots, 0,
+                      isInitial);
    }
 
    return false;
@@ -243,7 +291,7 @@ bool readDataBlock(BitStream *stream, const char *className)
    return runNamed(stream, className, sT2DataBlocks, ELEMENTS(sT2DataBlocks));
 }
 
-bool readGhost(BitStream *stream, const char *className)
+bool readGhost(BitStream *stream, const char *className, bool isInitial)
 {
    // The recovered layouts first: they were walked with the emulator able to
    // follow a class into its parent, where the older table halted and left a
@@ -251,21 +299,45 @@ bool readGhost(BitStream *stream, const char *className)
    // reach yet.
    bool found = false;
    const bool ok = runNamed(stream, className, sT2GhostsRecovered,
-                            ELEMENTS(sT2GhostsRecovered), &found);
+                            ELEMENTS(sT2GhostsRecovered), &found, isInitial);
    if(found)
       return ok;
 
-   return runNamed(stream, className, sT2Ghosts, ELEMENTS(sT2Ghosts));
+   return runNamed(stream, className, sT2Ghosts, ELEMENTS(sT2Ghosts),
+                   NULL, isInitial);
 }
 
 bool readEvent(BitStream *stream, const char *className)
 {
+   // The recovered table first.  It began as only the events nothing else
+   // could read, but it also carries the ones the shipped table gets wrong --
+   // SensorGroupColorEvent reads 111 bits there where a session carries 133 --
+   // and a correction is no use behind the thing it corrects.
+   bool found = false;
+   const bool ok = runNamed(stream, className, sT2EventsRecovered,
+                            ELEMENTS(sT2EventsRecovered), &found);
+   if(found)
+      return ok;
+
    return runNamed(stream, className, sT2Events, ELEMENTS(sT2Events));
 }
 
-bool readPacketData(BitStream *stream, const char *className)
+bool readPacketData(BitStream *stream, const char *className,
+                    GhostClassFn resolve, void *ctx)
 {
-   return runNamed(stream, className, sT2PacketData, ELEMENTS(sT2PacketData));
+   // The recovered table first, as for ghosts: the shipped one carries only
+   // Camera, and every other control object a Tribes 2 server hands out was
+   // written out afterwards.
+   sResolve = resolve;
+   sResolveCtx = ctx;
+
+   bool found = false;
+   bool ok = runNamed(stream, className, sT2PacketDataRecovered,
+                      ELEMENTS(sT2PacketDataRecovered), &found);
+   if(!found)
+      ok = runNamed(stream, className, sT2PacketData,
+                    ELEMENTS(sT2PacketData));
+   return ok;
 }
 
 }

@@ -16,35 +16,46 @@
 
 namespace T2Protocol
 {
-   // Camera::readPacketData, 0x005cc530 in Tribes2.exe.  Five floats -- the
-   // position and two angles -- then three bits of mode, from
-   // getBinLog2(getNextPow2(5)).  Modes 3 and 4 add three more floats; mode 3
-   // then names an object by ghost index, and mode 4 goes on into a helper on
-   // the connection that this has not followed yet, so it stops there rather
-   // than guessing.  Every other mode ends after the first five floats.
-   static const S16 sT2PdSel_Camera[] = { 11, 11, 11, 6, 12, 11, 11, 11 };
+   // HH: Modified for Tribes 2 compatibility.
+   // Camera::readPacketData, 0x005cc530 in Tribes2.exe.  It begins with its
+   // parent's: ShapeBase::readPacketData sends the energy level and the
+   // recharge rate, two whole floats, and leaving them out cost sixty-four
+   // bits at the head of every packet carrying control data -- which threw
+   // out the event section after it and lost the rest of the packet.
+   //
+   // Then the camera's own: a position, two angles, and three bits of mode
+   // from getBinLog2(getNextPow2(5)).  Modes 3 and 4 add three orbit
+   // distances; mode 3 then names an object by ghost index, and mode 4 reads
+   // a compressed point.  Every other mode ends after the angles.
+   //
+   // Cross-checked against t2-demo-parser (MIT,
+   // github.com/exogen/t2-demo-parser) on a recorded session: 227 bits.
+   static const S16 sT2PdSel_Camera[] = { 13, 13, 13, 8, 14, 13, 13, 13 };
    static const T2DataNode sT2PdNodes_Camera[] =
    {
-      { OpRaw,   32,  1, -1 },   //  0  position x
-      { OpRaw,   32,  2, -1 },   //  1  position y
-      { OpRaw,   32,  3, -1 },   //  2  position z
-      { OpRaw,   32,  4, -1 },   //  3
-      { OpRaw,   32,  5, -1 },   //  4
-      { OpSelect, 3,  0, -1 },   //  5  mode
-      { OpRaw,   32,  7, -1 },   //  6  mode 3
-      { OpRaw,   32,  8, -1 },   //  7
-      { OpRaw,   32,  9, -1 },   //  8
-      { OpRaw,    1, 10, -1 },   //  9
-      { OpRaw,   10, 11, -1 },   // 10  ghost index
-      { OpEnd,    0, -1, -1 },   // 11
-      { OpRaw,   32, 13, -1 },   // 12  mode 4
-      { OpRaw,   32, 14, -1 },   // 13
-      { OpRaw,   32, 99, -1 },   // 14  and then something not read yet
+      { OpRaw,   32,  1, -1 },   //  0  energy level, from ShapeBase
+      { OpRaw,   32,  2, -1 },   //  1  recharge rate, likewise
+      { OpRaw,   32,  3, -1 },   //  2  position x
+      { OpRaw,   32,  4, -1 },   //  3  position y
+      { OpRaw,   32,  5, -1 },   //  4  position z
+      { OpRaw,   32,  6, -1 },   //  5  rotation x
+      { OpRaw,   32,  7, -1 },   //  6  rotation z
+      { OpSelect, 3,  0, -1 },   //  7  mode
+      { OpRaw,   32,  9, -1 },   //  8  mode 3: minimum orbit distance
+      { OpRaw,   32, 10, -1 },   //  9            maximum
+      { OpRaw,   32, 11, -1 },   // 10            current
+      { OpRaw,    1, 12, -1 },   // 11  observing this client's own object
+      { OpRaw,   10, 13, -1 },   // 12  the object orbited, by ghost index
+      { OpEnd,    0, -1, -1 },   // 13
+      { OpRaw,   32, 15, -1 },   // 14  mode 4: the same three distances
+      { OpRaw,   32, 16, -1 },   // 15
+      { OpRaw,   32, 17, -1 },   // 16
+      { OpPoint,  0, 13, -1 },   // 17  and the point orbited, compressed
    };
 
    static const T2DataBlockLayout sT2PacketData[] =
    {
-      { "Camera", sT2PdNodes_Camera, 15, sT2PdSel_Camera, 0 },
+      { "Camera", sT2PdNodes_Camera, 18, sT2PdSel_Camera, 0 },
    };
 }
 

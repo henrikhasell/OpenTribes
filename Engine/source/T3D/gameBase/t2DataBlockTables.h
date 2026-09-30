@@ -47,6 +47,30 @@ namespace T2Protocol
       /// scaled deltas or three whole floats.  Not a fixed width, which is why
       /// it needs an op of its own rather than a run of OpRaw.
       OpPoint,
+
+      /// HH: Added for Tribes 2 compatibility, beyond the ops the recovered
+      /// tables use.  Branches on whether this is an object's first update
+      /// rather than on a bit off the wire: ShapeBase reads one extra flag per
+      /// mounted image slot only when the object is not yet in the scene,
+      /// which a ghost-always body and a newly scoped ghost are and an update
+      /// to a ghost already made is not.  No walk can see that from the bits,
+      /// so it has to come from the caller.
+      OpInitial,
+
+      /// HH: Added for Tribes 2 compatibility.  Takes `bits` as a ghost index
+      /// and then reads that object's packet data, whatever class it turns out
+      /// to hold.  Player::readPacketData does this when the player is piloting
+      /// something: the width of what follows is the piloted vehicle's, so it
+      /// cannot be known from the layout alone -- only from which ghost the
+      /// index names.
+      OpPacketDataOf,
+
+      /// HH: Added for Tribes 2 compatibility.  Takes `bits` bits and keeps
+      /// how many of them are set, for a loop that runs once per set bit of a
+      /// mask rather than a counted number of times.  That is how
+      /// SensorGroupColorEvent sends its colours: a thirty-two bit mask, then
+      /// an entry for each bit standing in it.
+      OpCountBits,
    };
 
    struct T2DataNode
