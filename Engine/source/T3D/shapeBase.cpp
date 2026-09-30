@@ -847,10 +847,6 @@ void ShapeBaseData::unpackData(BitStream* stream)
       stream->read(&mTribes2Rest.offset.z);
    }
 
-   if(Con::getBoolVariable("$T2::traceFields"))
-      Con::printf("   SB '%s' mass=%g drag=%g vis=%d @%d", shapeName, mass, drag,
-                  mTribes2Rest.visibleDistance, stream->getCurPos());
-
    for(U32 i = 0; i < Tribes2Rest::NumSlots; i++)
    {
       mTribes2Rest.haveSound[i] = stream->readFlag();

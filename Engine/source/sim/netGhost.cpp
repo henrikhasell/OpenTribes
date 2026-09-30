@@ -556,12 +556,13 @@ void NetConnection::ghostReadPacket(BitStream *bstream)
       if(bstream->readFlag()) // is this ghost being deleted?
       {
          // HH: Modified for Tribes 2 compatibility.
-         // A server ghosting before we could follow it names ghosts we never
-         // made, so drop the packet rather than the connection.
+         // A server ghosting before we could follow it retires ghosts we
+         // never made.  Retiring one costs no further bits, so the rest of
+         // the packet still reads.
          if(!mLocalGhosts[index])
          {
-            Con::warnf("Dropped a packet retiring ghost %d, which we never made.", index);
-            return;
+            Con::warnf("Passed over a retired ghost %d, which we never made.", index);
+            continue;
          }
          mGhostsActive--;
          mLocalGhosts[index]->deleteObject();

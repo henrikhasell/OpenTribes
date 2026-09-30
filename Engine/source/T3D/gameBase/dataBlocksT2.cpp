@@ -71,16 +71,8 @@ static const U16 *readT2(BitStream *stream, const U16 *p,
          case DataBlockT2::OpRaw:
          {
             U32 bytes = *p++;
-            U32 word = 0;
             for(U32 i = 0; i < bytes; i++)
-            {
-               U32 byte = stream->readInt(8);
-               value.push_back(byte);
-               word |= byte << (8 * i);
-            }
-            if(sTraceFields)
-               Con::printf("   @%d raw%d %u (%g)", stream->getCurPos(), bytes,
-                           word, *(F32 *)&word);
+               value.push_back(stream->readInt(8));
             break;
          }
 

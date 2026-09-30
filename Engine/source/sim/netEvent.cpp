@@ -25,6 +25,7 @@
 #include "console/simBase.h"
 #include "sim/netConnection.h"
 #include "console/netClassTableT2.h"
+#include "T3D/gameBase/eventsT2.h"
 #include "core/stream/bitStream.h"
 
 #define DebugChecksum 0xF00DBAAD
@@ -305,10 +306,16 @@ void NetConnection::eventReadPacket(BitStream *bstream)
             seq = bstream->readInt(7);
          prevSeq = seq;
       }
+      S32 at = bstream->getCurPos();
       S32 classId = bstream->readClassId(NetClassTypeEvent, getNetClassGroup());
+      if(Con::getBoolVariable("$T2::traceEvents"))
+         Con::printf("EVT id %d at %d of %d", classId, at,
+                     bstream->getStreamSize() * 8);
       if(classId == -1)
       {
-         setLastError("Invalid packet. (bad event class id)");
+         // HH: Modified for Tribes 2 compatibility.
+         setLastError("Invalid packet. (bad event class id at %d of %d)",
+            at, bstream->getStreamSize() * 8);
          return;
       }
       NetEvent *evt = (NetEvent *) ConsoleObject::create(getNetClassGroup(), NetClassTypeEvent, classId);
@@ -334,7 +341,9 @@ void NetConnection::eventReadPacket(BitStream *bstream)
 #ifdef TORQUE_NET_STATS
       U32 beginSize = bstream->getBitPosition();
 #endif
-      evt->unpack(this, bstream);
+      // HH: Modified for Tribes 2 compatibility.
+      if(!EventT2::unpack(evt, this, bstream))
+         evt->unpack(this, bstream);
 #ifdef TORQUE_NET_STATS
       evt->getClassRep()->updateNetStatUnpack(bstream->getBitPosition() - beginSize);
 #endif

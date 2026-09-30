@@ -897,7 +897,7 @@ void NetConnection::readPacket(BitStream *bstream)
    eventReadPacket(bstream);
    // HH: Modified for Tribes 2 compatibility.
    if(Con::getBoolVariable("$T2::traceGhosts"))
-      Con::printf("EV end @%d", bstream->getCurPos());
+      Con::printf("EV end @%d of %d", bstream->getCurPos(), bstream->getStreamSize() * 8);
    ghostReadPacket(bstream);
 }
 
