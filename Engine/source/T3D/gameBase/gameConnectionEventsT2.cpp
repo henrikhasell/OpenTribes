@@ -234,49 +234,6 @@ ConsoleDocClass( SetObjectActiveImageEvent,
 /// server can tell a patched client from a stock one.  The port answers the
 /// challenge's shape without the sum, which a server only insists on when it
 /// is asking for accounts as well.
-class CRCChallengeEvent : public NetEvent
-{
-   typedef NetEvent Parent;
-   U32  mSeed;
-   U32  mStart;
-   U32  mLength;
-   bool mWhole;
-
-public:
-   CRCChallengeEvent()
-   {
-      mGuaranteeType = GuaranteedOrdered;
-      mSeed = mStart = mLength = 0;
-      mWhole = false;
-   }
-
-   void pack(NetConnection *, BitStream *stream)
-   {
-      stream->write(mSeed);
-      stream->write(mStart);
-      stream->write(mLength);
-      stream->writeFlag(mWhole);
-   }
-   void write(NetConnection *conn, BitStream *stream) { pack(conn, stream); }
-   void unpack(NetConnection *, BitStream *stream)
-   {
-      stream->read(&mSeed);
-      stream->read(&mStart);
-      stream->read(&mLength);
-      mWhole = stream->readFlag();
-   }
-   void process(NetConnection *) {}
-
-   DECLARE_CONOBJECT(CRCChallengeEvent);
-};
-
-IMPLEMENT_CO_CLIENTEVENT_V1(CRCChallengeEvent);
-
-ConsoleDocClass( CRCChallengeEvent,
-   "@brief Asks a client to checksum part of its install.\n\n@internal" );
-
-//----------------------------------------------------------------------------
-
 class CRCChallengeResponseEvent : public NetEvent
 {
    typedef NetEvent Parent;
@@ -315,6 +272,67 @@ IMPLEMENT_CO_SERVEREVENT_V1(CRCChallengeResponseEvent);
 
 ConsoleDocClass( CRCChallengeResponseEvent,
    "@brief A client's answer to a checksum challenge.\n\n@internal" );
+
+//----------------------------------------------------------------------------
+
+class CRCChallengeEvent : public NetEvent
+{
+   typedef NetEvent Parent;
+   U32  mSeed;
+   U32  mStart;
+   U32  mLength;
+   bool mWhole;
+
+public:
+   CRCChallengeEvent()
+   {
+      mGuaranteeType = GuaranteedOrdered;
+      mSeed = mStart = mLength = 0;
+      mWhole = false;
+   }
+
+   void pack(NetConnection *, BitStream *stream)
+   {
+      stream->write(mSeed);
+      stream->write(mStart);
+      stream->write(mLength);
+      stream->writeFlag(mWhole);
+   }
+   void write(NetConnection *conn, BitStream *stream) { pack(conn, stream); }
+   void unpack(NetConnection *, BitStream *stream)
+   {
+      stream->read(&mSeed);
+      stream->read(&mStart);
+      stream->read(&mLength);
+      mWhole = stream->readFlag();
+   }
+
+   /// This is what gates the rest of the connection.
+   ///
+   /// A Tribes 2 server sends the challenge once the last datablock has been
+   /// acknowledged and then waits: the response is what makes it call
+   /// dataBlocksDone, and dataBlocksDone is what starts the mission and with
+   /// it the ghosting.  Without an answer the server sits at phase one for
+   /// ever and sends no ghosts at all.
+   ///
+   /// The numbers are a checksum over the client's own art, which the port
+   /// cannot produce yet, so the seed goes straight back.  A server counts
+   /// that as a mismatch and schedules a drop, but it starts the mission
+   /// either way -- and a host with $Host::CRCTextures off never compares.
+   void process(NetConnection *conn)
+   {
+      conn->postNetEvent(new CRCChallengeResponseEvent(mSeed, 0, mLength));
+   }
+
+   DECLARE_CONOBJECT(CRCChallengeEvent);
+};
+
+IMPLEMENT_CO_CLIENTEVENT_V1(CRCChallengeEvent);
+
+ConsoleDocClass( CRCChallengeEvent,
+   "@brief Asks a client to checksum part of its install.\n\n@internal" );
+
+//----------------------------------------------------------------------------
 
 //----------------------------------------------------------------------------
 

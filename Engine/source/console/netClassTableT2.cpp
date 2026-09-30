@@ -104,6 +104,28 @@ const char *t2NameFor( const char *className )
    return className;
 }
 
+/// Tribes 2 has three ghost states where the port has six: the port added
+/// GhostAlwaysStarting, SendNextDownloadRequest and FileDownloadSizeMessage,
+/// which push the messages after them along.  Named here rather than taken
+/// from NetConnection::GhostStates, which is protected.
+enum
+{
+   T2GhostStates    = 3,
+   PortGhostStates  = 6
+};
+
+U32 toT2ConnectionMessage( U32 message )
+{
+   return message >= PortGhostStates
+      ? message - PortGhostStates + T2GhostStates : message;
+}
+
+U32 fromT2ConnectionMessage( U32 message )
+{
+   return message >= T2GhostStates
+      ? message - T2GhostStates + PortGhostStates : message;
+}
+
 bool isPorted( U32 classType, const char *className )
 {
    if( classType == NetClassTypeEvent || classType == NetClassTypeObject )

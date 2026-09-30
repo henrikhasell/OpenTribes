@@ -26,6 +26,7 @@
 #include "sim/netConnection.h"
 #include "console/netClassTableT2.h"
 #include "T3D/gameBase/ghostsT2.h"
+#include "T3D/gameBase/t2Layout.h"
 #include "core/stream/bitStream.h"
 #include "sim/netObject.h"
 //#include "core/resManager.h"
@@ -120,7 +121,14 @@ public:
 #ifdef TORQUE_NET_STATS
          U32 beginSize = bstream->getBitPosition();
 #endif
-         object->unpackUpdate(ps, bstream);
+         // HH: Modified for Tribes 2 compatibility.
+         // Tribes 2 frames this event exactly as it is framed here -- the
+         // ghost index, a flag, a class id, then the body -- so only the body
+         // is read differently, from the class's recovered layout.
+         object->mReadByLayoutT2 = T2Layout::readGhost(bstream,
+            NetClassTableT2::t2NameFor(object->getClassName()));
+         if(!object->mReadByLayoutT2)
+            object->unpackUpdate(ps, bstream);
 #ifdef TORQUE_NET_STATS
          object->getClassRep()->updateNetStatUnpack(bstream->getBitPosition() - beginSize);
 #endif
@@ -624,7 +632,9 @@ void NetConnection::ghostReadPacket(BitStream *bstream)
             if(trace)
                Con::printf("GH new %d %s @%d", index, obj->getClassName(),
                            bstream->getCurPos());
-            if(!GhostT2::unpackUpdate(mLocalGhosts[index], this, bstream))
+            obj->mReadByLayoutT2 = T2Layout::readGhost(bstream,
+               NetClassTableT2::t2NameFor(obj->getClassName()));
+            if(!obj->mReadByLayoutT2)
                mLocalGhosts[index]->unpackUpdate(this, bstream);
             if(trace)
                Con::printf("GH new done @%d", bstream->getCurPos());
@@ -677,8 +687,10 @@ void NetConnection::ghostReadPacket(BitStream *bstream)
             U32 beginSize = bstream->getBitPosition();
 #endif
             // HH: Modified for Tribes 2 compatibility.
-            if(!GhostT2::unpackUpdate(mLocalGhosts[index], this, bstream))
+            if(!T2Layout::readGhost(bstream, NetClassTableT2::t2NameFor(
+                                       mLocalGhosts[index]->getClassName())))
                mLocalGhosts[index]->unpackUpdate(this, bstream);
+
 #ifdef TORQUE_NET_STATS
             mLocalGhosts[index]->getClassRep()->updateNetStatUnpack(bstream->getBitPosition() - beginSize);
 #endif
@@ -1174,6 +1186,23 @@ void NetConnection::loadNextGhostAlwaysObject(bool hadNewFiles)
 
       if(!object->registerObject())
       {
+         // HH: Modified for Tribes 2 compatibility.
+         // A ghost always object whose body was read from its layout has no
+         // fields, so it cannot register.  Its slot still has to be filled:
+         // the server counts it as sent, so a later update to that index
+         // carries no class id and would otherwise be read as a new ghost.
+         if(object->mReadByLayoutT2)
+         {
+            Con::warnf("Kept ghost always %d (%s) unregistered.", index,
+                       object->getClassName());
+            mErrorBuffer = String();
+            mFilesWereDownloaded = false;
+            mGhostAlwaysSaveList.pop_front();
+            mLocalGhosts[index] = object;
+            hadNewFiles = true;
+            continue;
+         }
+
          mFilesWereDownloaded = false;
          // make sure there's an error message if necessary
          if(mErrorBuffer.isEmpty())

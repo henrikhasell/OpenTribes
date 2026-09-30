@@ -89,6 +89,10 @@ public:
 
    virtual void pack(NetConnection* conn, BitStream *bstream)
    {
+      // HH: Modified for Tribes 2 compatibility.
+      if(Con::getBoolVariable("$T2::traceEvents"))
+         Con::printf("CMD out %s (%d args)", mArgc > 0 ? mArgv[1] : "?", mArgc);
+
       bstream->writeInt(mArgc, CommandArgsBits);
       // write it out reversed... why?
       // automatic string substitution with later arguments -

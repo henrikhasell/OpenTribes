@@ -34,6 +34,20 @@ namespace NetClassTableT2
    /// The name Tribes 2 gives a class the port had to name otherwise.
    const char *t2NameFor( const char *className );
 
+   /// @name Connection messages
+   ///
+   /// The message rides in three bits of a ghosting message event, as an
+   /// index into an enum both ends have to agree on.  Torque's has grown
+   /// three states since Tribes 2 -- GhostAlwaysStarting,
+   /// SendNextDownloadRequest and FileDownloadSizeMessage -- which pushes
+   /// everything after them along, so DataBlocksDone is 6 here and 3 there.
+   /// @{
+
+   U32 toT2ConnectionMessage( U32 message );
+   U32 fromT2ConnectionMessage( U32 message );
+
+   /// @}
+
    const char *const *tableFor(U32 classType, U32 *countOut, U32 *bitsOut);
 
    /// Whether we have ported the packing this class puts on the wire.

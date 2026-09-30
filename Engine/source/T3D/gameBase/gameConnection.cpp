@@ -1489,6 +1489,15 @@ void GameConnection::preloadNextDataBlock(bool hadNewFiles)
 //          gResourceManager->setMissingFileLogging(false);
          return;
       }
+      // HH: Modified for Tribes 2 compatibility.
+      // A datablock read by its layout has no fields set, so preloading it
+      // would build from defaults -- and some classes cannot survive that.
+      if(object->mReadByLayoutT2)
+      {
+         mDataBlockLoadList.pop_front();
+         continue;
+      }
+
       mFilesWereDownloaded = hadNewFiles;
       if(!object->preload(false, mErrorBuffer))
       {
@@ -1591,6 +1600,10 @@ F32 GameConnection::getBlackOut()
 
 void GameConnection::handleConnectionMessage(U32 message, U32 sequence, U32 ghostCount)
 {
+   // HH: Modified for Tribes 2 compatibility.
+   if(Con::getBoolVariable("$T2::traceEvents"))
+      Con::printf("CONNMSG %d seq %d ghosts %d", message, sequence, ghostCount);
+
    if(isConnectionToServer())
    {
       if(message == DataBlocksDone)

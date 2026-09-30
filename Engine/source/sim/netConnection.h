@@ -251,6 +251,12 @@ public:
       Guaranteed = 1,
       Unguaranteed = 2
    } mGuaranteeType;
+
+   /// HH: Added for Tribes 2 compatibility.
+   /// Whether this event's body was taken off the wire by its recovered
+   /// layout rather than by an unpack of its own.  Its fields are untouched
+   /// then, so processing it would work from nothing.
+   bool mReadByLayoutT2 = false;
    NetConnectionId mSourceId;
 
    void incRef()

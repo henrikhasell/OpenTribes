@@ -24,6 +24,7 @@
 #include "core/dnet.h"
 #include "console/simBase.h"
 #include "sim/netConnection.h"
+#include "console/netClassTableT2.h"
 #include "core/stream/bitStream.h"
 #include "core/stream/fileStream.h"
 #ifndef TORQUE_TGB_ONLY
@@ -73,22 +74,25 @@ public:
    typedef NetEvent Parent;
    GhostingMessageEvent(U32 msg=0, U32 seq=0, U32 gc=0)
       { message = msg; sequence = seq; ghostCount = gc;}
+   // HH: Modified for Tribes 2 compatibility.
+   // The message is an index into an enum the port has added states to, so
+   // it is translated on the way out and back on the way in.
    void pack(NetConnection *, BitStream *bstream)
    {
       bstream->write(sequence);
-      bstream->writeInt(message, 3);
+      bstream->writeInt(NetClassTableT2::toT2ConnectionMessage(message), 3);
       bstream->writeInt(ghostCount, NetConnection::GhostIdBitSize + 1);
    }
    void write(NetConnection *, BitStream *bstream)
    {
       bstream->write(sequence);
-      bstream->writeInt(message, 3);
+      bstream->writeInt(NetClassTableT2::toT2ConnectionMessage(message), 3);
       bstream->writeInt(ghostCount, NetConnection::GhostIdBitSize + 1);
    }
    void unpack(NetConnection *, BitStream *bstream)
    {
       bstream->read(&sequence);
-      message = bstream->readInt(3);
+      message = NetClassTableT2::fromT2ConnectionMessage(bstream->readInt(3));
       ghostCount = bstream->readInt(NetConnection::GhostIdBitSize + 1);
    }
    void process(NetConnection *ps)

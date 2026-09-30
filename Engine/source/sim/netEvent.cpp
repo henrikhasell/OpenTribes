@@ -342,7 +342,9 @@ void NetConnection::eventReadPacket(BitStream *bstream)
       U32 beginSize = bstream->getBitPosition();
 #endif
       // HH: Modified for Tribes 2 compatibility.
-      if(!EventT2::unpack(evt, this, bstream))
+      // HH: Modified for Tribes 2 compatibility.
+      evt->mReadByLayoutT2 = EventT2::unpack(evt, this, bstream);
+      if(!evt->mReadByLayoutT2)
          evt->unpack(this, bstream);
 #ifdef TORQUE_NET_STATS
       evt->getClassRep()->updateNetStatUnpack(bstream->getBitPosition() - beginSize);
@@ -357,7 +359,10 @@ void NetConnection::eventReadPacket(BitStream *bstream)
 #endif
       if(unguaranteedPhase)
       {
-         evt->process(this);
+         // HH: Modified for Tribes 2 compatibility.
+         // An event only read for its bits has no fields to act on.
+         if(!evt->mReadByLayoutT2)
+            evt->process(this);
          evt->decRef();
          if(mErrorBuffer.isNotEmpty())
             return;
@@ -387,7 +392,9 @@ void NetConnection::eventReadPacket(BitStream *bstream)
       mWaitSeqEvents = temp->mNextEvent;
 
       //Con::printf("EVT  %d: PROCESS - %d", getId(), temp->mSeqCount);
-      temp->mEvent->process(this);
+      // HH: Modified for Tribes 2 compatibility.
+      if(!temp->mEvent->mReadByLayoutT2)
+         temp->mEvent->process(this);
       temp->mEvent->decRef();
       mEventNoteChunker.free(temp);
       if(mErrorBuffer.isNotEmpty())

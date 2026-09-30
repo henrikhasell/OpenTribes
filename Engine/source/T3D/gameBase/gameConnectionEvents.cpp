@@ -34,6 +34,9 @@
 #include "T3D/gameBase/gameConnection.h"
 #include "T3D/gameBase/gameConnectionEvents.h"
 #include "T3D/gameBase/dataBlocksT2.h"
+#include "T3D/gameBase/t2Layout.h"
+#include "T3D/shapeBase.h"
+#include "console/netClassTableT2.h"
 
 #define DebugChecksum 0xF00DBAAD
 
@@ -202,8 +205,18 @@ void SimDataBlockEvent::unpack(NetConnection *cptr, BitStream *bstream)
             Con::printf( "DB %d/%d %s at %d", mIndex, mTotal,
                          mObj->getClassName(), bstream->getCurPos() );
          U32 was = bstream->getCurPos();
-         if( !DataBlockT2::unpackDelta( mObj, bstream ) )
+         // HH: Modified for Tribes 2 compatibility.
+         // The recovered layout reads the whole chain, and names the shape
+         // file on its way through so a shape still has something to draw.
+         mObj->mReadByLayoutT2 = T2Layout::readDataBlock( bstream,
+            NetClassTableT2::t2NameFor( mObj->getClassName() ) );
+         if( !mObj->mReadByLayoutT2 )
             mObj->unpackData( bstream );
+         else if( const char *shape = T2Layout::lastShapeFile() )
+         {
+            if( ShapeBaseData *sb = dynamic_cast< ShapeBaseData * >( mObj ) )
+               sb->shapeName = StringTable->insert( shape );
+         }
          if( trace )
             Con::printf( "DB %d done, %d bits", mIndex, bstream->getCurPos() - was );
       }
