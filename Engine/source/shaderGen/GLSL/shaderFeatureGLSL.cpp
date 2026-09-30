@@ -2046,9 +2046,14 @@ void VisibilityFeatGLSL::processPix(   Vector<ShaderComponent*> &componentList,
       fizzScale->uniform = true;
       fizzScale->constSortPos = cspPass; 
 
-      meta->addStatement( new GenOp( "   float fizz = tex2D( @, (@.xy / @.w) * fizzScale ).r + 0.15;\r\n", fizzMap, ssPos, ssPos ) );      
-      meta->addStatement( new GenOp( "   if( ( fizz * @ - 0.329 ) < 0.0 )\r\n"
-                                     "      discard\r\n;", finalVisibility ) );
+      // HH: Modified for Tribes 2 compatibility.
+      // With no noise art bound the test failed at every pixel.
+      meta->addStatement( new GenOp( "   if( @ < 1.0 )\r\n"
+                                     "   {\r\n"
+                                     "      float fizz = tex2D( @, (@.xy / @.w) * fizzScale ).r + 0.15;\r\n"
+                                     "      if( ( fizz * @ - 0.329 ) < 0.0 )\r\n"
+                                     "         discard;\r\n"
+                                     "   }\r\n", finalVisibility, fizzMap, ssPos, ssPos, finalVisibility ) );
 	}
    else if( color )
    {
@@ -2074,15 +2079,8 @@ void VisibilityFeatGLSL::setTexData( Material::StageData &stageDat,
                                      RenderPassData &passData,
                                      U32 &texIndex )
 {
-   if ( !fd.features[ MFT_IsTranslucent ] )
-   {   
-      GFXTexHandle texHandle( "core/art/fizz_noise.dds", &GFXDefaultStaticDiffuseProfile, "VisibilityFeatHLSL_fizz_noise" );
-      stageDat.setTex( MFT_Visibility, texHandle );
-
-      GFXTextureObject *tex = stageDat.getTex( MFT_Visibility );
-      if ( tex )
-         passData.mTexSlot[ texIndex++ ].texObject = tex;
-   }
+   // HH: Modified for Tribes 2 compatibility.
+   // The fizzle's noise art is Torque 3D's own and not in the game's tree.
 }
 
 

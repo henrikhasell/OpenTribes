@@ -475,6 +475,11 @@ void GuiObjectView::onMouseLeave( const GuiEvent & event )
 
 //------------------------------------------------------------------------------
 
+RenderPassManager* GuiObjectView::getRenderPass() const
+{
+   return gClientSceneGraph->getDefaultRenderPass();
+}
+
 void GuiObjectView::renderWorld( const RectI& updateRect )
 {
    if( !mModel )
@@ -494,7 +499,7 @@ void GuiObjectView::renderWorld( const RectI& updateRect )
    mv.inverse();
    mv.getColumn( 3, &cp );
 
-   RenderPassManager* renderPass = gClientSceneGraph->getDefaultRenderPass();
+   RenderPassManager* renderPass = getRenderPass();
 
    S32 time = Platform::getVirtualMilliseconds();
    S32 dt = time - mLastRenderTime;
@@ -520,6 +525,10 @@ void GuiObjectView::renderWorld( const RectI& updateRect )
       false
    );
 
+   // HH: Modified for Tribes 2 compatibility.
+   // A shell screen has no scene to take an ambient term from.
+   state.setAmbientLightColor( mLightAmbient );
+
    // Set up our TS render state here.   
    TSRenderState rdata;
    rdata.setSceneState( &state );
@@ -529,6 +538,11 @@ void GuiObjectView::renderWorld( const RectI& updateRect )
    LightQuery query;
    query.init( SphereF( Point3F::Zero, 1.0f ) );
    rdata.setLightQuery( &query );
+
+   // HH: Modified for Tribes 2 compatibility.
+   // The model stands at the origin; the camera went on twice without this.
+   GFX->pushWorldMatrix();
+   GFX->setWorldMatrix( MatrixF::Identity );
 
    // Render primary model.
 
@@ -555,6 +569,8 @@ void GuiObjectView::renderWorld( const RectI& updateRect )
 
       GFX->popWorldMatrix();
    }
+
+   GFX->popWorldMatrix();
 
    renderPass->renderPass( &state );
 
