@@ -21,6 +21,30 @@ feat(shell): give the shell its sliders
 
 Explanation belongs here, not in a comment beside the code.
 
+## Marking the engine
+
+Mark every stock Torque file you have been at, so what is ours can be told from
+what is GarageGames'. Sign it with your own initials or name, then the verb for
+what you did to the thing below.
+
+```
+// HH: Added for Tribes 2 compatibility.
+// HH: Modified for Tribes 2 compatibility.
+```
+
+- `Added` — it is new: a function, a console binding, a member, a file Torque
+  3D does not have.
+- `Modified` — it already existed and you changed it. A statement put inside a
+  stock function modifies that function.
+- The test is whether the function exists upstream. Nothing back means ours:
+
+```
+git show upstream/master:Engine/source/gui/core/guiCanvas.cpp | grep createCanvas
+```
+
+- A file we wrote entirely has nothing to modify, so its markers read `Added`.
+- Keep the marker to the verb and a line of why.
+
 ## Merge requests
 
 - Title: the commit subject.
