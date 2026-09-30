@@ -1126,6 +1126,25 @@ void NetConnection::setGhostAlwaysObject(NetObject *object, U32 index)
    object->mNetFlags = NetObject::IsGhost;
    object->mNetIndex = index;
 
+   // HH: Modified for Tribes 2 compatibility.
+   // An object read from its layout has no fields, so there is nothing for
+   // the load list to load and nothing to ask the server to resend.  Take
+   // its slot in the table at once: the server counts it as sent, so a later
+   // update to that index carries no class id.
+   if(object->mReadByLayoutT2)
+   {
+      if(mLocalGhosts[index])
+      {
+         mLocalGhosts[index]->deleteObject();
+         mGhostsActive--;
+      }
+      mLocalGhosts[index] = object;
+      mGhostsActive++;
+      if(object->registerObject())
+         addObject(object);
+      return;
+   }
+
    // while there's an object waiting...
    if ( isLocalConnection() ) 
    {
