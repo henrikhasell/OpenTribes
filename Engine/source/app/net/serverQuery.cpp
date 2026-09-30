@@ -299,7 +299,7 @@ Vector<MasterInfo>* getMasterServerList();
 bool pickMasterServer();
 void clearServerList();
 
-// HH: Modified for Tribes 2 compatibility.
+// HH: Added for Tribes 2 compatibility.
 // Torque 3D's content defines onServerQueryStatus and Tribes 2's defines
 // updateServerBrowserStatus, so whichever the loaded game brings is called.
 static void browserStatus( const char *status, const char *message, const char *progress )

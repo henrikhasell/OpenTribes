@@ -188,11 +188,11 @@ class GuiScrollCtrl : public GuiContainer
 
       Region findHitRegion(const Point2I &);
 
-      // HH: Modified for Tribes 2 compatibility.
+      // HH: Added for Tribes 2 compatibility.
       // Tribes 2's scroll art slices into thirteen rects, not thirty-nine.
       bool splitBitmapStates();
 
-      // HH: Modified for Tribes 2 compatibility.
+      // HH: Added for Tribes 2 compatibility.
       /// How far in from the control's own edge the content rect and the
       /// bars sit.  Torque reads it off the profile; Tribes 2's profile has
       /// no such field and the number belongs to the control.
