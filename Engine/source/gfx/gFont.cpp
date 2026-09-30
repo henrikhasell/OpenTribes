@@ -90,7 +90,7 @@ GFont* GFont::load( const Torque::Path& path )
    if ( stream.getStatus() != Stream::Ok )
       return NULL;
 
-   // HH: Added for Tribes 2 compatibility.
+   // HH: Modified for Tribes 2 compatibility.
    if ( path.getExtension().equal( "gft", String::NoCase ) )
    {
       GFont *gft = new GFont;
@@ -138,7 +138,7 @@ Resource<GFont> GFont::create(const String &faceName, U32 size, const char *cach
    const Torque::Path   path( String::ToString("%s/%s %d (%s).uft",
       cacheDirectory, faceName.c_str(), size, getCharSetName(charset)) );
 
-   // HH: Added for Tribes 2 compatibility.
+   // HH: Modified for Tribes 2 compatibility.
    Resource<GFont> ret = ResourceManager::get().load(
       Torque::Path( String::ToString( "fonts/%s_%d.gft", faceName.c_str(), size ) ) );
 

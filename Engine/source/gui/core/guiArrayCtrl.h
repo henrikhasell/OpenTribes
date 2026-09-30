@@ -41,7 +41,7 @@ class GuiArrayCtrl : public GuiControl
 
 protected:
 
-   // HH: Modified for Tribes 2 compatibility.
+   // HH: Added for Tribes 2 compatibility.
    // Tribes 2 puts a container between the array and the scroll control.
    GuiScrollCtrl *findScrollParent( Point2I &offset );
 

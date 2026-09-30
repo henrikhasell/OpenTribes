@@ -958,7 +958,7 @@ String TerrainBlock::_getBaseTexCacheFileName() const
    basePath.setFileName( basePath.getFileName() + "_basetex" );
    basePath.setExtension( "dds" );
 
-   // HH: Tribes 2 compatibility.
+   // HH: Modified for Tribes 2 compatibility.
    if( !basePath.getPath().startsWith( "textures" ) )
       basePath.setPath( Torque::Path::Join( "textures", '/', basePath.getPath() ) );
 

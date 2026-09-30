@@ -133,7 +133,7 @@ void GuiScrollCtrl::childResized(GuiControl *child)
 
 //-----------------------------------------------------------------------------
 
-// HH: Modified for Tribes 2 compatibility.
+// HH: Added for Tribes 2 compatibility.
 // Tribes 2's scrollbar art pads a piece's unused width with pure green.
 static S32 usableWidth( const GBitmap *bmp, const RectI &piece )
 {
@@ -382,7 +382,7 @@ void GuiScrollCtrl::addObject(SimObject *object)
 
 //-----------------------------------------------------------------------------
 
-// HH: Modified for Tribes 2 compatibility.
+// HH: Added for Tribes 2 compatibility.
 S32 GuiScrollCtrl::borderThickness() const
 {
    return mProfile ? mProfile->mBorderThickness : 1;
