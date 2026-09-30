@@ -546,6 +546,9 @@ void NetConnection::ghostReadPacket(BitStream *bstream)
    // while there's an object waiting...
    gGhostUpdates = 0;
 
+   // HH: Added for Tribes 2 compatibility.
+   NetObject *lastGhost = NULL;
+
    while(bstream->readFlag())
    {
 
@@ -706,7 +709,21 @@ void NetConnection::ghostReadPacket(BitStream *bstream)
 #endif
          if(mErrorBuffer.isNotEmpty())
             return;
+
+         // HH: Modified for Tribes 2 compatibility.
+         // A layout that reads a ghost short leaves the loop on a clear flag
+         // with the rest of the packet unread, and the damage shows up
+         // somewhere else entirely -- so name the class here rather than let
+         // it corrupt the table quietly.  Measured against a recorded
+         // session, Turret's is about a hundred bits short of what a server
+         // writes; see Tools/t2/replay.py.
+         lastGhost = mLocalGhosts[index];
       }
+
+      const S32 left = bstream->getStreamSize() * 8 - bstream->getCurPos();
+      if(left > 7 && lastGhost)
+         Con::warnf("Ghost stream left %d bits unread after a %s; its layout "
+                    "reads short.", left, lastGhost->getClassName());
    }
 }
 
@@ -943,6 +960,9 @@ void NetConnection::handleConnectionMessage(U32 message, U32 sequence, U32 ghost
          }
          break;
       case GhostAlwaysStarting:
+         // HH: Modified for Tribes 2 compatibility.
+         // Tribes 2's own script names this one without the prefix.
+         Con::executef("ghostAlwaysStarted", Con::getIntArg(ghostCount));
          Con::executef("onGhostAlwaysStarted", Con::getIntArg(ghostCount));
          break;
       case SendNextDownloadRequest:
@@ -1127,10 +1147,10 @@ void NetConnection::setGhostAlwaysObject(NetObject *object, U32 index)
    object->mNetIndex = index;
 
    // HH: Modified for Tribes 2 compatibility.
-   // An object read from its layout has no fields, so there is nothing for
-   // the load list to load and nothing to ask the server to resend.  Take
-   // its slot in the table at once: the server counts it as sent, so a later
-   // update to that index carries no class id.
+   // An object read from its layout has no fields, so registering it would
+   // build from defaults -- and an interior or a shape cannot survive that.
+   // Take its slot in the table without building it: the server counts it as
+   // sent, so a later update to that index carries no class id.
    if(object->mReadByLayoutT2)
    {
       if(mLocalGhosts[index])
@@ -1140,8 +1160,6 @@ void NetConnection::setGhostAlwaysObject(NetObject *object, U32 index)
       }
       mLocalGhosts[index] = object;
       mGhostsActive++;
-      if(object->registerObject())
-         addObject(object);
       return;
    }
 

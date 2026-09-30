@@ -104,13 +104,20 @@ const char *t2NameFor( const char *className )
    return className;
 }
 
-/// Tribes 2 has three ghost states where the port has six: the port added
-/// GhostAlwaysStarting, SendNextDownloadRequest and FileDownloadSizeMessage,
-/// which push the messages after them along.  Named here rather than taken
-/// from NetConnection::GhostStates, which is protected.
+/// Tribes 2 has four ghost states where the port has six.
+///
+/// The first four agree -- GhostAlwaysDone, ReadyForNormalGhosts, EndGhosting
+/// and GhostAlwaysStarting -- and the port added SendNextDownloadRequest and
+/// FileDownloadSizeMessage after them, which pushes the two datablock
+/// messages along.  Read off a captured session: the one ghosting message a
+/// server sends is a 3 carrying the ghost count, and a stock client answers
+/// it by reporting that it is starting to ghost that many objects.
+///
+/// Named here rather than taken from NetConnection::GhostStates, which is
+/// protected.
 enum
 {
-   T2GhostStates    = 3,
+   T2GhostStates    = 4,
    PortGhostStates  = 6
 };
 
