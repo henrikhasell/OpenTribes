@@ -671,7 +671,7 @@ void GuiWindowCtrl::getSnappableWindows( Vector<GuiWindowCtrl*> &windowOutVector
 
 //-----------------------------------------------------------------------------
 
-// HH: Modified for Tribes 2 compatibility.
+// HH: Added for Tribes 2 compatibility.
 // Tribes 2's window art lacks frame pieces and packs button states per rect.
 bool GuiWindowCtrl::buildFlatFrame( S32 sheetRects )
 {

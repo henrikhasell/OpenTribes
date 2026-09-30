@@ -2292,7 +2292,7 @@ DefineEngineFunction(excludeOtherInstance, bool, (const char* appIdentifer),,
 #endif
 }
 
-// HH: Modified for Tribes 2 compatibility.
+// HH: Added for Tribes 2 compatibility.
 // Tribes 2 binds a key to this and expects the engine to provide it.
 DefineEngineFunction( toggleConsole, void, (), ,
                "@brief Raise the console dialog, or drop it if it is already up.\n\n"
@@ -2320,7 +2320,7 @@ DefineEngineFunction( toggleConsole, void, (), ,
       canvas->pushDialogControl( dialog, 99 );
 }
 
-// HH: Modified for Tribes 2 compatibility.
+// HH: Added for Tribes 2 compatibility.
 // TGE defines this in script and Tribes 2 does not, so the engine must.
 DefineEngineFunction( createCanvas, bool, ( const char *windowTitle ), ( "" ),
                "@brief Create the game window and the canvas that draws into it.\n\n"
@@ -2741,7 +2741,7 @@ ConsoleMethod( GuiCanvas, setVideoMode, void, 5, 8,
    Con::setVariable( "$pref::Video::mode", vm.toString() );
 }
 
-// HH: Modified for Tribes 2 compatibility.
+// HH: Added for Tribes 2 compatibility.
 // Tribes 2 asks for the screen's size as three words, and the shell lays the
 // Server Info window out against it.
 DefineEngineFunction( getResolution, const char *, ( ), ,

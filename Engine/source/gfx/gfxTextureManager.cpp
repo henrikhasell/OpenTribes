@@ -47,7 +47,7 @@ static const String  sDDSExt( "dds" );
 
 static const String  sTextureSearchDir( "textures" );
 
-// HH: Tribes2 compatibility.
+// HH: Added for Tribes 2 compatibility.
 // Every texture resolves under the search directory, so a path that is not
 // already there is put there.
 static void applyTextureSearchDir( Torque::Path &path )
@@ -675,7 +675,7 @@ GFXTextureObject *GFXTextureManager::createTexture( const Torque::Path &path, GF
    if( retTexObj )
       return retTexObj;
 
-   // HH: Tribes2 compatibility.
+   // HH: Modified for Tribes 2 compatibility.
    applyTextureSearchDir( correctPath );
 
    const U32 scalePower = getTextureDownscalePower( profile );
@@ -712,7 +712,7 @@ GFXTextureObject *GFXTextureManager::createTexture( const Torque::Path &path, GF
       // extension registration thing, maybe.
 
       // Check to see if there is a .DDS file with this name (if no extension is provided)
-      // HH: Tribes2 compatibility.
+      // HH: Modified for Tribes 2 compatibility.
       Torque::Path tryDDSPath = correctPath;
       if( tryDDSPath.getExtension().isNotEmpty() )
          tryDDSPath.setFileName( tryDDSPath.getFullFileName() );
@@ -1243,7 +1243,7 @@ DefineEngineFunction( reloadTextures, void, (),,
    TEXMGR->reloadTextures();
 }
 
-// HH: Tribes2 compatibility.
+// HH: Added for Tribes 2 compatibility.
 // A texture does not live where it is named -- it lives under the search
 // directory -- so isFile() is the wrong question to ask about one.
 DefineEngineFunction( isImageFile, bool, ( const char *path ),,

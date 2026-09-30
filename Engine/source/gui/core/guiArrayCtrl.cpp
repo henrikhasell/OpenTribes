@@ -176,7 +176,7 @@ void GuiArrayCtrl::scrollSelectionVisible()
 
 //-----------------------------------------------------------------------------
 
-// HH: Modified for Tribes 2 compatibility.
+// HH: Added for Tribes 2 compatibility.
 // Tribes 2 puts a container between the array and the scroll control.
 GuiScrollCtrl *GuiArrayCtrl::findScrollParent( Point2I &offset )
 {
