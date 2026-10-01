@@ -5,6 +5,9 @@
 #ifndef _PLATFORM_H_
 #include "platform/platform.h"
 #endif
+#ifndef _MPOINT3_H_
+#include "math/mPoint3.h"
+#endif
 
 class BitStream;
 
@@ -28,12 +31,34 @@ namespace T2Layout
    /// there is no layout for that name, which leaves the stream unusable.
    bool readDataBlock(BitStream *stream, const char *className);
 
+   /// One leaf of a walk: which node took it, and what came off the wire.
+   ///
+   /// A class that wants an object built out of a body takes its fields this
+   /// way.  The recovered graph stays the only place a width is written down
+   /// -- counting the same bits a second time beside it is how a reader and
+   /// its layout come to disagree, and a ghost read wrongly takes the rest of
+   /// the packet with it.
+   struct Field
+   {
+      U32 node;         ///< which node of the class's layout took it
+      U32 op;
+      U32 bits;
+      U32 value;        ///< the bits, right aligned
+      F32 asF32;        ///< the same bits read as a float
+      const char *str;  ///< the text for a string node, else NULL
+      Point3F point;    ///< the position for a point node
+   };
+
+   typedef void (*FieldFn)(void *ctx, const Field &field);
+
    /// The same for a ghost update, and for an event body.  `isInitial` says
    /// whether this is the object's first update -- a ghost-always body, or a
    /// ghost the server has only just scoped -- because ShapeBase reads a flag
-   /// per mounted image slot in that case and not in the other.
+   /// per mounted image slot in that case and not in the other.  `sink` is
+   /// handed every leaf the walk takes, in the order it takes them.
    bool readGhost(BitStream *stream, const char *className,
-                  bool isInitial = false);
+                  bool isInitial = false, FieldFn sink = NULL,
+                  void *ctx = NULL);
    bool readEvent(BitStream *stream, const char *className);
 
    /// Answers what Tribes 2 class the object in a ghost slot is, so a layout
@@ -46,7 +71,8 @@ namespace T2Layout
    /// Player does, when it is piloting -- and a layout that needs it without
    /// one fails rather than guess a width.
    bool readPacketData(BitStream *stream, const char *className,
-                       GhostClassFn resolve = NULL, void *ctx = NULL);
+                       GhostClassFn resolve = NULL, void *ctx = NULL,
+                       FieldFn sink = NULL, void *sinkCtx = NULL);
 
    /// The shape file the datablock last read named, or NULL.  The walk keeps
    /// the first string that names one, which is how a class the port has no

@@ -44,6 +44,34 @@ static GhostClassFn sResolve = NULL;
 static void *sResolveCtx = NULL;
 static char sShapeName[256] = { 0 };
 
+// HH: Added for Tribes 2 compatibility.
+// Set for the length of one readGhost by a caller that wants the values and
+// not just the bits.  Kept beside the walk like sResolve.
+static FieldFn sSink = NULL;
+static void *sSinkCtx = NULL;
+
+static const char *const sOpNames[] =
+{
+   "End", "EndBody", "Flag", "Select", "ReadBr", "Count", "Loop",
+   "Int", "Float", "SignedFloat", "RangedF32", "RangedU32",
+   "Color", "Raw", "DataBlockId", "String", "Point", "Initial",
+   "PacketDataOf", "CountBits"
+};
+
+/// The ops that take bits and mean something, as against the ops that steer.
+static bool isLeaf(U32 op)
+{
+   switch(op)
+   {
+      case OpInt: case OpFloat: case OpSignedFloat: case OpRangedF32:
+      case OpRangedU32: case OpColor: case OpRaw: case OpDataBlockId:
+      case OpString: case OpPoint:
+         return true;
+      default:
+         return false;
+   }
+}
+
 void setTrace(bool trace)
 {
    sTrace = trace;
@@ -94,18 +122,20 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
 
       const T2DataNode &n = layout->nodes[at];
 
-      if(sTrace)
-      {
-         static const char *const opNames[] =
-         {
-            "End", "EndBody", "Flag", "Select", "ReadBr", "Count", "Loop",
-            "Int", "Float", "SignedFloat", "RangedF32", "RangedU32",
-            "Color", "Raw", "DataBlockId", "String", "Point", "Initial",
-            "PacketDataOf", "CountBits"
-         };
-         Con::printf("  [%4d] node %3d %-12s bits %d", stream->getCurPos(),
-                     at, n.op < 20 ? opNames[n.op] : "?", n.bits);
-      }
+      // HH: a leaf traces after its read, so the line can carry the value.
+      const U32 wasAt = stream->getCurPos();
+      if(sTrace && !isLeaf(n.op))
+         Con::printf("  [%4d] node %3d %-12s bits %d", wasAt,
+                     at, n.op < 20 ? sOpNames[n.op] : "?", n.bits);
+
+      Field field;
+      field.node  = at;
+      field.op    = n.op;
+      field.bits  = n.bits;
+      field.value = 0;
+      field.asF32 = 0.0f;
+      field.str   = NULL;
+      field.point.set(0.0f, 0.0f, 0.0f);
 
       switch(n.op)
       {
@@ -210,8 +240,9 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
          }
 
          // Everything below takes a fixed number of bits.  What the bits mean
-         // differs -- a scaled float, a colour, a datablock id -- but nothing
-         // here keeps the values, so the width is all that matters.
+         // differs -- a scaled float, a colour, a datablock id -- and the
+         // value goes to the sink, which is the only thing that knows which
+         // of its fields this node is.
          case OpInt:
          case OpFloat:
          case OpSignedFloat:
@@ -220,22 +251,20 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
          case OpColor:
          case OpRaw:
          case OpDataBlockId:
-            if(n.bits)
-               stream->readInt(n.bits);
+            field.value = n.bits ? stream->readInt(n.bits) : 0;
+            dMemcpy(&field.asF32, &field.value, sizeof(F32));
             break;
 
          // Two bits of type and then three deltas or three whole floats.
          case OpPoint:
-         {
-            Point3F p;
-            stream->readCompressedPoint(&p, 0.01f);
+            stream->readCompressedPoint(&field.point, 0.01f);
             break;
-         }
 
          // A string is as long as it is; the stream has to read it for real.
          case OpString:
             stream->readString(buf);
             noteString(buf);
+            field.str = buf;
             break;
 
          default:
@@ -243,6 +272,14 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
                        layout->name, n.op, at);
             return false;
       }
+
+      if(sTrace)
+         Con::printf("  [%4d] node %3d %-12s bits %d  = %u / %g%s%s", wasAt,
+                     at, sOpNames[n.op], n.bits, field.value, field.asF32,
+                     field.str ? " / " : "", field.str ? field.str : "");
+      if(sSink)
+         sSink(sSinkCtx, field);
+
       at = n.a;
    }
 
@@ -291,20 +328,26 @@ bool readDataBlock(BitStream *stream, const char *className)
    return runNamed(stream, className, sT2DataBlocks, ELEMENTS(sT2DataBlocks));
 }
 
-bool readGhost(BitStream *stream, const char *className, bool isInitial)
+bool readGhost(BitStream *stream, const char *className, bool isInitial,
+               FieldFn sink, void *ctx)
 {
+   sSink = sink;
+   sSinkCtx = ctx;
+
    // The recovered layouts first: they were walked with the emulator able to
    // follow a class into its parent, where the older table halted and left a
    // stub.  The older table still answers for the classes the walk cannot
    // reach yet.
    bool found = false;
-   const bool ok = runNamed(stream, className, sT2GhostsRecovered,
-                            ELEMENTS(sT2GhostsRecovered), &found, isInitial);
-   if(found)
-      return ok;
+   bool ok = runNamed(stream, className, sT2GhostsRecovered,
+                      ELEMENTS(sT2GhostsRecovered), &found, isInitial);
+   if(!found)
+      ok = runNamed(stream, className, sT2Ghosts, ELEMENTS(sT2Ghosts),
+                    NULL, isInitial);
 
-   return runNamed(stream, className, sT2Ghosts, ELEMENTS(sT2Ghosts),
-                   NULL, isInitial);
+   sSink = NULL;
+   sSinkCtx = NULL;
+   return ok;
 }
 
 bool readEvent(BitStream *stream, const char *className)
@@ -323,7 +366,8 @@ bool readEvent(BitStream *stream, const char *className)
 }
 
 bool readPacketData(BitStream *stream, const char *className,
-                    GhostClassFn resolve, void *ctx)
+                    GhostClassFn resolve, void *ctx,
+                    FieldFn sink, void *sinkCtx)
 {
    // The recovered table first, as for ghosts: the shipped one carries only
    // Camera, and every other control object a Tribes 2 server hands out was
@@ -331,12 +375,22 @@ bool readPacketData(BitStream *stream, const char *className,
    sResolve = resolve;
    sResolveCtx = ctx;
 
+   // A layout that reads another object's packet data comes back through here,
+   // and those are its fields, not the caller's.
+   FieldFn wasSink = sSink;
+   void *wasCtx = sSinkCtx;
+   sSink = sink;
+   sSinkCtx = sinkCtx;
+
    bool found = false;
    bool ok = runNamed(stream, className, sT2PacketDataRecovered,
                       ELEMENTS(sT2PacketDataRecovered), &found);
    if(!found)
       ok = runNamed(stream, className, sT2PacketData,
                     ELEMENTS(sT2PacketData));
+
+   sSink = wasSink;
+   sSinkCtx = wasCtx;
    return ok;
 }
 

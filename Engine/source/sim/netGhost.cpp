@@ -27,6 +27,7 @@
 #include "console/netClassTableT2.h"
 #include "T3D/gameBase/ghostsT2.h"
 #include "T3D/gameBase/t2Layout.h"
+#include "T3D/gameBase/ghostStateT2.h"
 #include "core/stream/bitStream.h"
 #include "sim/netObject.h"
 //#include "core/resManager.h"
@@ -126,8 +127,7 @@ public:
          // ghost index, a flag, a class id, then the body -- so only the body
          // is read differently, from the class's recovered layout.
          const U32 wasAt = bstream->getCurPos();
-         object->mReadByLayoutT2 = T2Layout::readGhost(bstream,
-            NetClassTableT2::t2NameFor(object->getClassName()), true);
+         object->mReadByLayoutT2 = GhostStateT2::readGhost(object, bstream, true);
          if(Con::getBoolVariable("$T2::traceGhosts"))
             Con::printf("GA %d %s %d bits", ghostIndex, object->getClassName(),
                         bstream->getCurPos() - wasAt);
@@ -639,8 +639,7 @@ void NetConnection::ghostReadPacket(BitStream *bstream)
             if(trace)
                Con::printf("GH new %d %s @%d", index, obj->getClassName(),
                            bstream->getCurPos());
-            obj->mReadByLayoutT2 = T2Layout::readGhost(bstream,
-               NetClassTableT2::t2NameFor(obj->getClassName()), true);
+            obj->mReadByLayoutT2 = GhostStateT2::readGhost(obj, bstream, true);
             if(!obj->mReadByLayoutT2)
                mLocalGhosts[index]->unpackUpdate(this, bstream);
             if(trace)
@@ -675,8 +674,9 @@ void NetConnection::ghostReadPacket(BitStream *bstream)
             // Keeping the slot without building the object leaves the table in
             // step, which is what a later update to the index needs.
             // The slot and the active count are already taken above, so the
-            // table stays in step by doing nothing more here.
-            if(obj->mReadByLayoutT2)
+            // table stays in step by doing nothing more here.  A class whose
+            // values the walk kept is built like any other.
+            if(obj->wasReadByLayoutT2())
             {
                lastGhost = obj;
                continue;
@@ -711,9 +711,8 @@ void NetConnection::ghostReadPacket(BitStream *bstream)
 #endif
             // HH: Modified for Tribes 2 compatibility.
             const U32 updWas = bstream->getCurPos();
-            const bool updOk = T2Layout::readGhost(bstream,
-               NetClassTableT2::t2NameFor(mLocalGhosts[index]->getClassName()),
-               false);
+            const bool updOk = GhostStateT2::readGhost(mLocalGhosts[index],
+                                                       bstream, false);
             if(trace)
                Con::printf("GH %d upd %s %s %d bits", index,
                            mLocalGhosts[index]->getClassName(),
@@ -1180,8 +1179,9 @@ void NetConnection::setGhostAlwaysObject(NetObject *object, U32 index)
    // An object read from its layout has no fields, so registering it would
    // build from defaults -- and an interior or a shape cannot survive that.
    // Take its slot in the table without building it: the server counts it as
-   // sent, so a later update to that index carries no class id.
-   if(object->mReadByLayoutT2)
+   // sent, so a later update to that index carries no class id.  A class whose
+   // values the walk kept is built like any other.
+   if(object->wasReadByLayoutT2())
    {
       if(mLocalGhosts[index])
       {

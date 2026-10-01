@@ -336,21 +336,21 @@ bool Sky::loadDml()
    if( !mMaterialListName || !mMaterialListName[0] )
       return true;
 
-   char path[1024];
-   dStrcpy( path, mMaterialListName );
-   char *p = dStrrchr( path, '/' );
-   if( p )
-      *p = 0;
-   else
-      path[0] = 0;
+   // The list is named and written the way Tribes 2 writes it: the file sits
+   // under the texture search directory, and so does every name in it, which
+   // the texture manager puts there itself.  So the names go through whole
+   // rather than being joined to where the list was found.
+   String listPath = mMaterialListName;
+   if( !listPath.startsWith( "textures/" ) )
+      listPath = String::ToString( "textures/%s", mMaterialListName );
 
    mNumCloudLayers = 0;
 
    MaterialList materials;
    FileStream stream;
-   if( !stream.open( mMaterialListName, Torque::FS::File::Read ) )
+   if( !stream.open( listPath, Torque::FS::File::Read ) )
    {
-      Con::warnf( "Sky material list is missing: %s", mMaterialListName );
+      Con::warnf( "Sky material list is missing: %s", listPath.c_str() );
       return false;
    }
 
@@ -358,17 +358,14 @@ bool Sky::loadDml()
    stream.close();
 
    for( S32 x = 0; x < 6 && x < (S32)materials.size(); ++x )
-   {
-      String name = String::ToString( "%s/%s", path, materials.getMaterialName( x ).c_str() );
-      mSkyHandle[x].set( name, &GFXDefaultStaticDiffuseProfile, "Sky" );
-   }
+      mSkyHandle[x].set( materials.getMaterialName( x ),
+                         &GFXDefaultStaticDiffuseProfile, "Sky" );
 
    for( S32 x = 0; x + CloudMaterialOffset < (S32)materials.size() && x < MAX_NUM_LAYERS;
         ++x, ++mNumCloudLayers )
    {
-      String name = String::ToString( "%s/%s", path,
-         materials.getMaterialName( x + CloudMaterialOffset ).c_str() );
-      GFXTexHandle tex( name, &GFXDefaultStaticDiffuseProfile, "SkyCloud" );
+      GFXTexHandle tex( materials.getMaterialName( x + CloudMaterialOffset ),
+                        &GFXDefaultStaticDiffuseProfile, "SkyCloud" );
       mCloudLayer[x].setTexture( tex );
    }
 

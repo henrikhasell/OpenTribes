@@ -282,12 +282,22 @@ protected:
    /// untouched then, so it cannot be registered or drawn.
    bool mReadByLayoutT2 = false;
 
+   /// HH: Added for Tribes 2 compatibility.
+   /// Whether the walk's values were kept and set on this object, which is
+   /// the one case where a ghost read by layout can still be built.
+   bool mBuiltFromLayoutT2 = false;
+
    GhostInfo *mFirstObjectRef;      ///< Head of a linked list storing GhostInfos referencing this NetObject.
 
 public:
    /// HH: Added for Tribes 2 compatibility.
-   /// Whether this ghost was read by layout, so it holds no usable fields.
-   bool wasReadByLayoutT2() const { return mReadByLayoutT2; }
+   /// Whether this ghost holds no usable fields, which is a body read by
+   /// layout and not built from what the walk took.
+   bool wasReadByLayoutT2() const { return mReadByLayoutT2 && !mBuiltFromLayoutT2; }
+
+   /// HH: Added for Tribes 2 compatibility.
+   /// Say the walk's values were kept, so the object can be registered.
+   void setBuiltFromLayoutT2() { mBuiltFromLayoutT2 = true; }
 
    NetObject();
    ~NetObject();
