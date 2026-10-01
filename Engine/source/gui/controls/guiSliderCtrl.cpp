@@ -248,12 +248,6 @@ void GuiSliderCtrl::onMouseEnter(const GuiEvent &event)
    }
    else
    {
-      if( mActive && mProfile->mSoundButtonOver )
-      {
-         //F32 pan = (F32(event.mousePoint.x)/F32(getRoot()->getWidth())*2.0f-1.0f)*0.8f;
-         SFX->playOnce( mProfile->mSoundButtonOver );
-      }
-      
       mMouseOver = true;
    }
 }
