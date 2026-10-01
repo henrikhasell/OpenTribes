@@ -314,6 +314,13 @@ GuiFrameSetCtrl::GuiFrameSetCtrl()
    mAutoBalance = true;
    mIsContainer = true;
 
+   // HH: Modified for Tribes 2 compatibility.
+   // The cursors are looked up on the first hover, so they start empty.
+   mMoveCursor = NULL;
+   mUpDownCursor = NULL;
+   mLeftRightCursor = NULL;
+   mDefaultCursor = NULL;
+
    init(1, 1, NULL, NULL);
 }
 
@@ -402,74 +409,36 @@ void GuiFrameSetCtrl::getCursor(GuiCursor *&cursor, bool &showCursor, const GuiE
    if( !pRoot )
       return;
 
-   Region curRegion = NONE;
-   // Determine the region by mouse position.
-   Point2I curMousePos = globalToLocalCoord(lastGuiEvent.mousePoint);
-   curRegion = pointInAnyRegion(curMousePos);
-
-   PlatformWindow *pWindow = pRoot->getPlatformWindow();
-   AssertFatal(pWindow != NULL,"GuiControl without owning platform window!  This should not be possible.");
-   PlatformCursorController *pController = pWindow->getCursorController();
-   AssertFatal(pController != NULL,"PlatformWindow without an owned CursorController!");
-
-   switch (curRegion)
+   // HH: Modified for Tribes 2 compatibility.
+   // Tribes 2 names a cursor for each divider rather than asking for a system
+   // shape, so the canvas draws the shell's own arrows over a frame set.
+   if( !mDefaultCursor )
    {
-   case VERTICAL_DIVIDER:
-      // change to left-right cursor
-      if(pRoot->mCursorChanged != PlatformCursorController::curResizeVert)
-      {
-         //*** We've already changed the cursor, so set it back before we change it again.
-         if(pRoot->mCursorChanged != -1)
-            pController->popCursor();
-
-         //*** Now change the cursor shape
-         pController->pushCursor(PlatformCursorController::curResizeVert);
-         pRoot->mCursorChanged = PlatformCursorController::curResizeVert;
-
-      }
-      break;
-
-   case HORIZONTAL_DIVIDER:
-      // change to up-down cursor
-      if(pRoot->mCursorChanged != PlatformCursorController::curResizeHorz)
-      {
-         //*** We've already changed the cursor, so set it back before we change it again.
-         if(pRoot->mCursorChanged != -1)
-            pController->popCursor();
-
-         //*** Now change the cursor shape
-         pController->pushCursor(PlatformCursorController::curResizeHorz);
-         pRoot->mCursorChanged = PlatformCursorController::curResizeHorz;
-      }
-      break;
-
-   case DIVIDER_INTERSECTION:
-      // change to move cursor
-      if(pRoot->mCursorChanged != PlatformCursorController::curResizeAll)
-      {
-         //*** We've already changed the cursor, so set it back before we change it again.
-         if(pRoot->mCursorChanged != -1)
-            pController->popCursor();
-
-         //*** Now change the cursor shape
-         pController->pushCursor(PlatformCursorController::curResizeAll);
-         pRoot->mCursorChanged = PlatformCursorController::curResizeAll;
-
-      }
-      break;
-
-   case NONE:
-   default:
-      if(pRoot->mCursorChanged != -1)
-      {
-         //*** We've already changed the cursor, so set it back before we change it again.
-         pController->popCursor();
-
-         pRoot->mCursorChanged = -1;
-      }
-      break;
+      Sim::findObject( "MoveCursor", mMoveCursor );
+      Sim::findObject( "UpDownCursor", mUpDownCursor );
+      Sim::findObject( "LeftRightCursor", mLeftRightCursor );
+      Sim::findObject( "DefaultCursor", mDefaultCursor );
    }
 
+   switch( pointInAnyRegion( globalToLocalCoord( lastGuiEvent.mousePoint ) ) )
+   {
+      case VERTICAL_DIVIDER:
+         cursor = mLeftRightCursor;
+         break;
+
+      case HORIZONTAL_DIVIDER:
+         cursor = mUpDownCursor;
+         break;
+
+      case DIVIDER_INTERSECTION:
+         cursor = mMoveCursor;
+         break;
+
+      case NONE:
+      default:
+         cursor = mDefaultCursor;
+         break;
+   }
 }
 
 //-----------------------------------------------------------------------------
