@@ -45,7 +45,6 @@
 #include "console/debugOutputConsumer.h"
 #include "console/consoleTypes.h"
 #include "console/engineAPI.h"
-#include "sfx/sfxSystem.h"
 
 #include "gfx/bitmap/gBitmap.h"
 #include "gfx/gFont.h"
@@ -541,11 +540,6 @@ bool StandardMainLoop::handleCommandLine( S32 argc, const char **argv )
 
    Con::evaluate(script, false, useDefaultScript ? defaultScriptName : argv[1]); 
    delete[] script;
-
-   // HH: Added for Tribes 2 compatibility.
-   // The entry script has run and said nothing about sound, so open a device.
-   if( SFX )
-      SFX->createDefaultDevice();
 
 #ifdef TORQUE_ENABLE_VFS
    closeEmbeddedVFSArchive();

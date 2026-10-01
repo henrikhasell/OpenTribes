@@ -22,8 +22,6 @@
 
 #include "platform/platform.h"
 #include "gui/core/guiCanvas.h"
-#include "sfx/sfxTrack.h"
-#include "sfx/sfxSystem.h"
 
 #include "console/console.h"
 #include "console/engineAPI.h"
@@ -996,27 +994,6 @@ bool GuiCanvas::processGamepadEvent(InputEventInfo &inputEvent)
    return false;
 }
 
-// HH: Added for Tribes 2 compatibility.
-// Tribes 2 hangs its shell sounds on the profile, not on the control: nineteen
-// of its profiles name a sound, and they are worn by popups, scrollers, lists,
-// tabs and windows as well as by buttons.  Playing them where the canvas
-// decides who the mouse is over and who it went down on gets every one of them,
-// and gets each exactly once -- the canvas tracks a single mouse control.
-static void playProfileSoundT2( GuiControl *ctrl, bool down )
-{
-   if( !ctrl || !ctrl->isActive() )
-      return;
-
-   GuiControlProfile *profile = ctrl->getControlProfile();
-   if( !profile )
-      return;
-
-   SFXTrack *track = down ? profile->getSoundButtonDown()
-                          : profile->getSoundButtonOver();
-   if( track )
-      SFX->playOnce( track );
-}
-
 void GuiCanvas::rootMouseDown(const GuiEvent &event)
 {
    mPrevMouseTime = Platform::getVirtualMilliseconds();
@@ -1024,11 +1001,7 @@ void GuiCanvas::rootMouseDown(const GuiEvent &event)
 
    //pass the event to the mouse locked control
    if (bool(mMouseCapturedControl))
-   {
-      // HH: Modified for Tribes 2 compatibility.
-      playProfileSoundT2( mMouseCapturedControl, true );
       mMouseCapturedControl->onMouseDown(event);
-   }
    else
    {
       //else pass it to whoever is underneath the cursor
@@ -1045,8 +1018,6 @@ void GuiCanvas::rootMouseDown(const GuiEvent &event)
             continue;
          else
          {
-            // HH: Modified for Tribes 2 compatibility.
-            playProfileSoundT2( controlHit, true );
             controlHit->onMouseDown(event);
             break;
          }
@@ -1073,8 +1044,6 @@ void GuiCanvas::findMouseControl(const GuiEvent &event)
       if(bool(mMouseControl))
          mMouseControl->onMouseLeave(event);
       mMouseControl = controlHit;
-      // HH: Modified for Tribes 2 compatibility.
-      playProfileSoundT2( mMouseControl, false );
       mMouseControl->onMouseEnter(event);
    }
 }

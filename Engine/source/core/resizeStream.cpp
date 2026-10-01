@@ -105,13 +105,6 @@ bool ResizeFilterStream::setPosition(const U32 in_newPosition)
 
    if (in_newPosition < m_streamLen) {
       m_currOffset = in_newPosition;
-
-      // HH: Modified for Tribes 2 compatibility.
-      // A seek has to clear a latched end of stream, or reading a wav header
-      // off the end of its chunk list leaves every later read refused.
-      if (getStatus() == EOS)
-         setStatus(Ok);
-
       return true;
    } else {
       m_currOffset = m_streamLen;

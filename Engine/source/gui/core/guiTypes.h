@@ -452,18 +452,6 @@ public:
    SimObjectPtr< SFXTrack > mSoundButtonDown;                   ///< Sound played when the object is "down" ie a button is pushed
    SimObjectPtr< SFXTrack > mSoundButtonOver;                   ///< Sound played when the mouse is over the object
 
-   /// HH: Added for Tribes 2 compatibility.
-   /// The names those two were given, kept so a sound declared after the
-   /// profile can still be found.
-   String mSoundButtonDownName;
-   String mSoundButtonOverName;
-
-   /// HH: Added for Tribes 2 compatibility.
-   /// The sounds, looked up by name on first use if they were not there when
-   /// the profile named them.
-   SFXTrack* getSoundButtonDown();
-   SFXTrack* getSoundButtonOver();
-
    StringTableEntry mChildrenProfileName;       ///< The name of the profile to use for the children controls
 
    /// Returns our children profile (and finds the profile if it hasn't been set yet)

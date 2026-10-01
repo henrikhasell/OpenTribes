@@ -225,14 +225,12 @@ bool GuiControlProfile::protectedSetSoundButtonDown( void* object, const char* i
 {
    GuiControlProfile* profile = reinterpret_cast< GuiControlProfile* >( object );
    
-   // HH: Modified for Tribes 2 compatibility.
-   // Tribes 2 declares its profiles before the sounds they name, so the track
-   // is usually not there yet.  Keep the name and look it up on first use.
-   profile->mSoundButtonDownName = data ? data : "";
-
    SFXTrack* track = NULL;
-   if( data && data[ 0] )
-      Sim::findObject( data, track );
+   if( data && data[ 0] && !Sim::findObject( data, track ) )
+   {
+      Con::errorf( "GuiControlProfile::protectedSetSoundButtonDown - no SFXTrack '%s'", data );
+      return false;
+   }
    
    profile->mSoundButtonDown = track;
    
@@ -250,43 +248,16 @@ const char* GuiControlProfile::protectedGetSoundButtonOver( void* object, const 
    return track->getName();
 }
 
-// HH: Added for Tribes 2 compatibility.
-// The sound a profile named may not have existed when it named it, so look it
-// up the first time it is wanted.
-static SFXTrack* resolveProfileSound( SimObjectPtr< SFXTrack > &track, const String &name )
-{
-   if( !track && name.isNotEmpty() )
-   {
-      SFXTrack* found = NULL;
-      if( Sim::findObject( name.c_str(), found ) )
-         track = found;
-   }
-
-   return track;
-}
-
-SFXTrack* GuiControlProfile::getSoundButtonDown()
-{
-   return resolveProfileSound( mSoundButtonDown, mSoundButtonDownName );
-}
-
-SFXTrack* GuiControlProfile::getSoundButtonOver()
-{
-   return resolveProfileSound( mSoundButtonOver, mSoundButtonOverName );
-}
-
 bool GuiControlProfile::protectedSetSoundButtonOver( void* object, const char* index, const char* data )
 {
    GuiControlProfile* profile = reinterpret_cast< GuiControlProfile* >( object );
    
-   // HH: Modified for Tribes 2 compatibility.
-   // Tribes 2 declares its profiles before the sounds they name, so the track
-   // is usually not there yet.  Keep the name and look it up on first use.
-   profile->mSoundButtonOverName = data ? data : "";
-
    SFXTrack* track = NULL;
-   if( data && data[ 0] )
-      Sim::findObject( data, track );
+   if( data && data[ 0] && !Sim::findObject( data, track ) )
+   {
+      Con::errorf( "GuiControlProfile::protectedSetSoundButtonOver - no SFXTrack '%s'", data );
+      return false;
+   }
    
    profile->mSoundButtonOver = track;
    

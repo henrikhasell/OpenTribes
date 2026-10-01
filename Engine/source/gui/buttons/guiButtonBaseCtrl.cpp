@@ -252,6 +252,9 @@ void GuiButtonBaseCtrl::onMouseDown(const GuiEvent &event)
    if (mProfile->mCanKeyFocus)
       setFirstResponder();
 
+   if (mProfile->mSoundButtonDown)
+      SFX->playOnce(mProfile->mSoundButtonDown);
+      
    mMouseDownPoint = event.mousePoint;
    mMouseDragged = false;
 
@@ -289,6 +292,9 @@ void GuiButtonBaseCtrl::onMouseEnter(const GuiEvent &event)
    }
    else
    {
+      if ( mActive && mProfile->mSoundButtonOver )
+         SFX->playOnce(mProfile->mSoundButtonOver);
+
       mMouseOver = true;
    }
 }
@@ -371,9 +377,8 @@ bool GuiButtonBaseCtrl::onKeyDown(const GuiEvent &event)
    if ((event.keyCode == KEY_RETURN || event.keyCode == KEY_SPACE)
        && event.modifier == 0)
    {
-	   // HH: Modified for Tribes 2 compatibility.
-	   if ( SFXTrack* down = mProfile->getSoundButtonDown() )
-         SFX->playOnce( down );
+	   if ( mProfile->mSoundButtonDown )
+         SFX->playOnce( mProfile->mSoundButtonDown);
 
       return true;
    }
