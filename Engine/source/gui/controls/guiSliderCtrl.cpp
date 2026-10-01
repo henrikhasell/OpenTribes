@@ -248,14 +248,6 @@ void GuiSliderCtrl::onMouseEnter(const GuiEvent &event)
    }
    else
    {
-      // HH: Modified for Tribes 2 compatibility.
-      SFXTrack* over = mActive ? mProfile->getSoundButtonOver() : NULL;
-      if( over )
-      {
-         //F32 pan = (F32(event.mousePoint.x)/F32(getRoot()->getWidth())*2.0f-1.0f)*0.8f;
-         SFX->playOnce( over );
-      }
-      
       mMouseOver = true;
    }
 }
