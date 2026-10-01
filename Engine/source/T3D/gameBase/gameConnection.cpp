@@ -218,6 +218,9 @@ GameConnection::GameConnection()
 
    mCameraPos = 0;
    mCameraSpeed = 10;
+   mControlPosT2.set(0.0f, 0.0f, 0.0f);
+   mControlRotT2.set(0.0f, 0.0f, 0.0f);
+   mHaveControlT2 = false;
 
    mCameraFov = 90.f;
    mUpdateCameraFov = false;
@@ -662,6 +665,18 @@ bool GameConnection::getControlCameraTransform(F32 dt, MatrixF* mat)
       }
    }
 
+   // HH: Modified for Tribes 2 compatibility.
+   // A control object read from its layout was never built, so it has no
+   // transform to ask for -- its own getCameraTransform answers with the
+   // identity and the view is drawn from the world origin.  What the packet
+   // data said about it stands in.
+   if (obj->wasReadByLayoutT2() && mHaveControlT2)
+   {
+      *mat = MatrixF(EulerF(mControlRotT2.x, 0.0f, mControlRotT2.z));
+      mat->setPosition(mControlPosT2);
+      return true;
+   }
+
    if (!sChaseQueueSize || mFirstPerson || obj->onlyFirstPerson())
       obj->getCameraTransform(&mCameraPos,mat);
    else 
@@ -1030,6 +1045,26 @@ static const char *ghostClassNameT2(void *ctx, U32 ghostIndex)
    return obj ? NetClassTableT2::t2NameFor(obj->getClassName()) : NULL;
 }
 
+// HH: Added for Tribes 2 compatibility.
+// Where the object this client drives is and which way it looks, from the
+// Camera packet data nodes named in t2PacketDataTables.h -- a position at 2,
+// 3 and 4, then a pitch and a yaw.  The object itself is read from its layout
+// and never built, so this is the only place its transform comes from.
+static void controlStateT2(void *ctx, const T2Layout::Field &f)
+{
+   GameConnection *conn = (GameConnection *)ctx;
+
+   switch(f.node)
+   {
+      case 2: conn->setControlPosT2(0, f.asF32); break;
+      case 3: conn->setControlPosT2(1, f.asF32); break;
+      case 4: conn->setControlPosT2(2, f.asF32); break;
+      case 5: conn->setControlRotT2(0, f.asF32); break;
+      case 6: conn->setControlRotT2(2, f.asF32); break;
+      default: break;
+   }
+}
+
 void GameConnection::readPacket(BitStream *bstream)
 {
    char stringBuffer[256];
@@ -1169,7 +1204,7 @@ void GameConnection::readPacket(BitStream *bstream)
             {
                if(!T2Layout::readPacketData(bstream,
                      NetClassTableT2::t2NameFor(obj->getClassName()),
-                     ghostClassNameT2, this))
+                     ghostClassNameT2, this, controlStateT2, this))
                {
                   Con::warnf("Dropped a packet carrying %s control data, which "
                              "we have no layout for.", obj->getClassName());
@@ -1203,6 +1238,11 @@ void GameConnection::readPacket(BitStream *bstream)
             bstream->read(&pos.y);
             bstream->read(&pos.z);
             bstream->setCompressionPoint(pos);
+
+            // HH: Modified for Tribes 2 compatibility.
+            // The same position, in the packets that carry no state.
+            mControlPosT2 = pos;
+            mHaveControlT2 = true;
          }
       }
 

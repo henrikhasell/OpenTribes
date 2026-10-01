@@ -86,9 +86,23 @@ private:
    F32   mCameraFov;       ///< Current camera fov (in degrees).
    F32   mCameraPos;       ///< Current camera pos (0-1).
    F32   mCameraSpeed;     ///< Camera in/out speed.
+
+   /// HH: Added for Tribes 2 compatibility.
+   /// Where the object this client drives is and which way it looks, taken
+   /// from its packet data.  It is all the view has to go on: that object is
+   /// read from its layout and never built, so it carries no transform of its
+   /// own.
+   Point3F mControlPosT2;
+   Point3F mControlRotT2;
+   bool    mHaveControlT2;
    /// @}
 
 public:
+
+   /// HH: Added for Tribes 2 compatibility.
+   /// Set by the sink that reads the control object's packet data.
+   void setControlPosT2( U32 i, F32 v ) { mControlPosT2[i] = v; mHaveControlT2 = true; }
+   void setControlRotT2( U32 i, F32 v ) { mControlRotT2[i] = v; }
 
    /// @name Protocol Versions
    ///
