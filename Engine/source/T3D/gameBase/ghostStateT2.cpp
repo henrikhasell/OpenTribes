@@ -7,6 +7,9 @@
 #include "core/stringTable.h"
 #include "core/strings/stringFunctions.h"
 #include "environment/sky.h"
+#include "environment/sun.h"
+#include "math/mMathFn.h"
+#include "terrain/terrData.h"
 #include "sim/netObject.h"
 #include "T3D/gameBase/ghostStateT2.h"
 #include "T3D/gameBase/t2Layout.h"
@@ -109,6 +112,67 @@ void setTriple( SimObject *obj, const char *field, const F32 *v,
    setField( obj, field, NULL, buf );
 }
 
+/// TerrainBlock, from the recovered layout's node numbers.
+///
+///   2 terrainFile   3 detailTexture   4 squareSize
+///
+/// Checked against the mission the server was running: Pyroclasm.ter,
+/// details/lavadet1 and 8, which is what Pyroclasm.mis carries.  The empty
+/// square list after them is read and dropped.
+struct TerrainState
+{
+   char file[ 256 ];
+   char detail[ 256 ];
+   U32  squareSize;
+};
+
+void terrainField( void *ctx, const T2Layout::Field &f )
+{
+   TerrainState &s = *static_cast< TerrainState * >( ctx );
+
+   switch( f.node )
+   {
+      case 2:
+         dStrncpy( s.file, f.str ? f.str : "", sizeof( s.file ) - 1 );
+         s.file[ sizeof( s.file ) - 1 ] = 0;
+         break;
+
+      case 3:
+         dStrncpy( s.detail, f.str ? f.str : "", sizeof( s.detail ) - 1 );
+         s.detail[ sizeof( s.detail ) - 1 ] = 0;
+         break;
+
+      case 4: s.squareSize = f.value; break;
+
+      default: break;
+   }
+}
+
+/// Sun, from the recovered layout's node numbers.
+///
+///   3/4/5 direction   6/7/8/9 color   10/11/12/13 ambient
+///
+/// Checked against the mission the server was running: direction
+/// 0.57735 0.57735 -0.57735, colour 0.8 and ambient 0.6, every component.
+struct SunState
+{
+   F32 direction[ 3 ];
+   F32 color[ 4 ];
+   F32 ambient[ 4 ];
+};
+
+void sunField( void *ctx, const T2Layout::Field &f )
+{
+   SunState &s = *static_cast< SunState * >( ctx );
+
+   if( f.node >= 3 && f.node <= 5 )
+      s.direction[ f.node - 3 ] = f.asF32;
+   else if( f.node >= 6 && f.node <= 9 )
+      s.color[ f.node - 6 ] = f.asF32;
+   else if( f.node >= 10 && f.node <= 13 )
+      s.ambient[ f.node - 10 ] = f.asF32;
+}
+
 void applySky( Sky *sky, const SkyState &s )
 {
    setField( sky, "materialList", NULL, s.name );
@@ -132,6 +196,52 @@ void applySky( Sky *sky, const SkyState &s )
    setField( sky, "useSkyTextures", NULL, s.skyTextures ? "1" : "0" );
 }
 
+void applySun( Sun *sun, const SunState &s )
+{
+   // Tribes 2 names a direction where this engine's Sun names an azimuth and
+   // an elevation.  Inverted off _conformLights, which builds the direction
+   // back out of them as -getVectorFromAngles(azimuth, elevation), so the two
+   // agree by construction rather than by the wording of either field.
+   const F32 lz = mClampF( s.direction[ 2 ], -1.0f, 1.0f );
+   const F32 elevation = mRadToDeg( mAsin( lz ) );
+   F32 azimuth = mRadToDeg( mAtan2( s.direction[ 0 ], -s.direction[ 1 ] ) );
+   while( azimuth < 0.0f )
+      azimuth += 360.0f;
+
+   setF32( sun, "azimuth", NULL, azimuth );
+   setF32( sun, "elevation", NULL, elevation );
+
+   char buf[ 96 ];
+   dSprintf( buf, sizeof( buf ), "%g %g %g %g", s.color[ 0 ], s.color[ 1 ],
+             s.color[ 2 ], s.color[ 3 ] );
+   setField( sun, "color", NULL, buf );
+
+   dSprintf( buf, sizeof( buf ), "%g %g %g %g", s.ambient[ 0 ], s.ambient[ 1 ],
+             s.ambient[ 2 ], s.ambient[ 3 ] );
+   setField( sun, "ambient", NULL, buf );
+}
+
+void applyTerrain( TerrainBlock *terrain, const TerrainState &s )
+{
+   // Tribes 2 names the file alone and keeps its terrains in one directory,
+   // the way it keeps its textures in one.
+   String path = s.file;
+   if( path.isNotEmpty() && !path.startsWith( "terrains/" ) )
+      path = String::ToString( "terrains/%s", s.file );
+
+   setField( terrain, "terrainFile", NULL, path );
+   setField( terrain, "detailTexture", NULL, s.detail );
+   setF32( terrain, "squareSize", NULL, F32( s.squareSize ) );
+
+   // The ghost carries no transform.  Every Tribes 2 mission centres its
+   // terrain on the origin, which is where a square size and the block's
+   // fixed 256 squares put it.
+   const F32 half = 256.0f * F32( s.squareSize ) * 0.5f;
+   char buf[ 64 ];
+   dSprintf( buf, sizeof( buf ), "%g %g 0", -half, -half );
+   setField( terrain, "position", NULL, buf );
+}
+
 } // namespace
 
 namespace GhostStateT2
@@ -152,6 +262,34 @@ bool readGhost( NetObject *obj, BitStream *stream, bool isInitial )
 
       applySky( sky, state );
       sky->setBuiltFromLayoutT2();
+      return true;
+   }
+
+   if( Sun *sun = dynamic_cast< Sun * >( obj ) )
+   {
+      SunState state;
+      dMemset( &state, 0, sizeof( state ) );
+
+      if( !T2Layout::readGhost( stream, className, isInitial, sunField,
+                                &state ) )
+         return false;
+
+      applySun( sun, state );
+      sun->setBuiltFromLayoutT2();
+      return true;
+   }
+
+   if( TerrainBlock *terrain = dynamic_cast< TerrainBlock * >( obj ) )
+   {
+      TerrainState state;
+      dMemset( &state, 0, sizeof( state ) );
+
+      if( !T2Layout::readGhost( stream, className, isInitial, terrainField,
+                                &state ) )
+         return false;
+
+      applyTerrain( terrain, state );
+      terrain->setBuiltFromLayoutT2();
       return true;
    }
 

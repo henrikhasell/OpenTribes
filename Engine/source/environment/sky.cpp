@@ -346,11 +346,7 @@ bool Sky::loadDml()
 
    mNumCloudLayers = 0;
 
-   // The list is read here rather than through MaterialList, which throws the
-   // directory away -- "a legacy of Tribes tools", says its own comment, and
-   // those are the tools that wrote this one.  A Tribes 2 list names
-   // desert/skies/df2, and the name without its directory finds nothing.
-   Vector< String > materials;
+   MaterialList materials;
    {
       FileStream stream;
       if( !stream.open( listPath, Torque::FS::File::Read ) )
@@ -359,37 +355,19 @@ bool Sky::loadDml()
          return false;
       }
 
-      const U32 size = stream.getStreamSize();
-      Vector< char > text( size + 1 );
-      text.setSize( size + 1 );
-      if( size )
-         stream.read( size, text.address() );
-      text[size] = 0;
-
-      char *at = text.address();
-      while( *at )
-      {
-         char *end = at;
-         while( *end && *end != '\n' && *end != '\r' )
-            end++;
-         const char was = *end;
-         *end = 0;
-
-         String name = String( at ).trim();
-         if( name.isNotEmpty() )
-            materials.push_back( name );
-
-         at = was ? end + 1 : end;
-      }
+      // readT2 rather than read: a Tribes 2 list names its faces from the
+      // texture directory down, and the usual reader throws that away.
+      materials.readT2( stream );
    }
 
-   for( S32 x = 0; x < 6 && x < materials.size(); ++x )
-      mSkyHandle[x].set( materials[x], &GFXDefaultStaticDiffuseProfile, "Sky" );
+   for( S32 x = 0; x < 6 && x < (S32)materials.size(); ++x )
+      mSkyHandle[x].set( materials.getMaterialName( x ),
+                         &GFXDefaultStaticDiffuseProfile, "Sky" );
 
-   for( S32 x = 0; x + CloudMaterialOffset < materials.size() && x < MAX_NUM_LAYERS;
+   for( S32 x = 0; x + CloudMaterialOffset < (S32)materials.size() && x < MAX_NUM_LAYERS;
         ++x, ++mNumCloudLayers )
    {
-      GFXTexHandle tex( materials[x + CloudMaterialOffset],
+      GFXTexHandle tex( materials.getMaterialName( x + CloudMaterialOffset ),
                         &GFXDefaultStaticDiffuseProfile, "SkyCloud" );
       mCloudLayer[x].setTexture( tex );
    }

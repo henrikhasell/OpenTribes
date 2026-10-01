@@ -775,6 +775,14 @@ BaseMatInstance* TerrainCellMaterial::getShadowMat()
    // defined on it in script.
    Material *mat = MATMGR->getMaterialDefinitionByName( "AL_DefaultShadowMaterial" );
 
+   // HH: Modified for Tribes 2 compatibility.
+   // core/scripts/client/lighting/advanced/shaders.cs defines that material,
+   // and this port runs Tribes 2's scripts instead, so it is never there.  It
+   // is wanted for the shadow pass, which Advanced Lighting runs and this does
+   // not; the terrain draws from its own cell materials either way.
+   if ( !mat )
+      return NULL;
+
    // Create the material instance adding the feature which
    // handles rendering terrain cut outs.
    FeatureSet features = MATMGR->getDefaultFeatures();

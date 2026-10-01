@@ -22,6 +22,9 @@
 
 #include "platform/platform.h"
 #include "terrain/terrMaterial.h"
+#include "core/volume.h"
+#include "core/stream/fileStream.h"
+#include "materials/materialList.h"
 #include "console/consoleTypes.h"
 #include "gfx/bitmap/gBitmap.h"
 
@@ -141,6 +144,32 @@ TerrainMaterial* TerrainMaterial::findOrCreate( const char *nameOrPath )
       mat->registerObject();
       Sim::getRootGroup()->addObject( mat );
       return mat;
+   }
+
+   // HH: Modified for Tribes 2 compatibility.
+   // A Tribes 2 terrain names its materials, not its textures: the heightfield
+   // carries terrain.IceWorld.Snow, and textures/terrain.IceWorld.Snow.dml
+   // lists the tiles that draw it.  The first of them is the one to put on the
+   // ground; the rest are the variations the original engine rotated through.
+   {
+      String listPath = String::ToString( "textures/%s.dml", nameOrPath );
+      FileStream stream;
+      if ( stream.open( listPath, Torque::FS::File::Read ) )
+      {
+         MaterialList tiles;
+         tiles.readT2( stream );
+         stream.close();
+
+         if ( tiles.size() > 0 )
+         {
+            mat = new TerrainMaterial();
+            mat->setInternalName( nameOrPath );
+            mat->mDiffuseMap = tiles.getMaterialName( 0 );
+            mat->registerObject();
+            Sim::getRootGroup()->addObject( mat );
+            return mat;
+         }
+      }
    }
 
    // Ok... return a debug material then.

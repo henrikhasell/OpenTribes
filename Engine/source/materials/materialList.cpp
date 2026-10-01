@@ -233,6 +233,26 @@ bool MaterialList::readText(Stream &stream, U8 firstByte)
    return (stream.getStatus() == Stream::Ok || stream.getStatus() == Stream::EOS);
 }
 
+// HH: Added for Tribes 2 compatibility.
+bool MaterialList::readT2(Stream &stream)
+{
+   free();
+
+   char buf[1024];
+   for(;;)
+   {
+      buf[0] = 0;
+      stream.readLine((U8*)buf, sizeof(buf));
+      if(!buf[0])
+         break;
+
+      mMaterialNames.push_back(buf);
+      mMatInstList.push_back(NULL);
+   }
+
+   return (stream.getStatus() == Stream::Ok || stream.getStatus() == Stream::EOS);
+}
+
 bool MaterialList::readText(Stream &stream)
 {
    U8 firstByte;

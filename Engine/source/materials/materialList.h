@@ -71,6 +71,12 @@ public:
    bool write(Stream &stream);
 
    bool readText(Stream &stream, U8 firstByte);
+
+   /// HH: Added for Tribes 2 compatibility.
+   /// The same list with the directory kept.  readText throws it away -- "a
+   /// legacy of Tribes tools" -- and those are the tools that wrote a Tribes 2
+   /// list, which names desert/skies/df2 and means all of it.
+   bool readT2(Stream &stream);
    bool readText(Stream &stream);
    bool writeText(Stream &stream);
 
