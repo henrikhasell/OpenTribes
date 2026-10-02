@@ -101,9 +101,13 @@ public:
 
    virtual U32 setPosition(U32 pos, SeekMode mode)
    {
+      // HH: Modified to lock the shared stream.
+      MutexHandle streamLock;
+      streamLock.lock(&mArchive->getStreamMutex(), true);
+
       if (!mZipStream || mode != Begin)
          return 0;
-      else 
+      else
          return mZipStream->setPosition(pos);
    }
 
@@ -121,6 +125,11 @@ public:
 
    virtual bool close()
    {
+      // HH: Modified to lock the shared stream.
+      MutexHandle streamLock;
+      if (mArchive != NULL)
+         streamLock.lock(&mArchive->getStreamMutex(), true);
+
       if (mZipStream != NULL && mArchive != NULL)
       {
          mArchive->closeFile(mZipStream);
