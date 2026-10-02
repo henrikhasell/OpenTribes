@@ -2321,6 +2321,27 @@ DefineEngineFunction( toggleConsole, void, (), ,
 }
 
 // HH: Added for Tribes 2 compatibility.
+// TGE's canvas.cs writes $pref::Video::mode before it makes the canvas.
+// Tribes 2 keeps the same thing in $pref::Video::resolution and
+// $pref::Video::fullScreen, so the engine has to write it from those.
+static void setVideoModeFromPrefs()
+{
+   const char *resolution = Con::getVariable( "$pref::Video::resolution" );
+
+   Point2I extent( dAtoi( StringUnit::getUnit( resolution, 0, " " ) ),
+                   dAtoi( StringUnit::getUnit( resolution, 1, " " ) ) );
+
+   if ( extent.x <= 0 || extent.y <= 0 )
+      return;
+
+   GFXVideoMode mode = GFXInit::getInitialVideoMode();
+   mode.resolution = extent;
+   mode.fullScreen = Con::getBoolVariable( "$pref::Video::fullScreen" );
+
+   Con::setVariable( "$pref::Video::mode", mode.toString() );
+}
+
+// HH: Added for Tribes 2 compatibility.
 // TGE defines this in script and Tribes 2 does not, so the engine must.
 DefineEngineFunction( createCanvas, bool, ( const char *windowTitle ), ( "" ),
                "@brief Create the game window and the canvas that draws into it.\n\n"
@@ -2366,6 +2387,8 @@ DefineEngineFunction( createCanvas, bool, ( const char *windowTitle ), ( "" ),
 
       profile->registerObject( "GuiDefaultProfile" );
    }
+
+   setVideoModeFromPrefs();
 
    GuiCanvas *canvas = new GuiCanvas();
    canvas->registerObject( "Canvas" );
