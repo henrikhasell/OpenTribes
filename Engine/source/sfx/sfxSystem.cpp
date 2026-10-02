@@ -728,6 +728,13 @@ SFXBuffer* SFXSystem::_createBuffer( const ThreadSafeRef< SFXStream >& stream, S
       return NULL;
    }
 
+   // HH: Modified to refuse a null stream.
+   if ( stream == NULL )
+   {
+      Con::errorf( "SFXSystem::_createBuffer - No sound stream!" );
+      return NULL;
+   }
+
    // Some sanity checking for streaming.  If the stream isn't at least three packets
    // in size given the current settings in "description", then turn off streaming.
    // The device code *will* mess up if the stream input fails to match certain metrics.
