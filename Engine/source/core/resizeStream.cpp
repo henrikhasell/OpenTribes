@@ -105,6 +105,11 @@ bool ResizeFilterStream::setPosition(const U32 in_newPosition)
 
    if (in_newPosition < m_streamLen) {
       m_currOffset = in_newPosition;
+
+      // HH: Modified for Tribes 2 compatibility.
+      if (getStatus() == EOS)
+         setStatus(Ok);
+
       return true;
    } else {
       m_currOffset = m_streamLen;

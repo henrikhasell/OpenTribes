@@ -22,6 +22,8 @@
 
 #include "gui/core/guiCanvas.h"
 #include "gui/controls/guiPopUpCtrl.h"
+#include "sfx/sfxSystem.h"
+#include "sfx/sfxTrack.h"
 #include "console/consoleTypes.h"
 #include "gui/core/guiDefaultControlRender.h"
 #include "gfx/primBuilder.h"
@@ -272,6 +274,10 @@ GuiPopUpMenuCtrl::GuiPopUpMenuCtrl(void)
    mIncValue = 0;
    mRevNum = 0;
    mInAction = false;
+   // HH: Modified for Tribes 2 compatibility.
+   mTl = NULL;
+   mSc = NULL;
+   mBackground = NULL;
    mMouseOver = false; //  Added
    mRenderScrollInNA = false; //  Added
    mBackgroundCancel = false; //  Added
@@ -639,9 +645,6 @@ void GuiPopUpMenuCtrl::setBitmap( const char *name )
 void GuiPopUpMenuCtrl::sort( bool ascending, S32 firstSorted )
 {
    // HH: Modified for Tribes 2 compatibility.
-   // The entries before firstSorted stay where the content put them -- a filter
-   // popup pins "Any" at the top and sorts what follows -- and an offset outside
-   // the list sorts nothing at all, which is what 0x004c92e0 does with it.
    if( firstSorted < 0 || firstSorted >= mEntries.size() )
       return;
 
@@ -1271,7 +1274,6 @@ void GuiPopUpMenuCtrl::onAction()
    //Calc max Y distance, so Scroll Ctrl will fit on window 
 
    // HH: Modified for Tribes 2 compatibility.
-   // The list is given room for the inset the scroll actually reserves.
    S32 sbBorder = mSc->getBorderThickness() * 2 + mSc->getChildMargin().y * 2;
    S32 maxYdis = windowExt.y - pointInGC.y - getHeight() - sbBorder;
 
@@ -1480,6 +1482,10 @@ void GuiPopUpMenuCtrl::onMouseDown( const GuiEvent &event )
    if( !mVisible || !mActive || !mAwake )
       return;
 
+   // HH: Modified for Tribes 2 compatibility.
+   if( SFXTrack *down = mProfile->getSoundButtonDown() )
+      SFX->playOnce( down );
+
    onAction();
 }
 
@@ -1493,6 +1499,13 @@ void GuiPopUpMenuCtrl::onMouseUp( const GuiEvent &event )
 //  Added
 void GuiPopUpMenuCtrl::onMouseEnter( const GuiEvent &event )
 {
+   // HH: Modified for Tribes 2 compatibility.
+   if( mActive && !mBackground )
+   {
+      if( SFXTrack *over = mProfile->getSoundButtonOver() )
+         SFX->playOnce( over );
+   }
+
    mMouseOver = true;
 }
 

@@ -59,6 +59,10 @@ private:
    void _init();
 
    bool mInitted;
+
+   // HH: Added mutex to support multi-threading.
+   Mutex mInitMutex;
+
    bool mZipNameIsDir;
    String mZipFilename;
    String mFakeRoot;

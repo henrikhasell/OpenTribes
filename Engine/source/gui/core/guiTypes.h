@@ -442,7 +442,6 @@ public:
    // bitmap members
    StringTableEntry mBitmapName;                   ///< Bitmap file name for the bitmap of the control
    // HH: Modified for Tribes 2 compatibility.
-   // Tribes 2 profiles name a stem that a control completes with suffixes.
    StringTableEntry mBitmapBase;
    bool mUseBitmapArray;                           ///< Flag to use the bitmap array or to fallback to non-array rendering
    GFXTexHandle mTextureObject;
@@ -451,6 +450,14 @@ public:
    // sound members
    SimObjectPtr< SFXTrack > mSoundButtonDown;                   ///< Sound played when the object is "down" ie a button is pushed
    SimObjectPtr< SFXTrack > mSoundButtonOver;                   ///< Sound played when the mouse is over the object
+
+   /// HH: Added for Tribes 2 compatibility.
+   String mSoundButtonDownName;
+   String mSoundButtonOverName;
+
+   /// HH: Added for Tribes 2 compatibility.
+   SFXTrack* getSoundButtonDown();
+   SFXTrack* getSoundButtonOver();
 
    StringTableEntry mChildrenProfileName;       ///< The name of the profile to use for the children controls
 

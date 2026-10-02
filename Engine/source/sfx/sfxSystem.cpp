@@ -421,6 +421,30 @@ void SFXSystem::removePlugin( SFXSystemPlugin* plugin )
 
 //-----------------------------------------------------------------------------
 
+// HH: Added for Tribes 2 compatibility.
+bool SFXSystem::createDefaultDevice()
+{
+   if( mDevice )
+      return true;
+
+   for( SFXProvider* provider = SFXProvider::getFirstProvider();
+        provider != NULL;
+        provider = provider->getNextProvider() )
+   {
+      if( provider->getName().equal( "Null", String::NoCase ) )
+         continue;
+
+      const SFXDeviceInfoVector& devices = provider->getDeviceInfo();
+
+      for( U32 i = 0; i < devices.size(); i++ )
+         if( createDevice( provider->getName(), devices[ i ]->name,
+                           devices[ i ]->hasHardware, devices[ i ]->maxBuffers ) )
+            return true;
+   }
+
+   return false;
+}
+
 bool SFXSystem::createDevice( const String& providerName, const String& deviceName, bool useHardware, S32 maxBuffers, bool changeDevice )
 {
    // Make sure we don't have a device already.
@@ -701,6 +725,13 @@ SFXBuffer* SFXSystem::_createBuffer( const ThreadSafeRef< SFXStream >& stream, S
    if ( !mDevice )
    {
       Con::errorf( "SFXSystem::_createBuffer - No sound device initialized!!" );
+      return NULL;
+   }
+
+   // HH: Modified to refuse a null stream.
+   if ( stream == NULL )
+   {
+      Con::errorf( "SFXSystem::_createBuffer - No sound stream!" );
       return NULL;
    }
 

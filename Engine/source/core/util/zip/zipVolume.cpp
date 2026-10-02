@@ -101,9 +101,13 @@ public:
 
    virtual U32 setPosition(U32 pos, SeekMode mode)
    {
+      // HH: Modified to lock the shared stream.
+      MutexHandle streamLock;
+      streamLock.lock(&mArchive->getStreamMutex(), true);
+
       if (!mZipStream || mode != Begin)
          return 0;
-      else 
+      else
          return mZipStream->setPosition(pos);
    }
 
@@ -121,6 +125,11 @@ public:
 
    virtual bool close()
    {
+      // HH: Modified to lock the shared stream.
+      MutexHandle streamLock;
+      if (mArchive != NULL)
+         streamLock.lock(&mArchive->getStreamMutex(), true);
+
       if (mZipStream != NULL && mArchive != NULL)
       {
          mArchive->closeFile(mZipStream);
@@ -132,6 +141,10 @@ public:
 
    virtual U32 read(void* dst, U32 size)
    {
+      // HH: Modified to lock the shared stream.
+      MutexHandle streamLock;
+      streamLock.lock(&mArchive->getStreamMutex(), true);
+
       if (mZipStream && mZipStream->read(size, dst) && mByteCount)
          return mByteCount->getLastBytesRead();
       else
@@ -384,8 +397,8 @@ ZipFileSystem::~ZipFileSystem()
 
 FileNodeRef ZipFileSystem::resolve(const Path& path)
 {
-   if (!mInitted)
-      _init();
+   // HH: Modified to lock the lazy init.
+   _init();
 
    if (mZipArchive.isNull())
       return NULL;
@@ -447,6 +460,10 @@ FileNodeRef ZipFileSystem::resolve(const Path& path)
 
 void ZipFileSystem::_init()
 {
+   // HH: Modified to lock the lazy init.
+   MutexHandle initLock;
+   initLock.lock(&mInitMutex, true);
+
    if (mInitted)
       return;
    mInitted = true;
