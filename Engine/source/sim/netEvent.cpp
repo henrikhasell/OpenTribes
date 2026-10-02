@@ -24,6 +24,7 @@
 #include "core/dnet.h"
 #include "console/simBase.h"
 #include "sim/netConnection.h"
+#include "console/netClassTable.h"
 #include "core/stream/bitStream.h"
 
 #define DebugChecksum 0xF00DBAAD
@@ -313,7 +314,11 @@ void NetConnection::eventReadPacket(BitStream *bstream)
       NetEvent *evt = (NetEvent *) ConsoleObject::create(getNetClassGroup(), NetClassTypeEvent, classId);
       if(!evt)
       {
-         setLastError("Invalid packet. (bad ghost class id)");
+         // HH: Modified for Tribes 2 compatibility.
+         // Name the class we have not ported, which is the one thing that
+         // says what to write next.
+         setLastError("No event class %d (%s).", classId,
+            NetClassTable::Events[classId]);
          return;
       }
       AbstractClassRep *rep = evt->getClassRep();
@@ -366,14 +371,25 @@ void NetConnection::eventReadPacket(BitStream *bstream)
       *waitInsert = note;
       waitInsert = &(note->mNextEvent);
    }
-   while(mWaitSeqEvents && mWaitSeqEvents->mSeqCount == mNextRecvEventSeq)
+   // HH: Modified for Tribes 2 compatibility.
+   // A sequence already passed has to be dropped, not waited for.  A Tribes 2
+   // server sometimes sends a guaranteed event whose sequence we have already
+   // processed; the note then sits at the head of the list with a count below
+   // the one wanted, the strict test never matches it, and every later event
+   // waits behind it for good.  That is how a client that had read all fifty
+   // ghost-always objects sat in phase two holding twelve remote commands --
+   // MissionStartPhase3 among them -- that it would never act on.
+   while(mWaitSeqEvents && mWaitSeqEvents->mSeqCount <= mNextRecvEventSeq)
    {
-      mNextRecvEventSeq++;
       NetEventNote *temp = mWaitSeqEvents;
       mWaitSeqEvents = temp->mNextEvent;
+      const bool due = temp->mSeqCount == mNextRecvEventSeq;
+      if(due)
+         mNextRecvEventSeq++;
 
       //Con::printf("EVT  %d: PROCESS - %d", getId(), temp->mSeqCount);
-      temp->mEvent->process(this);
+      if(due)
+         temp->mEvent->process(this);
       temp->mEvent->decRef();
       mEventNoteChunker.free(temp);
       if(mErrorBuffer.isNotEmpty())
