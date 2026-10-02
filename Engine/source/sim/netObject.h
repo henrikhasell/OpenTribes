@@ -276,9 +276,19 @@ protected:
    BitSet32 mNetFlags;              ///< Flag values from NetFlags
    U32 mNetIndex;                   ///< The index of this ghost in the GhostManager on the server.
 
+   /// HH: Added for Tribes 2 compatibility.
+   /// Whether this ghost's update was taken off the wire by its recovered
+   /// layout rather than by an unpackUpdate of its own.  Its fields are
+   /// untouched then, so it cannot be registered or drawn.
+   bool mReadByLayoutT2 = false;
+
    GhostInfo *mFirstObjectRef;      ///< Head of a linked list storing GhostInfos referencing this NetObject.
 
 public:
+   /// HH: Added for Tribes 2 compatibility.
+   /// Whether this ghost was read by layout, so it holds no usable fields.
+   bool wasReadByLayoutT2() const { return mReadByLayoutT2; }
+
    NetObject();
    ~NetObject();
 

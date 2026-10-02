@@ -130,6 +130,12 @@ public:
    /// the 'datablock' keyword).
    bool isClientOnly() const { return getId() < DataBlockObjectIdFirst || getId() > DataBlockObjectIdLast; }
 
+   /// HH: Added for Tribes 2 compatibility.
+   /// Whether this datablock's body was taken off the wire by its recovered
+   /// layout rather than by a reader of its own.  Its fields are untouched
+   /// then, so preloading it would work from defaults.
+   bool mReadByLayoutT2 = false;
+
    /// Get the modified key for this particular datablock.
    S32 getModifiedKey() const { return modifiedKey; }
 
