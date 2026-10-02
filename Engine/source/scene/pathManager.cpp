@@ -31,6 +31,7 @@
 #include "scene/sceneManager.h"
 #include "platform/profiler.h"
 #include "core/module.h"
+#include "T3D/gameBase/t2Layout.h"
 
 extern bool gEditingMission;
 
@@ -124,27 +125,10 @@ void PathManagerEvent::write(NetConnection*nc, BitStream *stream)
    pack(nc, stream);
 }
 
+// HH: Modified for Tribes 2 compatibility.
 void PathManagerEvent::unpack(NetConnection*, BitStream* stream)
 {
-   // Read in the modified path...
-
-   stream->read(&modifiedPath);
-   clearPaths = stream->readFlag();
-   stream->read(&path.totalTime);
-
-   U32 numPoints;
-   stream->read(&numPoints);
-   path.positions.setSize(numPoints);
-   path.rotations.setSize(numPoints);
-   path.msToNext.setSize(numPoints);
-   path.smoothingType.setSize(numPoints);
-   for (U32 j = 0; j < path.positions.size(); j++)
-   {
-      mathRead(*stream, &path.positions[j]);
-      mathRead(*stream, &path.rotations[j]);
-      stream->read(&path.msToNext[j]);
-      stream->read(&path.smoothingType[j]);
-   }
+   T2Layout::readEvent(stream, "PathManagerEvent");
 }
 
 void PathManagerEvent::process(NetConnection*)

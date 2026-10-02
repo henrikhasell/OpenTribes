@@ -24,6 +24,7 @@
 #include "core/dnet.h"
 #include "console/simBase.h"
 #include "sim/netConnection.h"
+#include "console/netClassTable.h"
 #include "core/stream/bitStream.h"
 #include "core/stream/fileStream.h"
 #ifndef TORQUE_TGB_ONLY
@@ -55,55 +56,58 @@ SimObjectPtr<NetConnection> NetConnection::mServerConnection;
 SimObjectPtr<NetConnection> NetConnection::mLocalClientConnection;
 
 //----------------------------------------------------------------------
-/// ConnectionMessageEvent
+/// GhostingMessageEvent
+///
+/// HH: Modified for Tribes 2 compatibility.
 ///
 /// This event is used inside by the connection and subclasses to message
 /// itself when sequencing events occur.  Right now, the message event
 /// only uses 6 bits to transmit the message, so
-class ConnectionMessageEvent : public NetEvent
+class GhostingMessageEvent : public NetEvent
 {
    U32 sequence;
    U32 message;
    U32 ghostCount;
 public:
    typedef NetEvent Parent;
-   ConnectionMessageEvent(U32 msg=0, U32 seq=0, U32 gc=0)
+   GhostingMessageEvent(U32 msg=0, U32 seq=0, U32 gc=0)
       { message = msg; sequence = seq; ghostCount = gc;}
+   // HH: Modified for Tribes 2 compatibility.
    void pack(NetConnection *, BitStream *bstream)
    {
       bstream->write(sequence);
-      bstream->writeInt(message, 3);
+      bstream->writeInt(NetClassTable::toGameConnectionMessage(message), 3);
       bstream->writeInt(ghostCount, NetConnection::GhostIdBitSize + 1);
    }
    void write(NetConnection *, BitStream *bstream)
    {
       bstream->write(sequence);
-      bstream->writeInt(message, 3);
+      bstream->writeInt(NetClassTable::toGameConnectionMessage(message), 3);
       bstream->writeInt(ghostCount, NetConnection::GhostIdBitSize + 1);
    }
    void unpack(NetConnection *, BitStream *bstream)
    {
       bstream->read(&sequence);
-      message = bstream->readInt(3);
+      message = NetClassTable::fromGameConnectionMessage(bstream->readInt(3));
       ghostCount = bstream->readInt(NetConnection::GhostIdBitSize + 1);
    }
    void process(NetConnection *ps)
    {
       ps->handleConnectionMessage(message, sequence, ghostCount);
    }
-   DECLARE_CONOBJECT(ConnectionMessageEvent);
+   DECLARE_CONOBJECT(GhostingMessageEvent);
 };
 
-IMPLEMENT_CO_NETEVENT_V1(ConnectionMessageEvent);
+IMPLEMENT_CO_NETEVENT_V1(GhostingMessageEvent);
 
-ConsoleDocClass( ConnectionMessageEvent,
+ConsoleDocClass( GhostingMessageEvent,
 				"@brief This event is used inside by the connection and subclasses to message itself when sequencing events occur.\n\n"
 				"Not intended for game development, for editors or internal use only.\n\n "
 				"@internal");
 
 void NetConnection::sendConnectionMessage(U32 message, U32 sequence, U32 ghostCount)
 {
-   postNetEvent(new ConnectionMessageEvent(message, sequence, ghostCount));
+   postNetEvent(new GhostingMessageEvent(message, sequence, ghostCount));
 }
 
 //--------------------------------------------------------------------
@@ -674,7 +678,7 @@ void NetConnection::setLastError(const char *fmt, ...)
 {
    va_list argptr;
    va_start(argptr, fmt);
-   mErrorBuffer = String::ToString(fmt, argptr);
+   mErrorBuffer = String::VToString(fmt, argptr);
    va_end(argptr);
 
 #ifdef TORQUE_DEBUG_NET
@@ -729,14 +733,14 @@ void NetConnection::handlePacket(BitStream *bstream)
 
    if(bstream->readFlag())
    {
-      mCurRate.updateDelay = bstream->readInt(12);
-      mCurRate.packetSize = bstream->readInt(12);
+      mCurRate.updateDelay = bstream->readInt(RateBitSize);
+      mCurRate.packetSize = bstream->readInt(RateBitSize);
    }
 
    if(bstream->readFlag())
    {
-      U32 omaxDelay = bstream->readInt(12);
-      S32 omaxSize = bstream->readInt(12);
+      U32 omaxDelay = bstream->readInt(RateBitSize);
+      S32 omaxSize = bstream->readInt(RateBitSize);
       if(omaxDelay < mMaxRate.updateDelay)
          omaxDelay = mMaxRate.updateDelay;
       if(omaxSize > mMaxRate.packetSize)
@@ -824,16 +828,17 @@ void NetConnection::checkPacketSend(bool force)
    note->rateChanged = mCurRate.changed;
    note->maxRateChanged = mMaxRate.changed;
 
+   // HH: Modified for Tribes 2 compatibility.
    if(stream->writeFlag(mCurRate.changed))
    {
-      stream->writeInt(mCurRate.updateDelay, 12);
-      stream->writeInt(mCurRate.packetSize, 12);
+      stream->writeInt(mCurRate.updateDelay, RateBitSize);
+      stream->writeInt(mCurRate.packetSize, RateBitSize);
       mCurRate.changed = false;
    }
    if(stream->writeFlag(mMaxRate.changed))
    {
-      stream->writeInt(mMaxRate.updateDelay, 12);
-      stream->writeInt(mMaxRate.packetSize, 12);
+      stream->writeInt(mMaxRate.updateDelay, RateBitSize);
+      stream->writeInt(mMaxRate.packetSize, RateBitSize);
       mMaxRate.changed = false;
    }
 #ifdef TORQUE_DEBUG_NET
@@ -1228,22 +1233,6 @@ NetStringHandle NetConnection::unpackNetStringHandleU(BitStream *stream)
 //----------------------------------------------------------------------------
 //----------------------------------------------------------------------------
 
-void NetConnection::setAddressDigest(U32 digest[4])
-{
-   mAddressDigest[0] = digest[0];
-   mAddressDigest[1] = digest[1];
-   mAddressDigest[2] = digest[2];
-   mAddressDigest[3] = digest[3];
-}
-
-void NetConnection::getAddressDigest(U32 digest[4])
-{
-   digest[0] = mAddressDigest[0];
-   digest[1] = mAddressDigest[1];
-   digest[2] = mAddressDigest[2];
-   digest[3] = mAddressDigest[3];
-}
-
 bool NetConnection::canRemoteCreate()
 {
    return false;
@@ -1289,23 +1278,22 @@ void NetConnection::handleStartupError(const char *errorString)
 
 }
 
+void NetConnection::writeConnectChallengeRequest(BitStream *stream)
+{
+   TORQUE_UNUSED(stream);
+}
+
+// HH: Modified for Tribes 2 compatibility.
 void NetConnection::writeConnectRequest(BitStream *stream)
 {
-   stream->write(mNetClassGroup);
-   stream->write(U32(AbstractClassRep::getClassCRC(mNetClassGroup)));
+   TORQUE_UNUSED(stream);
 }
 
 bool NetConnection::readConnectRequest(BitStream *stream, const char **errorString)
 {
-   U32 classGroup, classCRC;
-   stream->read(&classGroup);
-   stream->read(&classCRC);
-
-   if(classGroup == mNetClassGroup && classCRC == AbstractClassRep::getClassCRC(mNetClassGroup))
-      return true;
-
-   *errorString = "CHR_INVALID";
-   return false;
+   TORQUE_UNUSED(stream);
+   TORQUE_UNUSED(errorString);
+   return true;
 }
 
 void NetConnection::writeConnectAccept(BitStream *stream)
