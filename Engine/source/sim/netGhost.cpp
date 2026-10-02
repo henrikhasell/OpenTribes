@@ -24,6 +24,8 @@
 #include "core/dnet.h"
 #include "console/simBase.h"
 #include "sim/netConnection.h"
+#include "console/netClassTable.h"
+#include "T3D/gameBase/t2Layout.h"
 #include "core/stream/bitStream.h"
 #include "sim/netObject.h"
 //#include "core/resManager.h"
@@ -118,7 +120,17 @@ public:
 #ifdef TORQUE_NET_STATS
          U32 beginSize = bstream->getBitPosition();
 #endif
-         object->unpackUpdate(ps, bstream);
+         // HH: Modified for Tribes 2 compatibility.
+         // Tribes 2 frames this event as it is framed here, so only the body
+         // is read differently, from the class's recovered layout.  A false is
+         // a failed walk that has already moved the stream, and the body
+         // carries no length to recover from.
+         if(!object->unpackUpdateT2(bstream, true))
+         {
+            ps->setLastError("Could not read a %s ghost.",
+               object->getClassName());
+            return;
+         }
 #ifdef TORQUE_NET_STATS
          object->getClassRep()->updateNetStatUnpack(bstream->getBitPosition() - beginSize);
 #endif
@@ -537,10 +549,23 @@ void NetConnection::ghostReadPacket(BitStream *bstream)
       U32 index;
       //S32 startPos = bstream->getCurPos();
       index = (U32) bstream->readInt(idSize);
+      if(index >= MaxGhostCount)
+      {
+         Con::warnf("Dropped a packet naming ghost %d, which is past our table.", index);
+         return;
+      }
       if(bstream->readFlag()) // is this ghost being deleted?
       {
-		 mGhostsActive--;
-         AssertFatal(mLocalGhosts[index] != NULL, "Error, NULL ghost encountered.");
+         // HH: Modified for Tribes 2 compatibility.
+         // A server ghosting before we could follow it retires ghosts we
+         // never made.  Retiring one costs no further bits, so the rest of
+         // the packet still reads.
+         if(!mLocalGhosts[index])
+         {
+            Con::warnf("Passed over a retired ghost %d, which we never made.", index);
+            continue;
+         }
+         mGhostsActive--;
          mLocalGhosts[index]->deleteObject();
          mLocalGhosts[index] = NULL;
       }
@@ -559,7 +584,12 @@ void NetConnection::ghostReadPacket(BitStream *bstream)
             NetObject *obj = (NetObject *) ConsoleObject::create(getNetClassGroup(), NetClassTypeObject, classId);
             if(!obj)
             {
-               setLastError("Invalid packet. (failed to create new ghost)");
+               // HH: Modified for Tribes 2 compatibility.
+               // Name the class we have not ported, which is the one thing
+               // that says what to write next, and drop only the packet.
+               mGhostsActive--;
+               Con::warnf("Dropped a packet ghosting a %s, which we lack.",
+                  NetClassTable::Objects[classId]);
                return;
             }
             // remove all flags associated with netobject
@@ -586,7 +616,13 @@ void NetConnection::ghostReadPacket(BitStream *bstream)
 #ifdef TORQUE_NET_STATS
             U32 beginSize = bstream->getBitPosition();
 #endif
-            mLocalGhosts[index]->unpackUpdate(this, bstream);
+            // HH: Modified for Tribes 2 compatibility.
+            if(!obj->unpackUpdateT2(bstream, true))
+            {
+               setLastError("Could not read a new %s ghost.",
+                  obj->getClassName());
+               return;
+            }
 #ifdef TORQUE_NET_STATS
             mLocalGhosts[index]->getClassRep()->updateNetStatUnpack(bstream->getBitPosition() - beginSize);
 #endif
@@ -608,13 +644,14 @@ void NetConnection::ghostReadPacket(BitStream *bstream)
                }
             }
 
+            // HH: Modified for Tribes 2 compatibility.
             if(!obj->registerObject())
             {
                if(mErrorBuffer.isEmpty())
                   setLastError("Invalid packet. (failed to register ghost)");
                return;
             }
-         
+
             addObject(obj);
             ghostReadExtra(mLocalGhosts[index],bstream,true);
          }
@@ -635,7 +672,14 @@ void NetConnection::ghostReadPacket(BitStream *bstream)
 #ifdef TORQUE_NET_STATS
             U32 beginSize = bstream->getBitPosition();
 #endif
-            mLocalGhosts[index]->unpackUpdate(this, bstream);
+            // HH: Modified for Tribes 2 compatibility.
+            if(!mLocalGhosts[index]->unpackUpdateT2(bstream, false))
+            {
+               setLastError("Could not read a %s ghost update.",
+                  mLocalGhosts[index]->getClassName());
+               return;
+            }
+
 #ifdef TORQUE_NET_STATS
             mLocalGhosts[index]->getClassRep()->updateNetStatUnpack(bstream->getBitPosition() - beginSize);
 #endif
@@ -888,6 +932,9 @@ void NetConnection::handleConnectionMessage(U32 message, U32 sequence, U32 ghost
          }
          break;
       case GhostAlwaysStarting:
+         // HH: Modified for Tribes 2 compatibility.
+         // Tribes 2's own script names this one without the prefix.
+         Con::executef("ghostAlwaysStarted", Con::getIntArg(ghostCount));
          Con::executef("onGhostAlwaysStarted", Con::getIntArg(ghostCount));
          break;
       case SendNextDownloadRequest:

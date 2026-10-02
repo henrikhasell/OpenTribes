@@ -23,6 +23,7 @@
 #include "platform/platform.h"
 #include "core/dnet.h"
 #include "core/stream/bitStream.h"
+#include "console/netClassTable.h"
 #include "console/consoleTypes.h"
 #include "console/simBase.h"
 #include "scene/pathManager.h"
@@ -32,6 +33,9 @@
 #include "app/game.h"
 #include "T3D/gameBase/gameConnection.h"
 #include "T3D/gameBase/gameConnectionEvents.h"
+#include "T3D/gameBase/dataBlocksT2.h"
+#include "T3D/gameBase/t2Layout.h"
+#include "T3D/shapeBase.h"
 
 #define DebugChecksum 0xF00DBAAD
 
@@ -194,7 +198,18 @@ void SimDataBlockEvent::unpack(NetConnection *cptr, BitStream *bstream)
          Con::printf(" - SimDataBlockEvent: unpacking event of type: %s", mObj->getClassName());
          #endif
          
-         mObj->unpackData( bstream );
+         if( !mObj->unpackDataT2( bstream, classId ) )
+         {
+            cptr->setLastError( "Could not read a %s datablock, %d of %d.",
+               mObj->getClassName(), mIndex, mTotal );
+            return;
+         }
+
+         if( const char *shape = T2Layout::lastShapeFile() )
+         {
+            if( ShapeBaseData *sb = dynamic_cast< ShapeBaseData * >( mObj ) )
+               sb->shapeName = StringTable->insert( shape );
+         }
       }
       else
       {
@@ -203,7 +218,10 @@ void SimDataBlockEvent::unpack(NetConnection *cptr, BitStream *bstream)
          #endif
          
          delete ptr;
-         cptr->setLastError("Invalid packet in SimDataBlockEvent::unpack()");
+         cptr->setLastError("No datablock class %d (%s), %d of %d.", classId,
+            classId >= 0 && classId < (S32)NetClassTable::DataBlockCount
+               ? NetClassTable::DataBlocks[classId] : "out of range",
+            mIndex, mTotal);
       }
 
 #ifdef TORQUE_DEBUG_NET

@@ -114,6 +114,12 @@ public:
       MaxConnectArgs = 16,
       DataBlocksDone = NumConnectionMessages,
       DataBlocksDownloadDone,
+
+      // HH: Added for Tribes 2 compatibility.
+      ObserverModeBits = 2,       ///< How Tribes 2 sizes its observer mode.
+      ObserverFollowsObject = 1,  ///< A ghost follows, named right after.
+      ObserverFacesDirection = 2, ///< A direction follows instead.
+      TargetWordBits = 4,         ///< Which word of client targets went dirty.
    };
 
    /// Set connection arguments; these are passed to the server when we connect.
@@ -136,6 +142,7 @@ public:
    /// @name Packet I/O
    /// @{
 
+   virtual void writeConnectChallengeRequest(BitStream *stream);
    virtual void writeConnectRequest(BitStream *stream);
    virtual bool readConnectRequest(BitStream *stream, const char **errorString);
    virtual void writeConnectAccept(BitStream *stream);
@@ -185,6 +192,17 @@ protected:
    /// @{
    F32 mDamageFlash;
    F32 mWhiteOut;
+
+   // HH: Added for Tribes 2 compatibility.
+   // What a Tribes 2 server sends between the damage flash and the control
+   // object.  Only the two sensor flags are acted on; the rest are read off
+   // the wire and held.
+   bool     mSensorPing;
+   bool     mSensorJammed;
+   bool     mIndicator[2];
+   U32      mObserverMode;
+   Point3F  mObserverPos;
+   Point3F  mObserverRot;
 
    F32   mBlackOut;
    S32   mBlackOutTimeMS;
@@ -336,6 +354,8 @@ protected:
    DECLARE_CALLBACK( void, onConnectionError, (const char* errorString) );
    DECLARE_CALLBACK( void, onDrop, (const char* disconnectReason) );
    DECLARE_CALLBACK( void, initialControlSet, () );
+   DECLARE_CALLBACK( void, sensorPing, (bool state) );
+   DECLARE_CALLBACK( void, sensorJammed, (bool state) );
    DECLARE_CALLBACK( void, onControlObjectChange, () );
    DECLARE_CALLBACK( void, setLagIcon, (bool state) );
    DECLARE_CALLBACK( void, onDataBlocksDone, (U32 sequence) );
