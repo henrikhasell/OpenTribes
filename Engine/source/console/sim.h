@@ -60,8 +60,8 @@ typedef U32 SimObjectId;
 /// Sim::initRoot() and following.
 enum SimObjectsConstants
 {
-   DataBlockObjectIdFirst = 3,
-   DataBlockObjectIdBitSize = 10,
+   DataBlockObjectIdFirst = 0,
+   DataBlockObjectIdBitSize = 11,
    DataBlockObjectIdLast = DataBlockObjectIdFirst + (1 << DataBlockObjectIdBitSize) - 1,
 
    MessageObjectIdFirst = DataBlockObjectIdLast + 1,
