@@ -88,6 +88,9 @@ protected:
    void   sendConnectChallengeRequest(NetConnection *conn);
    void handleConnectChallengeRequest(const NetAddress *addr, BitStream *stream);
 
+   void   sendConnectChallengeReject(const NetAddress *addr, U32 connectSequence, const char *reason);
+   void handleConnectChallengeReject(const NetAddress *address, BitStream *stream);
+
    void handleConnectChallengeResponse(const NetAddress *address, BitStream *stream);
 
    void   sendConnectRequest(NetConnection *conn);
@@ -105,6 +108,9 @@ protected:
 
    /// Calculate an MD5 sum representing a connection, and store it into addressDigest.
    void computeNetMD5(const NetAddress *address, U32 connectSequence, U32 addressDigest[4]);
+
+   /// HH: Added for Tribes 2 compatibility.
+   U32 computeConnectToken(const NetAddress *address, U32 connectSequence);
 
 public:
    NetInterface();

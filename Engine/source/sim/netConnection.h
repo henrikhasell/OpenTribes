@@ -251,6 +251,7 @@ public:
       Guaranteed = 1,
       Unguaranteed = 2
    } mGuaranteeType;
+
    NetConnectionId mSourceId;
 
    void incRef()
@@ -445,6 +446,9 @@ public:
    virtual void onConnectionEstablished(bool isInitiator);
    virtual void handleStartupError(const char *errorString);
 
+   // HH: Added for Tribes 2 compatibility.
+   virtual void writeConnectChallengeRequest(BitStream *stream);
+
    virtual void writeConnectRequest(BitStream *stream);
    virtual bool  readConnectRequest(BitStream *stream, const char **errorString);
 
@@ -501,7 +505,9 @@ private:
    U32 mProtocolVersion;
    U32 mSendDelayCredit;
    U32 mConnectSequence;
-   U32 mAddressDigest[4];
+
+   // HH: Modified for Tribes 2 compatibility.
+   U32 mConnectToken;
 
    bool mEstablished;
    bool mMissionPathsSent;
@@ -588,8 +594,8 @@ public:
 
    void setSequence(U32 connectSequence);
 
-   void setAddressDigest(U32 digest[4]);
-   void getAddressDigest(U32 digest[4]);
+   void setConnectToken(U32 token) { mConnectToken = token; }
+   U32 getConnectToken() const     { return mConnectToken; }
 
    U32 getSequence();
 
@@ -819,12 +825,19 @@ protected:
 
 public:
    /// Some configuration values.
+   // HH: Modified for Tribes 2 compatibility.
+   enum RateConstants
+   {
+      RateBitSize = 10
+   };
+
+   // HH: Modified for Tribes 2 compatibility.
    enum GhostConstants
    {
-      GhostIdBitSize = 12,
-      MaxGhostCount = 1 << GhostIdBitSize, //4096,
-      GhostLookupTableSize = 1 << GhostIdBitSize, //4096
-      GhostIndexBitSize = 4 // number of bits GhostIdBitSize-3 fits into
+      GhostIdBitSize = 10,
+      MaxGhostCount = 1 << GhostIdBitSize, //1024,
+      GhostLookupTableSize = 1 << GhostIdBitSize, //1024
+      GhostIndexBitSize = 3 // number of bits GhostIdBitSize-3 fits into
    };
 
    U32 getGhostsActive() { return mGhostsActive;};
@@ -909,7 +922,7 @@ public:
    ///
    /// As part of the ghost connection process, extensive hand-shaking must be performed.
    ///
-   /// This is done by passing ConnectionMessageEvents; this is a helper function
+   /// This is done by passing GhostingMessageEvents; this is a helper function
    /// to more effectively perform this task. Messages are dealt with by
    /// handleConnectionMessage().
    ///

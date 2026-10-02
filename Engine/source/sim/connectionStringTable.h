@@ -29,10 +29,11 @@
 class ConnectionStringTable
 {
 public:
+   // HH: Modified for Tribes 2 compatibility.
    enum Constants {
-      EntryCount = 32,
-      EntryBitSize = 5,
-      InvalidEntryId = 32,
+      EntryCount = 1024,
+      EntryBitSize = 10,
+      InvalidEntryId = 1024,
    };
 private:
    struct Entry {
