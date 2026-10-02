@@ -225,12 +225,12 @@ bool GuiControlProfile::protectedSetSoundButtonDown( void* object, const char* i
 {
    GuiControlProfile* profile = reinterpret_cast< GuiControlProfile* >( object );
    
+   // HH: Modified for Tribes 2 compatibility.
+   profile->mSoundButtonDownName = data ? data : "";
+
    SFXTrack* track = NULL;
-   if( data && data[ 0] && !Sim::findObject( data, track ) )
-   {
-      Con::errorf( "GuiControlProfile::protectedSetSoundButtonDown - no SFXTrack '%s'", data );
-      return false;
-   }
+   if( data && data[ 0] )
+      Sim::findObject( data, track );
    
    profile->mSoundButtonDown = track;
    
@@ -248,16 +248,39 @@ const char* GuiControlProfile::protectedGetSoundButtonOver( void* object, const 
    return track->getName();
 }
 
+// HH: Added for Tribes 2 compatibility.
+static SFXTrack* resolveProfileSound( SimObjectPtr< SFXTrack > &track, const String &name )
+{
+   if( !track && name.isNotEmpty() )
+   {
+      SFXTrack* found = NULL;
+      if( Sim::findObject( name.c_str(), found ) )
+         track = found;
+   }
+
+   return track;
+}
+
+SFXTrack* GuiControlProfile::getSoundButtonDown()
+{
+   return resolveProfileSound( mSoundButtonDown, mSoundButtonDownName );
+}
+
+SFXTrack* GuiControlProfile::getSoundButtonOver()
+{
+   return resolveProfileSound( mSoundButtonOver, mSoundButtonOverName );
+}
+
 bool GuiControlProfile::protectedSetSoundButtonOver( void* object, const char* index, const char* data )
 {
    GuiControlProfile* profile = reinterpret_cast< GuiControlProfile* >( object );
    
+   // HH: Modified for Tribes 2 compatibility.
+   profile->mSoundButtonOverName = data ? data : "";
+
    SFXTrack* track = NULL;
-   if( data && data[ 0] && !Sim::findObject( data, track ) )
-   {
-      Con::errorf( "GuiControlProfile::protectedSetSoundButtonOver - no SFXTrack '%s'", data );
-      return false;
-   }
+   if( data && data[ 0] )
+      Sim::findObject( data, track );
    
    profile->mSoundButtonOver = track;
    
@@ -317,7 +340,6 @@ GuiControlProfile::GuiControlProfile(void) :
    // bitmap members
    mBitmapName = NULL;
    // HH: Modified for Tribes 2 compatibility.
-   // Tribes 2 profiles name a stem that a control completes with suffixes.
    mBitmapBase = NULL;
    mUseBitmapArray = false;
    mTextureObject = NULL; // initialized in incLoadCount()
@@ -358,7 +380,6 @@ GuiControlProfile::GuiControlProfile(void) :
       // default bitmap
       mBitmapName     = def->mBitmapName;
       // HH: Modified for Tribes 2 compatibility.
-      // Tribes 2 profiles name a stem that a control completes with suffixes.
       mBitmapBase     = def->mBitmapBase;
       mUseBitmapArray = def->mUseBitmapArray;
       mTextOffset     = def->mTextOffset;
@@ -366,6 +387,9 @@ GuiControlProfile::GuiControlProfile(void) :
       // default sound
       mSoundButtonDown = def->mSoundButtonDown;
       mSoundButtonOver = def->mSoundButtonOver;
+      // HH: Modified for Tribes 2 compatibility.
+      mSoundButtonDownName = def->mSoundButtonDownName;
+      mSoundButtonOverName = def->mSoundButtonOverName;
 
       //used by GuiTextCtrl
       mModal         = def->mModal;
@@ -464,7 +488,6 @@ void GuiControlProfile::initPersistFields()
       addField("hasBitmapArray", TypeBool,      Offset(mUseBitmapArray, GuiControlProfile),
          "If true, 'bitmap' is an array of images." );
       // HH: Modified for Tribes 2 compatibility.
-      // Tribes 2 profiles name a stem that a control completes with suffixes.
       addField("bitmapBase", TypeString,        Offset(mBitmapBase, GuiControlProfile),
          "Stem of a family of textures, which a control completes with the suffixes it knows." );
 

@@ -730,6 +730,10 @@ void ZipArchive::closeFile(Stream *stream)
 
 Stream *ZipArchive::openFileForRead(const CentralDir *fileCD)
 {
+   // HH: Modified to lock the shared stream.
+   MutexHandle streamLock;
+   streamLock.lock(&mStreamMutex, true);
+
    if(mMode != Read && mMode != ReadWrite)
       return NULL;
 

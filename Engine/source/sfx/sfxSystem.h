@@ -273,6 +273,9 @@ class SFXSystem
                            S32 maxBuffers,
                            bool changeDevice = false);
 
+      /// HH: Added for Tribes 2 compatibility.
+      bool createDefaultDevice();
+
       /// Returns the current device information or NULL if no
       /// device is present.  The information string is in the
       /// following format:
