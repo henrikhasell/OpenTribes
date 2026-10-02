@@ -27,6 +27,7 @@
 #include "sim/netObject.h"
 #include "console/consoleTypes.h"
 #include "console/engineAPI.h"
+#include "T3D/gameBase/t2Layout.h"
 
 IMPLEMENT_CONOBJECT(NetObject);
 
@@ -321,6 +322,11 @@ U32 NetObject::packUpdate(NetConnection* conn, U32 mask, BitStream* stream)
 
 void NetObject::unpackUpdate(NetConnection*, BitStream*)
 {
+}
+
+bool NetObject::unpackUpdateT2(BitStream *stream, bool isInitial)
+{
+   return T2Layout::readGhost(stream, getClassName(), isInitial);
 }
 
 void NetObject::onCameraScopeQuery(NetConnection *cr, CameraScopeQuery* /*camInfo*/)
