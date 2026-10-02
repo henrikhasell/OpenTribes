@@ -95,8 +95,9 @@ void StdMoveList::clientWriteMovePacket(BitStream *bstream)
    for (int i = 0; i < count; i++)
    {
       move[offset + i].sendCount++;
+      // HH: Modified for Tribes 2 compatibility.
+      // Tribes 2 sends no checksum beside a move.
       move[offset + i].pack(bstream,prevMove);
-      bstream->writeInt(move[offset + i].checksum,Move::ChecksumBits);
       prevMove = &move[offset+i];
    }
 }
@@ -124,7 +125,6 @@ void StdMoveList::serverReadMovePacket(BitStream *bstream)
       for (int i = 0; i < skip; i++)
       {
          prevMoveHolder.unpack(bstream,prevMove);
-         prevMoveHolder.checksum = bstream->readInt(Move::ChecksumBits);
          prevMove = &prevMoveHolder;
          S32 idx = mMoveVec.size()-skip+i;
          if (idx>=0)
@@ -146,7 +146,6 @@ void StdMoveList::serverReadMovePacket(BitStream *bstream)
    while (index < mMoveVec.size())
    {
       mMoveVec[index].unpack(bstream,prevMove);
-      mMoveVec[index].checksum = bstream->readInt(Move::ChecksumBits);
       prevMove = &mMoveVec[index];
       mMoveVec[index].id = start++;
       index ++;
