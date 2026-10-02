@@ -30,6 +30,14 @@
 #include "scene/zones/sceneZoneSpace.h"
 #include "lighting/lightManager.h"
 #include "renderInstance/renderPassManager.h"
+// HH: Added for Tribes 2 compatibility.  See buildDefaultRenderPassT2 below.
+#include "renderInstance/renderObjectMgr.h"
+#include "renderInstance/renderMeshMgr.h"
+#include "renderInstance/renderTerrainMgr.h"
+#include "renderInstance/renderImposterMgr.h"
+#include "renderInstance/renderOcclusionMgr.h"
+#include "renderInstance/renderParticleMgr.h"
+#include "renderInstance/renderTranslucentMgr.h"
 #include "gfx/gfxDevice.h"
 #include "gfx/gfxDrawUtil.h"
 #include "gfx/gfxDebugEvent.h"
@@ -619,12 +627,92 @@ bool SceneManager::_setLightManager( LightManager* lm )
 
 //-----------------------------------------------------------------------------
 
+// HH: Added for Tribes 2 compatibility.
+// Torque 3D builds the default render pass from script: initRenderManager() in
+// core/scripts/client/renderManager.cs, which initBaseClient() calls.  This
+// port runs Tribes 2's own scripts, and they are from 2001 -- they have no
+// notion of a render pass manager, so nothing ever calls it and nothing ever
+// creates one.  The first frame that draws a scene then dies on an assert
+// telling whoever wrote the script to set one up, which here is nobody.
+//
+// So it is built in the engine instead, with the same managers the script adds,
+// in the same order and at the same priorities: that order is the render order,
+// and getting it wrong draws the world in the wrong sequence rather than not at
+// all, which is much harder to notice.
+//
+// Two of the script's bins are left out, both because they rest on post-effect
+// machinery this port does not have.  AL_FormatToken only works around driver
+// MSAA under Advanced Lighting and the template ships it disabled; the glow bin
+// does nothing without GlowPostFx.  Neither is needed to draw a frame, and a
+// bin whose effect is missing is worse than no bin at all.
+// The script leaves most bins unnamed; these are named so they can be looked
+// at from the console while the rest of the rendering work goes on.  The two
+// the script does name keep those names exactly, in case anything comes to
+// look for them.
+static void addBinT2( RenderPassManager *rpm, RenderBinManager *bin,
+                      const char *name, F32 order )
+{
+   // Some of these carry only a default constructor here -- the ordered one is
+   // declared but never defined -- so the order is set rather than passed.
+   // Their own constructor still picks the right instance type.
+   bin->setRenderOrder( order );
+   bin->setProcessAddOrder( order );
+   bin->assignName( name );
+   bin->registerObject();
+   rpm->addManager( bin );
+}
+
+static RenderPassManager* buildDefaultRenderPassT2()
+{
+   RenderPassManager *rpm = new RenderPassManager();
+   rpm->assignName( "DiffuseRenderPassManager" );
+   if( !rpm->registerObject() )
+   {
+      delete rpm;
+      return NULL;
+   }
+
+   typedef RenderPassManager RPM;
+
+   addBinT2( rpm, new RenderObjectMgr( RPM::RIT_Sky, 0.1f, 0.1f ), "T2SkyBin", 0.1f );
+   addBinT2( rpm, new RenderObjectMgr( RPM::RIT_Begin, 0.2f, 0.2f ), "T2BeginBin", 0.2f );
+   addBinT2( rpm, new RenderMeshMgr( RPM::RIT_Interior, 0.3f, 0.3f ), "T2InteriorBin", 0.3f );
+   addBinT2( rpm, new RenderTerrainMgr( 0.4f, 0.4f ), "T2TerrainBin", 0.4f );
+   addBinT2( rpm, new RenderMeshMgr( RPM::RIT_Mesh, 0.5f, 0.5f ), "T2MeshBin", 0.5f );
+   addBinT2( rpm, new RenderImposterMgr( 0.56f, 0.56f ), "T2ImposterBin", 0.56f );
+   addBinT2( rpm, new RenderObjectMgr( RPM::RIT_Object, 0.6f, 0.6f ), "T2ObjectBin", 0.6f );
+   addBinT2( rpm, new RenderObjectMgr( RPM::RIT_Shadow, 0.7f, 0.7f ), "T2ShadowBin", 0.7f );
+   addBinT2( rpm, new RenderMeshMgr( RPM::RIT_Decal, 0.8f, 0.8f ), "T2DecalBin", 0.8f );
+   addBinT2( rpm, new RenderOcclusionMgr( RPM::RIT_Occluder, 0.9f, 0.9f ), "T2OccluderBin", 0.9f );
+
+   // Translucent objects that see to their own fogging and lighting.  The fog
+   // effect is triggered before this bin.
+   addBinT2( rpm, new RenderObjectMgr( RPM::RIT_ObjectTranslucent, 1.0f, 1.0f ),
+             "ObjTranslucentBin", 1.0f );
+
+   addBinT2( rpm, new RenderObjectMgr( RPM::RIT_Water, 1.2f, 1.2f ), "T2WaterBin", 1.2f );
+   addBinT2( rpm, new RenderObjectMgr( RPM::RIT_Foliage, 1.3f, 1.3f ), "T2FoliageBin", 1.3f );
+   addBinT2( rpm, new RenderParticleMgr(), "T2ParticleBin", 1.35f );
+   addBinT2( rpm, new RenderTranslucentMgr(), "T2TranslucentBin", 1.4f );
+   addBinT2( rpm, new RenderObjectMgr( RPM::RIT_Editor, 1.6f, 1.6f ), "EditorBin", 1.6f );
+
+   return rpm;
+}
+
 RenderPassManager* SceneManager::getDefaultRenderPass() const
 {
    if( !mDefaultRenderPass )
    {
       Sim::findObject( "DiffuseRenderPassManager", mDefaultRenderPass );
-      AssertISV( mDefaultRenderPass, "SceneManager::_setDefaultRenderPass - No DiffuseRenderPassManager defined!  Must be set up in script!" );
+
+      // HH: Modified for Tribes 2 compatibility.  Build one rather than ask a
+      // script that does not exist to have done it.  The other half of what
+      // initBaseClient() would do -- picking a light manager -- is already
+      // handled where the canvas is created.
+      if( !mDefaultRenderPass )
+         mDefaultRenderPass = buildDefaultRenderPassT2();
+
+      AssertISV( mDefaultRenderPass, "SceneManager::getDefaultRenderPass - could not build a DiffuseRenderPassManager" );
    }
 
    return mDefaultRenderPass;
