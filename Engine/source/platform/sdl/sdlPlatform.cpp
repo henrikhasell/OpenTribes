@@ -22,6 +22,9 @@ static bool sQuitRequested = false;
 
 void Platform::init()
 {
+   // HH: Added to prevent Wayland scaling the display.
+   SDL_SetHint(SDL_HINT_VIDEO_WAYLAND_SCALE_TO_DISPLAY, "1");
+
    if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS))
       Con::errorf("SDL_Init failed: %s", SDL_GetError());
 
