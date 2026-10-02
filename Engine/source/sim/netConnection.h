@@ -251,6 +251,12 @@ public:
       Guaranteed = 1,
       Unguaranteed = 2
    } mGuaranteeType;
+
+   /// HH: Added for Tribes 2 compatibility.
+   /// Whether this event's body was taken off the wire by its recovered
+   /// layout rather than by an unpack of its own.  Its fields are untouched
+   /// then, so processing it would work from nothing.
+   bool mReadByLayoutT2 = false;
    NetConnectionId mSourceId;
 
    void incRef()
@@ -445,6 +451,11 @@ public:
    virtual void onConnectionEstablished(bool isInitiator);
    virtual void handleStartupError(const char *errorString);
 
+   // HH: Added for Tribes 2 compatibility.
+   // Only the client writes this: at challenge time the server has no
+   // connection to read it into.
+   virtual void writeConnectChallengeRequest(BitStream *stream);
+
    virtual void writeConnectRequest(BitStream *stream);
    virtual bool  readConnectRequest(BitStream *stream, const char **errorString);
 
@@ -501,7 +512,10 @@ private:
    U32 mProtocolVersion;
    U32 mSendDelayCredit;
    U32 mConnectSequence;
-   U32 mAddressDigest[4];
+
+   // HH: Modified for Tribes 2 compatibility.
+   // The one word a Tribes 2 challenge hands out to be quoted back.
+   U32 mConnectToken;
 
    bool mEstablished;
    bool mMissionPathsSent;
@@ -588,8 +602,8 @@ public:
 
    void setSequence(U32 connectSequence);
 
-   void setAddressDigest(U32 digest[4]);
-   void getAddressDigest(U32 digest[4]);
+   void setConnectToken(U32 token) { mConnectToken = token; }
+   U32 getConnectToken() const     { return mConnectToken; }
 
    U32 getSequence();
 
@@ -819,12 +833,21 @@ protected:
 
 public:
    /// Some configuration values.
+   // HH: Modified for Tribes 2 compatibility.
+   // How many bits Tribes 2 spends on each half of a rate.
+   enum RateConstants
+   {
+      RateBitSize = 10
+   };
+
+   // HH: Modified for Tribes 2 compatibility.
+   // Tribes 2 names a ghost in ten bits, so it holds a thousand of them.
    enum GhostConstants
    {
-      GhostIdBitSize = 12,
-      MaxGhostCount = 1 << GhostIdBitSize, //4096,
-      GhostLookupTableSize = 1 << GhostIdBitSize, //4096
-      GhostIndexBitSize = 4 // number of bits GhostIdBitSize-3 fits into
+      GhostIdBitSize = 10,
+      MaxGhostCount = 1 << GhostIdBitSize, //1024,
+      GhostLookupTableSize = 1 << GhostIdBitSize, //1024
+      GhostIndexBitSize = 3 // number of bits GhostIdBitSize-3 fits into
    };
 
    U32 getGhostsActive() { return mGhostsActive;};
@@ -909,7 +932,7 @@ public:
    ///
    /// As part of the ghost connection process, extensive hand-shaking must be performed.
    ///
-   /// This is done by passing ConnectionMessageEvents; this is a helper function
+   /// This is done by passing GhostingMessageEvents; this is a helper function
    /// to more effectively perform this task. Messages are dealt with by
    /// handleConnectionMessage().
    ///

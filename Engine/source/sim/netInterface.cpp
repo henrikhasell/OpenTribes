@@ -140,6 +140,9 @@ void NetInterface::processPacketReceiveEvent(NetAddress srcAddress, RawData pack
             case ConnectReject:
                handleConnectReject(addr, &pStream);
                break;
+            case ConnectChallengeReject:
+               handleConnectChallengeReject(addr, &pStream);
+               break;
          }
       }
    }
@@ -176,13 +179,18 @@ void NetInterface::processPacketReceiveEvent(NetAddress srcAddress, RawData pack
 //-----------------------------------------------------------------------------
 
 
+// HH: Modified for Tribes 2 compatibility.
+// Tribes 2 carries one server-chosen word where Torque carries four hashed
+// ones, and leads every handshake packet with the protocol version.
 void NetInterface::sendConnectChallengeRequest(NetConnection *conn)
 {
    Con::printf("Sending Connect challenge Request");
    BitStream *out = BitStream::getPacketStream();
 
    out->write(U8(ConnectChallengeRequest));
+   out->write(conn->getProtocolVersion());
    out->write(conn->getSequence());
+   conn->writeConnectChallengeRequest(out);
 
    conn->mConnectSendCount++;
    conn->mConnectLastSendTime = Platform::getVirtualMilliseconds();
@@ -198,31 +206,45 @@ void NetInterface::handleConnectChallengeRequest(const NetAddress *addr, BitStre
    if(!mAllowConnections)
       return;
 
-   U32 connectSequence;
+   U32 protocolVersion, connectSequence;
+   stream->read(&protocolVersion);
    stream->read(&connectSequence);
+
+   char joinPassword[256];
+   stream->readString(joinPassword);
+
+   const char *serverPassword = Con::getVariable("pref::Server::Password");
+   if(serverPassword[0] && dStrcmp(joinPassword, serverPassword))
+   {
+      sendConnectChallengeReject(addr, connectSequence, "CHR_PASSWORD");
+      return;
+   }
 
    if(!mRandomDataInitialized)
       initRandomData();
 
-   U32 addressDigest[4];
-   computeNetMD5(addr, connectSequence, addressDigest);
-
    BitStream *out = BitStream::getPacketStream();
    out->write(U8(ConnectChallengeResponse));
+   out->write(protocolVersion);
+   out->write(computeConnectToken(addr, connectSequence));
    out->write(connectSequence);
-   out->write(addressDigest[0]);
-   out->write(addressDigest[1]);
-   out->write(addressDigest[2]);
-   out->write(addressDigest[3]);
+   out->writeFlag(false);
 
    BitStream::sendPacketStream(addr);
 }
 
-//-----------------------------------------------------------------------------
-
-void NetInterface::handleConnectChallengeResponse(const NetAddress *address, BitStream *stream)
+void NetInterface::sendConnectChallengeReject(const NetAddress *addr, U32 connectSequence, const char *reason)
 {
-   Con::printf("Got Connect challenge Response");
+   BitStream *out = BitStream::getPacketStream();
+   out->write(U8(ConnectChallengeReject));
+   out->write(connectSequence);
+   out->writeString(reason);
+
+   BitStream::sendPacketStream(addr);
+}
+
+void NetInterface::handleConnectChallengeReject(const NetAddress *address, BitStream *stream)
+{
    U32 connectSequence;
    stream->read(&connectSequence);
 
@@ -230,12 +252,37 @@ void NetInterface::handleConnectChallengeResponse(const NetAddress *address, Bit
    if(!conn || conn->getConnectionState() != NetConnection::AwaitingChallengeResponse)
       return;
 
+   removePendingConnection(conn);
+   char reason[256];
+   stream->readString(reason);
+   conn->onConnectionRejected(reason);
+   conn->deleteObject();
+}
+
+U32 NetInterface::computeConnectToken(const NetAddress *address, U32 connectSequence)
+{
    U32 addressDigest[4];
-   stream->read(&addressDigest[0]);
-   stream->read(&addressDigest[1]);
-   stream->read(&addressDigest[2]);
-   stream->read(&addressDigest[3]);
-   conn->setAddressDigest(addressDigest);
+   computeNetMD5(address, connectSequence, addressDigest);
+   return addressDigest[0];
+}
+
+//-----------------------------------------------------------------------------
+
+void NetInterface::handleConnectChallengeResponse(const NetAddress *address, BitStream *stream)
+{
+   Con::printf("Got Connect challenge Response");
+   U32 protocolVersion, connectToken, connectSequence;
+   stream->read(&protocolVersion);
+   stream->read(&connectToken);
+   stream->read(&connectSequence);
+
+   NetConnection *conn = findPendingConnection(address, connectSequence);
+   if(!conn || conn->getConnectionState() != NetConnection::AwaitingChallengeResponse)
+      return;
+
+   // A patched server answers above our version, so quote its number back.
+   conn->setProtocolVersion(protocolVersion);
+   conn->setConnectToken(connectToken);
 
    conn->setConnectionState(NetConnection::AwaitingConnectResponse);
    conn->mConnectSendCount = 0;
@@ -249,16 +296,9 @@ void NetInterface::sendConnectRequest(NetConnection *conn)
 {
    BitStream *out = BitStream::getPacketStream();
    out->write(U8(ConnectRequest));
+   out->write(conn->getConnectToken());
    out->write(conn->getSequence());
 
-   U32 addressDigest[4];
-   conn->getAddressDigest(addressDigest);
-   out->write(addressDigest[0]);
-   out->write(addressDigest[1]);
-   out->write(addressDigest[2]);
-   out->write(addressDigest[3]);
-
-   out->writeString(conn->getClassName());
    conn->writeConnectRequest(out);
    conn->mConnectSendCount++;
    conn->mConnectLastSendTime = Platform::getVirtualMilliseconds();
@@ -273,7 +313,8 @@ void NetInterface::handleConnectRequest(const NetAddress *address, BitStream *st
    if(!mAllowConnections)
       return;
    Con::printf("Got Connect Request");
-   U32 connectSequence;
+   U32 connectToken, connectSequence;
+   stream->read(&connectToken);
    stream->read(&connectSequence);
 
    // see if the connection is in the main connection table:
@@ -284,19 +325,8 @@ void NetInterface::handleConnectRequest(const NetAddress *address, BitStream *st
       sendConnectAccept(connect);
       return;
    }
-   U32 addressDigest[4];
-   U32 computedAddressDigest[4];
 
-   stream->read(&addressDigest[0]);
-   stream->read(&addressDigest[1]);
-   stream->read(&addressDigest[2]);
-   stream->read(&addressDigest[3]);
-
-   computeNetMD5(address, connectSequence, computedAddressDigest);
-   if(addressDigest[0] != computedAddressDigest[0] ||
-      addressDigest[1] != computedAddressDigest[1] ||
-      addressDigest[2] != computedAddressDigest[2] ||
-      addressDigest[3] != computedAddressDigest[3])
+   if(connectToken != computeConnectToken(address, connectSequence))
       return; // bogus connection attempt
 
    if(connect)
@@ -307,10 +337,8 @@ void NetInterface::handleConnectRequest(const NetAddress *address, BitStream *st
          connect->deleteObject(); // disconnect this one, and allow the new one to be created.
    }
 
-   char connectionClass[255];
-   stream->readString(connectionClass);
-
-   ConsoleObject *co = ConsoleObject::create(connectionClass);
+   // Tribes 2 names no class, so a request raises the only one it speaks.
+   ConsoleObject *co = ConsoleObject::create("GameConnection");
    NetConnection *conn = dynamic_cast<NetConnection *>(co);
    if(!conn || !conn->canRemoteCreate())
    {
@@ -321,6 +349,8 @@ void NetInterface::handleConnectRequest(const NetAddress *address, BitStream *st
    conn->setNetAddress(address);
    conn->setNetworkConnection(true);
    conn->setSequence(connectSequence);
+   conn->setConnectToken(connectToken);
+   conn->setConnectSequence(connectSequence ^ connectToken);
 
    const char *errorString = NULL;
    if(!conn->readConnectRequest(stream, &errorString))
@@ -332,7 +362,6 @@ void NetInterface::handleConnectRequest(const NetAddress *address, BitStream *st
    conn->setNetworkConnection(true);
    conn->onConnectionEstablished(false);
    conn->setEstablished();
-   conn->setConnectSequence(connectSequence);
    sendConnectAccept(conn);
 }
 
@@ -342,6 +371,7 @@ void NetInterface::sendConnectAccept(NetConnection *conn)
 {
    BitStream *out = BitStream::getPacketStream();
    out->write(U8(ConnectAccept));
+   out->write(conn->getConnectToken());
    out->write(conn->getSequence());
    conn->writeConnectAccept(out);
    BitStream::sendPacketStream(conn->getNetAddress());
@@ -349,7 +379,8 @@ void NetInterface::sendConnectAccept(NetConnection *conn)
 
 void NetInterface::handleConnectAccept(const NetAddress *address, BitStream *stream)
 {
-   U32 connectSequence;
+   U32 connectToken, connectSequence;
+   stream->read(&connectToken);
    stream->read(&connectSequence);
    NetConnection *conn = findPendingConnection(address, connectSequence);
    if(!conn || conn->getConnectionState() != NetConnection::AwaitingConnectResponse)
@@ -364,10 +395,11 @@ void NetInterface::handleConnectAccept(const NetAddress *address, BitStream *str
    }
 
    removePendingConnection(conn); // remove from the pending connection list
+   conn->setConnectToken(connectToken);
+   conn->setConnectSequence(connectSequence ^ connectToken);
    conn->setNetworkConnection(true);
    conn->onConnectionEstablished(true); // notify the connection that it has been established
    conn->setEstablished(); // installs the connection in the connection table, and causes pings/timeouts to happen
-   conn->setConnectSequence(connectSequence);
 }
 
 void NetInterface::sendConnectReject(NetConnection *conn, const char *reason)
@@ -403,9 +435,10 @@ void NetInterface::handleDisconnect(const NetAddress *address, BitStream *stream
    if(!conn)
       return;
 
-   U32 connectSequence;
+   U32 connectToken, connectSequence;
    char reason[256];
 
+   stream->read(&connectToken);
    stream->read(&connectSequence);
    stream->readString(reason);
 
@@ -446,7 +479,11 @@ void NetInterface::startConnection(NetConnection *conn)
 {
    addPendingConnection(conn);
    conn->mConnectionSendCount = 0;
-   conn->setConnectSequence(Platform::getVirtualMilliseconds());
+
+   // HH: Modified for Tribes 2 compatibility.
+   // This numbers the handshake.  The protocol's own parity bit comes off that
+   // number and the server's word together, once both are known.
+   conn->setSequence(Platform::getVirtualMilliseconds());
    conn->setConnectionState(NetConnection::AwaitingChallengeResponse);
 
    // This is a the client side of the connection, so set the connection to
@@ -467,6 +504,7 @@ void NetInterface::sendDisconnectPacket(NetConnection *conn, const char *reason)
 
    BitStream *out = BitStream::getPacketStream();
    out->write(U8(Disconnect));
+   out->write(conn->getConnectToken());
    out->write(connectSequence);
    out->writeString(reason);
 
