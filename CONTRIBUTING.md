@@ -10,6 +10,7 @@
   scope off when none fits.
 - Subject: imperative, lower case, no full stop, 72 characters or fewer.
 - Body: one bullet per thing the commit does, six words at most per bullet.
+  Bullets and nothing else — however much there is to say, no prose here.
 
 ```
 feat(shell): give the shell its sliders
@@ -19,7 +20,8 @@ feat(shell): give the shell its sliders
 - Derive the measurements from the art
 ```
 
-Explanation belongs here, not in a comment beside the code.
+Why it was done goes in the merge request description. Not in the commit body,
+and not in a comment beside the code.
 
 ## Marking the engine
 
@@ -43,12 +45,13 @@ git show upstream/master:Engine/source/gui/core/guiCanvas.cpp | grep createCanva
 ```
 
 - A file we wrote entirely has nothing to modify, so its markers read `Added`.
-- Keep the marker to the verb and a line of why.
+- Keep the marker to one line: the verb, then five words at most.
 
 ## Merge requests
 
 - Title: the commit subject.
-- Description: a line of context, then the same bullets.
+- Description: a line of context, then the same bullets, then the reasoning at
+  whatever length it needs. This is the one place it goes.
 - One concern per branch. Keep history linear: rebase onto `opentribes` rather
   than merging it in.
 - No AI attribution or generated-by trailers, in commits or descriptions.
