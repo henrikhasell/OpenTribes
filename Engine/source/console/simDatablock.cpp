@@ -28,6 +28,7 @@
 #include "console/engineAPI.h"
 #include "T3D/gameBase/gameConnectionEvents.h"
 #include "T3D/gameBase/gameConnection.h"
+#include "T3D/gameBase/t2Layout.h"
 
 
 IMPLEMENT_CO_DATABLOCK_V1(SimDataBlock);
@@ -104,6 +105,11 @@ void SimDataBlock::packData(BitStream*)
 
 void SimDataBlock::unpackData(BitStream*)
 {
+}
+
+bool SimDataBlock::unpackDataT2(BitStream *stream, U32 classId)
+{
+   return T2Layout::readDataBlock(stream, classId);
 }
 
 //-----------------------------------------------------------------------------

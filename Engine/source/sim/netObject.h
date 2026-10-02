@@ -279,6 +279,9 @@ protected:
    GhostInfo *mFirstObjectRef;      ///< Head of a linked list storing GhostInfos referencing this NetObject.
 
 public:
+   /// HH: Added for Tribes 2 compatibility.
+   virtual bool unpackUpdateT2(BitStream *stream, bool isInitial);
+
    NetObject();
    ~NetObject();
 
