@@ -132,7 +132,7 @@ public:
 
    virtual U32 read(void* dst, U32 size)
    {
-      // HH: Modified to keep this reader's seek and read together.
+      // HH: Modified to lock the shared stream.
       MutexHandle streamLock;
       streamLock.lock(&mArchive->getStreamMutex(), true);
 
@@ -388,8 +388,8 @@ ZipFileSystem::~ZipFileSystem()
 
 FileNodeRef ZipFileSystem::resolve(const Path& path)
 {
-   if (!mInitted)
-      _init();
+   // HH: Modified to lock the lazy init.
+   _init();
 
    if (mZipArchive.isNull())
       return NULL;
@@ -451,6 +451,10 @@ FileNodeRef ZipFileSystem::resolve(const Path& path)
 
 void ZipFileSystem::_init()
 {
+   // HH: Modified to lock the lazy init.
+   MutexHandle initLock;
+   initLock.lock(&mInitMutex, true);
+
    if (mInitted)
       return;
    mInitted = true;
