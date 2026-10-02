@@ -1,0 +1,45 @@
+#include "platform/platform.h"
+#include "console/console.h"
+#include "console/consoleTypes.h"
+#include "sim/netObject.h"
+#include "T3D/gameBase/stubsT2.h"
+
+#define IMPLEMENT_GHOST_T2( className )                                     \
+   class className : public NetObject                                       \
+   {                                                                        \
+      typedef NetObject Parent;                                             \
+   public:                                                                  \
+      DECLARE_CONOBJECT(className);                                         \
+      bool unpackUpdateT2(BitStream *stream, bool isInitial)                \
+      {                                                                     \
+         StubT2::warn("ghost", getClassName());                             \
+         return Parent::unpackUpdateT2(stream, isInitial);                  \
+      }                                                                     \
+   };                                                                       \
+   IMPLEMENT_CO_NETOBJECT_V1(className);                                    \
+   ConsoleDocClass( className, "@brief A Tribes 2 object the port reads by " \
+                               "its layout.\n\n@internal" )
+
+IMPLEMENT_GHOST_T2( AIObjective );
+IMPLEMENT_GHOST_T2( AudioEmitter );
+IMPLEMENT_GHOST_T2( BeaconObject );
+IMPLEMENT_GHOST_T2( BombProjectile );
+IMPLEMENT_GHOST_T2( ELFProjectile );
+IMPLEMENT_GHOST_T2( EnergyProjectile );
+IMPLEMENT_GHOST_T2( FireballAtmosphere );
+IMPLEMENT_GHOST_T2( FlareProjectile );
+IMPLEMENT_GHOST_T2( ForceFieldBare );
+IMPLEMENT_GHOST_T2( GrenadeProjectile );
+IMPLEMENT_GHOST_T2( LinearFlareProjectile );
+IMPLEMENT_GHOST_T2( LinearProjectile );
+IMPLEMENT_GHOST_T2( ParticleEmissionDummy );
+IMPLEMENT_GHOST_T2( RepairProjectile );
+IMPLEMENT_GHOST_T2( SeekerProjectile );
+IMPLEMENT_GHOST_T2( ShockLanceProjectile );
+IMPLEMENT_GHOST_T2( Shockwave );
+IMPLEMENT_GHOST_T2( SniperProjectile );
+IMPLEMENT_GHOST_T2( StationFXPersonal );
+IMPLEMENT_GHOST_T2( StationFXVehicle );
+IMPLEMENT_GHOST_T2( TargetProjectile );
+IMPLEMENT_GHOST_T2( TracerProjectile );
+IMPLEMENT_GHOST_T2( Turret );

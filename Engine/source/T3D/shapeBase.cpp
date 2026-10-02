@@ -227,6 +227,15 @@ ShapeBaseData::~ShapeBaseData()
 
 }
 
+// HH: Added for Tribes 2 compatibility.
+static String shapePathT2(const char *name)
+{
+   String path(name);
+   if(path.find('/') != String::NPos || path.find('\\') != String::NPos)
+      return path;
+   return String("shapes/") + path;
+}
+
 bool ShapeBaseData::preload(bool server, String &errorStr)
 {
    if (!Parent::preload(server, errorStr))
@@ -266,7 +275,7 @@ bool ShapeBaseData::preload(bool server, String &errorStr)
 
       if( debrisShapeName && debrisShapeName[0] != '\0' && !bool(debrisShape) )
       {
-         debrisShape = ResourceManager::get().load(debrisShapeName);
+         debrisShape = ResourceManager::get().load(shapePathT2(debrisShapeName));
          if( bool(debrisShape) == false )
          {
             errorStr = String::ToString("ShapeBaseData::load: Couldn't load shape \"%s\"", debrisShapeName);
@@ -288,7 +297,7 @@ bool ShapeBaseData::preload(bool server, String &errorStr)
       S32 i;
 
       // Resolve shapename
-      mShape = ResourceManager::get().load(shapeName);
+      mShape = ResourceManager::get().load(shapePathT2(shapeName));
       if (bool(mShape) == false)
       {
          errorStr = String::ToString("ShapeBaseData: Couldn't load shape \"%s\"",shapeName);
@@ -654,6 +663,33 @@ DefineEngineMethod(ShapeBaseData, getDeployTransform, TransformF, ( Point3F pos,
    return testMat;
 }
 
+ShapeBaseData::Tribes2Rest::Tribes2Rest()
+{
+   haveIcon = false;
+   icon = 0;
+   dMemset(iconColour, 0, sizeof(iconColour));
+   haveScale = false;
+   scale = 0.0f;
+   hudName = StringTable->EmptyString();
+   for(U32 i = 0; i < 4; i++)
+   {
+      haveBlock[i] = false;
+      block[i] = 0;
+   }
+   dMemset(bit, 0, sizeof(bit));
+   visibleDistance = 0;
+   haveOffset = false;
+   offset.set(0.0f, 0.0f, 0.0f);
+   for(U32 i = 0; i < NumSlots; i++)
+   {
+      haveSound[i] = false;
+      sound[i] = StringTable->EmptyString();
+      haveSoundLoop[i] = false;
+      soundLoop[i] = StringTable->EmptyString();
+   }
+   dMemset(slot, 0, sizeof(slot));
+}
+
 void ShapeBaseData::packData(BitStream* stream)
 {
    Parent::packData(stream);
@@ -728,102 +764,100 @@ void ShapeBaseData::packData(BitStream* stream)
    //stream->write(reflectDetailAdjust);
 }
 
+// HH: Modified for Tribes 2 compatibility.
 void ShapeBaseData::unpackData(BitStream* stream)
 {
    Parent::unpackData(stream);
+
    computeCRC = stream->readFlag();
    if(computeCRC)
       stream->read(&mCRC);
 
-   shadowEnable = stream->readFlag();
-   stream->read(&shadowSize);
-   stream->read(&shadowMaxVisibleDistance);
-   stream->read(&shadowProjectionDistance);
-   stream->read(&shadowSphereAdjust);
+   char buffer[256];
+   stream->readString(buffer);
+   shapeName = StringTable->insert(buffer);
 
-   shapeName = stream->readSTString();
-   cloakTexName = stream->readSTString();
    if(stream->readFlag())
       stream->read(&mass);
-   else
-      mass = gShapeBaseDataProto.mass;
-
    if(stream->readFlag())
       stream->read(&drag);
-   else
-      drag = gShapeBaseDataProto.drag;
-
    if(stream->readFlag())
       stream->read(&density);
-   else
-      density = gShapeBaseDataProto.density;
-
    if(stream->readFlag())
       stream->read(&maxEnergy);
-   else
-      maxEnergy = gShapeBaseDataProto.maxEnergy;
-
    if(stream->readFlag())
       stream->read(&cameraMaxDist);
-   else
-      cameraMaxDist = gShapeBaseDataProto.cameraMaxDist;
-
    if(stream->readFlag())
       stream->read(&cameraMinDist);
-   else
-      cameraMinDist = gShapeBaseDataProto.cameraMinDist;
-
    if(stream->readFlag())
       stream->read(&cameraDefaultFov);
-   else
-      cameraDefaultFov = gShapeBaseDataProto.cameraDefaultFov;
-
    if(stream->readFlag())
       stream->read(&cameraMinFov);
-   else
-      cameraMinFov = gShapeBaseDataProto.cameraMinFov;
-
    if(stream->readFlag())
       stream->read(&cameraMaxFov);
-   else
-      cameraMaxFov = gShapeBaseDataProto.cameraMaxFov;
 
-   debrisShapeName = stream->readSTString();
+   stream->readString(buffer);
+   cloakTexName = StringTable->insert(buffer);
 
-   observeThroughObject = stream->readFlag();
-
-   if( stream->readFlag() )
+   mTribes2Rest.haveIcon = stream->readFlag();
+   if(mTribes2Rest.haveIcon)
    {
-      debrisID = stream->readRangedU32( DataBlockObjectIdFirst, DataBlockObjectIdLast );
+      mTribes2Rest.icon = stream->readInt(DataBlockObjectIdBitSize - 1);
+      for(U32 i = 0; i < 4; i++)
+         stream->read(&mTribes2Rest.iconColour[i]);
    }
 
-   isInvincible = stream->readFlag();
-   renderWhenDestroyed = stream->readFlag();
+   mTribes2Rest.haveScale = stream->readFlag();
+   if(mTribes2Rest.haveScale)
+      stream->read(&mTribes2Rest.scale);
 
-   if( stream->readFlag() )
+   stream->readString(buffer);
+   debrisShapeName = StringTable->insert(buffer);
+   stream->readString(buffer);
+   mTribes2Rest.hudName = StringTable->insert(buffer);
+
+   for(U32 i = 0; i < 6; i++)
+      mTribes2Rest.bit[i] = stream->readFlag();
+
+   for(U32 i = 0; i < 4; i++)
    {
-      explosionID = stream->readRangedU32( DataBlockObjectIdFirst, DataBlockObjectIdLast );
+      mTribes2Rest.haveBlock[i] = stream->readFlag();
+      if(mTribes2Rest.haveBlock[i])
+         mTribes2Rest.block[i] = stream->readInt(DataBlockObjectIdBitSize);
    }
 
-   if( stream->readFlag() )
+   for(U32 i = 6; i < Tribes2Rest::NumBits; i++)
+      mTribes2Rest.bit[i] = stream->readFlag();
+
+   stream->read(&mTribes2Rest.visibleDistance);
+
+   mTribes2Rest.haveOffset = stream->readFlag();
+   if(mTribes2Rest.haveOffset)
    {
-      underwaterExplosionID = stream->readRangedU32( DataBlockObjectIdFirst, DataBlockObjectIdLast );
+      stream->read(&mTribes2Rest.offset.x);
+      stream->read(&mTribes2Rest.offset.y);
+      stream->read(&mTribes2Rest.offset.z);
    }
 
-   inheritEnergyFromMount = stream->readFlag();
-   firstPersonOnly = stream->readFlag();
-   useEyePoint = stream->readFlag();
-
-   if( stream->readFlag() )
+   for(U32 i = 0; i < Tribes2Rest::NumSlots; i++)
    {
-      cubeDescId = stream->readRangedU32( DataBlockObjectIdFirst, DataBlockObjectIdLast );
-   }
+      mTribes2Rest.haveSound[i] = stream->readFlag();
+      if(!mTribes2Rest.haveSound[i])
+         continue;
 
-   //stream->read(&reflectPriority);
-   //stream->read(&reflectMaxRateMs);
-   //stream->read(&reflectMinDist);
-   //stream->read(&reflectMaxDist);
-   //stream->read(&reflectDetailAdjust);
+      stream->readString(buffer);
+      mTribes2Rest.sound[i] = StringTable->insert(buffer);
+
+      mTribes2Rest.haveSoundLoop[i] = stream->readFlag();
+      if(mTribes2Rest.haveSoundLoop[i])
+      {
+         stream->readString(buffer);
+         mTribes2Rest.soundLoop[i] = StringTable->insert(buffer);
+      }
+
+      for(U32 j = 0; j < Tribes2Rest::SlotFlags; j++)
+         mTribes2Rest.slot[i][j] = stream->readFlag();
+   }
 }
 
 
@@ -1463,6 +1497,9 @@ bool ShapeBase::isFirstPerson() const
 
 bool ShapeBase::isValidCameraFov(F32 fov)
 {
+   // HH: Modified for Tribes 2 compatibility.
+   if(!mDataBlock)
+      return false;
    return((fov >= mDataBlock->cameraMinFov) && (fov <= mDataBlock->cameraMaxFov));
 }
 
@@ -1472,6 +1509,13 @@ void ShapeBase::setCameraFov(F32 fov)
    if ( !isGhost() && isMethod( "validateCameraFov" ) )
    {
       fov = validateCameraFov_callback( fov );
+   }
+
+   // HH: Modified for Tribes 2 compatibility.
+   if(!mDataBlock)
+   {
+      mCameraFov = fov;
+      return;
    }
 
    mCameraFov = mClampF(fov, mDataBlock->cameraMinFov, mDataBlock->cameraMaxFov);
@@ -1511,7 +1555,8 @@ void ShapeBase::onCameraScopeQuery(NetConnection *cr, CameraScopeQuery * query)
 //----------------------------------------------------------------------------
 F32 ShapeBase::getEnergyLevel()
 {
-   if ( mDataBlock->inheritEnergyFromMount && mShapeBaseMount )
+   // HH: Modified for Tribes 2 compatibility.
+   if ( mDataBlock && mDataBlock->inheritEnergyFromMount && mShapeBaseMount )
       return mShapeBaseMount->getEnergyLevel();
    return mEnergy; 
 }
@@ -1872,6 +1917,13 @@ void ShapeBase::getEyeTransform(MatrixF* mat)
 
 void ShapeBase::getEyeBaseTransform(MatrixF* mat)
 {
+   // HH: Modified for Tribes 2 compatibility.
+   if(!mDataBlock || !mShapeInstance)
+   {
+      *mat = getTransform();
+      return;
+   }
+
    // Returns eye to world space transform
    S32 eyeNode = mDataBlock->eyeNode;
    if (eyeNode != -1)
@@ -1887,6 +1939,13 @@ void ShapeBase::getRenderEyeTransform(MatrixF* mat)
 
 void ShapeBase::getRenderEyeBaseTransform(MatrixF* mat)
 {
+   // HH: Modified for Tribes 2 compatibility.
+   if(!mDataBlock || !mShapeInstance)
+   {
+      *mat = getRenderTransform();
+      return;
+   }
+
    // Returns eye to world space transform
    S32 eyeNode = mDataBlock->eyeNode;
    if (eyeNode != -1)
