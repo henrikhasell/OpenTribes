@@ -274,6 +274,12 @@ GuiPopUpMenuCtrl::GuiPopUpMenuCtrl(void)
    mIncValue = 0;
    mRevNum = 0;
    mInAction = false;
+   // HH: Modified for Tribes 2 compatibility.
+   // Never set until the list of choices is first opened, and read before
+   // that to tell whether it is up.
+   mTl = NULL;
+   mSc = NULL;
+   mBackground = NULL;
    mMouseOver = false; //  Added
    mRenderScrollInNA = false; //  Added
    mBackgroundCancel = false; //  Added
