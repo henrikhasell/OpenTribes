@@ -60,8 +60,11 @@ typedef U32 SimObjectId;
 /// Sim::initRoot() and following.
 enum SimObjectsConstants
 {
-   DataBlockObjectIdFirst = 3,
-   DataBlockObjectIdBitSize = 10,
+   // HH: Modified for Tribes 2 compatibility.
+   // Tribes 2 puts a datablock's own id on the wire in eleven bits, taking
+   // nothing off it, so its range has to start where the wire's does.
+   DataBlockObjectIdFirst = 0,
+   DataBlockObjectIdBitSize = 11,
    DataBlockObjectIdLast = DataBlockObjectIdFirst + (1 << DataBlockObjectIdBitSize) - 1,
 
    MessageObjectIdFirst = DataBlockObjectIdLast + 1,

@@ -32,6 +32,7 @@
 #include "console/simObject.h"
 #include "console/engineTypes.h"
 #include "console/engineAPI.h"
+#include "console/netClassTableT2.h"
 
 
 IMPLEMENT_SCOPE( ConsoleAPI, Console,,
@@ -182,7 +183,6 @@ static S32 QSORT_CALLBACK ACRCompare(const void *aptr, const void *bptr)
 void AbstractClassRep::initialize()
 {
    AssertFatal(!initialized, "Duplicate call to AbstractClassRep::initialize()!");
-   Vector<AbstractClassRep *> dynamicTable(__FILE__, __LINE__);
 
    AbstractClassRep *walk;
 
@@ -211,7 +211,9 @@ void AbstractClassRep::initialize()
       sg_tempFieldList.clear();
    }
 
-   // Calculate counts and bit sizes for the various NetClasses.
+   // HH: Modified for Tribes 2 compatibility.
+   // A class answers to the number Tribes 2 gave it, not to where it happens
+   // to sort among the classes we have ported.
    for (U32 group = 0; group < NetClassGroupsCount; group++)
    {
       U32 groupMask = 1 << group;
@@ -219,37 +221,37 @@ void AbstractClassRep::initialize()
       // Specifically, for each NetClass of each NetGroup...
       for(U32 type = 0; type < NetClassTypesCount; type++)
       {
-         // Go through all the classes and find matches...
+         U32 count, bits;
+         const char *const *names = NetClassTableT2::tableFor(type, &count, &bits);
+         if(!names)
+            continue;
+
+         NetClassCount[group][type] = count;
+         NetClassBitSize[group][type] = bits;
+         AssertFatal(count <= (1u << bits), "NetClassBitSize too small!");
+
+         classTable[group][type] = new AbstractClassRep*[count];
+         for(U32 i = 0; i < count; i++)
+            classTable[group][type][i] = NULL;
+
          for (walk = classLinkList; walk; walk = walk->nextClass)
          {
-            if(walk->mClassType == type && walk->mClassGroupMask & groupMask)
-               dynamicTable.push_back(walk);
+            if(walk->mClassType != type || !(walk->mClassGroupMask & groupMask))
+               continue;
+
+            const char *t2Name = NetClassTableT2::t2NameFor(walk->getClassName());
+
+            for(U32 i = 0; i < count; i++)
+            {
+               if(dStrcmp(t2Name, names[i]))
+                  continue;
+
+               AssertFatal(!classTable[group][type][i], "Two classes claim one net class id!");
+               classTable[group][type][i] = walk;
+               walk->mClassId[group] = i;
+               break;
+            }
          }
-
-         // Set the count for this NetGroup and NetClass
-         NetClassCount[group][type] = dynamicTable.size();
-         if(!NetClassCount[group][type])
-            continue; // If no classes matched, skip to next.
-
-         // Sort by type and then by name.
-         dQsort((void *) &dynamicTable[0], dynamicTable.size(), sizeof(AbstractClassRep *), ACRCompare);
-
-         // Allocate storage in the classTable
-         classTable[group][type] = new AbstractClassRep*[NetClassCount[group][type]];
-
-         // Fill this in and assign class ids for this group.
-         for(U32 i = 0; i < NetClassCount[group][type];i++)
-         {
-            classTable[group][type][i] = dynamicTable[i];
-            dynamicTable[i]->mClassId[group] = i;
-         }
-
-         // And calculate the size of bitfields for this group and type.
-         NetClassBitSize[group][type] =
-               getBinLog2(getNextPow2(NetClassCount[group][type] + 1));
-         AssertFatal(NetClassCount[group][type] < (1 << NetClassBitSize[group][type]), "NetClassBitSize too small!");
-
-         dynamicTable.clear();
       }
    }
 
