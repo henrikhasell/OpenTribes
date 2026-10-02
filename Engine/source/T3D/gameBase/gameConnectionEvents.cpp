@@ -23,6 +23,7 @@
 #include "platform/platform.h"
 #include "core/dnet.h"
 #include "core/stream/bitStream.h"
+#include "console/netClassTableT2.h"
 #include "console/consoleTypes.h"
 #include "console/simBase.h"
 #include "scene/pathManager.h"
@@ -32,6 +33,9 @@
 #include "app/game.h"
 #include "T3D/gameBase/gameConnection.h"
 #include "T3D/gameBase/gameConnectionEvents.h"
+#include "T3D/gameBase/dataBlocksT2.h"
+#include "T3D/gameBase/t2Layout.h"
+#include "T3D/shapeBase.h"
 
 #define DebugChecksum 0xF00DBAAD
 
@@ -194,7 +198,37 @@ void SimDataBlockEvent::unpack(NetConnection *cptr, BitStream *bstream)
          Con::printf(" - SimDataBlockEvent: unpacking event of type: %s", mObj->getClassName());
          #endif
          
-         mObj->unpackData( bstream );
+         // HH: Modified for Tribes 2 compatibility.
+         // The body is read from the class's recovered layout.  That happens
+         // here rather than inside unpackData because the layout is one
+         // flattened graph per wire class: the walk followed the retail binary
+         // into the parent unpackData calls and inlined them, and the op set
+         // has no way to say "now run the parent's graph".  So the graph reads
+         // the whole body in one go, while unpackData is a chain that reads it
+         // a level at a time.  Run it from any level and the levels above,
+         // which have already called Parent::unpackData, read their fields off
+         // a stream that is past the end of the body.
+         //
+         // Every wire class has a layout, so a false here is a walk that
+         // failed, and a failed walk has already moved the stream.  There is
+         // nothing to fall back to: the body carries no length, so the rest
+         // of the packet is unreadable and the connection has to say so.
+         mObj->mReadByLayoutT2 = T2Layout::readDataBlock( bstream,
+            NetClassTableT2::t2NameFor( mObj->getClassName() ) );
+         if( !mObj->mReadByLayoutT2 )
+         {
+            cptr->setLastError( "Could not read a %s datablock, %d of %d.",
+               mObj->getClassName(), mIndex, mTotal );
+            return;
+         }
+
+         // The walk names the shape file on its way through, so a shape still
+         // has something to draw.
+         if( const char *shape = T2Layout::lastShapeFile() )
+         {
+            if( ShapeBaseData *sb = dynamic_cast< ShapeBaseData * >( mObj ) )
+               sb->shapeName = StringTable->insert( shape );
+         }
       }
       else
       {
@@ -202,8 +236,14 @@ void SimDataBlockEvent::unpack(NetConnection *cptr, BitStream *bstream)
          Con::printf(" - SimDataBlockEvent: INVALID PACKET!  Could not create class with classID: %d", classId);
          #endif
          
+         // HH: Modified for Tribes 2 compatibility.
+         // Name the datablock we have not ported: its contents ride with no
+         // length in front, so the stream cannot go on without it.
          delete ptr;
-         cptr->setLastError("Invalid packet in SimDataBlockEvent::unpack()");
+         cptr->setLastError("No datablock class %d (%s), %d of %d.", classId,
+            classId >= 0 && classId < (S32)NetClassTableT2::DataBlockCount
+               ? NetClassTableT2::DataBlocks[classId] : "out of range",
+            mIndex, mTotal);
       }
 
 #ifdef TORQUE_DEBUG_NET

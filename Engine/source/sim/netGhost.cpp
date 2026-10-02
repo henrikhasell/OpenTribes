@@ -24,6 +24,8 @@
 #include "core/dnet.h"
 #include "console/simBase.h"
 #include "sim/netConnection.h"
+#include "console/netClassTableT2.h"
+#include "T3D/gameBase/t2Layout.h"
 #include "core/stream/bitStream.h"
 #include "sim/netObject.h"
 //#include "core/resManager.h"
@@ -118,7 +120,21 @@ public:
 #ifdef TORQUE_NET_STATS
          U32 beginSize = bstream->getBitPosition();
 #endif
-         object->unpackUpdate(ps, bstream);
+         // HH: Modified for Tribes 2 compatibility.
+         // Tribes 2 frames this event exactly as it is framed here -- the
+         // ghost index, a flag, a class id, then the body -- so only the body
+         // is read differently, from the class's recovered layout.
+         // Every wire class has a layout, so a false here is a walk that
+         // failed, and a failed walk has already moved the stream.  The body
+         // carries no length, so there is nothing to fall back to.
+         object->mReadByLayoutT2 = T2Layout::readGhost(bstream,
+            NetClassTableT2::t2NameFor(object->getClassName()), true);
+         if(!object->mReadByLayoutT2)
+         {
+            ps->setLastError("Could not read a %s ghost.",
+               object->getClassName());
+            return;
+         }
 #ifdef TORQUE_NET_STATS
          object->getClassRep()->updateNetStatUnpack(bstream->getBitPosition() - beginSize);
 #endif
@@ -537,10 +553,23 @@ void NetConnection::ghostReadPacket(BitStream *bstream)
       U32 index;
       //S32 startPos = bstream->getCurPos();
       index = (U32) bstream->readInt(idSize);
+      if(index >= MaxGhostCount)
+      {
+         Con::warnf("Dropped a packet naming ghost %d, which is past our table.", index);
+         return;
+      }
       if(bstream->readFlag()) // is this ghost being deleted?
       {
-		 mGhostsActive--;
-         AssertFatal(mLocalGhosts[index] != NULL, "Error, NULL ghost encountered.");
+         // HH: Modified for Tribes 2 compatibility.
+         // A server ghosting before we could follow it retires ghosts we
+         // never made.  Retiring one costs no further bits, so the rest of
+         // the packet still reads.
+         if(!mLocalGhosts[index])
+         {
+            Con::warnf("Passed over a retired ghost %d, which we never made.", index);
+            continue;
+         }
+         mGhostsActive--;
          mLocalGhosts[index]->deleteObject();
          mLocalGhosts[index] = NULL;
       }
@@ -559,7 +588,12 @@ void NetConnection::ghostReadPacket(BitStream *bstream)
             NetObject *obj = (NetObject *) ConsoleObject::create(getNetClassGroup(), NetClassTypeObject, classId);
             if(!obj)
             {
-               setLastError("Invalid packet. (failed to create new ghost)");
+               // HH: Modified for Tribes 2 compatibility.
+               // Name the class we have not ported, which is the one thing
+               // that says what to write next, and drop only the packet.
+               mGhostsActive--;
+               Con::warnf("Dropped a packet ghosting a %s, which we lack.",
+                  NetClassTableT2::Objects[classId]);
                return;
             }
             // remove all flags associated with netobject
@@ -586,7 +620,15 @@ void NetConnection::ghostReadPacket(BitStream *bstream)
 #ifdef TORQUE_NET_STATS
             U32 beginSize = bstream->getBitPosition();
 #endif
-            mLocalGhosts[index]->unpackUpdate(this, bstream);
+            // HH: Modified for Tribes 2 compatibility.
+            obj->mReadByLayoutT2 = T2Layout::readGhost(bstream,
+               NetClassTableT2::t2NameFor(obj->getClassName()), true);
+            if(!obj->mReadByLayoutT2)
+            {
+               setLastError("Could not read a new %s ghost.",
+                  obj->getClassName());
+               return;
+            }
 #ifdef TORQUE_NET_STATS
             mLocalGhosts[index]->getClassRep()->updateNetStatUnpack(bstream->getBitPosition() - beginSize);
 #endif
@@ -608,13 +650,26 @@ void NetConnection::ghostReadPacket(BitStream *bstream)
                }
             }
 
+            // HH: Modified for Tribes 2 compatibility.
+            // The same as a ghost-always object read from its layout: the bits
+            // are understood but the fields are not set, so registering builds
+            // from defaults and a shape without a datablock fails onAdd -- the
+            // first normal ghost the server sends is the player's Camera, and
+            // losing it dropped the connection the moment phase four began.
+            // Keeping the slot without building the object leaves the table in
+            // step, which is what a later update to the index needs.
+            // The slot and the active count are already taken above, so the
+            // table stays in step by doing nothing more here.
+            if(obj->mReadByLayoutT2)
+               continue;
+
             if(!obj->registerObject())
             {
                if(mErrorBuffer.isEmpty())
                   setLastError("Invalid packet. (failed to register ghost)");
                return;
             }
-         
+
             addObject(obj);
             ghostReadExtra(mLocalGhosts[index],bstream,true);
          }
@@ -635,7 +690,16 @@ void NetConnection::ghostReadPacket(BitStream *bstream)
 #ifdef TORQUE_NET_STATS
             U32 beginSize = bstream->getBitPosition();
 #endif
-            mLocalGhosts[index]->unpackUpdate(this, bstream);
+            // HH: Modified for Tribes 2 compatibility.
+            if(!T2Layout::readGhost(bstream,
+                  NetClassTableT2::t2NameFor(mLocalGhosts[index]->getClassName()),
+                  false))
+            {
+               setLastError("Could not read a %s ghost update.",
+                  mLocalGhosts[index]->getClassName());
+               return;
+            }
+
 #ifdef TORQUE_NET_STATS
             mLocalGhosts[index]->getClassRep()->updateNetStatUnpack(bstream->getBitPosition() - beginSize);
 #endif
@@ -888,6 +952,9 @@ void NetConnection::handleConnectionMessage(U32 message, U32 sequence, U32 ghost
          }
          break;
       case GhostAlwaysStarting:
+         // HH: Modified for Tribes 2 compatibility.
+         // Tribes 2's own script names this one without the prefix.
+         Con::executef("ghostAlwaysStarted", Con::getIntArg(ghostCount));
          Con::executef("onGhostAlwaysStarted", Con::getIntArg(ghostCount));
          break;
       case SendNextDownloadRequest:
@@ -1071,6 +1138,23 @@ void NetConnection::setGhostAlwaysObject(NetObject *object, U32 index)
    object->mNetFlags = NetObject::IsGhost;
    object->mNetIndex = index;
 
+   // HH: Modified for Tribes 2 compatibility.
+   // An object read from its layout has no fields, so registering it would
+   // build from defaults -- and an interior or a shape cannot survive that.
+   // Take its slot in the table without building it: the server counts it as
+   // sent, so a later update to that index carries no class id.
+   if(object->mReadByLayoutT2)
+   {
+      if(mLocalGhosts[index])
+      {
+         mLocalGhosts[index]->deleteObject();
+         mGhostsActive--;
+      }
+      mLocalGhosts[index] = object;
+      mGhostsActive++;
+      return;
+   }
+
    // while there's an object waiting...
    if ( isLocalConnection() ) 
    {
@@ -1131,6 +1215,23 @@ void NetConnection::loadNextGhostAlwaysObject(bool hadNewFiles)
 
       if(!object->registerObject())
       {
+         // HH: Modified for Tribes 2 compatibility.
+         // A ghost always object whose body was read from its layout has no
+         // fields, so it cannot register.  Its slot still has to be filled:
+         // the server counts it as sent, so a later update to that index
+         // carries no class id and would otherwise be read as a new ghost.
+         if(object->mReadByLayoutT2)
+         {
+            Con::warnf("Kept ghost always %d (%s) unregistered.", index,
+                       object->getClassName());
+            mErrorBuffer = String();
+            mFilesWereDownloaded = false;
+            mGhostAlwaysSaveList.pop_front();
+            mLocalGhosts[index] = object;
+            hadNewFiles = true;
+            continue;
+         }
+
          mFilesWereDownloaded = false;
          // make sure there's an error message if necessary
          if(mErrorBuffer.isEmpty())
