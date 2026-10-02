@@ -245,6 +245,11 @@ bool GuiCanvas::onAdd()
       mPlatformWindow->appEvent    .notify(this, &GuiCanvas::handleAppEvent);
       mPlatformWindow->displayEvent.notify(this, &GuiCanvas::handlePaintEvent);
       mPlatformWindow->setInputController( dynamic_cast<IProcessInput*>(this) );
+
+      // HH: Modified for Tribes 2 compatibility.
+      // Tribes 2 draws DefaultCursor itself, so the system pointer is hidden
+      // over the window for good and the canvas renders the arrow instead.
+      mPlatformWindow->setCursorVisible( false );
    }
 
    // Need to get painted, too! :)
@@ -447,19 +452,19 @@ void GuiCanvas::setCursorPos(const Point2I &pt)
 }
 
 void GuiCanvas::showCursor(bool state)
-{ 
+{
+   // HH: Modified for Tribes 2 compatibility.
+   // Only the drawn cursor goes off and on; revealing the system pointer here
+   // would leave the two of them on screen together.
    mShowCursor = state;
-   mPlatformWindow->setCursorVisible( state );
 }
 
 bool GuiCanvas::isCursorShown()
 {
-   if ( !mPlatformWindow->getCursorController() )
-   {
-      return mShowCursor;
-   }
-
-   return mPlatformWindow->isCursorVisible();
+   // HH: Modified for Tribes 2 compatibility.
+   // The system pointer is hidden whatever happens, so what is on screen is
+   // what the canvas draws.
+   return mShowCursor;
 }
 
 void GuiCanvas::addAcceleratorKey(GuiControl *ctrl, U32 index, U32 keyCode, U32 modifier)
