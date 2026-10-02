@@ -132,6 +132,10 @@ public:
 
    virtual U32 read(void* dst, U32 size)
    {
+      // HH: Modified to keep this reader's seek and read together.
+      MutexHandle streamLock;
+      streamLock.lock(&mArchive->getStreamMutex(), true);
+
       if (mZipStream && mZipStream->read(size, dst) && mByteCount)
          return mByteCount->getLastBytesRead();
       else

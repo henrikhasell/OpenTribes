@@ -26,6 +26,9 @@
 
 #include "core/stream/fileStream.h"
 
+// HH: Added for the lock below.
+#include "platform/threads/mutex.h"
+
 #include "core/util/tVector.h"
 #include "core/util/tDictionary.h"
 #include "core/util/timeClass.h"
@@ -305,6 +308,10 @@ protected:
    FileStream *mDiskStream;
    AccessMode mMode;
 
+   // HH: Added because every file opened out of the archive reads through
+   // mStream, seeking it about as it goes.
+   Mutex mStreamMutex;
+
    EndOfCentralDir mEOCD;
 
    // mRoot forms a tree of entries for fast queries given a file path
@@ -496,6 +503,9 @@ public:
    /// @see ZipArchive::openFile(const char *, AccessMode), ZipArchive::closeFile()
    //-----------------------------------------------------------------------------
    Stream *openFileForRead(const CentralDir *fileCD);
+
+   // HH: Added so a file node can hold the stream it shares with the archive.
+   Mutex &getStreamMutex() { return mStreamMutex; }
    // @}
 
    /// @name Archiver Style File Access Methods

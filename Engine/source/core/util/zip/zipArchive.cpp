@@ -730,6 +730,11 @@ void ZipArchive::closeFile(Stream *stream)
 
 Stream *ZipArchive::openFileForRead(const CentralDir *fileCD)
 {
+   // HH: Modified to hold the stream still from the seek to the local header
+   // through to the reader taking the data's offset off it.
+   MutexHandle streamLock;
+   streamLock.lock(&mStreamMutex, true);
+
    if(mMode != Read && mMode != ReadWrite)
       return NULL;
 
