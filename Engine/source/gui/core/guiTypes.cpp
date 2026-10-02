@@ -395,6 +395,12 @@ GuiControlProfile::GuiControlProfile(void) :
       // default sound
       mSoundButtonDown = def->mSoundButtonDown;
       mSoundButtonOver = def->mSoundButtonOver;
+      // HH: Modified for Tribes 2 compatibility.
+      // The names as well as what they resolved to.  A profile is copied while
+      // the scripts are still being read, when neither sound exists yet, so
+      // what comes across is two nulls and the name is the only way back.
+      mSoundButtonDownName = def->mSoundButtonDownName;
+      mSoundButtonOverName = def->mSoundButtonOverName;
 
       //used by GuiTextCtrl
       mModal         = def->mModal;
