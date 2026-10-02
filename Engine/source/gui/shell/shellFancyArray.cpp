@@ -1,5 +1,7 @@
 #include "platform/platform.h"
 #include "gui/shell/shellFancyArray.h"
+#include "sfx/sfxSystem.h"
+#include "sfx/sfxTrack.h"
 
 #include "console/console.h"
 #include "console/consoleTypes.h"
@@ -503,6 +505,16 @@ void ShellFancyArray::onMouseDown( const GuiEvent &event )
 {
    const Point2I local = globalToLocalCoord( event.mousePoint );
 
+   // HH: Modified for Tribes 2 compatibility.
+   // A header cell sounds as a button does, whether or not the column sorts.
+   // The rows below it do not, which is why the height is tested here rather
+   // than left to the sort branch.
+   if ( mActive && local.y < mHeaderHeight && columnAt( local.x ) >= 0 )
+   {
+      if ( SFXTrack *down = mProfile->getSoundButtonDown() )
+         SFX->playOnce( down );
+   }
+
    if ( mHeaderSort && local.y < mHeaderHeight )
    {
       const S32 column = columnAt( local.x );
@@ -544,6 +556,16 @@ void ShellFancyArray::onMouseMove( const GuiEvent &event )
 
    if ( row != mMouseOverRow || column != mMouseOverColumn )
    {
+      // HH: Modified for Tribes 2 compatibility.
+      // A header cell sounds as a button does.  The rows under it do not, and
+      // columnAt is only asked inside the header, so the test is the same one
+      // that decides whether a column is hovered at all.
+      if ( mActive && column >= 0 && column != mMouseOverColumn )
+      {
+         if ( SFXTrack *over = mProfile->getSoundButtonOver() )
+            SFX->playOnce( over );
+      }
+
       mMouseOverRow = row;
       mMouseOverColumn = column;
       setUpdate();

@@ -59,9 +59,29 @@ ResourceBase::Signature Resource< SFXResource >::signature()
    return MakeFourCC( 's', 'f', 'x', 'r' );
 }
 
+// HH: Added for Tribes 2 compatibility.
+// Every sound resolves under the search directory, so a path that is not
+// already there is put there.  Tribes 2 asks for "gui/buttonOver.wav" and
+// ships it at "audio/gui/buttonOver.wav".
+static const String sAudioSearchDir( "audio" );
+
+static String applyAudioSearchDir( const String &filename )
+{
+   if( filename.isEmpty() )
+      return filename;
+
+   Torque::Path path( filename );
+   if( path.getPath().startsWith( sAudioSearchDir ) )
+      return filename;
+
+   path.setPath( Torque::Path::Join( sAudioSearchDir, '/', path.getPath() ) );
+   return path.getFullPath();
+}
+
 Resource< SFXResource > SFXResource::load( String filename )
 {
-   return ResourceManager::get().load( filename );
+   // HH: Modified for Tribes 2 compatibility.
+   return ResourceManager::get().load( applyAudioSearchDir( filename ) );
 }
 
 SFXResource::SFXResource( String fileName, SFXStream *stream )
@@ -73,7 +93,8 @@ SFXResource::SFXResource( String fileName, SFXStream *stream )
 
 bool SFXResource::exists( String filename )
 {
-   return SFXFileStream::exists( filename );
+   // HH: Modified for Tribes 2 compatibility.
+   return SFXFileStream::exists( applyAudioSearchDir( filename ) );
 }
 
 SFXStream* SFXResource::openStream()

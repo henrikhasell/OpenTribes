@@ -22,6 +22,8 @@
 
 #include "gui/core/guiCanvas.h"
 #include "gui/controls/guiPopUpCtrl.h"
+#include "sfx/sfxSystem.h"
+#include "sfx/sfxTrack.h"
 #include "console/consoleTypes.h"
 #include "gui/core/guiDefaultControlRender.h"
 #include "gfx/primBuilder.h"
@@ -272,6 +274,12 @@ GuiPopUpMenuCtrl::GuiPopUpMenuCtrl(void)
    mIncValue = 0;
    mRevNum = 0;
    mInAction = false;
+   // HH: Modified for Tribes 2 compatibility.
+   // Never set until the list of choices is first opened, and read before
+   // that to tell whether it is up.
+   mTl = NULL;
+   mSc = NULL;
+   mBackground = NULL;
    mMouseOver = false; //  Added
    mRenderScrollInNA = false; //  Added
    mBackgroundCancel = false; //  Added
@@ -1480,6 +1488,13 @@ void GuiPopUpMenuCtrl::onMouseDown( const GuiEvent &event )
    if( !mVisible || !mActive || !mAwake )
       return;
 
+   // HH: Modified for Tribes 2 compatibility.
+   // The drop-down sounds as a button does.  The list of choices it opens is a
+   // control of its own, so neither moving over a choice nor picking one comes
+   // through here -- which is right, as neither makes a sound in Tribes 2.
+   if( SFXTrack *down = mProfile->getSoundButtonDown() )
+      SFX->playOnce( down );
+
    onAction();
 }
 
@@ -1493,6 +1508,17 @@ void GuiPopUpMenuCtrl::onMouseUp( const GuiEvent &event )
 //  Added
 void GuiPopUpMenuCtrl::onMouseEnter( const GuiEvent &event )
 {
+   // HH: Modified for Tribes 2 compatibility.
+   // Not while the list of choices is up.  Closing it pops a dialog, and the
+   // canvas then enters whatever the cursor is over -- which is this control,
+   // because the list is drawn overlapping its face.  Sounding there would put
+   // a noise on picking a choice, which Tribes 2 does not.
+   if( mActive && !mBackground )
+   {
+      if( SFXTrack *over = mProfile->getSoundButtonOver() )
+         SFX->playOnce( over );
+   }
+
    mMouseOver = true;
 }
 
