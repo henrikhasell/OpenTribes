@@ -131,8 +131,12 @@ void PathManagerEvent::unpack(NetConnection*, BitStream* stream)
    T2Layout::readEvent(stream, "PathManagerEvent");
 }
 
-void PathManagerEvent::process(NetConnection*)
+void PathManagerEvent::process(NetConnection* con)
 {
+   // HH: This guards against an unexpected connection drop.
+   if (!con->isLocalConnection())
+      return;
+
    if (clearPaths)
    {
       // Clear out all the client's paths...
