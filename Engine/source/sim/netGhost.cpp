@@ -146,6 +146,10 @@ public:
    {
       Con::executef("onGhostAlwaysObjectReceived");
 
+      // HH: Modified so that the loading bar moves as the objects arrive.
+      if(Con::isFunction("ghostAlwaysObjectReceived"))
+         Con::executef("ghostAlwaysObjectReceived");
+
       ps->setGhostAlwaysObject(object, ghostIndex);
       object = NULL;
    }
@@ -1046,6 +1050,10 @@ void NetConnection::activateGhosting()
 
             // Execute the appropriate console callback.
             Con::executef("onGhostAlwaysObjectReceived");
+
+            // HH: Modified so that the loading bar moves as the objects arrive.
+            if(Con::isFunction("ghostAlwaysObjectReceived"))
+               Con::executef("ghostAlwaysObjectReceived");
 
             // Set the ghost always object for the client.
             pClient->setGhostAlwaysObject(pObject, mGhostArray[j]->index);
