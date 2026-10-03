@@ -360,6 +360,17 @@ void GameConnection::onConnectionEstablished(bool isInitiator)
       mMoveList->init();
       Con::printf("Connection established %d", getId());
       onConnectionAccepted_callback();
+
+      // HH: Added for Tribes 2 compatibility.
+      // Torque offers this as a method on the connection, which Tribes 2's
+      // scripts do not define.  They define a global pair instead -- one for
+      // joining a server, one for a game hosted here -- and the loading
+      // screen hangs off it: the function waits for the load info the server
+      // sends and then puts LoadingGui on the canvas.  Without the call the
+      // canvas stays where it was until the mission puts PlayGui up, so a
+      // join shows nothing at all while the datablocks arrive.
+      Con::executef(isLocalConnection() ? "LocalConnectionAccepted"
+                                        : "ServerConnectionAccepted");
    }
    else
    {
