@@ -254,6 +254,11 @@ void SimDataBlockEvent::process(NetConnection *cptr)
       //call the console function to set the number of blocks to be sent
       Con::executef("onDataBlockObjectReceived", Con::getIntArg(mIndex), Con::getIntArg(mTotal));
 
+      // HH: Modified so that the loading bar moves as the datablocks arrive.
+      if(Con::isFunction("ClientReceivedDataBlock"))
+         Con::executef("ClientReceivedDataBlock", Con::getIntArg(mIndex),
+            Con::getIntArg(mTotal));
+
       String &errorBuffer = NetConnection::getErrorBuffer();
                      
       // Register the datablock object if this is a new DB
