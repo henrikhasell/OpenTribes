@@ -1548,8 +1548,9 @@ bool TSShape::read(Stream * s)
    S32 count32, count16, count8;
    if (mReadVersion<19)
    {
-      Con::errorf("... Shape with old version.");
-      return false;
+      // HH: Modified for Tribes 2 compatibility.
+      // Tribes 2's own shapes are version 18.
+      readOldShape(s,memBuffer32,memBuffer16,memBuffer8,count32,count16,count8);
    }
    else
    {
