@@ -360,6 +360,10 @@ void GameConnection::onConnectionEstablished(bool isInitiator)
       mMoveList->init();
       Con::printf("Connection established %d", getId());
       onConnectionAccepted_callback();
+
+      // HH: Added so that the mission loading screen appears when joining a server.
+      Con::executef(isLocalConnection() ? "LocalConnectionAccepted"
+                                        : "ServerConnectionAccepted");
    }
    else
    {
