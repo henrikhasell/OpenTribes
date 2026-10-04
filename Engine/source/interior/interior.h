@@ -543,16 +543,6 @@ public:
 private:
    bool readSurface(Stream&, Surface&, TexGenPlanes&, const bool);
 
-   /// HH: Does every index this interior carries land inside the vector it
-   /// addresses?
-   ///
-   /// readSurface already answers this for a surface's own indices, and this
-   /// is the same question asked of the structures it does not cover: zones,
-   /// portals and the lightmap index per surface.  Reading a file to its last
-   /// byte and the indices in it being usable are different claims about the
-   /// same bytes, and only the first of them had been made.
-   bool checkIndexRanges() const;
-
 
   public:
    // this is public because tools/Morian needs this defination
@@ -610,19 +600,6 @@ private:
       U16   searchTag;
       bool  staticMesh;
    };
-   /// HH: The hull half of the same question, for one of the two parallel
-   /// sets of hull vectors -- the ordinary one and the vehicle one.
-   bool checkHullRanges( const char *what,
-                         const Vector<ConvexHull> &hulls,
-                         const Vector<U32> &hullIndices,
-                         const Vector<U32> &emitStringIndices,
-                         const Vector<U32> &surfaceIndices,
-                         const Vector<U16> &planeIndices,
-                         const Vector<U8> &emitStrings,
-                         const Vector<U16> &polyListPlanes,
-                         const Vector<U32> &polyListPoints,
-                         const Vector<U8> &polyListStrings,
-                         U32 numPoints, U32 numPlanes ) const;
 
    struct CoordBin 
    {
