@@ -181,6 +181,54 @@ bool InteriorResource::read(Stream& stream)
       }
    }
 
+   // HH: Added for Tribes 2 compatibility.
+   //
+   // A version 0 file has a second AI special node list here, and it is the
+   // one that carries the nodes.  The list above is empty in all 325 .dif
+   // files the game ships; this one has them in 34 of them, up to thirty in
+   // dbase2.dif, and every name in all 325 is empty.
+   //
+   // Not reading it is what stopped every interior in the game short of its
+   // last byte.  The count was taken for the vehicle collision flag, which is
+   // the next word, so for the 291 files where it is zero the flag read as
+   // "no collision" and the real flag read as "not 2" and the read stopped --
+   // and for the other 34 the count was taken as a flag that was not 1
+   // either.  Either way the collision block was never reached.
+   //
+   // Whether this is a second list or whether the first count is an extra
+   // word in front of one list cannot be told from these files: the first is
+   // zero in every one of them.  It is read as a second list because that is
+   // what the bytes after it are -- a length-prefixed name and a Point3F
+   // each, which is exactly AISpecialNode -- and because appending keeps the
+   // nodes rather than discarding them.
+   U32 numMoreSpecNodes;
+   stream.read(&numMoreSpecNodes);
+
+   // A node is a length byte and a Point3F, so thirteen bytes at least.  The
+   // same argument as the bounds check in InteriorDict::read: a count the
+   // file cannot be holding is not a count, and finding that out in the
+   // allocator costs the process rather than the building.
+   if (numMoreSpecNodes > (stream.getStreamSize() - stream.getPosition()) / 13)
+   {
+      Con::errorf(ConsoleLogEntry::General,
+                  "InteriorResource::read: %u special nodes with %u bytes left",
+                  numMoreSpecNodes,
+                  stream.getStreamSize() - stream.getPosition());
+      return false;
+   }
+
+   for (i = 0; i < numMoreSpecNodes; i++)
+   {
+      AISpecialNode *node = new AISpecialNode;
+      if (node->read(stream) == false) {
+         delete node;
+         Con::errorf(ConsoleLogEntry::General,
+                     "Unable to read second-list SpecNode %d in interior resource", i);
+         return false;
+      }
+      mAISpecialNodes.push_back(node);
+   }
+
    U32 dummyInt;
    stream.read(&dummyInt);
    if (dummyInt == 1)

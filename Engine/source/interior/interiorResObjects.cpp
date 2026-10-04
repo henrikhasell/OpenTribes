@@ -21,6 +21,7 @@
 //-----------------------------------------------------------------------------
 
 #include "interior/interiorResObjects.h"
+#include "console/console.h"
 #include "core/stream/stream.h"
 #include "math/mathIO.h"
 
@@ -28,10 +29,26 @@
 //--------------------------------------
 //
 
-void InteriorDict::read(Stream &stream)
+bool InteriorDict::read(Stream &stream)
 {
    U32 sz;
    stream.read(&sz);
+
+   // HH: A count the file cannot be holding is not a count.
+   //
+   // An entry is two length-prefixed strings, so it is at least two bytes, and
+   // a stream with fewer than 2*sz left has not got sz of them.  Without this
+   // the first thing a lost cursor does here is setSize() on a number in the
+   // billions, and the process dies inside the allocator -- no return value,
+   // no file name, nothing to tell the sweep which .dif it was reading.  An
+   // unreadable interior should cost a building.
+   const U32 remaining = stream.getStreamSize() - stream.getPosition();
+   if( sz > remaining / 2 )
+   {
+      Con::errorf( "InteriorDict::read: %u entries with %u bytes left", sz, remaining );
+      return false;
+   }
+
    setSize(sz);
    for(U32 i = 0; i < sz; i++)
    {
@@ -40,6 +57,8 @@ void InteriorDict::read(Stream &stream)
       stream.readString(e.value);
       (*this)[i] = e;
    }
+
+   return true;
 }
 
 void InteriorDict::write(Stream &stream) const
@@ -53,12 +72,29 @@ void InteriorDict::write(Stream &stream) const
    }
 }
 
+// HH: Modified for Tribes 2 compatibility.
+//
+// A version 0 trigger carries a name and a polyhedron and nothing else.  The
+// datablock string and the dictionary that stand between them here are later
+// additions, and reading them off a Tribes 2 file takes the length byte of
+// the point count as a string length and the points themselves as a count --
+// which is how xbunk2.dif came to die inside the allocator in
+// InteriorDict::read rather than fail.
+//
+// Read out of the file rather than assumed.  xbunk2 is the only interior of
+// the 325 with a trigger at all, and both of its decode exactly on this
+// reading, each landing on the first byte of the next record:
+//
+//     2 triggers
+//     "elevator2_t2"  8 points  6 planes  12 edges  offset (-9, 19.5, 0)
+//     "elevator2_t1"  8 points  6 planes  12 edges  offset (-8, 19.5, -6.75)
+//
+// It is the elevator bunker, and those are its two elevator shafts.
 bool InteriorResTrigger::read(Stream& stream)
 {
    U32 i, size;
    stream.readString(mName);
-   mDataBlock = stream.readSTString();
-   mDictionary.read(stream);
+   mDataBlock = "";
 
    // Read the polyhedron
    stream.read(&size);
@@ -136,19 +172,35 @@ InteriorPathFollower::~InteriorPathFollower()
 
 }
 
+// HH: Modified for Tribes 2 compatibility.
+//
+// The same shape of difference as the trigger above, and read the same way.
+// A version 0 path follower is a name, its waypoints and a total, and a
+// waypoint is a position, a rotation and the milliseconds to the next one --
+// no datablock, no resource index, no offset, no dictionary, no trigger ids,
+// and no smoothing type.  xbunk2.dif's three decode cleanly and consecutively
+// on it, which is the whole of the evidence and also all there is: it is the
+// only interior in the game with a path follower.
+//
+//     "epath"  2 waypoints  (-8, 19.5, -11.5) -> (-8, 19.5, -3.5)  1000 ms
+//     "bn1"    2 waypoints  (16.5, 1.25, 10.75) -> (16.5, 3.5, 10.75)  500 ms
+//     "bs1"    2 waypoints  (16.5, -1.25, 10.75) -> (16.5, -3.5, 10.75)  500 ms
+//
+// An elevator that rises eight units in a second and two doors that slide two
+// and a half in half of one.  The last waypoint's msToNext is zero in all
+// three, which is what a last waypoint should hold.
+//
+// One byte is left that this cannot name.  It follows the total, it is zero
+// in all three records, and taking it is what puts the cursor on the next
+// record's name length.  It is read as a byte rather than guessed at as a
+// field: a wrong guess about what it is costs nothing, a wrong guess about
+// how wide it is loses the file.
 bool InteriorPathFollower::read(Stream& stream)
 {
    mName = stream.readSTString();
-   mDataBlock = stream.readSTString();
-   stream.read(&mInteriorResIndex);
-   mathRead(stream, &mOffset);
-   mDictionary.read(stream);
-
-   U32 numTriggers;
-   stream.read(&numTriggers);
-   mTriggerIds.setSize(numTriggers);
-   for (U32 i = 0; i < mTriggerIds.size(); i++)
-      stream.read(&mTriggerIds[i]);
+   mDataBlock = "";
+   mInteriorResIndex = 0;
+   mOffset.set(0, 0, 0);
 
    U32 numWayPoints;
    stream.read(&numWayPoints);
@@ -158,9 +210,13 @@ bool InteriorPathFollower::read(Stream& stream)
       mathRead(stream, &mWayPoints[i].pos);
       mathRead(stream, &mWayPoints[i].rot);
       stream.read(&mWayPoints[i].msToNext);
-      stream.read(&mWayPoints[i].smoothingType);
+      mWayPoints[i].smoothingType = 0;
    }
    stream.read(&mTotalMS);
+
+   U8 unnamed;
+   stream.read(&unnamed);
+
    return (stream.getStatus() == Stream::Ok);
 }
 
@@ -230,7 +286,8 @@ bool ItrGameEntity::read(Stream& stream)
    mDataBlock = stream.readSTString();
    mGameClass = stream.readSTString();
    mathRead(stream, &mPos);
-   mDictionary.read(stream);
+   if( !mDictionary.read(stream) )
+      return false;
 
    return (stream.getStatus() == Stream::Ok);
 }

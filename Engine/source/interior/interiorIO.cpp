@@ -231,48 +231,33 @@ bool Interior::read(Stream& stream)
    mSurfaces.setSize(vectorSize);
    mLMTexGenEQs.setSize(vectorSize);
 
-   // Couple of hoops to *attempt* to detect that we are loading
-   // a TGE version 0 Interior and not a TGEA verison 0
-   U32 surfacePos = stream.getPosition();
-   bool tgeInterior = false;
+   // HH: A version 0 interior is read one way rather than guessed at.
+   //
+   // Every .dif this port will ever open is a Tribes 2 one -- 902 interiors in
+   // 325 files across the three volumes the game ships -- and all of them are
+   // InteriorResource version 44 holding Interior version 0.  That reading is
+   // the one tgeInterior selects: no trailing byte behind a surface's map sizes
+   // and one lightmap per lightmap rather than two.  It was checked against the
+   // engine that wrote the files, and against the files: a reading of the whole
+   // resource taken from that engine consumes all 902 of them to the last byte,
+   // where adding the byte loses between a third and a half of each volume.
+   //
+   // What was here instead read the surfaces as a TGEA version 0 first and only
+   // fell back to this when readSurface returned false.  That is not a test of
+   // which variant the file is -- it is a test of whether the stream has already
+   // been lost, and the wrong variant can pass it: the surfaces come out
+   // misaligned but inside their bounds, and nothing fails until some vector
+   // length further down the body reads absurd.  So the fallback was reached by
+   // luck, and a file it was not reached for was read as rubbish in silence.
+   //
+   // A TGEA version 0 interior is no longer readable here.  Nothing in this tree
+   // has one: there is not a single .dif in the repository, and the three
+   // volumes hold only Tribes 2's.
+   const bool tgeInterior = (fileVersion == 0);
 
-   // First attempt to read this as though it isn't a TGE version 0 Interior
    for(i = 0; i < mSurfaces.size(); i++)
-   {
-      // If we end up reading any invalid data in this loop then odds
-      // are that we are no longer correctly reading from the stream
-      // and have gotten off because this is a TGE version 0 Interior
-
-      Surface& surface = mSurfaces[i];
-
-      if (readSurface(stream, surface, mLMTexGenEQs[i], false) == false)
-      {
-         tgeInterior = true;
-         break;
-      }
-   }
-
-   // If this is a version 0 Interior and we failed to read it as a
-   // TGEA version 0 Interior then attempt to read it as a TGE version 0
-   if (fileVersion == 0 && tgeInterior)
-   {
-      // Set our stream position back to the start of the surfaces
-      stream.setPosition(surfacePos);
-
-      // Try reading in the surfaces again
-      for(i = 0; i < mSurfaces.size(); i++)
-      {
-         Surface& surface = mSurfaces[i];
-
-         // If we fail on any of the surfaces then bail
-         if (readSurface(stream, surface, mLMTexGenEQs[i], true) == false)
-            return false;
-      }
-   }
-   // If we failed to read but this isn't a version 0 Interior
-   // then something has gone horribly wrong
-   else if (fileVersion != 0 && tgeInterior)
-      return false;
+      if (readSurface(stream, mSurfaces[i], mLMTexGenEQs[i], tgeInterior) == false)
+         return false;
 
    // Edges
    if (fileVersion == 5)
@@ -617,10 +602,451 @@ bool Interior::read(Stream& stream)
    // Setup the zone planes
    setupZonePlanes();
    truncateZoneTree();
-   
+
    buildSurfaceZones();
 
-   return (stream.getStatus() == Stream::Ok);
+   if (stream.getStatus() != Stream::Ok)
+      return false;
+
+   // HH: Added for Tribes 2 compatibility -- see checkIndexRanges.
+   // After the zone setup above, because truncateZoneTree can remove zones and
+   // a bound taken before it would be a bound on a vector this file no longer
+   // has.
+   return checkIndexRanges();
+}
+
+// HH: Added for Tribes 2 compatibility.
+//
+// readSurface already refuses a surface whose winding, plane, texture or
+// texgen index points outside the vector it addresses, live in Release rather
+// than as an assertion.  This is the same question asked of the structures it
+// does not cover: zones, portals and the lightmap index per surface.
+//
+// Every bound here is transcribed from an expression this tree evaluates, and
+// the file and line of that expression is named beside it.  A bound derived
+// from the field's name instead is a second reading of the format, and a check
+// that guesses at the format cannot tell a malformed file from a correct one
+// it has misunderstood -- which is how a shape check came to refuse every
+// human player in the game.
+bool Interior::checkIndexRanges() const
+{
+   // do/while so that it is one statement: without it the macro's own `if`
+   // swallows an `else` written after a use, which is not a hypothetical --
+   // it silently took the wrong branch of the tagged surface-index check
+   // below and reported 152 interiors as malformed.
+   #define T2_WANT( cond, fmt, ... )                                           \
+      do {                                                                     \
+         if( !(cond) )                                                         \
+         {                                                                     \
+            Con::errorf( ConsoleLogEntry::General,                             \
+                         "Error: interior index out of range: " fmt, ##__VA_ARGS__ ); \
+            return false;                                                      \
+         }                                                                     \
+      } while( false )
+
+   const U32 numZones = mZones.size();
+
+   // interior.cpp traverseZone: mPortals[mZonePortalList[i]] for i in
+   // [portalStart, portalStart+portalCount), and interior.cpp:1051
+   // mZoneSurfaces[zone.surfaceStart + j] for j < surfaceCount.
+   //
+   // Not checked: planeStart/planeCount and staticMeshStart/staticMeshCount.
+   // They look exactly like the two above and nothing in this tree indexes
+   // mZonePlanes or mZoneStaticMeshes by them -- the vectors are read, written
+   // and never addressed.  A bound on a field nothing uses can only cost a
+   // file it was wrong about.
+   for( U32 i = 0; i < numZones; i++ )
+   {
+      const Zone &z = mZones[i];
+      T2_WANT( U32(z.portalStart) + z.portalCount <= mZonePortalList.size(),
+               "zone %u takes portal entries %u..%u of %u", i, (U32)z.portalStart,
+               U32(z.portalStart) + z.portalCount - 1, (U32)mZonePortalList.size() );
+      T2_WANT( z.surfaceStart + z.surfaceCount <= mZoneSurfaces.size(),
+               "zone %u takes surface entries %u..%u of %u", i, z.surfaceStart,
+               z.surfaceStart + z.surfaceCount - 1, (U32)mZoneSurfaces.size() );
+   }
+
+   // The entries are themselves indices, which is the half a per-zone range
+   // check does not reach.
+   for( U32 i = 0; i < mZonePortalList.size(); i++ )
+      T2_WANT( mZonePortalList[i] < mPortals.size(),
+               "zone portal entry %u names portal %u of %u", i,
+               (U32)mZonePortalList[i], (U32)mPortals.size() );
+
+   for( U32 i = 0; i < mZoneSurfaces.size(); i++ )
+      T2_WANT( mZoneSurfaces[i] < mSurfaces.size(),
+               "zone surface entry %u names surface %u of %u", i,
+               (U32)mZoneSurfaces[i], (U32)mSurfaces.size() );
+
+   // Every portal's fans, because interiorDebug.cpp:361 walks all of them and
+   // draws each fan's windings without going through a zone.
+   for( U32 i = 0; i < mPortals.size(); i++ )
+   {
+      const Portal &p = mPortals[i];
+
+      T2_WANT( p.triFanStart + p.triFanCount <= mWindingIndices.size(),
+               "portal %u takes fans %u..%u of %u", i, p.triFanStart,
+               p.triFanStart + p.triFanCount - 1, (U32)mWindingIndices.size() );
+
+      for( U32 j = 0; j < p.triFanCount; j++ )
+      {
+         const TriFan &fan = mWindingIndices[p.triFanStart + j];
+         T2_WANT( fan.windingStart + fan.windingCount <= mWindings.size(),
+                  "portal %u fan %u takes windings %u..%u of %u", i,
+                  p.triFanStart + j, fan.windingStart,
+                  fan.windingStart + fan.windingCount - 1, (U32)mWindings.size() );
+      }
+   }
+
+   // And the fields that are read only of a portal some zone names.
+   //
+   // This distinction is the whole of what the first version of this got
+   // wrong.  Checking every portal's zoneFront and zoneBack refused nineteen
+   // of the game's interiors, every one of them for a portal whose two zones
+   // are both 0xFFFF -- U16(-1), a portal attached to nothing.  No zone lists
+   // it, so traverseZone never reaches it and the sentinel is never read as an
+   // index.  The bound is not "a portal names a zone that exists"; it is "a
+   // portal *this interior can reach* names a zone that exists", and the
+   // difference is nineteen buildings.
+   for( U32 i = 0; i < mZonePortalList.size(); i++ )
+   {
+      const Portal &p = mPortals[mZonePortalList[i]];
+
+      // interior.cpp:821, through getPlane, which masks the flip bit before
+      // indexing -- so the bound is on the masked value and not on the word.
+      T2_WANT( U32(p.planeIndex & ~0x8000) < mPlanes.size(),
+               "portal %u names plane %u of %u", (U32)mZonePortalList[i],
+               U32(p.planeIndex & ~0x8000), (U32)mPlanes.size() );
+
+      // interior.cpp:825 picks whichever of these is not the current zone and
+      // traverseZone recurses into it, opening with mZones[currZone].
+      T2_WANT( p.zoneFront < numZones && p.zoneBack < numZones,
+               "portal %u joins zones %u and %u of %u", (U32)mZonePortalList[i],
+               (U32)p.zoneFront, (U32)p.zoneBack, numZones );
+
+      // projectClipAndBoundFan copies a fan's points into Point3F[128] with
+      // the file's own count and no guard of any kind -- not an assertion,
+      // nothing.  Only the traversal reaches it, which is why this is here and
+      // not in the loop over all portals above.  The clipping afterwards can
+      // still grow a fan that started inside the bound, which is a property of
+      // the algorithm rather than of the file and is not something a reader
+      // can answer.
+      for( U32 j = 0; j < p.triFanCount; j++ )
+         T2_WANT( mWindingIndices[p.triFanStart + j].windingCount <= 128,
+                  "portal %u fan %u has %u windings, and the fan buffer holds 128",
+                  (U32)mZonePortalList[i], p.triFanStart + j,
+                  mWindingIndices[p.triFanStart + j].windingCount );
+   }
+
+   // interior.cpp:2064 mNormalLMapIndices[surfaceIndex], with surfaceIndex an
+   // index into mSurfaces.
+   T2_WANT( mNormalLMapIndices.size() >= mSurfaces.size(),
+            "%u lightmap indices for %u surfaces",
+            (U32)mNormalLMapIndices.size(), (U32)mSurfaces.size() );
+
+   // And the value, which becomes RenderNode::lightMapIndex -- a U8, compared
+   // against U8(-1) for "none" and otherwise handed to
+   // InteriorLMManager::getHandle, where it indexes the handle vector behind
+   // an assertion.  Checked after the truncation the assignment performs,
+   // because that is the number that reaches the subscript.
+   //
+   // Not checked: mAlarmLMapIndices.  It is read and written and nothing in
+   // this tree indexes anything with it.
+   for( U32 i = 0; i < mNormalLMapIndices.size(); i++ )
+   {
+      const U32 index = U8( mNormalLMapIndices[i] );
+      T2_WANT( index == U8(-1) || index < mLightmaps.size(),
+               "surface %u names lightmap %u of %u", i, index,
+               (U32)mLightmaps.size() );
+   }
+
+   // The convex hulls, which are the collision side of the same question and
+   // the last part of this reader that had not been asked it.  Both sets: the
+   // ordinary hulls a player walks into, and the vehicle ones, which are the
+   // same structures over a parallel set of vectors and which nothing had ever
+   // read until this port read them.
+   if( !checkHullRanges( "hull", mConvexHulls, mHullIndices,
+                         mHullEmitStringIndices, mHullSurfaceIndices,
+                         mHullPlaneIndices, mConvexHullEmitStrings,
+                         mPolyListPlanes, mPolyListPoints, mPolyListStrings,
+                         mPoints.size(), mPlanes.size() ) )
+      return false;
+
+   // interior.cpp:1149 and interiorCollision.cpp:813: an entry with the top
+   // bit set is an index into mNullSurfaces once masked, and one without is an
+   // index into mSurfaces as it stands.  One field, two vectors, chosen by a
+   // bit -- and 152 of the 325 interiors in this game carry at least one
+   // tagged entry, so a bound that reads the whole word as a surface index
+   // refuses half the buildings in the game.
+   for( U32 i = 0; i < mHullSurfaceIndices.size(); i++ )
+   {
+      const U32 entry = mHullSurfaceIndices[i];
+      if( isNullSurfaceIndex( entry ) )
+         T2_WANT( getNullSurfaceIndex( entry ) < mNullSurfaces.size(),
+                  "hull surface entry %u names null surface %u of %u", i,
+                  getNullSurfaceIndex( entry ), (U32)mNullSurfaces.size() );
+      else
+         T2_WANT( entry < mSurfaces.size(),
+                  "hull surface entry %u names surface %u of %u", i, entry,
+                  (U32)mSurfaces.size() );
+   }
+
+   if( !checkHullRanges( "vehicle hull", mVehicleConvexHulls, mVehicleHullIndices,
+                         mVehicleHullEmitStringIndices, mVehicleHullSurfaceIndices,
+                         mVehicleHullPlaneIndices, mVehicleConvexHullEmitStrings,
+                         mVehiclePolyListPlanes, mVehiclePolyListPoints,
+                         mVehiclePolyListStrings,
+                         mVehiclePoints.size(), mVehiclePlanes.size() ) )
+      return false;
+
+   // interior.cpp:1495 takes every vehicle entry through
+   // getVehicleNullSurfaceIndex with no tag test, so there is only one vector
+   // to land in and the mask is the two-bit one.
+   for( U32 i = 0; i < mVehicleHullSurfaceIndices.size(); i++ )
+      T2_WANT( getVehicleNullSurfaceIndex( mVehicleHullSurfaceIndices[i] )
+                  < mVehicleNullSurfaces.size(),
+               "vehicle hull surface entry %u names null surface %u of %u", i,
+               getVehicleNullSurfaceIndex( mVehicleHullSurfaceIndices[i] ),
+               (U32)mVehicleNullSurfaces.size() );
+
+   #undef T2_WANT
+
+   return true;
+}
+
+// HH: Added for Tribes 2 compatibility.
+//
+// One function for both hull sets, because interiorCollision.cpp holds the
+// two walks side by side over parallel vectors -- writing it twice is how the
+// vehicle half would come to be checked differently from the half anyone
+// looks at.
+//
+// The two string formats below are mirrored from the walks that read them at
+// runtime, and that is the dangerous part of this: a mirror is a second
+// reading of the format, which is exactly what the shape pass was burnt by.
+// Mirrored statement by statement from InteriorConvex::getFeatures and
+// InteriorConvex::getPolyList rather than from a description of them, and the
+// counts and widths are theirs -- the two-byte big-endian point count in the
+// poly list, the one-byte everything else.
+bool Interior::checkHullRanges( const char *what,
+                                const Vector<ConvexHull> &hulls,
+                                const Vector<U32> &hullIndices,
+                                const Vector<U32> &emitStringIndices,
+                                const Vector<U32> &surfaceIndices,
+                                const Vector<U16> &planeIndices,
+                                const Vector<U8> &emitStrings,
+                                const Vector<U16> &polyListPlanes,
+                                const Vector<U32> &polyListPoints,
+                                const Vector<U8> &polyListStrings,
+                                U32 numPoints, U32 numPlanes ) const
+{
+   // do/while so that it is one statement: without it the macro's own `if`
+   // swallows an `else` written after a use, which is not a hypothetical --
+   // it silently took the wrong branch of the tagged surface-index check
+   // below and reported 152 interiors as malformed.
+   #define T2_WANT( cond, fmt, ... )                                           \
+      do {                                                                     \
+         if( !(cond) )                                                         \
+         {                                                                     \
+            Con::errorf( ConsoleLogEntry::General,                             \
+                         "Error: interior index out of range: " fmt, ##__VA_ARGS__ ); \
+            return false;                                                      \
+         }                                                                     \
+      } while( false )
+
+   // Every entry of these two is an index in its own right, wherever a hull
+   // reaches it.
+   for( U32 i = 0; i < hullIndices.size(); i++ )
+      T2_WANT( hullIndices[i] < numPoints, "%s point entry %u names point %u of %u",
+               what, i, hullIndices[i], numPoints );
+
+   // The surface entries are deliberately not checked here.  They are the one
+   // thing the two hull sets do not share: an ordinary entry is a tagged
+   // union -- top bit set means an index into mNullSurfaces and clear means
+   // mSurfaces -- while a vehicle entry always goes through
+   // getVehicleNullSurfaceIndex, which masks two bits, with no tag test at
+   // all.  Checked at each caller in its own convention, because writing one
+   // rule for both is how one of them would come to be checked as the other.
+
+   for( U32 i = 0; i < planeIndices.size(); i++ )
+      T2_WANT( U32(planeIndices[i] & ~0x8000) < numPlanes,
+               "%s plane entry %u names plane %u of %u", what, i,
+               U32(planeIndices[i] & ~0x8000), numPlanes );
+
+   for( U32 i = 0; i < polyListPlanes.size(); i++ )
+      T2_WANT( U32(polyListPlanes[i] & ~0x8000) < numPlanes,
+               "%s poly-list plane %u names plane %u of %u", what, i,
+               U32(polyListPlanes[i] & ~0x8000), numPlanes );
+
+   for( U32 i = 0; i < polyListPoints.size(); i++ )
+      T2_WANT( polyListPoints[i] < numPoints,
+               "%s poly-list point %u names point %u of %u", what, i,
+               polyListPoints[i], numPoints );
+
+   for( U32 h = 0; h < hulls.size(); h++ )
+   {
+      const ConvexHull &hull = hulls[h];
+
+      // interiorCollision.cpp:1373 walks hullStart..+hullCount, and :1387
+      // takes the emit string of the support vertex at the same offset -- so
+      // the same range has to fit in both vectors.
+      T2_WANT( hull.hullStart + hull.hullCount <= hullIndices.size(),
+               "%s %u takes point entries %u..%u of %u", what, h, hull.hullStart,
+               hull.hullStart + hull.hullCount - 1, (U32)hullIndices.size() );
+      T2_WANT( hull.hullStart + hull.hullCount <= emitStringIndices.size(),
+               "%s %u takes emit-string entries %u..%u of %u", what, h,
+               hull.hullStart, hull.hullStart + hull.hullCount - 1,
+               (U32)emitStringIndices.size() );
+
+      // interior.cpp:1149 and interiorCollision.cpp:813.
+      T2_WANT( hull.surfaceStart + hull.surfaceCount <= surfaceIndices.size(),
+               "%s %u takes surface entries %u..%u of %u", what, h,
+               hull.surfaceStart, hull.surfaceStart + hull.surfaceCount - 1,
+               (U32)surfaceIndices.size() );
+
+      // The emit string of every vertex of this hull, walked the way
+      // InteriorConvex::getFeatures walks it.
+      for( U32 v = 0; v < hull.hullCount; v++ )
+      {
+         const U32 at = emitStringIndices[hull.hullStart + v];
+         T2_WANT( at < emitStrings.size(),
+                  "%s %u vertex %u names emit string at %u of %u", what, h, v,
+                  at, (U32)emitStrings.size() );
+
+         U32 pos = at;
+
+         // Reading a count is itself a read, so the room for it is checked
+         // before it is taken rather than after.
+         #define T2_TAKE( n, why )                                             \
+            T2_WANT( pos + (n) <= emitStrings.size(),                          \
+                     "%s %u vertex %u runs off its emit string at %u of %u (%s)", \
+                     what, h, v, pos, (U32)emitStrings.size(), why );           \
+            pos += (n);
+
+         T2_TAKE( 1, "point count" )
+         const U32 points = emitStrings[pos - 1];
+         for( U32 i = 0; i < points; i++ )
+         {
+            T2_TAKE( 1, "point index" )
+            // interiorCollision.cpp:1401 adds this byte to hullStart, so the
+            // bound is on the sum and not on the byte.
+            T2_WANT( hull.hullStart + emitStrings[pos - 1] < hullIndices.size(),
+                     "%s %u vertex %u point %u names entry %u of %u", what, h, v,
+                     i, hull.hullStart + emitStrings[pos - 1],
+                     (U32)hullIndices.size() );
+         }
+
+         T2_TAKE( 1, "edge count" )
+         const U32 edges = emitStrings[pos - 1];
+         for( U32 i = 0; i < edges; i++ )
+         {
+            T2_TAKE( 2, "edge" )
+            // Both index pRemaps, which holds one entry per point above.
+            T2_WANT( emitStrings[pos - 2] < points && emitStrings[pos - 1] < points,
+                     "%s %u vertex %u edge %u names points %u and %u of %u", what,
+                     h, v, i, (U32)emitStrings[pos - 2], (U32)emitStrings[pos - 1],
+                     points );
+         }
+
+         T2_TAKE( 1, "poly count" )
+         const U32 polys = emitStrings[pos - 1];
+         for( U32 i = 0; i < polys; i++ )
+         {
+            T2_TAKE( 2, "poly header" )
+            const U32 vertexCount = emitStrings[pos - 2];
+            const U32 planeIndex = emitStrings[pos - 1];
+
+            T2_WANT( hull.planeStart + planeIndex < planeIndices.size(),
+                     "%s %u vertex %u poly %u names plane entry %u of %u", what,
+                     h, v, i, hull.planeStart + planeIndex,
+                     (U32)planeIndices.size() );
+
+            // Two vertices, then one more per triangle of the fan.  A fan of
+            // fewer than three is not a polygon and the loop below would run
+            // backwards on it.
+            T2_WANT( vertexCount >= 3, "%s %u vertex %u poly %u has %u vertices",
+                     what, h, v, i, vertexCount );
+            T2_TAKE( vertexCount, "poly vertices" )
+            for( U32 j = 0; j < vertexCount; j++ )
+               T2_WANT( emitStrings[pos - vertexCount + j] < points,
+                        "%s %u vertex %u poly %u names point %u of %u", what, h,
+                        v, i, (U32)emitStrings[pos - vertexCount + j], points );
+         }
+
+         #undef T2_TAKE
+      }
+
+      // And the poly list, walked the way InteriorConvex::getPolyList walks it.
+      if( polyListStrings.empty() )
+         continue;
+
+      T2_WANT( hull.polyListStringStart < polyListStrings.size(),
+               "%s %u names a poly-list string at %u of %u", what, h,
+               hull.polyListStringStart, (U32)polyListStrings.size() );
+
+      U32 pos = hull.polyListStringStart;
+
+      #define T2_TAKE( n, why )                                                \
+         T2_WANT( pos + (n) <= polyListStrings.size(),                         \
+                  "%s %u runs off its poly-list string at %u of %u (%s)",       \
+                  what, h, pos, (U32)polyListStrings.size(), why );             \
+         pos += (n);
+
+      T2_TAKE( 1, "plane count" )
+      const U32 planes = polyListStrings[pos - 1];
+
+      // getPolyList returns on a hull with no collision surfaces before it
+      // reads anything else, so neither does this.
+      if( planes == 0 )
+         continue;
+
+      T2_WANT( hull.polyListPlaneStart + planes <= polyListPlanes.size(),
+               "%s %u takes poly-list planes %u..%u of %u", what, h,
+               hull.polyListPlaneStart, hull.polyListPlaneStart + planes - 1,
+               (U32)polyListPlanes.size() );
+
+      T2_TAKE( planes, "plane string" )
+
+      T2_TAKE( 2, "point count" )
+      const U32 points = ( U32( polyListStrings[pos - 2] ) << 8 )
+                       | polyListStrings[pos - 1];
+
+      T2_WANT( hull.polyListPointStart + points <= polyListPoints.size(),
+               "%s %u takes poly-list points %u..%u of %u", what, h,
+               hull.polyListPointStart, hull.polyListPointStart + points - 1,
+               (U32)polyListPoints.size() );
+
+      T2_TAKE( points, "point string" )
+
+      T2_TAKE( 1, "surface count" )
+      const U32 surfaces = polyListStrings[pos - 1];
+
+      for( U32 i = 0; i < surfaces; i++ )
+      {
+         T2_TAKE( 3, "surface header" )
+         const U32 surfPoints = polyListStrings[pos - 3];
+         const U32 surfPlane = polyListStrings[pos - 1];
+
+         T2_WANT( surfPlane < planes, "%s %u surface %u names plane %u of %u",
+                  what, h, i, surfPlane, planes );
+
+         T2_TAKE( surfPoints * 2, "surface points" )
+         for( U32 j = 0; j < surfPoints; j++ )
+         {
+            const U32 base = pos - surfPoints * 2 + j * 2;
+            const U32 index = ( U32( polyListStrings[base] ) << 8 )
+                            | polyListStrings[base + 1];
+            T2_WANT( index < points, "%s %u surface %u names point %u of %u",
+                     what, h, i, index, points );
+         }
+      }
+
+      #undef T2_TAKE
+   }
+
+   #undef T2_WANT
+
+   return true;
 }
 
 bool Interior::write(Stream& stream) const
@@ -1148,7 +1574,20 @@ bool Interior::readVehicleCollision(Stream& stream)
       stream.read(&mVehicleNullSurfaces[i].windingStart);
       stream.read(&mVehicleNullSurfaces[i].planeIndex);
       stream.read(&mVehicleNullSurfaces[i].surfaceFlags);
-      stream.read(&mVehicleNullSurfaces[i].windingCount);
+
+      // HH: Modified for Tribes 2 compatibility.
+      // The same width rule Interior::read already applies to the interior's
+      // own null surfaces: before version 13 a winding count is a byte.  This
+      // function never had it, so it took three bytes too many per vehicle
+      // null surface and lost the rest of the block.
+      if (fileVersion >= 13)
+         stream.read(&mVehicleNullSurfaces[i].windingCount);
+      else
+      {
+         U8 count;
+         stream.read(&count);
+         mVehicleNullSurfaces[i].windingCount = (U32)count;
+      }
    }
 
    stream.read(&vectorSize);
@@ -1273,10 +1712,13 @@ bool Interior::writeVehicleCollision(Stream& stream) const
 
 bool Interior::readSurface(Stream& stream, Surface& surface, TexGenPlanes& texgens, const bool tgeInterior)
 {
-   // If we end up reading any invalid data then odds are that we
-   // are no longer correctly reading from the stream and have gotten
-   // off because this is a TGE version 0 Interior so we bail.
-   // That is why you will see checks all the way through
+   // HH: The checks through this function were a variant test and are now a
+   // corruption test.  They were how the caller guessed whether a version 0
+   // file was TGE's or TGEA's, which they were never able to answer -- an index
+   // can be in range and still be the wrong index.  The caller decides by
+   // version now, so what these do is refuse a file whose surfaces point
+   // outside the vectors they index, which is worth keeping and is all they
+   // ever reliably did.
    stream.read(&surface.windingStart);
 
    if (surface.windingStart >= mWindings.size())

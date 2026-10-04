@@ -56,7 +56,10 @@ struct InteriorDictEntry
 class InteriorDict : public Vector<InteriorDictEntry>
 {
 public:
-   void read(Stream& stream);
+   // HH: Modified for Tribes 2 compatibility.
+   // Returns false rather than nothing, so a count the file cannot be holding
+   // can stop the read instead of reaching setSize().
+   bool read(Stream& stream);
    void write(Stream& stream) const;
 };
 
