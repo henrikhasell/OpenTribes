@@ -235,8 +235,11 @@ void LightManager::registerGlobalLights( const Frustum *frustum, bool staticLigh
       // processed as lights mounted to it don't change
       // the shape bounds and can often get culled.
 
+      // Null whenever the scene is drawn without a join -- a shell preview, or
+      // TASK-43's locally built scene -- and dereferenced here without a check
+      // until now, which segfaulted on the first frame.
       GameConnection *conn = GameConnection::getConnectionToServer();
-      if ( conn->getControlObject() )
+      if ( conn && conn->getControlObject() )
       {
          GameBase *conObject = conn->getControlObject();
          activeLights.push_back_unique( conObject );
@@ -448,6 +451,11 @@ DefineEngineFunction( setLightManager, bool, ( const char *name ),,
    "@return Returns true if the light manager is found and activated.\n"
    "@ingroup Lighting\n" )
 {
+   // Null until a client scene exists, and dereferenced here without a check
+   // segfaults any script that activates a light manager before one does.
+   if( !gClientSceneGraph )
+      return false;
+
    return gClientSceneGraph->setLightManager( name );
 }
 

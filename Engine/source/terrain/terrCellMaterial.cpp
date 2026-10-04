@@ -775,6 +775,13 @@ BaseMatInstance* TerrainCellMaterial::getShadowMat()
    // defined on it in script.
    Material *mat = MATMGR->getMaterialDefinitionByName( "AL_DefaultShadowMaterial" );
 
+   // Defined in Torque 3D's advanced lighting scripts, which the port does not
+   // ship -- the same absent bootstrap that leaves no DiffuseRenderPassManager.
+   // Dereferenced below without a check until now, so any terrain killed the
+   // first frame it was drawn on.
+   if ( !mat )
+      return NULL;
+
    // Create the material instance adding the feature which
    // handles rendering terrain cut outs.
    FeatureSet features = MATMGR->getDefaultFeatures();

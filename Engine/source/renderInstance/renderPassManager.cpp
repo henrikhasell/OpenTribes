@@ -241,15 +241,59 @@ void RenderPassManager::render(SceneRenderState * state)
    GFX->pushWorldMatrix();
    MatrixF proj = GFX->getProjectionMatrix();
 
-   
+   // Tribes 2's gui/PlayGui.gui binds GuiConsoleVariableCtrls to $InteriorPolys,
+   // $TerrainPolys, $WaterPolys, $ThreeSpacePolys and $TotalPolys -- the game's
+   // own per-category polygon counter. Nothing in this tree wrote them, so a
+   // render bin drawing nothing looked the same as one drawing the world. Only
+   // the diffuse pass, so a reflection or shadow pass does not overwrite them.
+   const bool countPolys = state->isDiffusePass();
+   S32 total = 0, interior = 0, terrain = 0, water = 0, sky = 0;
+
    for (Vector<RenderBinManager *>::iterator itr = mRenderBins.begin();
       itr != mRenderBins.end(); itr++)
    {
       RenderBinManager *curBin = *itr;
       AssertFatal(curBin, "Invalid render manager!");
       getRenderBinSignal().trigger(curBin, state, true);
+
+      GFXDeviceStatistics binStats;
+      if ( countPolys )
+         binStats.start( GFX->getDeviceStatistics() );
+
       curBin->render(state);
+
+      if ( countPolys )
+      {
+         binStats.end( GFX->getDeviceStatistics() );
+
+         const String &name = curBin->getRenderInstType().getName();
+         if ( name.isNotEmpty() )
+         {
+            // The element count separates a bin nothing was submitted to from
+            // one that was handed work and drew none of it.
+            Con::setIntVariable( String::ToString( "$%sPolys", name.c_str() ), binStats.mPolyCount );
+            Con::setIntVariable( String::ToString( "$%sInsts", name.c_str() ), curBin->getElementCount() );
+
+            if ( name.equal( "Interior", String::NoCase ) )      interior = binStats.mPolyCount;
+            else if ( name.equal( "Terrain", String::NoCase ) )  terrain  = binStats.mPolyCount;
+            else if ( name.equal( "Water", String::NoCase ) )    water    = binStats.mPolyCount;
+            else if ( name.equal( "Sky", String::NoCase ) )      sky      = binStats.mPolyCount;
+         }
+
+         total += binStats.mPolyCount;
+      }
+
       getRenderBinSignal().trigger(curBin, state, false);
+   }
+
+   if ( countPolys )
+   {
+      Con::setIntVariable( "$TotalPolys", total );
+
+      // Tribes 2 counted shapes as "three space"; it has no counter for the sky
+      // at all. Taking the rest of the total keeps the five an exact partition
+      // rather than four numbers and a remainder nobody sees.
+      Con::setIntVariable( "$ThreeSpacePolys", total - interior - terrain - water - sky );
    }
 
    GFX->popWorldMatrix();

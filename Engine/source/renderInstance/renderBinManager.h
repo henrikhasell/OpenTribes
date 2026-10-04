@@ -75,6 +75,12 @@ public:
    /// Returns the primary render instance type.
    const RenderInstType& getRenderInstType() { return mRenderInstType; }
 
+   /// Number of render instances the bin was handed this pass. Separates a bin
+   /// nothing submitted to from one that was given work and drew none of it.
+   /// Virtual because a bin that keeps its own list, as RenderTerrainMgr does,
+   /// leaves mElementList empty and would otherwise report none.
+   virtual U32 getElementCount() const { return mElementList.size(); }
+
    /// Returns the render pass this bin is registered to.
    RenderPassManager* getRenderPass() const { return mRenderPass; }
 

@@ -161,6 +161,10 @@ class SceneManager
       /// in script and looked up by getDefaultRenderPass().
       mutable RenderPassManager* mDefaultRenderPass;
 
+      /// Build DiffuseRenderPassManager and its bins, for the case where no
+      /// script has.  Called by getDefaultRenderPass() when the lookup fails.
+      RenderPassManager* _createDefaultRenderPass();
+
       ///
       Vector< SceneObject* > mBatchQueryList;
 

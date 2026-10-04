@@ -99,6 +99,7 @@ public:
    virtual void sort();
    virtual void render( SceneRenderState *state );
    virtual void clear();
+   virtual U32 getElementCount() const { return mInstVector.size(); }
 
 };
 

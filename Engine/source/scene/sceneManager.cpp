@@ -30,6 +30,10 @@
 #include "scene/zones/sceneZoneSpace.h"
 #include "lighting/lightManager.h"
 #include "renderInstance/renderPassManager.h"
+#include "renderInstance/renderObjectMgr.h"
+#include "renderInstance/renderMeshMgr.h"
+#include "renderInstance/renderTerrainMgr.h"
+#include "renderInstance/renderTranslucentMgr.h"
 #include "gfx/gfxDevice.h"
 #include "gfx/gfxDrawUtil.h"
 #include "gfx/gfxDebugEvent.h"
@@ -619,12 +623,66 @@ bool SceneManager::_setLightManager( LightManager* lm )
 
 //-----------------------------------------------------------------------------
 
+// Torque 3D configures this in core/scripts/client/renderManager.cs, which the
+// port does not ship and Tribes 2's own scripts know nothing about: grepping
+// scripts.vl2 for renderPass, DiffuseRenderPass and setLightManager returns no
+// hits at all. So the port has to supply the setup, and this is where it does.
+//
+// Here rather than in a startup script because here it cannot be bypassed: it
+// is triggered by the need for the pass rather than by a position in a startup
+// order, so no code path can reach the renderer with it unset. Every fault this
+// port has found has been a check or a step that was silent when it did not
+// run, and an exec hook would be one more of those. guiObjectView.cpp and
+// guiMaterialPreview.cpp call getDefaultRenderPass() directly and so are
+// covered without being thought about.
+//
+// The bins mirror renderManager.cs minus its two RenderPassStateBins and the
+// AL_FormatToken they carry, whose copy and resolve effects are PostEffects
+// built on PFX_PassthruShader -- none of that scaffolding exists here either.
+RenderPassManager* SceneManager::_createDefaultRenderPass()
+{
+   RenderPassManager* rpm = new RenderPassManager;
+   rpm->registerObject( "DiffuseRenderPassManager" );
+   Sim::getRootGroup()->addObject( rpm );
+
+   rpm->addManager( new RenderObjectMgr( RenderPassManager::RIT_Sky, 0.1f, 0.1f ) );
+   rpm->addManager( new RenderObjectMgr( RenderPassManager::RIT_Begin, 0.2f, 0.2f ) );
+   rpm->addManager( new RenderMeshMgr( RenderPassManager::RIT_Interior, 0.3f, 0.3f ) );
+   rpm->addManager( new RenderTerrainMgr( 0.4f, 0.4f ) );
+   rpm->addManager( new RenderMeshMgr( RenderPassManager::RIT_Mesh, 0.5f, 0.5f ) );
+   rpm->addManager( new RenderObjectMgr( RenderPassManager::RIT_Object, 0.6f, 0.6f ) );
+   rpm->addManager( new RenderMeshMgr( RenderPassManager::RIT_Decal, 0.8f, 0.8f ) );
+   rpm->addManager( new RenderObjectMgr( RenderPassManager::RIT_ObjectTranslucent, 1.0f, 1.0f ) );
+   rpm->addManager( new RenderObjectMgr( RenderPassManager::RIT_Water, 1.2f, 1.2f ) );
+   rpm->addManager( new RenderObjectMgr( RenderPassManager::RIT_Foliage, 1.3f, 1.3f ) );
+   // Its two-argument constructor is declared but never defined; script set the
+   // order through the persist fields instead.
+   RenderTranslucentMgr* translucent = new RenderTranslucentMgr;
+   translucent->setRenderOrder( 1.4f );
+   translucent->setProcessAddOrder( 1.4f );
+   rpm->addManager( translucent );
+
+   // lighting.cs is absent for the same reason, so nothing activates one of the
+   // two registered light managers either. Advanced Lighting wants the same
+   // missing shader setup; Basic does not. After the bins, because
+   // BasicLightManager::activate() looks for a prepass bin in this pass.
+   if( !LIGHTMGR )
+   {
+      LightManager* lm = LightManager::findByName( "Basic Lighting" );
+      if( lm )
+         _setLightManager( lm );
+   }
+
+   return rpm;
+}
+
 RenderPassManager* SceneManager::getDefaultRenderPass() const
 {
    if( !mDefaultRenderPass )
    {
       Sim::findObject( "DiffuseRenderPassManager", mDefaultRenderPass );
-      AssertISV( mDefaultRenderPass, "SceneManager::_setDefaultRenderPass - No DiffuseRenderPassManager defined!  Must be set up in script!" );
+      if( !mDefaultRenderPass )
+         mDefaultRenderPass = const_cast< SceneManager* >( this )->_createDefaultRenderPass();
    }
 
    return mDefaultRenderPass;
