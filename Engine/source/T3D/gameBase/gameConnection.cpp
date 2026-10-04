@@ -2070,7 +2070,16 @@ DefineEngineMethod( GameConnection, delete, void, (const char* reason), (""),
    "}\n"
    "@endtsexample\n\n")
 {
-   object->setDisconnectReason(reason);
+   // HH: Modified for Tribes 2 compatibility.
+   // Only overwrite a reason that was actually given.  Tribes 2's own kick and
+   // ban set the reason and then schedule a no-argument delete for 700 ms
+   // later -- `%client.setDisconnectReason(...); %client.schedule(700,
+   // "delete");` -- and an unconditional assignment here blanks it, so a
+   // kicked player was sent an empty reason instead of the sentence the
+   // scripts had set.  Eight sites in the retail server scripts use that
+   // idiom and none of them passes the reason to delete.
+   if(reason && reason[0])
+      object->setDisconnectReason(reason);
    object->deleteObject();
 }
 
