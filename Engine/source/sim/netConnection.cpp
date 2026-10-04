@@ -76,19 +76,19 @@ public:
    void pack(NetConnection *, BitStream *bstream)
    {
       bstream->write(sequence);
-      bstream->writeInt(NetClassTable::toGameConnectionMessage(message), 3);
+      bstream->writeInt(message, 3);
       bstream->writeInt(ghostCount, NetConnection::GhostIdBitSize + 1);
    }
    void write(NetConnection *, BitStream *bstream)
    {
       bstream->write(sequence);
-      bstream->writeInt(NetClassTable::toGameConnectionMessage(message), 3);
+      bstream->writeInt(message, 3);
       bstream->writeInt(ghostCount, NetConnection::GhostIdBitSize + 1);
    }
    void unpack(NetConnection *, BitStream *bstream)
    {
       bstream->read(&sequence);
-      message = NetClassTable::fromGameConnectionMessage(bstream->readInt(3));
+      message = bstream->readInt(3);
       ghostCount = bstream->readInt(NetConnection::GhostIdBitSize + 1);
    }
    void process(NetConnection *ps)

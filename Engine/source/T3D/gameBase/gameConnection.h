@@ -121,6 +121,11 @@ public:
       ObserverFacesDirection = 2, ///< A direction follows instead.
       TargetWordBits = 4,         ///< Which word of client targets went dirty.
    };
+   /// Tribes 2 gives these two wire values 4 and 5, and the connection
+   /// message is three bits wide.  Adding a third here would push one onto
+   /// SendNextDownloadRequest, where it would be read back as that.
+   static_assert( DataBlocksDownloadDone < NetConnection::SendNextDownloadRequest,
+                  "GameConnection's messages must stay below the download pair" );
 
    /// Set connection arguments; these are passed to the server when we connect.
    void setConnectArgs(U32 argc, const char **argv);
