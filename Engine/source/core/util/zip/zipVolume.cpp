@@ -160,10 +160,26 @@ public:
    }
 
    protected:
+      // HH: Modified for Tribes 2 compatibility.  This was `// JMQ: implement`
+      // over `return 0`, and every asset this game owns lives in a .vl2, so
+      // every checksum the engine could take was zero.  That is not a cosmetic
+      // gap: an InteriorInstance arrives carrying the server's CRC for its
+      // .dif and refuses to load when the local one differs, so the whole
+      // connection was dropped with "does not match version on server" for
+      // files that had read perfectly.
+      //
+      // The zip already holds a CRC-32 of the uncompressed bytes, which is the
+      // same thing Tribes 2's ResManager computed by reading the stream -- so
+      // there is nothing to decompress here.  The one difference is the final
+      // complement: Torque's calculateCRC returns the running value where a
+      // standard CRC-32 inverts it at the end, and the engine compares against
+      // its own convention.
       virtual U32    calculateChecksum()
       {
-         // JMQ: implement
-         return 0;
+         if (mZipEntry == NULL)
+            return 0;
+
+         return ~mZipEntry->mCD.mCRC32;
       };
 
       Stream* mZipStream;
