@@ -775,12 +775,7 @@ protected:
       ReadyForNormalGhosts,
       EndGhosting,
       GhostAlwaysStarting,
-
-      /// A subclass's own messages start here, and Tribes 2 puts two of its
-      /// own at 4 and 5.  The file-download pair sits above them so that
-      /// every value means the same thing on both sides of the wire.
       NumConnectionMessages,
-
       SendNextDownloadRequest = 6,
       FileDownloadSizeMessage,
    };
