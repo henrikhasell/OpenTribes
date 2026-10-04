@@ -16,8 +16,6 @@ namespace NetClassTable
 
    const char *const *tableFor(U32 classType, U32 *countOut, U32 *bitsOut);
 
-   U32 toGameConnectionMessage(U32 message);
-   U32 fromGameConnectionMessage(U32 message);
 }
 
 #endif

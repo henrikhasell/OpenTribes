@@ -20,20 +20,6 @@ const char *const Events[]     = { NET_CLASS_TABLE_EVENT_NAMES( NET_CLASS_TABLE_
 
 const U32 DataBlockCount = ELEMENTS( DataBlocks );
 
-static const U32 sEngineGhostStates = 6;
-
-U32 toGameConnectionMessage( U32 message )
-{
-   return message >= sEngineGhostStates
-      ? message - sEngineGhostStates + NET_CLASS_TABLE_GHOST_STATES : message;
-}
-
-U32 fromGameConnectionMessage( U32 message )
-{
-   return message >= NET_CLASS_TABLE_GHOST_STATES
-      ? message - NET_CLASS_TABLE_GHOST_STATES + sEngineGhostStates : message;
-}
-
 const char *const *tableFor( U32 classType, U32 *countOut, U32 *bitsOut )
 {
    switch( classType )
