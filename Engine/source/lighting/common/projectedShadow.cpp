@@ -82,6 +82,7 @@ ProjectedShadow::ProjectedShadow( SceneObject *object )
    mUpdateTexture = false;
 
    mShadowLength = 10.0f;
+   mNoShadowMaterial = false;
 
    mDecalData = new DecalData;
    mDecalData->skipVertexNormals = true;
@@ -100,9 +101,38 @@ ProjectedShadow::ProjectedShadow( SceneObject *object )
       mDecalData->matInst = customMat->createMatInstance();
    }
    else
-      mDecalData->matInst = MATMGR->createMatInstance( "WarningMaterial" );
+   {
+      // HH: Modified for Tribes 2 compatibility.  A missing shadow material
+      // means no shadow, not an opaque one.
+      //
+      // BL_ProjectedShadowMaterial is declared in Torque's core/scripts, which
+      // this port does not ship, so this branch is taken for every shadow in
+      // the game and the fallback was the warning material. That is not a
+      // cosmetic substitution: a shadow decal paints every surface within
+      // about 1.3 m of the object's centre, so in first person the camera sits
+      // inside its own shadow's clip volume and the nearby wall and floor are
+      // painted opaque magenta. Standing in a bunker doorway that is most of
+      // the screen -- which is what the acceptance picture found, after four
+      // other material defects had been fixed without changing it.
+      //
+      // Torque gets away with the same geometry because its shadow material is
+      // a soft, mostly transparent projection. With no such material the
+      // honest result is to draw nothing.
+      mNoShadowMaterial = true;
+      mDecalData->matInst = NULL;
+   }
 
-   mDecalData->matInst->init( MATMGR->getDefaultFeatures(), getGFXVertexFormat<GFXVertexPNTT>() );
+   // HH: The next line dereferenced this unchecked, and a client joining a
+   // Tribes 2 server died on it the first frame it drew -- past the interiors,
+   // past the materials, in the shadow pass.  The guard in
+   // BasicSceneObjectLightingPlugin::updateShadow was meant to stop that by
+   // looking the material up by name first, but a name that resolves is not an
+   // instance that builds: the lookup there is for any SimObject and the one
+   // here is for a BaseMaterialDefinition, so the guard can pass while this
+   // returns null.  Checking the thing that is about to be used is the version
+   // that cannot drift.
+   if ( mDecalData->matInst )
+      mDecalData->matInst->init( MATMGR->getDefaultFeatures(), getGFXVertexFormat<GFXVertexPNTT>() );
 
    mCasterPositionSC = NULL;
    mShadowLengthSC = NULL;
@@ -160,6 +190,10 @@ bool ProjectedShadow::_updateDecal( const SceneRenderState *state )
    PROFILE_SCOPE( ProjectedShadow_UpdateDecal );
 
    if ( !LIGHTMGR )
+      return false;
+
+   // No material, no shadow -- see _init.
+   if ( mNoShadowMaterial )
       return false;
 
    // Get the position of the decal first.   
@@ -314,6 +348,7 @@ bool ProjectedShadow::_updateDecal( const SceneRenderState *state )
    mDecalInstance->mTangent = -right;
    mDecalInstance->mRotAroundNormal = 0;
    mDecalInstance->mPosition = decalPos;
+
    mDecalInstance->mDataBlock = mDecalData;
    
    // If the position of the world 
@@ -393,6 +428,14 @@ void ProjectedShadow::_calcScore( const SceneRenderState *state )
 
 void ProjectedShadow::update( const SceneRenderState *state )
 {
+   // HH: Added for Tribes 2 compatibility.
+   // The three uses at the bottom of this function dereference the material
+   // instance the constructor may not have been able to build.  A shadow
+   // without a material is not a shadow; it is better to have no shadow under
+   // the object than no process.
+   if ( !mDecalData || !mDecalData->matInst )
+      return;
+
    mUpdateTexture = true;
 
    // Set the decal lod settings.
@@ -534,7 +577,17 @@ void ProjectedShadow::_renderToTexture( F32 camDist, const TSRenderState &rdata 
          PostEffect *filter = NULL;
 
          if ( !Sim::findObject( "BL_ShadowFilterPostFx", filter ) )
-            Con::errorf( "ProjectedShadow::_renderToTexture() - 'BL_ShadowFilterPostFx' not found!" );
+         {
+            // HH: the same per-frame flood as _getRenderPass below, and it
+            // becomes reachable the moment BL_ProjectedShadowRPM does exist.
+            static bool sSaidSo = false;
+            if ( !sSaidSo )
+            {
+               sSaidSo = true;
+               Con::errorf( "ProjectedShadow::_renderToTexture() - 'BL_ShadowFilterPostFx' "
+                            "not found; shadows unfiltered this run (reported once)" );
+            }
+         }
 
          smShadowFilter = filter;
       }
@@ -563,7 +616,19 @@ RenderPassManager* ProjectedShadow::_getRenderPass()
       SimObject* renderPass = NULL;
 
       if ( !Sim::findObject( "BL_ProjectedShadowRPM", renderPass ) )
-         Con::errorf( "ProjectedShadow::init() - 'BL_ProjectedShadowRPM' not initialized" );
+      {
+         // HH: once per run rather than once per shadow per frame.  This is
+         // reached for every shape that casts one, so the unconditional errorf
+         // it replaces buried every other line in the log the moment shapes
+         // began loading on a join.
+         static bool sSaidSo = false;
+         if ( !sSaidSo )
+         {
+            sSaidSo = true;
+            Con::errorf( "ProjectedShadow::init() - 'BL_ProjectedShadowRPM' not initialized; "
+                         "no projected shadows this run (reported once)" );
+         }
+      }
       else
          smRenderPass = dynamic_cast<RenderPassManager*>(renderPass);
    }

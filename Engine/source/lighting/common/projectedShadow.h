@@ -70,6 +70,10 @@ protected:
 
    F32 mShadowLength;
 
+   /// HH: Added for Tribes 2 compatibility.  True when the shadow material is
+   /// not in the game, which in this port is always.
+   bool mNoShadowMaterial;
+
    F32 mScore;
    bool mUpdateTexture;
 
