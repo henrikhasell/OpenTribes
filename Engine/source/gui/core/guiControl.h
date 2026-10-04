@@ -165,6 +165,12 @@ class GuiControl : public SimGroup
       bool    mVisible;
       bool    mActive;
       bool    mAwake;
+      // HH: Added for Tribes 2 compatibility.
+      // Tribes 2's .gui files write both of these on every control, and its
+      // engine resolves them into the cursor state. See
+      // GuiCanvas::updateCursorState.
+      bool    mHideCursor;
+      bool    mBypassHideCursor;
       bool    mSetFirstResponder;
       bool    mIsContainer; ///< if true, then the GuiEditor can drag other controls into this one.
       bool    mCanResize;

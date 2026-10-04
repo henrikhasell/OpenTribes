@@ -300,6 +300,11 @@ public:
    /// Returns true if the cursor is on.
    virtual bool isCursorON() { return mCursorEnabled; }
 
+   // HH: Added for Tribes 2 compatibility.
+   /// Resolve the cursor and the mouse lock from the control stack's
+   /// hideCursor and bypassHideCursor fields, top-most first.
+   void updateCursorState();
+
    /// Sets if mouse events should be passed to the GUI even if the cursor is off.
    /// @param   onOff   True if events should be passed to the GUI if the cursor is off
    virtual void setForceMouseToGUI(bool onOff);

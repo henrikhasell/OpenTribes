@@ -425,6 +425,49 @@ void GuiCanvas::setCursorON(bool onOff)
       mMouseControl = NULL;
 }
 
+// HH: Added for Tribes 2 compatibility.
+//
+// Tribes 2's engine resolves the cursor from the control stack rather than from
+// a script call, and its .gui files are written for that: `PlayGui.gui` carries
+// `hideCursor = "1"`, and the six overlays that appear over the game --
+// ChatDlg, FrameOverlayGui, TaskHudDlg and two in HUDDlgs -- carry
+// `bypassHideCursor = "1"` so that pushing one does not reveal it.
+//
+// Torque 3D has neither field and no such rule, so joining a game left the
+// cursor on. Two things follow from that and they were reported as two faults:
+// the mouse is never captured, because nothing calls lockMouse; and a click
+// does nothing, because GuiCanvas::processInputEvent sends every mouse event to
+// processMouseEvent while mCursorEnabled is true and the left-button branch
+// consumes it, so it never reaches the ActionMap that binds mouseFire.
+//
+// `hud.cs` only calls this when it *changes* PlayGui.hideCursor, and on a join
+// it does not change -- the .gui already says 1 -- so the field has to be
+// honoured when the stack changes rather than only when a script asks.
+void GuiCanvas::updateCursorState()
+{
+   // Top-most first: the canvas is a SimGroup whose first child is the content
+   // control and whose later children are the dialogs above it.
+   bool hide = false;
+   for( S32 i = S32( size() ) - 1; i >= 0; i-- )
+   {
+      GuiControl *ctrl = static_cast< GuiControl * >( ( *this )[ i ] );
+      if( !ctrl || ctrl->mBypassHideCursor )
+         continue;
+      hide = ctrl->mHideCursor;
+      break;
+   }
+
+   setCursorON( !hide );
+
+   // The lock is the half that makes the mouse usable for looking: without it
+   // SDL reports absolute coordinates where the engine wants deltas. See the
+   // SDL_EVENT_MOUSE_MOTION case in sdlWindowMgr.cpp, which branches on
+   // isMouseLocked().
+   if( mPlatformWindow && mPlatformWindow->isMouseLocked() != hide )
+      mPlatformWindow->setMouseLocked( hide );
+
+}
+
 Point2I GuiCanvas::getCursorPos()
 {
    Point2I p( 0, 0 );
@@ -1319,6 +1362,9 @@ void GuiCanvas::setContentControl(GuiControl *gui)
    // Force the canvas to update the sizing of the new content control
    maintainSizing();
 
+   // HH: Modified for Tribes 2 compatibility.
+   updateCursorState();
+
    // Do this last so onWake gets called first
    Con::executef(gui, "onSetContent", Con::getIntArg(oldContent ? oldContent->getId() : 0));
 }
@@ -1384,6 +1430,9 @@ void GuiCanvas::pushDialogControl(GuiControl *gui, S32 layer, bool center)
 
    refreshMouseControl();
 
+   // HH: Modified for Tribes 2 compatibility.
+   updateCursorState();
+
    // I don't see the purpose of this, and it's causing issues when showing, for instance the 
    //  metrics dialog while in a 3d scene, causing the cursor to be shown even when the mouse
    //  is locked [4/25/2007 justind]
@@ -1448,6 +1497,9 @@ void GuiCanvas::popDialogControl(GuiControl *gui)
       ctrl->buildAcceleratorMap();
    }
    refreshMouseControl();
+
+   // HH: Modified for Tribes 2 compatibility.
+   updateCursorState();
 }
 
 void GuiCanvas::popDialogControl(S32 layer)
@@ -2166,6 +2218,19 @@ DefineEngineMethod( GuiCanvas, hideCursor, void, (),,
 				   "@endtsexample\n\n")
 {
 	object->showCursor(false);
+}
+
+// HH: Added for Tribes 2 compatibility.
+// The name hud.cs calls after it changes PlayGui.hideCursor at run time.
+DefineEngineMethod( GuiCanvas, updateCursorState, void, (),,
+				   "@brief Resolve the cursor and mouse-lock state from the "
+				   "hideCursor and bypassHideCursor fields of the control stack.\n\n"
+				   "@tsexample\n"
+				   "PlayGui.hideCursor = true;\n"
+				   "Canvas.updateCursorState();\n"
+				   "@endtsexample\n\n")
+{
+   object->updateCursorState();
 }
 
 DefineEngineMethod( GuiCanvas, isCursorOn, bool, (),,
