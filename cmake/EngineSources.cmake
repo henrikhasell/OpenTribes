@@ -31,6 +31,7 @@ set(_engine_dirs
     gui/controls
     gui/core
     gui/game
+    gui/hud
     gui/shell
     gui/shiny
     gui/utility
