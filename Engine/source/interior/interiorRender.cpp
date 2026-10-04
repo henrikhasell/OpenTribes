@@ -243,6 +243,26 @@ void Interior::setupRender( InteriorInstance *intInst,
 //------------------------------------------------------------------------------
 void Interior::prepBatchRender( InteriorInstance *intInst, SceneRenderState *state )
 {
+   // HH: Added for Tribes 2 compatibility.
+   // The zone loop below indexes mZoneRNList by a mZones index, and the two
+   // are the same length only once createZoneVBs() has run, which happens in
+   // prepForRendering().  An interior that reached the scene without being
+   // prepped walks off a null array on the first frame it is in shot, and a
+   // segfault in the renderer is a poor way to be told an object was built in
+   // the wrong order.  One building not drawing is a better one.
+   if( mZoneRNList.size() != mZones.size() )
+   {
+      static bool said = false;
+      if( !said )
+      {
+         said = true;
+         Con::errorf( "Interior::prepBatchRender: not prepped for rendering -- "
+                      "%d zones, %d render node lists.  Nothing will draw.",
+                      mZones.size(), mZoneRNList.size() );
+      }
+      return;
+   }
+
    // coreRi - used as basis for subsequent interior ri allocations
    MeshRenderInst *coreRi = state->getRenderPass()->allocInst<MeshRenderInst>();
    SceneData sgData;

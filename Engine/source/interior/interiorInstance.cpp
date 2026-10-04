@@ -322,7 +322,12 @@ bool InteriorInstance::_loadInterior()
    }
    if(isClientObject())
    {
-      if(mCRC != mInteriorRes.getChecksum())
+      // HH: Modified for Tribes 2 compatibility.
+      // A forced client object was never ghosted, so there is no server and
+      // no CRC that came from one -- mCRC is still the constructor's zero and
+      // the file's checksum never is.  Comparing them refuses every interior
+      // in a locally built scene, which is the scene the render probe uses.
+      if(!mNetFlags.test(ForcedClient) && mCRC != mInteriorRes.getChecksum())
       {
          NetConnection::setLastError("Local interior file '%s' does not match version on server.", mInteriorFileName);
          return false;

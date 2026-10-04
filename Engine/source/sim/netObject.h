@@ -270,6 +270,12 @@ protected:
       ScopeLocal        =  BIT(7),  ///< Ghost only to local client.
       Ghostable         =  BIT(8),  ///< Set if this object CAN ghost.
 
+      /// HH: Added for Tribes 2 compatibility.
+      /// Made a client object by $Scene::clientSideObjects rather than by a
+      /// connection, so there is no server counterpart and nothing that was
+      /// sent from one -- a checksum least of all.
+      ForcedClient      =  BIT(9),
+
       MaxNetFlagBit     =  15
    };
 
@@ -296,6 +302,17 @@ public:
    /// @}
 
    static void collapseDirtyList();
+
+   /// HH: Added for Tribes 2 compatibility.
+   /// Register objects the console creates as client objects rather than server
+   /// ones. An object built from script is a server object, and almost nothing
+   /// to do with drawing exists on one: SceneObject::addToScene puts it in
+   /// gServerSceneGraph, which the renderer never looks at, and a class like
+   /// TerrainBlock builds no quadtree, no materials and no textures at all
+   /// unless isClientObject(). So a scene assembled by a harness is not merely
+   /// invisible without this, it is unrenderable.
+   /// Exposed as $Scene::clientSideObjects.
+   static bool smForceClientObjects;
 
    /// Used to mark a bit as dirty; ie, that its corresponding set of fields need to be transmitted next update.
    ///
