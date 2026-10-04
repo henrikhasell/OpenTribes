@@ -253,7 +253,10 @@ void NetInterface::handleConnectChallengeReject(const NetAddress *address, BitSt
    removePendingConnection(conn);
    char reason[256];
    stream->readString(reason);
-   conn->onConnectionRejected(reason);
+   // HH: Modified for Tribes 2 compatibility.  This is the challenge being
+   // rejected rather than the connect request, and Tribes 2 tells the two
+   // apart; see NetConnection::onConnectionChallengeRejected.
+   conn->onConnectionChallengeRejected(reason);
    conn->deleteObject();
 }
 

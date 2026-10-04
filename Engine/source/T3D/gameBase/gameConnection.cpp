@@ -154,6 +154,28 @@ IMPLEMENT_CALLBACK( GameConnection, onDataBlocksDone, void, (U32 sequence), (seq
    "the server every time a mission is loaded.\n\n"
    "@see GameConnection::transmitDataBlocks()\n\n");
 
+IMPLEMENT_GLOBAL_CALLBACK( onConnectionToServerTimedOut, void, (), (),
+   "@brief Called on the client when an established connection times out.\n\n" );
+
+IMPLEMENT_GLOBAL_CALLBACK( onConnectRequestTimedOut, void, (), (),
+   "@brief Called on the client when a connect request is never answered.\n\n" );
+
+IMPLEMENT_GLOBAL_CALLBACK( onConnectionToServerLost, void, (const char *reason), (reason),
+   "@brief Called on the client when an established connection is lost.\n\n"
+   "@param reason Why the server dropped us; empty for a drop that carried no "
+   "reason.\n\n" );
+
+IMPLEMENT_GLOBAL_CALLBACK( onConnectRequestRejected, void, (const char *reason), (reason),
+   "@brief Called on the client when the server refuses a connect request.\n\n"
+   "@param reason The server's refusal code.\n\n" );
+
+IMPLEMENT_GLOBAL_CALLBACK( onChallengeRequestRejected, void, (const char *reason), (reason),
+   "@brief Called on the client when the server refuses the challenge, before a "
+   "connect request is sent.\n\n"
+   "@param reason A CHR_ code; CHR_PASSWORD asks for a password rather than "
+   "reporting an error.\n\n" );
+
+
 IMPLEMENT_GLOBAL_CALLBACK( onDataBlockObjectReceived, void, (U32 index, U32 total), (index, total),
    "@brief Called on the client each time a datablock has been received.\n\n"
    "This callback is typically used to notify the player of how far along "
@@ -333,6 +355,7 @@ void GameConnection::onTimedOut()
    {
       Con::printf("Connection to server timed out");
       onConnectionTimedOut_callback();
+      ::onConnectionToServerTimedOut_callback();
    }
    else
    {
@@ -387,6 +410,7 @@ void GameConnection::onConnectionEstablished(bool isInitiator)
 void GameConnection::onConnectTimedOut()
 {
    onConnectRequestTimedOut_callback();
+   ::onConnectRequestTimedOut_callback();
 }
 
 void GameConnection::onDisconnect(const char *reason)
@@ -395,6 +419,7 @@ void GameConnection::onDisconnect(const char *reason)
    {
       Con::printf("Connection with server lost.");
       onConnectionDropped_callback(reason);
+      ::onConnectionToServerLost_callback(reason);
       mMoveList->init();
    }
    else
@@ -407,6 +432,13 @@ void GameConnection::onDisconnect(const char *reason)
 void GameConnection::onConnectionRejected(const char *reason)
 {
    onConnectRequestRejected_callback(reason);
+   ::onConnectRequestRejected_callback(reason);
+}
+
+void GameConnection::onConnectionChallengeRejected(const char *reason)
+{
+   onConnectRequestRejected_callback(reason);
+   ::onChallengeRequestRejected_callback(reason);
 }
 
 void GameConnection::handleStartupError(const char *errorString)
@@ -509,6 +541,7 @@ void GameConnection::connectionError(const char *errorString)
    {
       Con::printf("Connection error: %s.", errorString);
       onConnectionError_callback(errorString);
+      ::onConnectionToServerLost_callback(errorString);
    }
    else
    {
