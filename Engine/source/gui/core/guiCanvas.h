@@ -300,6 +300,7 @@ public:
    /// Returns true if the cursor is on.
    virtual bool isCursorON() { return mCursorEnabled; }
 
+   // HH: Added for Tribes 2 compatibility.
    /// Resolve cursor visibility and mouse lock from the top-most control
    /// that does not set bypassHideCursor.
    void updateCursorState();
