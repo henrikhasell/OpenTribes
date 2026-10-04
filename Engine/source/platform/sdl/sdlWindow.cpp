@@ -6,7 +6,12 @@
 #include <SDL3/SDL.h>
 
 PlatformWindowSDL::PlatformWindowSDL()
-   : mSDLWindow(NULL),
+     // Uninitialised, the destructor's own `if (mOwner)` guard passed on
+     // garbage and _unlinkWindow walked a list that was never a list.  Only
+     // reachable when SDL_CreateWindow fails, which is why it survived: the
+     // success path assigns mOwner a few lines later.
+   : mOwner(NULL),
+     mSDLWindow(NULL),
      mDevice(NULL),
      mTarget(NULL),
      mNextWindow(NULL),

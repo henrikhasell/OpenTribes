@@ -1010,6 +1010,48 @@ void GFXTextureManager::_validateTexParams( const U32 width, const U32 height,
                                           const GFXTextureProfile *profile, 
                                           U32 &inOutNumMips, GFXFormat &inOutFormat  )
 {
+   // HH: the card profiler is reached three times below as
+   // GFX->getCardProfiler()->checkFormat(...), unchecked.  checkFormat's whole
+   // body is a call to the virtual _queryFormat, so an absent profiler faults
+   // at the vtable load -- inside checkFormat, which is a one-line function
+   // that cannot be wrong.  That is the seventh instance of this port's
+   // commonest shape: the site at the top of the stack is innocent and the
+   // absent thing underneath is the fault.
+   //
+   // It is reachable because a device can exist without having finished
+   // initialising.  On a machine with no video memory left -- the measured
+   // case wanted 850 MiB against 490 free -- the first texture built after the
+   // device is made is a font, and this is where it dies.
+   //
+   // Checked once here rather than at the three call sites: the sibling fault
+   // in Player::advanceTime grew a second crash site the moment the first was
+   // patched, and guarding uses one at a time is how that happens.
+   //
+   // Saying so is the whole point of the guard.  Three of the signals this
+   // effort collected for telling disappearances apart -- a core being
+   // present, the shape of its stack, a console going quiet -- have each been
+   // shown unreliable, and the one that survived is a sentence the engine
+   // prints about itself at the point of failure.  A crash here prints
+   // nothing, so the sentence never exists.
+   if( !GFX || !GFX->getCardProfiler() )
+   {
+      static bool reported = false;
+      if( !reported )
+      {
+         reported = true;
+         Con::errorf( "GFXTextureManager - no card profiler, so no texture "
+                      "format can be validated and no texture can be built. "
+                      "The device exists but did not finish initialising, "
+                      "which on this machine means it could not get the video "
+                      "memory it asked for. Not a fault in the content." );
+      }
+
+      // Leave the format and mip count as the caller passed them and let the
+      // allocation fail on its own terms.  Guessing a format here would build
+      // a texture nobody validated.
+      return;
+   }
+
    // Validate mipmap parameter. If this profile requests no mips, set mips to 1.
    if( profile->noMip() )
    {

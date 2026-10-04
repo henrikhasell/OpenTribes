@@ -23,6 +23,8 @@
 #include "platform/platform.h"
 #include "gui/core/guiCanvas.h"
 
+#include <cstdio>
+
 #include "console/console.h"
 #include "console/engineAPI.h"
 #include "platform/profiler.h"
@@ -204,6 +206,44 @@ bool GuiCanvas::onAdd()
    if(newDevice == NULL)
       newDevice = GFXInit::createDevice(a);
 
+   // HH: Added for Tribes 2 compatibility.
+   // A machine that cannot give this process a GL device gets a message and a
+   // refused canvas, where it used to get a segfault here on the next line.
+   //
+   // This is the other half of the fault t2w1 guarded in PlatformWindowSDL.
+   // Theirs was a window that failed to create and then faulted in its own
+   // destructor; this is a window that creates perfectly and a *device* that
+   // does not -- SDL_CreateWindow returns a real pointer with SDL_GetError
+   // empty, and the X server then refuses the GL context underneath it.
+   // Measured while the machine was out of video memory: a bare `glxinfo -B`,
+   // which owns nothing, failed the same way with BadAlloc on
+   // X_GLXMakeCurrent at 7,791 MiB of 8,192 used.
+   //
+   // From outside the two are one symptom -- a client that dies before its
+   // console exists, leaving a core -- which is why guarding one of them did
+   // not stop it happening.  The failure is not ours and this does not pretend
+   // to fix it; it makes the machine say so instead of the process vanishing.
+   if( newDevice == NULL )
+   {
+      // What is printed is what this code knows: that the device was not
+      // created, and whether an adapter had been enumerated.  It does not name
+      // a cause.  The cause this was first seen with was video memory, and the
+      // thing that established that was a bare `glxinfo -B` failing at the
+      // same moment with BadAlloc on X_GLXMakeCurrent -- a tool outside this
+      // engine, which is why it could settle it.  Naming video memory here
+      // would be this engine asserting something it has not checked, on a
+      // family where every other signal has already turned out to be
+      // unreliable: a stack that moves with the fix, a core that may be
+      // evicted, a silent console that means four different things.
+      Con::errorf( "GuiCanvas::onAdd - no GFX device was created, so this "
+                   "canvas cannot be added. An adapter %s enumerated. Ask the "
+                   "machine rather than this log: a bare `glxinfo -B` failing "
+                   "is the difference between no device for anyone and no "
+                   "device for us.",
+                   a ? "was" : "was not" );
+      return false;
+   }
+
    newDevice->setAllowRender( false );
 
    // Disable starting a new journal recording or playback from here on
@@ -232,8 +272,28 @@ bool GuiCanvas::onAdd()
    {
       mPlatformWindow = WindowManager->createWindow(newDevice, vm);
 
+      // HH: Modified for Tribes 2 compatibility.
+      // createWindow is allowed to fail and says so; this dereferenced it
+      // regardless.  With several clients on one GPU it does fail, and the
+      // client then died here with no console.log, no stdout and nothing but a
+      // core -- a signature four separate drivers in this effort report as
+      // "never opened its console", which is accurate and says nothing.  The
+      // reason is on stderr because at this point in startup there is no log
+      // file for Con::errorf to reach.
+      if (!mPlatformWindow)
+      {
+         Con::errorf("GuiCanvas::onAdd: the window manager gave no window");
+         fputs("GuiCanvas::onAdd: the window manager gave no window\n", stderr);
+         // And stop here rather than returning false.  Returning false only
+         // fails the canvas's registration; the shell's scripts then carry on
+         // and the next texture they ask for crashes in GFXCardProfiler, which
+         // is a core in a font path with no mention of a window anywhere in it.
+         Platform::forceShutdown(-1);
+         return false;
+      }
+
 		//Disable window resizing if recording ir playing a journal
-		if (Journal::IsRecording() || Journal::IsPlaying())					
+		if (Journal::IsRecording() || Journal::IsPlaying())
 			mPlatformWindow->lockSize(true);
 		
 		// Set a minimum on the window size so people can't break us by resizing tiny.
