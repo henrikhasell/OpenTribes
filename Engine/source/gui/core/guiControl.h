@@ -165,6 +165,8 @@ class GuiControl : public SimGroup
       bool    mVisible;
       bool    mActive;
       bool    mAwake;
+      bool    mHideCursor;
+      bool    mBypassHideCursor;
       bool    mSetFirstResponder;
       bool    mIsContainer; ///< if true, then the GuiEditor can drag other controls into this one.
       bool    mCanResize;

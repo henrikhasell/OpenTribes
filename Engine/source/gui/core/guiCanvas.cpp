@@ -425,6 +425,24 @@ void GuiCanvas::setCursorON(bool onOff)
       mMouseControl = NULL;
 }
 
+void GuiCanvas::updateCursorState()
+{
+   bool hide = false;
+   for( S32 i = S32( size() ) - 1; i >= 0; i-- )
+   {
+      GuiControl *ctrl = static_cast< GuiControl * >( ( *this )[ i ] );
+      if( !ctrl || ctrl->mBypassHideCursor )
+         continue;
+      hide = ctrl->mHideCursor;
+      break;
+   }
+
+   setCursorON( !hide );
+
+   if( mPlatformWindow && mPlatformWindow->isMouseLocked() != hide )
+      mPlatformWindow->setMouseLocked( hide );
+}
+
 Point2I GuiCanvas::getCursorPos()
 {
    Point2I p( 0, 0 );
@@ -1319,6 +1337,8 @@ void GuiCanvas::setContentControl(GuiControl *gui)
    // Force the canvas to update the sizing of the new content control
    maintainSizing();
 
+   updateCursorState();
+
    // Do this last so onWake gets called first
    Con::executef(gui, "onSetContent", Con::getIntArg(oldContent ? oldContent->getId() : 0));
 }
@@ -1384,6 +1404,8 @@ void GuiCanvas::pushDialogControl(GuiControl *gui, S32 layer, bool center)
 
    refreshMouseControl();
 
+   updateCursorState();
+
    // I don't see the purpose of this, and it's causing issues when showing, for instance the 
    //  metrics dialog while in a 3d scene, causing the cursor to be shown even when the mouse
    //  is locked [4/25/2007 justind]
@@ -1448,6 +1470,8 @@ void GuiCanvas::popDialogControl(GuiControl *gui)
       ctrl->buildAcceleratorMap();
    }
    refreshMouseControl();
+
+   updateCursorState();
 }
 
 void GuiCanvas::popDialogControl(S32 layer)
@@ -2166,6 +2190,17 @@ DefineEngineMethod( GuiCanvas, hideCursor, void, (),,
 				   "@endtsexample\n\n")
 {
 	object->showCursor(false);
+}
+
+DefineEngineMethod( GuiCanvas, updateCursorState, void, (),,
+				   "@brief Resolve the cursor and mouse-lock state from the "
+				   "hideCursor and bypassHideCursor fields of the control stack.\n\n"
+				   "@tsexample\n"
+				   "PlayGui.hideCursor = true;\n"
+				   "Canvas.updateCursorState();\n"
+				   "@endtsexample\n\n")
+{
+   object->updateCursorState();
 }
 
 DefineEngineMethod( GuiCanvas, isCursorOn, bool, (),,
