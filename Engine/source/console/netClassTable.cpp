@@ -21,17 +21,30 @@ const char *const Events[]     = { NET_CLASS_TABLE_EVENT_NAMES( NET_CLASS_TABLE_
 const U32 DataBlockCount = ELEMENTS( DataBlocks );
 
 static const U32 sEngineGhostStates = 6;
+static const U32 sGameMessages = 2;
 
+// Our engine has more ghost states than Tribes 2, and the surplus two are the
+// file-download half of the handshake, which Tribes 2 has no name for. Moving
+// only the GameConnection messages left them on the wire values Tribes 2 gives
+// DataBlocksDone and DataBlocksDownloadDone, where they were read back as those.
+// So the surplus goes above Tribes 2's own set instead, into the wire values
+// three bits hold and Tribes 2 never sends.
 U32 toGameConnectionMessage( U32 message )
 {
-   return message >= sEngineGhostStates
-      ? message - sEngineGhostStates + NET_CLASS_TABLE_GHOST_STATES : message;
+   if( message < NET_CLASS_TABLE_GHOST_STATES )
+      return message;
+   if( message < sEngineGhostStates )
+      return message + sGameMessages;
+   return message - sEngineGhostStates + NET_CLASS_TABLE_GHOST_STATES;
 }
 
 U32 fromGameConnectionMessage( U32 message )
 {
-   return message >= NET_CLASS_TABLE_GHOST_STATES
-      ? message - NET_CLASS_TABLE_GHOST_STATES + sEngineGhostStates : message;
+   if( message < NET_CLASS_TABLE_GHOST_STATES )
+      return message;
+   if( message < NET_CLASS_TABLE_GHOST_STATES + sGameMessages )
+      return message - NET_CLASS_TABLE_GHOST_STATES + sEngineGhostStates;
+   return message - sGameMessages;
 }
 
 const char *const *tableFor( U32 classType, U32 *countOut, U32 *bitsOut )
