@@ -443,6 +443,18 @@ public:
    virtual void onConnectTimedOut();
    virtual void onDisconnect(const char *reason);
    virtual void onConnectionRejected(const char *reason);
+
+   /// HH: Added for Tribes 2 compatibility.  A challenge rejected before the
+   /// connect request was ever sent, which Tribes 2 reports differently from a
+   /// rejected connect request: its reasons are a separate set (`CHR_*`), and
+   /// one of them -- a server asking for a password -- puts up a prompt rather
+   /// than an error.  The engine routed both through onConnectionRejected and
+   /// the distinction was lost.  Defaults to that, so a subclass that does not
+   /// care keeps the old behaviour.
+   virtual void onConnectionChallengeRejected(const char *reason)
+   {
+      onConnectionRejected(reason);
+   }
    virtual void onConnectionEstablished(bool isInitiator);
    virtual void handleStartupError(const char *errorString);
 

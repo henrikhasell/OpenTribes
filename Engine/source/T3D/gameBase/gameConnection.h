@@ -135,6 +135,7 @@ public:
    virtual void onConnectTimedOut();
    virtual void onDisconnect(const char *reason);
    virtual void onConnectionRejected(const char *reason);
+   virtual void onConnectionChallengeRejected(const char *reason);   // HH: Added for Tribes 2 compatibility.
    virtual void onConnectionEstablished(bool isInitiator);
    virtual void handleStartupError(const char *errorString);
    /// @}

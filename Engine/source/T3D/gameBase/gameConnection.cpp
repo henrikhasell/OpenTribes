@@ -327,12 +327,51 @@ ConsoleFunction(disconnect, void, 1, 1, "disconnect();")
       conn->deleteObject();
 }
 
+// HH: Added for Tribes 2 compatibility.
+//
+// Tribes 2 puts up the dialog that tells a player why they are no longer in the
+// game, and it does it from `scripts/client.cs` with **global** functions:
+//
+//     onConnectionToServerLost(%msg)   MessageBoxOK("DISCONNECTED", %msg)
+//     onConnectionToServerTimedOut()   MessageBoxOK("TIMED OUT", ...)
+//     onConnectRequestTimedOut()       MessageBoxOK("TIMED OUT", ...)
+//     onConnectRequestRejected(%msg)   MessageBoxOK("REJECTED", ...)
+//     onChallengeRequestRejected(%msg) REJECTED, or the password prompt
+//
+// Torque 3D fires *method* callbacks on the connection object instead --
+// GameConnection::onConnectionDropped(%this, %reason) and its family -- and a
+// method lookup walks the object's class namespaces and stops: it does not
+// reach the global namespace. Measured rather than assumed, because the two
+// look alike from a script: a global function called as `%obj.name()` returns
+// empty while `isFunction()` answers 1 for the same name.
+//
+// So every one of Tribes 2's handlers was dead code in this port. A player
+// dropped mid-game was returned to a screen with no explanation on it, and the
+// reason the server had gone to the trouble of sending was printed to a console
+// nobody has open.
+//
+// Both are called rather than one replacing the other. The method callback is
+// the documented Torque 3D interface and some other mod may be using it; this
+// adds the Tribes 2 one beside it, and does nothing at all when the function is
+// not defined, which is the case for any content that is not Tribes 2.
+static void t2NotifyClient(const char *fn, const char *arg = NULL)
+{
+   if(!Con::isFunction(fn))
+      return;
+
+   if(arg)
+      Con::executef(fn, arg);
+   else
+      Con::executef(fn);
+}
+
 void GameConnection::onTimedOut()
 {
    if(isConnectionToServer())
    {
       Con::printf("Connection to server timed out");
       onConnectionTimedOut_callback();
+      t2NotifyClient("onConnectionToServerTimedOut");
    }
    else
    {
@@ -387,6 +426,7 @@ void GameConnection::onConnectionEstablished(bool isInitiator)
 void GameConnection::onConnectTimedOut()
 {
    onConnectRequestTimedOut_callback();
+   t2NotifyClient("onConnectRequestTimedOut");
 }
 
 void GameConnection::onDisconnect(const char *reason)
@@ -395,6 +435,10 @@ void GameConnection::onDisconnect(const char *reason)
    {
       Con::printf("Connection with server lost.");
       onConnectionDropped_callback(reason);
+      // Tribes 2 substitutes its own wording when the reason is empty, which
+      // is what an ordinary timeout-shaped drop sends, so the empty string is
+      // passed through rather than filtered here.
+      t2NotifyClient("onConnectionToServerLost", reason);
       mMoveList->init();
    }
    else
@@ -407,6 +451,16 @@ void GameConnection::onDisconnect(const char *reason)
 void GameConnection::onConnectionRejected(const char *reason)
 {
    onConnectRequestRejected_callback(reason);
+   t2NotifyClient("onConnectRequestRejected", reason);
+}
+
+/// HH: Added for Tribes 2 compatibility.  The challenge rejected, which Tribes
+/// 2 reports from its own table -- and which is how a password-protected server
+/// comes to show a password prompt instead of an error.
+void GameConnection::onConnectionChallengeRejected(const char *reason)
+{
+   onConnectRequestRejected_callback(reason);
+   t2NotifyClient("onChallengeRequestRejected", reason);
 }
 
 void GameConnection::handleStartupError(const char *errorString)
@@ -509,6 +563,10 @@ void GameConnection::connectionError(const char *errorString)
    {
       Con::printf("Connection error: %s.", errorString);
       onConnectionError_callback(errorString);
+      // Tribes 2 has no handler of its own for a packet error: the connection
+      // is being deleted either way, so the player is told the connection was
+      // lost and given the engine's string as the reason.
+      t2NotifyClient("onConnectionToServerLost", errorString);
    }
    else
    {
