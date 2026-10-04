@@ -162,8 +162,10 @@ public:
    protected:
       virtual U32    calculateChecksum()
       {
-         // JMQ: implement
-         return 0;
+         if (mZipEntry == NULL)
+            return 0;
+
+         return ~mZipEntry->mCD.mCRC32;
       };
 
       Stream* mZipStream;
