@@ -154,6 +154,13 @@ Material * MaterialManager::getMaterialDefinitionByName(const String &matName)
 
    if(!Sim::findObject(matName, foundMat))
    {
+      // HH: Here rather than only in createWarningMatInstance(), because most
+      // of the engine does not call that: twelve sites ask for the fallback by
+      // name, through createMatInstance() or directly, and each of them would
+      // have to remember. This is the lookup they all end up in.
+      if( matName.equal( "WarningMaterial", String::NoCase ) )
+         return getWarningMaterial();
+
       Con::errorf("MaterialManager: Unable to find material '%s'", matName.c_str());
       return NULL;
    }
@@ -190,9 +197,51 @@ BaseMatInstance* MaterialManager::createMatInstance(  const String &matName,
    return NULL;
 }
 
+// Torque 3D declares WarningMaterial in core/scripts, which the port does not
+// ship -- so until now there was no material definition of any kind in the
+// game, and this returned NULL.
+//
+// This is not what was costing Tribes 2 its shapes. MaterialList::mapMaterial
+// has three outcomes, not two: a mapped definition, or no map entry but a
+// diffuse texture that resolves -- which autogenerates a DefaultMaterial -- or
+// no map entry and no texture, which leaves a null instance. Tribes 2's
+// material names are texture names, so its own shapes took the middle path and
+// drew.
+//
+// What the fallback buys is the third outcome becoming legible. A mesh with a
+// null material instance submits no render instance at all: it does not draw
+// in the wrong colour, it silently is not there, and the bin counts look
+// identical to a bin nothing was submitted to. With a warning material it
+// draws visibly wrong instead, which is a thing you can see and chase.
+//
+// Built here, when the lookup fails, rather than by a startup step that loads
+// it: here is the one place that knows it is missing at the moment it is
+// missing, so there is no path to a mesh that can reach it unset. The same
+// argument decided SceneManager::getDefaultRenderPass(), and for the same
+// reason -- every fault this port has found has been a check or a step that
+// was silent when it did not run.
+Material* MaterialManager::getWarningMaterial()
+{
+   Material *warnMat;
+   if( Sim::findObject( "WarningMaterial", warnMat ) )
+      return warnMat;
+
+   warnMat = allocateAndRegister( "WarningMaterial" );
+   if( !warnMat )
+      return NULL;
+
+   // Magenta and unlit, so a surface wearing it reads as a missing material
+   // rather than as a dark one. Torque's own uses core/art/warnmat, a texture
+   // the port has no more of than the script that names it.
+   warnMat->mDiffuse[0].set( 1.0f, 0.0f, 1.0f, 1.0f );
+   warnMat->mEmissive[0] = true;
+
+   return warnMat;
+}
+
 BaseMatInstance  * MaterialManager::createWarningMatInstance()
 {
-   Material *warnMat = static_cast<Material*>(Sim::findObject("WarningMaterial"));
+   Material *warnMat = getWarningMaterial();
 
    BaseMatInstance   *warnMatInstance = NULL;
 
@@ -369,7 +418,18 @@ SimSet * MaterialManager::getMaterialSet()
    if(!mMaterialSet)
       mMaterialSet = static_cast<SimSet*>( Sim::findObject( "MaterialSet" ) );
 
-   AssertFatal( mMaterialSet, "MaterialSet not found" );
+   // HH: Declared in core/scripts, which the port does not ship. Every caller
+   // guards against it being absent, so the only thing missing it cost was an
+   // AssertFatal in a debug build -- but a material the set does not hold is
+   // one nothing can enumerate, and getWarningMaterial() below registers one
+   // before any script could have made the set.
+   if( !mMaterialSet )
+   {
+      mMaterialSet = new SimSet;
+      mMaterialSet->registerObject( "MaterialSet" );
+      Sim::getRootGroup()->addObject( mMaterialSet );
+   }
+
    return mMaterialSet;
 }
 
@@ -457,7 +517,40 @@ ConsoleFunction( reInitMaterials, void, 1, 1,
    MATMGR->flushAndReInitInstances();
 }
 
-ConsoleFunction( addMaterialMapping, void, 3, 3, "(string texName, string matName)\n"
+// HH: Added for Tribes 2 compatibility.  A TGE material property, not a name.
+//
+// TGE's addMaterialMapping took a texture and its surface *properties*, which
+// is what the doc comment below still describes; Torque 3D kept the name and
+// changed the second argument to a Material object's name.  Tribes 2's
+// *PropMap.cs files are TGE-era and pass properties:
+//
+//    addMaterialMapping("desert/cp_ichute01", "environment: special/chuteTexture 0.25");
+//    addMaterialMapping("terrain/DesertWorld.RockSmooth", "color: ...", "sound: 0");
+//
+// Registered as a material name, "environment: special/chuteTexture 0.25"
+// resolves to no material, and MaterialList hands the surface the warning
+// colour -- magenta over every drop chute in the game.  It was found standing
+// inside a bunker, where one such panel is half the screen; from the ridge
+// every earlier comparison was taken from, it is a few pixels.
+//
+// A Torque material name never contains a colon, so a first token ending in
+// one is a property and not a name.  Dropping it lets the texture fall
+// through to MaterialList's create-missing path and draw its own art.  The
+// environment reflection those twelve ask for is not reproduced -- that is a
+// stated gap, and a visible surface is not a reason to stop recording it.
+static bool isT2MaterialProperty( const char *arg )
+{
+   if ( !arg )
+      return false;
+
+   for ( const char *p = arg; *p && *p != ' ' && *p != '\t'; p++ )
+      if ( *p == ':' )
+         return true;
+
+   return false;
+}
+
+ConsoleFunction( addMaterialMapping, void, 3, 4, "(string texName, string matName)\n"
    "@brief Maps the given texture to the given material.\n\n"
    "Generates a console warning before overwriting.\n\n"
    "Material maps are used by terrain and interiors for triggering "
@@ -465,6 +558,20 @@ ConsoleFunction( addMaterialMapping, void, 3, 3, "(string texName, string matNam
    "block or interior surface using the associated texture.\n\n"
    "@ingroup Materials")
 {
+   // Four arguments is the three-argument TGE form -- texture, colour, sound.
+   // It was rejected on arity before, so all 41 of those vanished without a
+   // word; they are still not acted on, but they arrive and are accounted for
+   // rather than silently dropped by the console.
+   if ( isT2MaterialProperty( argv[2] ) )
+   {
+      Con::warnf( "addMaterialMapping: %s is a Tribes 2 surface property "
+                  "(%s), not a material; not mapped", argv[1], argv[2] );
+      return;
+   }
+
+   if ( argc > 3 )
+      return;
+
    MATMGR->mapMaterial(argv[1],argv[2]);
 }
 

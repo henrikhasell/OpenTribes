@@ -30,6 +30,7 @@
 #include "scene/zones/sceneZoneSpace.h"
 #include "lighting/lightManager.h"
 #include "renderInstance/renderPassManager.h"
+#include "materials/renderBootstrap.h"
 #include "renderInstance/renderObjectMgr.h"
 #include "renderInstance/renderMeshMgr.h"
 #include "renderInstance/renderTerrainMgr.h"
@@ -641,6 +642,10 @@ bool SceneManager::_setLightManager( LightManager* lm )
 // built on PFX_PassthruShader -- none of that scaffolding exists here either.
 RenderPassManager* SceneManager::_createDefaultRenderPass()
 {
+   // Whatever core/scripts would have declared and this GameData has not. Here
+   // because this is the gate every draw passes through; see renderBootstrap.h.
+   RenderBootstrap::declareMissing();
+
    RenderPassManager* rpm = new RenderPassManager;
    rpm->registerObject( "DiffuseRenderPassManager" );
    Sim::getRootGroup()->addObject( rpm );

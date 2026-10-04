@@ -73,6 +73,13 @@ public:
    /// Get the default texture anisotropy.
    U32 getDefaultAnisotropy() const { return mDefaultAnisotropy; }
 
+   /// HH: Added for Tribes 2 compatibility.
+   /// The material every unresolvable material name falls back to, built here
+   /// if nothing has declared one.  Use this rather than looking WarningMaterial
+   /// up by name: it is the only place that can create it, so no caller can
+   /// find it missing.
+   Material * getWarningMaterial();
+
    /// Allocate and return an instance of special materials.  Caller is responsible for the memory.
    BaseMatInstance * createWarningMatInstance();
 
