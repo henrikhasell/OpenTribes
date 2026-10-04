@@ -1004,7 +1004,23 @@ void LightmapFeatGLSL::processPix(  Vector<ShaderComponent*> &componentList,
    {
       statement = new GenOp( "texture2D(@, @)", lightMap, inTex );
    }
-   
+
+   // HH: Modified for Tribes 2 compatibility.  The branch above says "add
+   // realtime lighting, if it is available" and then does not handle it being
+   // unavailable: with MFT_RTLighting on but no d_lightcolor declared,
+   // statement is still null here and goes straight into a GenOp, whose
+   // element list is walked and dereferenced without a check.  That is a
+   // segfault in GenOp::print while generating the shader, and it is where
+   // every live join died once interiors actually started loading -- interiors
+   // are what carry lightmaps, and Interior::initMatInstances forces
+   // MFT_LightMap on while deliberately leaving MFT_RTLighting alone.
+   //
+   // Falling back to the plain lightmap sample is what the else branch already
+   // does for the no-RTLighting case, and it is what "if it is available"
+   // means.
+   if( statement == NULL )
+      statement = new GenOp( "texture2D(@, @)", lightMap, inTex );
+
    // Assign to proper render target
    if( fd.features[MFT_LightbufferMRT] )
       output = new GenOp( "   @;\r\n", assignColor( statement, Material::None, NULL, ShaderFeature::RenderTarget1 ) );

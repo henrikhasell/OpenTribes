@@ -2035,6 +2035,21 @@ void Interior::createZoneVBs()
 		 //surface.primIndex = primInfoList.size();
 
          BaseMatInstance *matInst = mMaterialList->getMaterialInst( surface.textureIndex );
+
+         // HH: Modified for Tribes 2 compatibility.  A material instance can
+         // legitimately be null here and this walked straight into it.
+         // MaterialList::mapMaterials falls back to createWarningMatInstance
+         // for a texture it cannot resolve, and that returns null when there is
+         // no WarningMaterial object -- Torque's template scripts define one
+         // and Tribes 2's do not.  So one unresolvable texture took the whole
+         // process down: desert/FORCEFIELD, in a mission full of buildings that
+         // were otherwise fine.  MaterialList::initMatInstances already skips a
+         // null instance rather than trusting it, so this is the existing
+         // convention and not a new tolerance.  The surface is dropped; the
+         // errorf naming the texture has already been printed.
+         if( matInst == NULL )
+            continue;
+
          Material* pMat = dynamic_cast<Material*>(matInst->getMaterial());
          if( pMat && pMat->mPlanarReflection ) continue;
 
@@ -2472,7 +2487,10 @@ void Interior::createReflectPlanes()
          Surface& surface = mSurfaces[ surfaceIndex ];
 
          BaseMatInstance *matInst = mMaterialList->getMaterialInst( surface.textureIndex );
-         Material* pMat = dynamic_cast<Material*>(matInst->getMaterial());         
+         if( matInst == NULL )   // HH: see the note in createZoneVBs.
+            continue;
+
+         Material* pMat = dynamic_cast<Material*>(matInst->getMaterial());
          if( !pMat || !pMat->mPlanarReflection ) continue;
 
          U32 *surfIndices = &mWindings[surface.windingStart];
