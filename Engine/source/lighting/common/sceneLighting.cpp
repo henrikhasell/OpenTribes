@@ -567,19 +567,47 @@ bool SceneLighting::light(BitSet32 flags)
    if(dot)
       *dot = '\0';
 
+   // HH: Added for Tribes 2 compatibility.
+   // Nothing in the shipped scripts writes $Client::MissionFile, so on a join
+   // it is empty and the name below comes out as the CRC alone.  What the
+   // client is given is a bare mission name, which
+   // clientCmdMissionStartPhase3 puts in $MissionName immediately before it
+   // calls lightScene.  Tribes 2 also keeps its caches in the mod's lighting/
+   // rather than beside the mission.
+   char t2Base[256] = "";
+   const bool t2 = !misName[0];
+   if(t2)
+   {
+      dSprintf(t2Base, sizeof(t2Base), "%s", Con::getVariable("$MissionName"));
+      dSprintf(misName, sizeof(misName), "lighting/%s", t2Base);
+   }
+
    // get the mission name
    getMLName(misName, missionCRC, 1023, mFileName);
 
    // check for some persisted data, check if being forced..
    if(!flags.test(ForceAlways|ForceWritable))
    {
-      if(loadPersistInfo(mFileName))
+      const char * loadedFrom = loadPersistInfo(mFileName) ? mFileName : NULL;
+
+      // HH: Added for Tribes 2 compatibility.
+      // The quantity Tribes 2 spells in the file name is a third number: not
+      // the .mis CRC the connection sends, and not calcMissionCRC over the
+      // object CRCs either.  So the computed name never matches and every
+      // cache on the disk is missed.  The Mission chunk inside the file says
+      // whether it belongs to this mission, and that is the stronger test
+      // -- it is derived from the mission's contents -- so the name picks the
+      // candidates and the chunk decides between them.
+      if(!loadedFrom && t2 && t2Base[0])
+         loadedFrom = loadT2PersistInfo(t2Base);
+
+      if(loadedFrom)
       {
-         Con::printf(" Successfully loaded mission lighting file: '%s'", mFileName);
+         Con::printf(" Successfully loaded mission lighting file: '%s'", loadedFrom);
 
          // touch this file...
-         if(!Platform::FS::Touch(mFileName))
-            Con::warnf("  Failed to touch file '%s'.  File may be read only.", mFileName);
+         if(!Platform::FS::Touch(loadedFrom))
+            Con::warnf("  Failed to touch file '%s'.  File may be read only.", loadedFrom);
 
          return(false);
       }
@@ -742,26 +770,32 @@ void SceneLighting::addStatic(ShadowVolumeBSP *shadowVolume,
 }
 
 //------------------------------------------------------------------------------
-bool SceneLighting::verifyMissionInfo(PersistInfo::PersistChunk * chunk)
+bool SceneLighting::verifyMissionInfo(PersistInfo::PersistChunk * chunk, U32 fileVersion)
 {
    PersistInfo::MissionChunk * info = dynamic_cast<PersistInfo::MissionChunk*>(chunk);
    if(!info)
       return(false);
 
    PersistInfo::MissionChunk curInfo;
-   if(!getMissionInfo(&curInfo))
+   if(!getMissionInfo(&curInfo, fileVersion))
       return(false);
 
    return(curInfo.mChunkCRC == info->mChunkCRC);
 }
 
-bool SceneLighting::getMissionInfo(PersistInfo::PersistChunk * chunk)
+bool SceneLighting::getMissionInfo(PersistInfo::PersistChunk * chunk, U32 fileVersion)
 {
    PersistInfo::MissionChunk * info = dynamic_cast<PersistInfo::MissionChunk*>(chunk);
    if(!info)
       return(false);
 
-   info->mChunkCRC = gConnectionMissionCRC ^ PersistInfo::smFileVersion;
+   // HH: Modified for Tribes 2 compatibility.
+   // Mixed with the version the file carries rather than the one this engine
+   // writes.  Confirmed against both of retail's caches: the stored Mission
+   // chunk CRC is the uncomplemented CRC-32 of the mission's .mis exclusive
+   // ored with 16 -- 0x1e1cc0f5 for Talus and 0x48b9aff0 for Training4, both
+   // exact -- which is this formula with the file's version in it.
+   info->mChunkCRC = gConnectionMissionCRC ^ fileVersion;
    return(true);
 }
 
@@ -782,7 +816,7 @@ bool SceneLighting::loadPersistInfo(const char * fileName)
       return(false);
 
    // verify the mission chunk
-   if(!verifyMissionInfo(persistInfo.mChunks[0]))
+   if(!verifyMissionInfo(persistInfo.mChunks[0], persistInfo.mVersion))
       return(false);
 
    // Create the right chunk for the system    
@@ -823,6 +857,36 @@ bool SceneLighting::loadPersistInfo(const char * fileName)
    return(true);
 }
 
+// HH: Added for Tribes 2 compatibility.
+const char * SceneLighting::loadT2PersistInfo(const char * misBase)
+{
+   char pattern[280];
+   dSprintf(pattern, sizeof(pattern), "%s_*.ml", misBase);
+
+   Vector<String> names;
+   Torque::FS::FindByPattern(Torque::Path(Platform::getMainDotCsDir()), pattern,
+                             true, names);
+
+   // Several caches for one mission is ordinary rather than a fault: the name
+   // carries something that changes when the mission does, so an edited
+   // mission leaves the old file beside the new one.  Retail has seventeen of
+   // GeneticAlgorithm.  Only the Mission chunk can say which is this one.
+   for(U32 i = 0; i < names.size(); i++)
+   {
+      if(!Torque::FS::IsFile(names[i]))
+         continue;
+      if(!loadPersistInfo(names[i].c_str()))
+         continue;
+      return(StringTable->insert(names[i].c_str()));
+   }
+
+   if(names.size())
+      Con::warnf("  %d lighting file(s) named for '%s', none for this mission.",
+                 names.size(), misBase);
+
+   return(NULL);
+}
+
 bool SceneLighting::savePersistInfo(const char * fileName)
 {
    // open the file
@@ -838,7 +902,7 @@ bool SceneLighting::savePersistInfo(const char * fileName)
    persistInfo.mChunks.push_back(new PersistInfo::MissionChunk);
 
    // get the mission info, will return false when there are 0 lights
-   if(!getMissionInfo(persistInfo.mChunks[0]))
+   if(!getMissionInfo(persistInfo.mChunks[0], PersistInfo::smFileVersion))
       return(false);
 
    // get all the persist chunks
@@ -989,8 +1053,11 @@ void SceneLighting::processCache()
          continue;
 
 		// read in the version
+		// HH: Modified for Tribes 2 compatibility.  A version this reader
+		// accepts is not an old file, and deleting it throws away the only lit
+		// lightmaps on the disk -- all 76 of retail's are 16.
 		U32 version;
-		bool ok = (stream->read(&version) && (version == PersistInfo::smFileVersion));
+		bool ok = (stream->read(&version) && PersistInfo::isReadableVersion(version));
 		delete stream;
 
 		// ok?
@@ -1065,7 +1132,7 @@ U32 SceneLighting::calcMissionCRC()
 
 	// grab the missions crc
 	PersistInfo::MissionChunk curInfo;
-	getMissionInfo(&curInfo);
+	getMissionInfo(&curInfo, PersistInfo::smFileVersion);
 	crc.push_back(curInfo.mChunkCRC);
 
 	// sort them (order may not have been preserved)

@@ -64,7 +64,24 @@ void InteriorLMManager::addInterior(LM_HANDLE & interiorHandle, U32 numLightmaps
    for(U32 i = 0; i < interior->mLightmaps.size(); i++)
    {
       AssertFatal(interior->mLightmaps[i], "InteriorLMManager::addInterior: interior missing lightmap");
-      texHandles[i].set(interior->mLightmaps[i], &GFXDefaultPersistentProfile, true, String("Interior Lightmap"));
+
+      // HH: Modified for Tribes 2 compatibility.
+      // The name is the texture cache key.  Every lightmap of every interior
+      // in the game was handed the same one, so the first upload won the
+      // cache and every later lightmap was handed that first texture instead
+      // of its own -- and its own bitmap deleted, because createTexture frees
+      // the bitmap on a cache hit.
+      //
+      // This is not why Tribes 2's buildings draw black, and the honest
+      // version of that is worth writing down: a scene with one interior
+      // renders pixel-identically with the name shared and with it unique.
+      // The collision is between interiors rather than within one, so a
+      // single-building scene cannot show it and a mission with 186 of them
+      // is where it would.  It is corrected here because a global cache key
+      // for per-interior data is wrong whatever it is currently costing, not
+      // because a picture got better.
+      texHandles[i].set(interior->mLightmaps[i], &GFXDefaultPersistentProfile, true,
+                        String::ToString("Interior Lightmap %u:%u", interiorHandle, i));
    }
 
    interior->mLightmaps.clear();
@@ -247,7 +264,9 @@ void InteriorLMManager::downloadGLTextures(LM_HANDLE interiorHandle)
             continue;
          }
 
-         instanceInfo->mLightmapHandles[k].set( texObj->mBitmap, &GFXDefaultPersistentProfile, false, String("Interior Lightmap Handle") );
+         // HH: unique per interior, instance and index -- see addInterior.
+         instanceInfo->mLightmapHandles[k].set( texObj->mBitmap, &GFXDefaultPersistentProfile, false,
+            String::ToString("Interior Lightmap Handle %u:%u:%u", interiorHandle, (U32)j, (U32)k) );
       }
    }
 }
@@ -302,7 +321,11 @@ bool InteriorLMManager::loadBaseLightmaps(LM_HANDLE interiorHandle, LM_HANDLE in
 				texObj->mBitmap = pBitmaps[i][j];
 			}
 			else
-         	baseInstanceInfo->mLightmapHandles[j].set( pBitmaps[i][j], &GFXDefaultPersistentProfile, false, String("Interior Lightmap Handle") );
+         {
+            // HH: unique per interior and index -- see addInterior.
+            baseInstanceInfo->mLightmapHandles[j].set( pBitmaps[i][j], &GFXDefaultPersistentProfile, false,
+               String::ToString("Interior Lightmap Base %u:%u", (U32)interior->getLMHandle(), j) );
+         }
       }
    }
 
@@ -378,7 +401,11 @@ GFXTexHandle &InteriorLMManager::duplicateBaseLightmap(LM_HANDLE interiorHandle,
    GBitmap * dest = new GBitmap(*src);
 
    // don't want this texture to be downloaded yet (SceneLighting will take care of that)
-   GFXTexHandle tHandle( dest, &GFXDefaultPersistentProfile, true, String("Interior Lightmap Handle 2") );
+   // HH: unique per interior, instance and index -- see addInterior.  This
+   // one is the per-instance copy mission lighting writes into, so sharing a
+   // name here hands every instance of every building one texture.
+   GFXTexHandle tHandle( dest, &GFXDefaultPersistentProfile, true,
+      String::ToString("Interior Lightmap Copy %u:%u:%u", interiorHandle, instanceHandle, index) );
    mInteriors[interiorHandle]->mInstances[instanceHandle]->mLightmapHandles[index] = tHandle;
    return mInteriors[interiorHandle]->mInstances[instanceHandle]->mLightmapHandles[index];
 }

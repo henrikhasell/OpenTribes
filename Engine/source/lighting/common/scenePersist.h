@@ -60,6 +60,18 @@ struct PersistInfo
 	Vector<PersistChunk*>      mChunks;
 	static U32                 smFileVersion;
 
+	/// HH: Added for Tribes 2 compatibility.
+	/// Which versions read() will take.  The cache purge asks too, so that a
+	/// file this engine can read is never deleted for looking old.
+	static bool isReadableVersion(U32 version);
+
+	/// HH: Added for Tribes 2 compatibility.
+	/// The version the file being read actually carried.  Tribes 2's caches
+	/// are version 16 where this engine writes 17, and the Mission chunk's
+	/// CRC is mixed with the file's own version, so a reader that assumes
+	/// its own rejects every one of them.
+	U32                        mVersion = 0;
+
 	bool read(Stream &);
 	bool write(Stream &);
 };

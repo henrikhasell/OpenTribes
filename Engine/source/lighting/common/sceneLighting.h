@@ -72,11 +72,19 @@ public:
 
    U32 calcMissionCRC();
 
-   bool verifyMissionInfo(PersistInfo::PersistChunk *);
-   bool getMissionInfo(PersistInfo::PersistChunk *);
+   // HH: both take the version the file carried, because the Mission
+   // chunk's CRC is mixed with it and Tribes 2's files are 16.
+   bool verifyMissionInfo(PersistInfo::PersistChunk *, U32 fileVersion);
+   bool getMissionInfo(PersistInfo::PersistChunk *, U32 fileVersion);
 
    bool loadPersistInfo(const char *);
    bool savePersistInfo(const char *);
+
+   // HH: Added for Tribes 2 compatibility.  Finds this mission's cache by
+   // name and lets the Mission chunk inside say which one it is, because the
+   // CRC Tribes 2 spells in the file name is not a quantity this engine can
+   // compute.  Returns the file it loaded, or NULL.
+   const char * loadT2PersistInfo(const char * misBase);
 
    class ObjectProxy;
 

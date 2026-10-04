@@ -1415,22 +1415,32 @@ void blInteriorSystem::processLightingBegin()
 
 void blInteriorSystem::processLightingCompleted(bool success)
 {
-   if(success)
-   {
-      AssertFatal(smUseVertexLighting == Interior::smUseVertexLighting, "SceneLighting::completed: vertex lighting state changed during scene light");
+   if(!success)
+      return;
 
-      // cannot do anything if vertex state has changed (since we only load in what is needed)
-      if(smUseVertexLighting == Interior::smUseVertexLighting)
-      {
-         if(!smUseVertexLighting)
-         {
-            gInteriorLMManager.downloadGLTextures();
-            gInteriorLMManager.destroyBitmaps();
-         }
-         else
-            gInteriorLMManager.destroyTextures();
-      }
-   }
+   // HH: Modified for Tribes 2 compatibility.
+   //
+   // This used to branch on smUseVertexLighting and call destroyTextures()
+   // when it was set, which sets every instance's lightmap handle to NULL.
+   // Tribes 2's own prefs carry `$pref::Interior::VertexLighting = 1`, so on
+   // a join that branch ran and threw away the lightmaps the mission's cache
+   // had just installed -- measured: every interior reported its full
+   // complement of handles at the end of setPersistInfo (19 of 23 for
+   // pbunk6, 12 of 20 for pbunk1, matching the cache exactly) and every one
+   // of them read back NULL a moment later, with the buildings still black.
+   //
+   // The branch was wrong because the other two halves of the pair no longer
+   // have a vertex-lighting side to pick.  blInteriorChunk::read reads the
+   // lightmaps unconditionally and its vertex-colour block is commented out,
+   // and blInteriorProxy::setPersistInfo installs them unconditionally --
+   // both were forced to the lightmap path and left `BTRTODO` behind.  This
+   // was the one place still asking, so it answered for a path that is not
+   // there and deleted the results of the path that is.
+   //
+   // There is no vertex lighting in this tree to preserve, so there is
+   // nothing here to choose between.
+   gInteriorLMManager.downloadGLTextures();
+   gInteriorLMManager.destroyBitmaps();
 }
 
 // Given a ray, this will return the color from the lightmap of this object, return true if handled

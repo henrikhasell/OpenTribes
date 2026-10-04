@@ -30,6 +30,21 @@
 
 U32 PersistInfo::smFileVersion   = 0x11;
 
+// HH: Added for Tribes 2 compatibility.
+// Tribes 2's cached mission lighting is this same format one version back.
+// Retail's own GameData has two of them -- Talus_d615e81a.ml and
+// Training4_2e3c4309.ml -- and both open 16 where this engine writes 17, with
+// everything under the version matching field for field: a chunk count, a
+// Mission chunk first carrying its CRC, then a Terrain chunk, then the
+// interiors.  Rejecting them on the version alone throws away the only lit
+// interior lightmaps on the disk.
+static const U32 smTribes2FileVersion = 0x10;
+
+bool PersistInfo::isReadableVersion(U32 version)
+{
+	return(version == smFileVersion || version == smTribes2FileVersion);
+}
+
 PersistInfo::~PersistInfo()
 {
 	for(U32 i = 0; i < mChunks.size(); i++)
@@ -40,8 +55,10 @@ PersistInfo::~PersistInfo()
 bool PersistInfo::read(Stream & stream)
 {
 	U32 version;
-	if(!stream.read(&version) || version != smFileVersion)
+	if(!stream.read(&version) || !isReadableVersion(version))
 		return(false);
+
+	mVersion = version;
 
 	U32 numChunks;
 	if(!stream.read(&numChunks))
