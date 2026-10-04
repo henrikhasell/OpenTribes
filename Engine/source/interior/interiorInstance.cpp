@@ -56,6 +56,7 @@
 #include "T3D/physics/physicsBody.h"
 #include "T3D/physics/physicsCollision.h"
 #include "console/engineAPI.h"
+#include "T3D/gameBase/t2ArtPath.h"   // HH: Added for Tribes 2 compatibility.
 
 #ifdef TORQUE_COLLADA
 #include "ts/collada/colladaUtils.h"
@@ -314,7 +315,8 @@ bool InteriorInstance::_loadInterior()
    U32 i;
 
    // Load resource
-   mInteriorRes = ResourceManager::get().load(mInteriorFileName);
+   // HH: Modified for Tribes 2 compatibility.
+   mInteriorRes = ResourceManager::get().load(interiorPathT2(mInteriorFileName));
    if (bool(mInteriorRes) == false) {
       Con::errorf(ConsoleLogEntry::General, "Unable to load interior: %s", mInteriorFileName);
       NetConnection::setLastError("Unable to load interior: %s", mInteriorFileName);
@@ -1075,7 +1077,8 @@ bool InteriorInstance::readLightmaps(GBitmap**** lightmaps)
 
    // Load resource
    FileStream* pStream;
-   if((pStream = FileStream::createAndOpen( mInteriorFileName, Torque::FS::File::Read )) == NULL)
+   // HH: Modified for Tribes 2 compatibility.
+   if((pStream = FileStream::createAndOpen( interiorPathT2(mInteriorFileName), Torque::FS::File::Read )) == NULL)
    {
       Con::errorf(ConsoleLogEntry::General, "Unable to load interior: %s", mInteriorFileName);
       return false;
