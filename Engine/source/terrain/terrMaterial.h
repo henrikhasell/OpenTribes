@@ -88,6 +88,23 @@ public:
    /// a material is not found or defined.
    static TerrainMaterial* getWarningMaterial();
 
+   /// HH: What a Tribes 2 terrain says about how its materials are painted,
+   /// which is not said per material there.  One texture instance covers one
+   /// terrain square, so the diffuse size is the square size the server sent;
+   /// and the one detail texture the mission names is used by every material
+   /// rather than each carrying its own.  TerrainBlock applies both once it
+   /// knows the square size, because findOrCreate cannot see it.
+   ///
+   /// Without this a resolved terrain texture is still wrong rather than
+   /// missing: the default diffuse size is 500 metres, so one 256-pixel
+   /// texture would be stretched over sixty squares.
+   void setT2Painting( F32 diffuseSize, const String &detailMap )
+   {
+      mDiffuseSize = diffuseSize;
+      if ( !detailMap.isEmpty() )
+         mDetailMap = detailMap;
+   }
+
    const String& getDiffuseMap() const { return mDiffuseMap; }
 
    F32 getDiffuseSize() const { return mDiffuseSize; }

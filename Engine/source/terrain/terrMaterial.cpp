@@ -24,6 +24,7 @@
 #include "terrain/terrMaterial.h"
 #include "console/consoleTypes.h"
 #include "gfx/bitmap/gBitmap.h"
+#include "T3D/gameBase/t2ArtPath.h"
 
 
 IMPLEMENT_CONOBJECT( TerrainMaterial );
@@ -138,6 +139,59 @@ TerrainMaterial* TerrainMaterial::findOrCreate( const char *nameOrPath )
       mat = new TerrainMaterial();
       mat->setInternalName( nameOrPath );
       mat->mDiffuseMap = nameOrPath;
+      mat->registerObject();
+      Sim::getRootGroup()->addObject( mat );
+      return mat;
+   }
+
+   // Not a path this tree can resolve -- so try it as a Tribes 2 terrain
+   // material name before giving up.  Both halves above fail for one of those:
+   // nothing registers the names (no script in the shipped data so much as
+   // mentions TerrainMaterial), and sFindFiles destroys the second half of
+   // "LushWorld.RockMossy" by treating its dot as an extension.  T3D/gameBase/
+   // t2ArtPath.h explains why that cannot be fixed by prefixing alone.
+   //
+   // This goes here rather than at either caller because there are two of
+   // them -- TerrainFile reads the same eight names out of the .ter at
+   // terrFile.cpp:567 and TerrainBlock takes them off the wire at
+   // terrData.cpp.  One resolver covers both; a fix at one caller would leave
+   // the other painting warning_material.
+   //
+   // The two callers do not spell the name the same way, which is why the
+   // registration below is under the canonical form rather than the one that
+   // arrived.  Ramparts.ter says "terrain.LushWorld.RockMossy" and the server
+   // says "LushWorld.RockMossy" for the same ground; registered as given, each
+   // caller misses the other's material by internal name and the set ends up
+   // with two of everything -- eight materials for a four-material mission,
+   // measured on a live join, with only the server's four carrying the detail
+   // texture that _applyT2Materials puts on.  Canonicalised, whichever arrives
+   // first creates it and the second finds it.
+   const String t2Name = terrainMaterialNameT2( nameOrPath );
+
+   if ( t2Name.compare( nameOrPath ) != 0 )
+   {
+      mat = dynamic_cast<TerrainMaterial*>(
+         set->findObjectByInternalName( StringTable->insert( t2Name.c_str() ) ) );
+      if ( mat )
+         return mat;
+   }
+
+   String t2Path;
+   if ( findTerrainTexturePathT2( nameOrPath, t2Path ) )
+   {
+      mat = new TerrainMaterial();
+      mat->setInternalName( t2Name.c_str() );
+      mat->mDiffuseMap = t2Path;
+
+      // One texture instance per terrain square, against a default of 500
+      // metres -- see setT2Painting.  Eight is the square size nine of the ten
+      // recorded sessions send and the tenth sends nine, so it is the right
+      // guess rather than a safe one; TerrainBlock::_applyT2Materials replaces
+      // it with what the server actually said as soon as a wire is involved.
+      // This is for the terrain loaded from its file alone, which has no
+      // server to ask.
+      mat->setT2Painting( 8.0f, String::EmptyString );
+
       mat->registerObject();
       Sim::getRootGroup()->addObject( mat );
       return mat;

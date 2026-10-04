@@ -29,6 +29,7 @@
 #include "materials/processedMaterial.h"
 #include "core/volume.h"
 #include "console/simSet.h"
+#include "T3D/gameBase/t2ArtPath.h"   // HH: Added for Tribes 2 compatibility.
 
 
 MaterialList::MaterialList()
@@ -323,6 +324,17 @@ void MaterialList::mapMaterial( U32 i )
    if ( materialName.isNotEmpty() )
    {
       Material * mat = MATMGR->getMaterialDefinitionByName( materialName );
+
+      // HH: Added for Tribes 2 compatibility.  This was the one path that
+      // reaches the warning material without saying so: the name maps to a
+      // material that does not exist, and the surface draws magenta with
+      // nothing in the log to attribute it to.  Every other fallback here
+      // names its texture.
+      if ( !mat )
+         Con::errorf( "[MaterialList::mapMaterials] %s maps to %s, which is "
+                      "not a material; drawing the warning colour",
+                      matName.c_str(), materialName.c_str() );
+
       mMatInstList[i] = mat ? mat->createMatInstance() : MATMGR->createWarningMatInstance();
    }
    else
@@ -336,9 +348,97 @@ void MaterialList::mapMaterial( U32 i )
          texHandle.set( getTexturePath( mMaterialNames[i] ), &GFXDefaultStaticDiffuseProfile,
             avar("%s() - handle (line %d)", __FUNCTION__, __LINE__) );
 
+         // HH: Added for Tribes 2 compatibility.  A Tribes 2 art name is not a
+         // path, and two kinds of them reach this lookup.
+         //
+         // The dot is the heart of it.  `Path::_split` cuts a name at its last
+         // dot and calls the tail an extension, so "skins/base.lmale" is looked
+         // up as the file "skins/base" with ".lmale" as its type, and
+         // "DesertWorld.Sand" as "DesertWorld" with ".Sand".  The second half of
+         // the name is destroyed before anything is opened.  findTexturePathT2
+         // exists for exactly that: it composes directory, name and extension
+         // into one string and only then makes a Path, by which point the last
+         // dot really is the extension.
+         //
+         // Two sets, one resolver, in the order a name is most likely to belong
+         // to:
+         //
+         //   - under textures/, which is where a player skin lives --
+         //     "skins/base.lmale" is textures/skins/base.lmale.png;
+         //   - under textures/terrain/, which is where a terrain material lives.
+         //
+         // The terrain set is not a building surfaced with the ground it stands
+         // on, which is what this comment used to say.  No .dif and no .dts in
+         // the 39 archives names a DesertWorld surface -- only .ter and .cs
+         // files do.  They arrive from TerrainFile::_initMaterialInstMapping,
+         // which builds the terrain's collision material list out of
+         // Torque::Path(diffuseMap).getFileName() and so asks for
+         // "DesertWorld.Sand" where the file is textures/terrain/DesertWorld
+         // .Sand.png.  Reproduced with no server and no interior by
+         // Tools/swarm/terrmat-check.sh; terrain-surface-materials.md has the
+         // run.
+         //
+         // The reading that produced the old attribution was over a join's
+         // whole mapMaterials log, in which the eight names that did not
+         // resolve were four terrain layers and four editor markers --
+         // desert/NULL, ORIGIN, TRIGGER and FORCEFIELD, which are .dif
+         // surfaces.  One population, two sources.
+         //
+         // Tried only when the ordinary lookup has already failed, which is
+         // what makes it safe: a name that resolved cannot resolve differently
+         // because of anything below.  An earlier version gated this on the
+         // name carrying a dot, which was over-careful and hid two more shapes
+         // of the same fault -- "skins\axe", separated the way the game was
+         // written rather than the way this platform spells it, and bare
+         // "chaingun_shot_end", which wants a directory and an extension and has
+         // no dot to lose.  Both only became visible once shapes started
+         // loading at all.
+         if ( !texHandle.isValid() )
+         {
+            // The game was written on Windows and some of its names say so.
+            String name = mMaterialNames[i];
+            name.replace( '\\', '/' );
+
+            String found;
+            const char *kind = NULL;
+
+            if ( findTexturePathT2( name, found ) )
+               kind = "a texture";
+            else if ( findSkinTexturePathT2( name, found ) )
+               kind = "a skin texture";
+            else if ( findTerrainTexturePathT2( name, found ) )
+               kind = "a terrain material";
+
+            if ( kind )
+            {
+               texHandle.set( found, &GFXDefaultStaticDiffuseProfile,
+                  avar("%s() - t2 handle (line %d)", __FUNCTION__, __LINE__) );
+
+               if ( texHandle.isValid() )
+                  Con::warnf( "[MaterialList::mapMaterials] %s is %s; resolved to %s",
+                              mMaterialNames[i].c_str(), kind, found.c_str() );
+            }
+         }
+
          if ( texHandle.isValid() )
          {
-            String newMatName = Sim::getUniqueName( "DefaultMaterial" );
+            // HH: Modified for Tribes 2 compatibility.  Sim::getUniqueName
+            // probes a fixed window of 100 names from the base it is given, so
+            // once DefaultMaterial2 through DefaultMaterial101 exist it fails
+            // for good and returns an empty string -- DefaultMaterial102 being
+            // free makes no difference.  Material::_mapMaterial then refuses an
+            // unnamed material and the surface draws the warning colour.
+            //
+            // A Tribes 2 mission is well past that: DustToDust autogenerates
+            // 488 materials on a join, so 387 of them were unnamed.  It is
+            // invisible from a distance and fills half the screen from inside
+            // a building, which is why it survived every ridge comparison.
+            // Counting up instead of restarting at 2 keeps the probe, and the
+            // collision fallback with it, while giving each material a base
+            // nobody has taken.
+            static U32 sAutoMatSeq = 0;
+            String newMatName = Sim::getUniqueName(
+               String::ToString( "DefaultMaterial%u", ++sAutoMatSeq ) );
             Material *newMat = MATMGR->allocateAndRegister( newMatName, mMaterialNames[i] );
 
             // Flag this as an autogenerated Material
@@ -371,6 +471,12 @@ void MaterialList::mapMaterial( U32 i )
       }
       else
       {
+         // HH: Added for Tribes 2 compatibility.  The last silent path to the
+         // warning colour: $Materials::createMissing is off, so a texture that
+         // resolved gets magenta with nothing said about it.
+         Con::errorf( "[MaterialList::mapMaterials] %s: $Materials::"
+                      "createMissing is off, drawing the warning colour",
+                      mMaterialNames[i].c_str() );
          mMatInstList[i] = MATMGR->createWarningMatInstance();
       }
    }
