@@ -202,10 +202,6 @@ GuiControl::GuiControl() : mAddGroup( NULL ),
                            mVisible(true),
                            mActive(true),
                            mAwake(false),
-                           // HH: Added for Tribes 2 compatibility.
-                           // Both default to what Tribes 2's 965 ordinary
-                           // controls write, so a control that says nothing
-                           // shows the cursor and takes part in the decision.
                            mHideCursor(false),
                            mBypassHideCursor(false),
                            mHorizSizing(horizResizeRight),
@@ -288,13 +284,6 @@ void GuiControl::initPersistFields()
       addField("accelerator",       TypeString,       Offset(mAcceleratorKey, GuiControl),
          "Key combination that triggers the control's primary action when the control is on the canvas." );
 
-      // HH: Added for Tribes 2 compatibility.
-      // Four of Tribes 2's controls set hideCursor to 1 -- PlayGui, CreditsGui,
-      // DemoPlaybackDlg and RemapDlg -- and six overlays that appear over the
-      // game set bypassHideCursor: ChatDlg, FrameOverlayGui, TaskHudDlg and two
-      // in HUDDlgs. Torque 3D has neither field, so PlayGui's `hideCursor = 1`
-      // was a dynamic field nothing read and the mouse was never captured on a
-      // join. GuiCanvas::updateCursorState is what resolves them.
       addField("hideCursor",        TypeBool,         Offset(mHideCursor, GuiControl),
          "Hide the mouse cursor while this control is the top-most one that does "
          "not bypass the decision." );
