@@ -202,6 +202,8 @@ GuiControl::GuiControl() : mAddGroup( NULL ),
                            mVisible(true),
                            mActive(true),
                            mAwake(false),
+                           mHideCursor(false),
+                           mBypassHideCursor(false),
                            mHorizSizing(horizResizeRight),
                            mVertSizing(vertResizeBottom),
                            mTooltipProfile(NULL),
@@ -282,7 +284,14 @@ void GuiControl::initPersistFields()
       addField("accelerator",       TypeString,       Offset(mAcceleratorKey, GuiControl),
          "Key combination that triggers the control's primary action when the control is on the canvas." );
 
-   endGroup( "Control" );	
+      addField("hideCursor",        TypeBool,         Offset(mHideCursor, GuiControl),
+         "Hide the mouse cursor while this control is the top-most one that does "
+         "not bypass the decision." );
+      addField("bypassHideCursor",  TypeBool,         Offset(mBypassHideCursor, GuiControl),
+         "Take no part in deciding the cursor state, so an overlay pushed over "
+         "the game does not reveal the cursor." );
+
+   endGroup( "Control" );
    
    addGroup( "ToolTip" );
       addProtectedField("tooltipProfile", TYPEID< GuiControlProfile >(), Offset(mTooltipProfile, GuiControl), &setTooltipProfileProt, &defaultProtectedGetFn,
