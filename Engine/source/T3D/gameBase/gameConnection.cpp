@@ -154,13 +154,6 @@ IMPLEMENT_CALLBACK( GameConnection, onDataBlocksDone, void, (U32 sequence), (seq
    "the server every time a mission is loaded.\n\n"
    "@see GameConnection::transmitDataBlocks()\n\n");
 
-// HH: Added for Tribes 2 compatibility.  Tribes 2 declares the handlers that
-// put up the disconnect dialog as global functions in scripts/client.cs, and a
-// method callback on the connection reaches only the GameConnection namespace,
-// so none of them were being called.  Two of these names are also method
-// callbacks on GameConnection, which would win unqualified name lookup inside a
-// member function and silently restore that fault, so every call below is
-// written ::name_callback.
 IMPLEMENT_GLOBAL_CALLBACK( onConnectionToServerTimedOut, void, (), (),
    "@brief Called on the client when an established connection times out.\n\n" );
 
@@ -426,9 +419,6 @@ void GameConnection::onDisconnect(const char *reason)
    {
       Con::printf("Connection with server lost.");
       onConnectionDropped_callback(reason);
-      // Tribes 2 substitutes its own wording when the reason is empty, which
-      // is what an ordinary timeout-shaped drop sends, so the empty string is
-      // passed through rather than filtered here.
       ::onConnectionToServerLost_callback(reason);
       mMoveList->init();
    }
@@ -445,9 +435,6 @@ void GameConnection::onConnectionRejected(const char *reason)
    ::onConnectRequestRejected_callback(reason);
 }
 
-/// HH: Added for Tribes 2 compatibility.  The challenge rejected, which Tribes
-/// 2 reports from its own table -- and which is how a password-protected server
-/// comes to show a password prompt instead of an error.
 void GameConnection::onConnectionChallengeRejected(const char *reason)
 {
    onConnectRequestRejected_callback(reason);
@@ -554,9 +541,6 @@ void GameConnection::connectionError(const char *errorString)
    {
       Con::printf("Connection error: %s.", errorString);
       onConnectionError_callback(errorString);
-      // Tribes 2 has no handler of its own for a packet error: the connection
-      // is being deleted either way, so the player is told the connection was
-      // lost and given the engine's string as the reason.
       ::onConnectionToServerLost_callback(errorString);
    }
    else
