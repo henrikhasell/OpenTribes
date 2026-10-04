@@ -21,6 +21,7 @@
 //-----------------------------------------------------------------------------
 
 #include "ts/tsShapeAlloc.h"
+#include "console/console.h"
 
 #define readOnly()  AssertFatal(mMode==TSShapeAlloc::ReadMode, "TSShapeAlloc: write-only function called when reading")
 #define writeOnly() AssertFatal(mMode==TSShapeAlloc::WriteMode,"TSShapeAlloc: read-only function called when writing")
@@ -45,6 +46,7 @@ void TSShapeAlloc::setRead(S32 * memBuffer32, S16 * memBuffer16, S8 * memBuffer8
       mSize = 0;
    }
 
+   mGuardsHeld = true;
    setSkipMode(false);
    mMode = TSShapeAlloc::ReadMode;
 }
@@ -63,6 +65,7 @@ void TSShapeAlloc::setWrite()
    mMemGuard16  = 0;
    mMemGuard8   = 0;
 
+   mGuardsHeld = true;
    setSkipMode(false); // doesn't really do anything here...
    mMode = TSShapeAlloc::WriteMode;
 }
@@ -214,9 +217,21 @@ void TSShapeAlloc::checkGuard()
    bool check16 = checkGuard16();
    bool check8  = checkGuard8();
 
-   AssertFatal(check32,avar("TSShapeAlloc::checkGuard32: found %i, wanted %i",getSaveGuard32(),getPrevGuard32()));
-   AssertFatal(check16,avar("TSShapeAlloc::checkGuard16: found %i, wanted %i",getSaveGuard16(),getPrevGuard16()));
-   AssertFatal(check8 ,avar("TSShapeAlloc::checkGuard8:  found %i, wanted %i",getSaveGuard8() ,getPrevGuard8()));
+   // HH: Modified for Tribes 2 compatibility.
+   // These were assertions only, so a release build walked on through a buffer
+   // it had already lost its place in.  Say so, and remember it, so the read
+   // can be refused rather than assembled out of whatever came next.
+   if (!check32 || !check16 || !check8)
+   {
+      if (mGuardsHeld)
+         Con::errorf(ConsoleLogEntry::General,
+            "TSShapeAlloc: guard %d: 32-bit found %d wanted %d, 16-bit found %d wanted %d, 8-bit found %d wanted %d",
+            (S32)getPrevGuard32(),
+            (S32)getSaveGuard32(), (S32)getPrevGuard32(),
+            (S32)getSaveGuard16(), (S32)getPrevGuard16(),
+            (S32)getSaveGuard8(),  (S32)getPrevGuard8());
+      mGuardsHeld = false;
+   }
 }
 
 void TSShapeAlloc::setGuard()

@@ -159,18 +159,53 @@ S32 readAlloc32(Stream * s, S32 & storage)
    return (S32)convertLEndianToHost(tmp); // return flipped value
 }
 
+// HH: Added for Tribes 2 compatibility.
+// Whether a count taken off the file asks for more than the file has left.
+// Every bulk read here is a file count times a width, so a count that is
+// wrong is an allocation of whatever size the file names -- and the loops
+// over sequences, meshes, skins and names then run that many times against a
+// stream with nothing left to give.  Unchecked it presents as the client
+// hanging or as heap corruption a long way from the shape, neither of which
+// looks like a bad file.  Nothing past the first short read is salvageable,
+// so readOldShape stops and says so, and the shape is refused before any of
+// it is assembled.
+//
+// The count is what gets checked rather than the product: numObjects*4 has
+// already overflowed by the time it arrives here.  `width' is every byte the
+// reader will put in the buffers for one entry, including the fields it fills
+// in afterwards, so the fix-up that follows a read is covered by the same
+// check.
+static bool sFileRanShort;
+
+static bool fits(Stream * s, S32 count, S32 width)
+{
+   if (sFileRanShort)
+      return false;
+   const U32 size = s->getStreamSize();
+   const U32 at = s->getPosition();
+   if (count < 0 || at > size || (U64)count * width > (U64)(size - at))
+      sFileRanShort = true;
+   return !sFileRanShort;
+}
+
 void readAlloc(Stream * s, S32 * & memBuffer32, S32 size)
 {
+   if (size < 0 || sFileRanShort)
+      return;
    s->read(sizeof(S32)*size,oldAlloc(memBuffer32,size));
 }
 
 void readAlloc(Stream * s, S16 * & memBuffer16, S32 size)
 {
+   if (size < 0 || sFileRanShort)
+      return;
    s->read(sizeof(S16)*size,oldAlloc(memBuffer16,size));
 }
 
 void readAlloc(Stream * s, S8 * & memBuffer8, S32 size)
 {
+   if (size < 0 || sFileRanShort)
+      return;
    s->read(sizeof(S8)*size,oldAlloc(memBuffer8,size));
 }
 
@@ -211,18 +246,26 @@ void readAllocMesh(Stream * s, S32 * & memBuffer32, S16 * & memBuffer16, S8 * & 
 
    // read in verts
    S32 sz = readAlloc32(s,memBuffer32);
+   if (!fits(s,sz,3*sizeof(S32)))
+      return;
    readAlloc(s,memBuffer32,sz*3);
 
    // read in tverts
    sz = readAlloc32(s,memBuffer32);
+   if (!fits(s,sz,2*sizeof(S32)))
+      return;
    readAlloc(s,memBuffer32,sz*2);
 
    // read in normals
    s->read(&sz); // we could assume same as verts, but apparently in file.
+   if (!fits(s,sz,3*sizeof(S32)))
+      return;
    readAlloc(s,memBuffer32,sz*3);
 
    // read in primitives
    sz = readAlloc32(s,memBuffer32);
+   if (!fits(s,sz,TSShape::smReadVersion<18 ? 12 : 8))
+      return;
    if (TSShape::smReadVersion<18)
    {
       for (S32 j=0; j<sz; j++)
@@ -247,6 +290,8 @@ void readAllocMesh(Stream * s, S32 * & memBuffer32, S16 * & memBuffer16, S8 * & 
 
    // read in indices
    sz = readAlloc32(s,memBuffer32);
+   if (!fits(s,sz,TSShape::smReadVersion<18 ? 4 : 2))
+      return;
    if (TSShape::smReadVersion<18)
    {
       U32 idx;
@@ -273,14 +318,20 @@ void readAllocMesh(Stream * s, S32 * & memBuffer32, S16 * & memBuffer16, S8 * & 
    {
       // read in initial verts
       sz = readAlloc32(s,memBuffer32);
+      if (!fits(s,sz,3*sizeof(S32)))
+         return;
       readAlloc(s,memBuffer32,sz*3);
 
       // read in initial normals
       s->read(&sz); // we assume same as verts
+      if (!fits(s,sz,3*sizeof(S32)))
+         return;
       readAlloc(s,memBuffer32,sz*3);
 
       // read in initial transforms
       sz = readAlloc32(s,memBuffer32);
+      if (!fits(s,sz,16*sizeof(S32)))
+         return;
       readAlloc(s,memBuffer32,sz*16);
 
       // read in vertexIndx
@@ -314,6 +365,8 @@ void readAllocMesh(Stream * s, S32 * & memBuffer32, S16 * & memBuffer16, S8 * & 
    {
       // clusters...
       sz = readAlloc32(s,memBuffer32);
+      if (!fits(s,sz,8*sizeof(S32)))
+         return;
       readAlloc(s,memBuffer32,sz*8);
 
       // start cluster...
@@ -386,11 +439,14 @@ struct Keyframe
 // read in and throw away
 Vector<Keyframe> keyframes(__FILE__,__LINE__);
 
-void TSShape::readOldShape(Stream * s,
+bool TSShape::readOldShape(Stream * s,
                            S32 * & memBuffer32, S16 * & memBuffer16, S8 * & memBuffer8,
                            S32 & count32, S32 & count16, S32 & count8)
 {
    S32 i,tmp;
+
+   // HH: Modified for Tribes 2 compatibility.
+   sFileRanShort = false;
 
    // first allocate some memory
    memBuffer32 = oldInitAlloc32();
@@ -431,6 +487,8 @@ void TSShape::readOldShape(Stream * s,
 
    S32 numNodes = readAlloc32(s,memBuffer32[0]);
    S32 nodeStart = oldAllocOffset(memBuffer32);
+   if (!fits(s,numNodes,5*sizeof(S32)))
+      return false;
    if (smReadVersion>=17)
    {
       readAlloc(s,memBuffer32,numNodes*2);
@@ -457,6 +515,8 @@ void TSShape::readOldShape(Stream * s,
 
    S32 numObjects = readAlloc32(s,memBuffer32[1]);
    S32 objectStart = oldAllocOffset(memBuffer32);
+   if (!fits(s,numObjects,6*sizeof(S32)))
+      return false;
    readAlloc(s,memBuffer32,numObjects*4);
    // compute other 2 members at load time...
    // for now, allocate storage and move things around
@@ -469,6 +529,8 @@ void TSShape::readOldShape(Stream * s,
 
    S32 numDecals = readAlloc32(s,memBuffer32[2]);
    S32 decalStart = oldAllocOffset(memBuffer32);
+   if (!fits(s,numDecals,5*sizeof(S32)))
+      return false;
    readAlloc(s,memBuffer32,numDecals*4);
    // compute other 1 member at load time...
    // for now, allocate storage and move things around
@@ -481,6 +543,8 @@ void TSShape::readOldShape(Stream * s,
 
    S32 numIflMaterials = readAlloc32(s,memBuffer32[4]);
    S32 iflStart = oldAllocOffset(memBuffer32);
+   if (!fits(s,numIflMaterials,5*sizeof(S32)))
+      return false;
    readAlloc(s,memBuffer32,numIflMaterials*2);
    // compute other 3 members at load time...
    // for now, allocate storage and move things around
@@ -493,6 +557,8 @@ void TSShape::readOldShape(Stream * s,
 
    S32 numSubShapes = readAlloc32(s,memBuffer32[3]);
    S32 subShapeFirstStart = oldAllocOffset(memBuffer32);
+   if (!fits(s,numSubShapes,7*sizeof(S32)))
+      return false;
    readAlloc(s,memBuffer32,numSubShapes); // subShapeFirstNode
    s->read(&tmp); // toss
    readAlloc(s,memBuffer32,numSubShapes); // subShapeFirstObject
@@ -525,10 +591,21 @@ void TSShape::readOldShape(Stream * s,
    }
 
    // if older than version 16, read in mesh index list for later use
+   // HH: Modified for Tribes 2 compatibility.
+   // There is no later use: nothing in this tree reads a mesh index list, and
+   // assembleShape has no slot for one between this guard and the next.  Left
+   // in the shape buffer it shifted every 32-bit read after it by its own
+   // length plus one, which is what took the only version 15 shape the game
+   // ships down -- off the end of the 16-bit buffer, in a mesh, a long way
+   // from here.  Take the bits off the stream and keep them out of the buffer.
    if (smReadVersion<16)
    {
-      S32 sz = readAlloc32(s,memBuffer32);
-      readAlloc(s,memBuffer32,sz); // this is the meshIndexList
+      S32 sz, toss;
+      s->read(&sz);
+      if (!fits(s,sz,sizeof(S32)))
+         return false;
+      while (sz-- > 0)
+         s->read(&toss);
    }
 
    // if older than version 17, read in keyframes for later use
@@ -538,12 +615,16 @@ void TSShape::readOldShape(Stream * s,
    {
       S32 sz;
       s->read(&sz);
+      if (!fits(s,sz,3*sizeof(S32)))
+         return false;
       keyframes.setSize(sz);
       for (i=0; i<sz; i++)
          keyframes[i].read(s);
    }
 
    S32 numNodeStates = readAlloc32(s,memBuffer32[5]);
+   if (!fits(s,numNodeStates,4*sizeof(S16)+3*sizeof(S32)))
+      return false;
    S32 nodeStateStart32 = oldAllocOffset(memBuffer32);
    S32 nodeStateStart16 = oldAllocOffset(memBuffer16);
    for (i=0;i<numNodeStates;i++)
@@ -555,12 +636,16 @@ void TSShape::readOldShape(Stream * s,
    DebugGuard();
 
    S32 numObjectStates = readAlloc32(s,memBuffer32[6]);
+   if (!fits(s,numObjectStates,3*sizeof(S32)))
+      return false;
    S32 objectStateStart = oldAllocOffset(memBuffer32);
    readAlloc(s,memBuffer32,numObjectStates*3);
 
    DebugGuard();
 
    S32 numDecalStates = readAlloc32(s,memBuffer32[7]);
+   if (!fits(s,numDecalStates,sizeof(S32)))
+      return false;
    S32 decalStateStart = oldAllocOffset(memBuffer32);
    if (smReadVersion<14)
    {
@@ -574,12 +659,16 @@ void TSShape::readOldShape(Stream * s,
    DebugGuard();
 
    S32 numTriggers = readAlloc32(s,memBuffer32[8]);
+   if (!fits(s,numTriggers,2*sizeof(S32)))
+      return false;
    readAlloc(s,memBuffer32,numTriggers*2);
 
    DebugGuard();
 
    S32 numDetails = readAlloc32(s,memBuffer32[9]);
    S32 detailStart = oldAllocOffset(memBuffer32);
+   if (!fits(s,numDetails,7*sizeof(S32)))
+      return false;
    readAlloc(s,memBuffer32,numDetails*4);
    // compute other 3 members at load time...
    // for now, allocate storage and move things around
@@ -588,20 +677,35 @@ void TSShape::readOldShape(Stream * s,
    for (i=numDetails-1; i>=0; i--)
       dMemmove(&pDetailStart[i*7],&pDetailStart[i*4],4*sizeof(S32));
    // now find the smallest renderable detail level and size
-   Detail * pd = (Detail*)pDetailStart;
+   // HH: Modified for Tribes 2 compatibility.
+   // A detail is seven words wide here, which is what assembleShape reads out
+   // of a file older than version 26.  Detail itself has grown to thirteen
+   // since this reader was written, so walking it as a Detail* strides past
+   // the end of each entry and puts these three fields in whichever later
+   // detail the larger stride lands on.  With five or more details that puts
+   // the bit pattern of -1.0f in detail 4's objectDetailNum, and TSShape::init
+   // indexes meshes with it -- which is three of the eight pre-19 shapes the
+   // game ships.  Address the seven words.
+   enum { DetailWords = 7, SizeWord = 3, AverageErrorWord = 4,
+          MaxErrorWord = 5, PolyCountWord = 6 };
    memBuffer32[13] = 0; // initialize to something valid
    memBuffer32[14] = 0; // initialize to something valid
    for (i=0; i<numDetails; i++)
    {
-      S32 dsize = (S32) convertLEndianToHost(pd[i].size);
+      S32 * det = &pDetailStart[i*DetailWords];
+      const S32 sizeWord = convertLEndianToHost(det[SizeWord]);
+      F32 size;
+      dMemcpy(&size,&sizeWord,sizeof(size));
+      S32 dsize = (S32) size;
       if (dsize>=0.0f)
       {
          memBuffer32[13] = (S32)dsize;
          memBuffer32[14] = i;
       }
-      pd[i].maxError = convertLEndianToHost(-1.0f);
-      pd[i].averageError = convertLEndianToHost(-1.0f);
-      pd[i].polyCount = convertLEndianToHost(0);
+      const F32 noError = convertLEndianToHost(-1.0f);
+      dMemcpy(&det[MaxErrorWord],&noError,sizeof(noError));
+      dMemcpy(&det[AverageErrorWord],&noError,sizeof(noError));
+      det[PolyCountWord] = convertLEndianToHost(0);
    }
 
    DebugGuard();
@@ -610,29 +714,41 @@ void TSShape::readOldShape(Stream * s,
    kfStart.clear(); // for older shapes...
    S32 numSequences;
    s->read(&numSequences);
+   if (!fits(s,numSequences,32))
+      return false;
    sequences.setSize(numSequences);
    for (i=0; i<numSequences; i++)
    {
       constructInPlace(&sequences[i]);
       sequences[i].read(s);
+      if (s->getStatus()!=Stream::Ok)
+         return false;
    }
 
    // read meshes
    S32 numMeshes = readAlloc32(s,memBuffer32[10]);
+   if (!fits(s,numMeshes,sizeof(S32)))
+      return false;
    for (i=0; i<numMeshes; i++)
    {
       S32 meshType = readAlloc32(s,memBuffer32);
       readAllocMesh(s,memBuffer32,memBuffer16,memBuffer8,meshType);
+      if (sFileRanShort)
+         return false;
    }
 
    DebugGuard();
 
    // names...
    S32 numNames = readAlloc32(s,memBuffer32[12]);
+   if (!fits(s,numNames,sizeof(S32)))
+      return false;
    for (i=0;i<numNames;i++)
    {
       S32 sz;
       s->read(&sz);
+      if (!fits(s,sz,sizeof(char)))
+         return false;
       readAlloc(s,memBuffer8,sz);
       *oldAlloc(memBuffer8,1) = 0; // end the string
    }
@@ -670,8 +786,14 @@ void TSShape::readOldShape(Stream * s,
 
    // skins
    S32 numSkins = readAlloc32(s,memBuffer32[11]);
+   if (!fits(s,numSkins,sizeof(S32)))
+      return false;
    for (i=0; i<numSkins; i++)
+   {
       readAllocMesh(s,memBuffer32,memBuffer16,memBuffer8,TSMesh::SkinMeshType);
+      if (sFileRanShort)
+         return false;
+   }
 
    DebugGuard();
 
@@ -710,6 +832,7 @@ void TSShape::readOldShape(Stream * s,
    count32 = getDWordCount32();
    count16 = getDWordCount16();
    count8  = getDWordCount8();
+   return !sFileRanShort;
 }
 
 void TSShape::rearrangeKeyframeData(Sequence & seq, S32 startKeyframe, U8 * pRot, U8 * pTrans, U8 * pos, U8 * pds, S32 rotSize, S32 tranSize, S32 osSize, S32 dsSize)
@@ -1375,10 +1498,20 @@ S32 TSShape::readName(Stream * s, bool addName)
    S32 sz;
    S32 nameIndex = -1;
    s->read(&sz);
-   if (sz)
+   if (sz>0)
    {
-      s->read(sz*sizeof(char),buffer);
-      buffer[sz] = '\0';
+      // HH: Modified for Tribes 2 compatibility.
+      // A length off the file read into a fixed buffer on the stack, with the
+      // terminator written at that length.  Keep what fits and take the rest
+      // off the stream.
+      S32 keep = getMin(sz,(S32)sizeof(buffer)-1);
+      s->read(keep*sizeof(char),buffer);
+      buffer[keep] = '\0';
+      for (S32 j=keep; j<sz; j++)
+      {
+         char toss;
+         s->read(sizeof(char),&toss);
+      }
       nameIndex = findName(buffer);
       if (nameIndex<0 && addName)
       {

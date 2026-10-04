@@ -286,10 +286,20 @@ void TSIntegerSet::read(Stream * s)
 
    S32 sz;
    s->read(&sz);
-   AssertFatal(sz<=MAX_TS_SET_DWORDS,"TSIntegerSet::  set too large...increase max set size and re-compile");
-
-   for (S32 i=0; i<sz; i++) // now mirrors the write code...
+   // HH: Modified for Tribes 2 compatibility.
+   // This was an assertion, so a release build wrote a length it had taken
+   // off the file straight past the end of bits -- and the sets a sequence
+   // reads are stack locals, which is how a .dts whose counts do not add up
+   // takes the client down with a smashed stack rather than a refusal.  Take
+   // the words the file claims so the cursor stays where the file says it is,
+   // and keep only the ones that fit; the shape fails a guard and is refused.
+   S32 keep = (sz<0) ? 0 : getMin(sz,(S32)MAX_TS_SET_DWORDS);
+   S32 i;
+   for (i=0; i<keep; i++) // now mirrors the write code...
       s->read(&(bits[i]));
+   U32 toss;
+   for (; i<sz; i++)
+      s->read(&toss);
 }
 
 void TSIntegerSet::write(Stream * s) const

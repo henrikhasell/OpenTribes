@@ -882,6 +882,8 @@ void TSShape::assembleShape()
    mSmallestVisibleDL   = tsalloc.get32();
    
    tsalloc.checkGuard();
+   if (!tsalloc.guardsHeld())
+      return;
 
    // get bounds...
    tsalloc.get32((S32*)&radius,1);
@@ -890,12 +892,16 @@ void TSShape::assembleShape()
    tsalloc.get32((S32*)&bounds,6);
 
    tsalloc.checkGuard();
+   if (!tsalloc.guardsHeld())
+      return;
 
    // copy various vectors...
    S32 * ptr32 = tsalloc.copyToShape32(numNodes*5);
    nodes.set(ptr32,numNodes);
 
    tsalloc.checkGuard();
+   if (!tsalloc.guardsHeld())
+      return;
 
    ptr32 = tsalloc.copyToShape32(numObjects*6,true);
    if (!ptr32)
@@ -905,16 +911,22 @@ void TSShape::assembleShape()
    objects.set(ptr32,numObjects);
 
    tsalloc.checkGuard();
+   if (!tsalloc.guardsHeld())
+      return;
 
    // DEPRECATED decals
    ptr32 = tsalloc.getPointer32(numDecals*5);
 
    tsalloc.checkGuard();
+   if (!tsalloc.guardsHeld())
+      return;
 
    // DEPRECATED ifl materials
    ptr32 = tsalloc.copyToShape32(numIflMaterials*5);
 
    tsalloc.checkGuard();
+   if (!tsalloc.guardsHeld())
+      return;
 
    ptr32 = tsalloc.copyToShape32(numSubShapes,true);
    subShapeFirstNode.set(ptr32,numSubShapes);
@@ -924,6 +936,8 @@ void TSShape::assembleShape()
    ptr32 = tsalloc.getPointer32(numSubShapes);
 
    tsalloc.checkGuard();
+   if (!tsalloc.guardsHeld())
+      return;
 
    ptr32 = tsalloc.copyToShape32(numSubShapes);
    subShapeNumNodes.set(ptr32,numSubShapes);
@@ -933,6 +947,8 @@ void TSShape::assembleShape()
    ptr32 = tsalloc.getPointer32(numSubShapes);
 
    tsalloc.checkGuard();
+   if (!tsalloc.guardsHeld())
+      return;
 
    ptr32 = tsalloc.allocShape32(numSubShapes);
    subShapeFirstTranslucentObject.set(ptr32,numSubShapes);
@@ -961,6 +977,8 @@ void TSShape::assembleShape()
    tsalloc.align32();
 
    tsalloc.checkGuard();
+   if (!tsalloc.guardsHeld())
+      return;
 
    if (smReadVersion>21)
    {
@@ -980,6 +998,8 @@ void TSShape::assembleShape()
       tsalloc.align32();
 
       tsalloc.checkGuard();
+      if (!tsalloc.guardsHeld())
+         return;
    }
 
    // old shapes need ground transforms moved to ground arrays...but only do it once
@@ -1017,6 +1037,8 @@ void TSShape::assembleShape()
       tsalloc.align32();
 
       tsalloc.checkGuard();
+      if (!tsalloc.guardsHeld())
+         return;
    }
 
    // object states
@@ -1025,11 +1047,15 @@ void TSShape::assembleShape()
    tsalloc.allocShape32(numSkins*3); // provide buffer after objectStates for older shapes
 
    tsalloc.checkGuard();
+   if (!tsalloc.guardsHeld())
+      return;
 
    // DEPRECATED decal states
    ptr32 = tsalloc.getPointer32(numDecalStates);
 
    tsalloc.checkGuard();
+   if (!tsalloc.guardsHeld())
+      return;
 
    // frame triggers
    ptr32 = tsalloc.getPointer32(numTriggers*2);
@@ -1037,6 +1063,8 @@ void TSShape::assembleShape()
    dMemcpy(triggers.address(),ptr32,sizeof(S32)*numTriggers*2);
 
    tsalloc.checkGuard();
+   if (!tsalloc.guardsHeld())
+      return;
 
    // details
    if ( smReadVersion >= 26 )
@@ -1118,6 +1146,12 @@ void TSShape::assembleShape()
 
    tsalloc.checkGuard();
 
+
+   if (!tsalloc.guardsHeld())
+
+
+      return;
+
    // about to read in the meshes...first must allocate some scratch space
    S32 scratchSize = getMax(numSkins,numMeshes);
    TSMesh::smVertsList.setSize(scratchSize);
@@ -1196,6 +1230,8 @@ void TSShape::assembleShape()
    meshes.set(ptrmesh,numMeshes);
 
    tsalloc.checkGuard();
+   if (!tsalloc.guardsHeld())
+      return;
 
    // names
    char * nameBufferStart = (char*)tsalloc.getPointer8(0);
@@ -1216,6 +1252,8 @@ void TSShape::assembleShape()
    tsalloc.align32();
 
    tsalloc.checkGuard();
+   if (!tsalloc.guardsHeld())
+      return;
 
    if (smReadVersion<23)
    {
@@ -1224,6 +1262,8 @@ void TSShape::assembleShape()
       S32 * detailNumSkins = tsalloc.getPointer32(numDetails);
 
       tsalloc.checkGuard();
+      if (!tsalloc.guardsHeld())
+         return;
 
       // about to read in skins...clear out scratch space...
       if (numSkins)
@@ -1279,6 +1319,8 @@ void TSShape::assembleShape()
       }
 
       tsalloc.checkGuard();
+      if (!tsalloc.guardsHeld())
+         return;
 
       // we now have skins in mesh list...add skin objects to object list and patch things up
       fixupOldSkins(numMeshes,numSkins,numDetails,detailFirstSkin,detailNumSkins);
@@ -1526,6 +1568,195 @@ void TSShape::write(Stream * s, bool saveOldFormat)
 // read whole shape
 //-------------------------------------------------
 
+// HH: Added for Tribes 2 compatibility -- see the comment on the declaration.
+//
+// Every rule below is a transcription of an expression that appears somewhere
+// in this tree as a subscript, so the bound is the one the engine will
+// actually take rather than one that seemed reasonable.  The arithmetic in the
+// sequence cases is copied from the inline accessors in tsShape.h -- the
+// highest index they can form is base + count*numKeyframes - 1 -- because a
+// bound derived independently of the use is a second reading of the same
+// thing, and that is how two readings come to disagree while both look right.
+bool TSShape::checkIndexRanges() const
+{
+   const S32 numNodes = nodes.size();
+   const S32 numObjects = objects.size();
+   const S32 numNames = names.size();
+
+   // A fault is reported with the file's own numbers rather than as a verdict,
+   // because the next person to see one of these needs to know which array and
+   // by how much, and a line saying only "bad shape" has sent people looking
+   // in the reader.
+   // do/while so that it is one statement and cannot swallow a following
+   // `else`; see the note on the interior copy of this macro.
+   #define T2_WANT( cond, fmt, ... )                                           \
+      do {                                                                     \
+         if( !(cond) )                                                         \
+         {                                                                     \
+            Con::errorf( ConsoleLogEntry::General,                             \
+                         "Error: dts-shape index out of range: " fmt, ##__VA_ARGS__ ); \
+            return false;                                                      \
+         }                                                                     \
+      } while( false )
+
+   for( S32 i = 0; i < numNodes; i++ )
+   {
+      const Node &n = nodes[i];
+      T2_WANT( n.nameIndex >= 0 && n.nameIndex < numNames,
+               "node %d names %d of %d", i, n.nameIndex, numNames );
+      // -1 is the root's parent and is the only negative this means.
+      T2_WANT( n.parentIndex >= -1 && n.parentIndex < numNodes,
+               "node %d has parent %d of %d", i, n.parentIndex, numNodes );
+   }
+
+   for( S32 i = 0; i < numObjects; i++ )
+   {
+      const Object &o = objects[i];
+      T2_WANT( o.nameIndex >= 0 && o.nameIndex < numNames,
+               "object %d names %d of %d", i, o.nameIndex, numNames );
+      // An object on no node is -1, which TSShapeInstance tests for.
+      T2_WANT( o.nodeIndex >= -1 && o.nodeIndex < numNodes,
+               "object %d is on node %d of %d", i, o.nodeIndex, numNodes );
+      T2_WANT( o.numMeshes >= 0 && o.startMeshIndex >= 0 &&
+               o.startMeshIndex + o.numMeshes <= meshes.size(),
+               "object %d takes meshes %d..%d of %d", i, o.startMeshIndex,
+               o.startMeshIndex + o.numMeshes - 1, (S32)meshes.size() );
+   }
+
+   for( S32 i = 0; i < details.size(); i++ )
+   {
+      const Detail &d = details[i];
+      // A detail's subShapeNum is negative for a billboard detail, which names
+      // no sub-shape at all.
+      T2_WANT( d.subShapeNum < subShapeFirstNode.size(),
+               "detail %d names sub-shape %d of %d", i, d.subShapeNum,
+               (S32)subShapeFirstNode.size() );
+   }
+
+   for( S32 i = 0; i < subShapeFirstNode.size(); i++ )
+   {
+      T2_WANT( subShapeFirstNode[i] >= 0 && subShapeNumNodes[i] >= 0 &&
+               subShapeFirstNode[i] + subShapeNumNodes[i] <= numNodes,
+               "sub-shape %d takes nodes %d..%d of %d", i, subShapeFirstNode[i],
+               subShapeFirstNode[i] + subShapeNumNodes[i] - 1, numNodes );
+      T2_WANT( subShapeFirstObject[i] >= 0 && subShapeNumObjects[i] >= 0 &&
+               subShapeFirstObject[i] + subShapeNumObjects[i] <= numObjects,
+               "sub-shape %d takes objects %d..%d of %d", i,
+               subShapeFirstObject[i],
+               subShapeFirstObject[i] + subShapeNumObjects[i] - 1, numObjects );
+   }
+
+   // defaultRotations and defaultTranslations are indexed by node throughout.
+   T2_WANT( defaultRotations.size() >= numNodes,
+            "%d default rotations for %d nodes", (S32)defaultRotations.size(), numNodes );
+   T2_WANT( defaultTranslations.size() >= numNodes,
+            "%d default translations for %d nodes", (S32)defaultTranslations.size(), numNodes );
+
+   for( S32 i = 0; i < sequences.size(); i++ )
+   {
+      const Sequence &seq = sequences[i];
+
+      T2_WANT( seq.numKeyframes >= 0, "sequence %d has %d keyframes", i, seq.numKeyframes );
+
+      // Every count below is `count(numNodes)` or `count(numObjects)` rather
+      // than `count()`, and that is the whole difference between a bound and a
+      // guess.  TSShapeInstance walks a matters set from `start()` to the
+      // sub-shape's node bound, never to the end of the set, incrementing the
+      // array index once per step -- so the largest index it can form is the
+      // number of bits *below the node count*, and bits above it are simply
+      // never reached.  Counting the whole set instead refused four shipped
+      // shapes that are perfectly legal.
+
+      // getRotation: nodeRotations[base + rotNum*numKeyframes + keyframeNum],
+      // with rotNum running 0..count-1.  The base is only addressed when
+      // something addresses it: a sequence that animates no rotations carries
+      // whatever base the exporter left, and two shipped shapes carry a
+      // negative one.
+      const S32 rots = seq.rotationMatters.count( numNodes ) * seq.numKeyframes;
+      T2_WANT( rots == 0 || ( seq.baseRotation >= 0 &&
+               seq.baseRotation + rots <= nodeRotations.size() ),
+               "sequence %d takes rotations %d..%d of %d", i, seq.baseRotation,
+               seq.baseRotation + rots - 1, (S32)nodeRotations.size() );
+
+      const S32 trans = seq.translationMatters.count( numNodes ) * seq.numKeyframes;
+      T2_WANT( trans == 0 || ( seq.baseTranslation >= 0 &&
+               seq.baseTranslation + trans <= nodeTranslations.size() ),
+               "sequence %d takes translations %d..%d of %d", i,
+               seq.baseTranslation, seq.baseTranslation + trans - 1,
+               (S32)nodeTranslations.size() );
+
+      // Which of the three scale arrays is addressed is the sequence's own
+      // flags, and all three are indexed by the same expression.
+      if( seq.animatesScale() )
+      {
+         const S32 scales = seq.scaleMatters.count( numNodes ) * seq.numKeyframes;
+         S32 have = 0;
+         if( seq.animatesUniformScale() )
+            have = nodeUniformScales.size();
+         else if( seq.animatesAlignedScale() )
+            have = nodeAlignedScales.size();
+         else
+            have = getMin( (S32)nodeArbitraryScaleRots.size(),
+                           (S32)nodeArbitraryScaleFactors.size() );
+
+         T2_WANT( scales == 0 || ( seq.baseScale >= 0 && seq.baseScale + scales <= have ),
+                  "sequence %d takes scales %d..%d of %d", i, seq.baseScale,
+                  seq.baseScale + scales - 1, have );
+      }
+
+      // getObjectState: objectStates[base + objectNum*numKeyframes + frame].
+      // The object count is the union of the three object sets rather than any
+      // one of them, which is what TSShapeInstance walks.
+      TSIntegerSet objectsAnimated = seq.visMatters;
+      objectsAnimated.overlap( seq.frameMatters );
+      objectsAnimated.overlap( seq.matFrameMatters );
+      const S32 states = objectsAnimated.count( numObjects ) * seq.numKeyframes;
+      T2_WANT( states == 0 || ( seq.baseObjectState >= 0 &&
+               seq.baseObjectState + states <= objectStates.size() ),
+               "sequence %d takes object states %d..%d of %d", i,
+               seq.baseObjectState, seq.baseObjectState + states - 1,
+               (S32)objectStates.size() );
+
+      // Deliberately not checked: firstGroundFrame and numGroundFrames, which
+      // is the most tempting rule here and the most wrong.  TSThread::getGround
+      // does index both ground arrays by first + frame, so the bound reads as
+      // obvious -- and seventeen of the shapes this game ships declare ground
+      // frames with both arrays empty, light_male.dts among them, which is
+      // every human player in the game.
+      //
+      // They are not malformed.  A sequence carries these at every file
+      // version but assembleShape only fills the arrays for version 24 and up,
+      // so a version 22 or 23 shape naming ground frames it does not have is
+      // what this format looks like when it is correct.  The guard that
+      // belongs there is at the use, and TSShapeInstance::animateGround
+      // already has it.
+      //
+      // Written down rather than deleted because the next person to read
+      // getGround will derive this rule again in about a minute.
+
+      T2_WANT( seq.numTriggers >= 0 && seq.firstTrigger >= 0 &&
+               seq.firstTrigger + seq.numTriggers <= triggers.size(),
+               "sequence %d takes triggers %d..%d of %d", i, seq.firstTrigger,
+               seq.firstTrigger + seq.numTriggers - 1, (S32)triggers.size() );
+
+      T2_WANT( seq.nameIndex >= 0 && seq.nameIndex < numNames,
+               "sequence %d names %d of %d", i, seq.nameIndex, numNames );
+   }
+
+   // Deliberately not checked: Trigger::state.  It looks like the fourth of
+   // the crash sites -- getTriggerState turns a state number into `1 << n`,
+   // which is undefined for n past the word -- but the number it shifts comes
+   // from script, not from the file.  What the file holds reaches
+   // setTriggerStateBit through `state & StateMask`, where it is already a bit
+   // mask and is OR'd into a U32: there is no index and no shift, and no value
+   // of those thirty bits is out of range.  A rule here would have refused
+   // valid shapes to guard an expression the format cannot reach.
+
+   #undef T2_WANT
+
+   return true;
+}
+
 bool TSShape::read(Stream * s)
 {
    // read version - read handles endian-flip
@@ -1550,7 +1781,14 @@ bool TSShape::read(Stream * s)
    {
       // HH: Modified for Tribes 2 compatibility.
       // Tribes 2's own shapes are version 18.
-      readOldShape(s,memBuffer32,memBuffer16,memBuffer8,count32,count16,count8);
+      if (!readOldShape(s,memBuffer32,memBuffer16,memBuffer8,count32,count16,count8))
+      {
+         Con::errorf(ConsoleLogEntry::General,
+                     "Error: version %d dts-shape names more than it holds.",
+                     mReadVersion);
+         delete [] memBuffer32;
+         return false;
+      }
    }
    else
    {
@@ -1602,6 +1840,19 @@ bool TSShape::read(Stream * s)
 
    tsalloc.setRead(memBuffer32,memBuffer16,memBuffer8,true);
    assembleShape(); // determine size of buffer needed
+   // HH: Modified for Tribes 2 compatibility.
+   // A guard word that did not turn up means the buffers and the reader have
+   // parted company, and the counts from here on belong to something else.
+   // Refuse the shape: losing one is a great deal better than assembling it
+   // out of whatever came next and indexing on the result.
+   if (!tsalloc.guardsHeld())
+   {
+      Con::errorf(ConsoleLogEntry::General,
+                  "Error: version %d dts-shape is not laid out as this reader expects.",
+                  mReadVersion);
+      delete [] memBuffer32;
+      return false;
+   }
    mShapeDataSize = tsalloc.getSize();
    tsalloc.doAlloc();
    mShapeData = tsalloc.getBuffer();
@@ -1610,6 +1861,13 @@ bool TSShape::read(Stream * s)
    AssertFatal(tsalloc.getSize()==mShapeDataSize,"TSShape::read: shape data buffer size mis-calculated");
 
    delete [] memBuffer32;
+
+   // HH: Added for Tribes 2 compatibility.
+   // After the copy, because the arrays it checks are only populated by the
+   // second assembleShape, and before init(), which walks the node tree by
+   // parentIndex and is itself one of the readers these indices reach.
+   if (!checkIndexRanges())
+      return false;
 
    if (smInitOnRead)
       init();

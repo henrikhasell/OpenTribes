@@ -84,6 +84,13 @@ class TSShapeAlloc
    S16 mSaveGuard16;
    S8 mSaveGuard8;
 
+   /// HH: Added for Tribes 2 compatibility.
+   /// Whether every guard word so far has turned up where it was expected.
+   /// Sticky, because the first mismatch is the only informative one: past it
+   /// the buffers are out of step and every count read from them is somebody
+   /// else's data.
+   bool mGuardsHeld;
+
    /// reading only...this is the output
    S8 * mDest;
    S32 mSize;
@@ -151,6 +158,9 @@ class TSShapeAlloc
 
    void checkGuard();
    void setGuard();
+
+   /// HH: Added for Tribes 2 compatibility.
+   bool guardsHeld() const { return mGuardsHeld; }
 };
 
 #endif // _H_TS_SHAPE_ALLOC_

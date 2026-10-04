@@ -565,7 +565,30 @@ class TSShape
    bool canWriteOldFormat() const;
    void write(Stream *, bool saveOldFormat=false);
    bool read(Stream *);
-   void readOldShape(Stream * s, S32 * &, S16 * &, S8 * &, S32 &, S32 &, S32 &);
+
+   /// HH: Does every index this shape carries land inside the array it
+   /// addresses?
+   ///
+   /// A .dts is a set of flat arrays plus integers that index them, and the
+   /// two are written independently.  Nothing in the format makes them agree,
+   /// and every use of them in this tree is `Vector::operator[]`, whose bounds
+   /// check is an `AssertFatal` -- so in a Release build an index the file got
+   /// wrong is a raw read at an address derived from file data.
+   ///
+   /// The layout guard above catches a reader that has lost its place in the
+   /// buffer.  It cannot catch a buffer that reads perfectly and then says its
+   /// third sequence's rotations begin past the end of the rotation array,
+   /// which is the same class of fault one step later and is the one that
+   /// reaches `getRotation`.
+   ///
+   /// Checked once here rather than at each use, for the reason the guard
+   /// word is: a shape whose indices do not fit its own arrays is not a shape
+   /// this engine can draw, and refusing it costs one file where guarding a
+   /// hundred call sites costs every frame and still leaves whichever was
+   /// missed.
+   bool checkIndexRanges() const;
+   /// HH: false when the file asked for more than it holds; nothing read.
+   bool readOldShape(Stream * s, S32 * &, S16 * &, S8 * &, S32 &, S32 &, S32 &);
    void rearrangeKeyframeData(Sequence & seq, S32 startKeyframe, U8 * pRot, U8 * pTrans, U8 * pos, U8 * pds, S32 rotSize, S32 tranSize, S32 osSize, S32 dsSize);
    void rearrangeStates(S32 start, S32 a, S32 b, U8 * dat, S32 size);
    void writeName(Stream *, S32 nameIndex);
