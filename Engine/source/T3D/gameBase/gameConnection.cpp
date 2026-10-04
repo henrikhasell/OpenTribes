@@ -154,6 +154,35 @@ IMPLEMENT_CALLBACK( GameConnection, onDataBlocksDone, void, (U32 sequence), (seq
    "the server every time a mission is loaded.\n\n"
    "@see GameConnection::transmitDataBlocks()\n\n");
 
+// HH: Added for Tribes 2 compatibility.  Tribes 2 declares the handlers that
+// put up the disconnect dialog as global functions in scripts/client.cs, and a
+// method callback on the connection reaches only the GameConnection namespace,
+// so none of them were being called.  Two of these names are also method
+// callbacks on GameConnection, which would win unqualified name lookup inside a
+// member function and silently restore that fault, so every call below is
+// written ::name_callback.
+IMPLEMENT_GLOBAL_CALLBACK( onConnectionToServerTimedOut, void, (), (),
+   "@brief Called on the client when an established connection times out.\n\n" );
+
+IMPLEMENT_GLOBAL_CALLBACK( onConnectRequestTimedOut, void, (), (),
+   "@brief Called on the client when a connect request is never answered.\n\n" );
+
+IMPLEMENT_GLOBAL_CALLBACK( onConnectionToServerLost, void, (const char *reason), (reason),
+   "@brief Called on the client when an established connection is lost.\n\n"
+   "@param reason Why the server dropped us; empty for a drop that carried no "
+   "reason.\n\n" );
+
+IMPLEMENT_GLOBAL_CALLBACK( onConnectRequestRejected, void, (const char *reason), (reason),
+   "@brief Called on the client when the server refuses a connect request.\n\n"
+   "@param reason The server's refusal code.\n\n" );
+
+IMPLEMENT_GLOBAL_CALLBACK( onChallengeRequestRejected, void, (const char *reason), (reason),
+   "@brief Called on the client when the server refuses the challenge, before a "
+   "connect request is sent.\n\n"
+   "@param reason A CHR_ code; CHR_PASSWORD asks for a password rather than "
+   "reporting an error.\n\n" );
+
+
 IMPLEMENT_GLOBAL_CALLBACK( onDataBlockObjectReceived, void, (U32 index, U32 total), (index, total),
    "@brief Called on the client each time a datablock has been received.\n\n"
    "This callback is typically used to notify the player of how far along "
@@ -327,17 +356,13 @@ ConsoleFunction(disconnect, void, 1, 1, "disconnect();")
       conn->deleteObject();
 }
 
-// HH: Added for Tribes 2 compatibility.  Tribes 2 draws these dialogs from
-// global functions in scripts/client.cs, and a method callback on the
-// connection never reaches the global namespace, so every one of its
-// handlers was dead code here.  The method callbacks stay beside them.
 void GameConnection::onTimedOut()
 {
    if(isConnectionToServer())
    {
       Con::printf("Connection to server timed out");
       onConnectionTimedOut_callback();
-      Con::executef("onConnectionToServerTimedOut");
+      ::onConnectionToServerTimedOut_callback();
    }
    else
    {
@@ -392,7 +417,7 @@ void GameConnection::onConnectionEstablished(bool isInitiator)
 void GameConnection::onConnectTimedOut()
 {
    onConnectRequestTimedOut_callback();
-   Con::executef("onConnectRequestTimedOut");
+   ::onConnectRequestTimedOut_callback();
 }
 
 void GameConnection::onDisconnect(const char *reason)
@@ -404,7 +429,7 @@ void GameConnection::onDisconnect(const char *reason)
       // Tribes 2 substitutes its own wording when the reason is empty, which
       // is what an ordinary timeout-shaped drop sends, so the empty string is
       // passed through rather than filtered here.
-      Con::executef("onConnectionToServerLost", reason);
+      ::onConnectionToServerLost_callback(reason);
       mMoveList->init();
    }
    else
@@ -417,7 +442,7 @@ void GameConnection::onDisconnect(const char *reason)
 void GameConnection::onConnectionRejected(const char *reason)
 {
    onConnectRequestRejected_callback(reason);
-   Con::executef("onConnectRequestRejected", reason);
+   ::onConnectRequestRejected_callback(reason);
 }
 
 /// HH: Added for Tribes 2 compatibility.  The challenge rejected, which Tribes
@@ -426,7 +451,7 @@ void GameConnection::onConnectionRejected(const char *reason)
 void GameConnection::onConnectionChallengeRejected(const char *reason)
 {
    onConnectRequestRejected_callback(reason);
-   Con::executef("onChallengeRequestRejected", reason);
+   ::onChallengeRequestRejected_callback(reason);
 }
 
 void GameConnection::handleStartupError(const char *errorString)
@@ -532,7 +557,7 @@ void GameConnection::connectionError(const char *errorString)
       // Tribes 2 has no handler of its own for a packet error: the connection
       // is being deleted either way, so the player is told the connection was
       // lost and given the engine's string as the reason.
-      Con::executef("onConnectionToServerLost", errorString);
+      ::onConnectionToServerLost_callback(errorString);
    }
    else
    {
