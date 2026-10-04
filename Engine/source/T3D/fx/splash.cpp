@@ -304,6 +304,9 @@ bool SplashData::preload(bool server, String &errorStr)
 //--------------------------------------------------------------------------
 Splash::Splash()
 {
+   // Shadows GameBase's mDataBlock and was not initialised; see Projectile.
+   mDataBlock = NULL;
+
    dMemset( mEmitterList, 0, sizeof( mEmitterList ) );
 
    mDelayMS = 0;

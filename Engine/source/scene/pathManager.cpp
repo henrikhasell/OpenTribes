@@ -87,7 +87,14 @@ class PathManagerEvent : public NetEvent
 
   public:
    typedef NetEvent Parent;
-   PathManagerEvent() { }
+   /// process() branches on clearPaths and loops to modifiedPath, and neither
+   /// was initialised: an event whose unpack did not reach them ran on whatever
+   /// the heap held.
+   PathManagerEvent()
+      : modifiedPath( 0 ),
+        clearPaths( false )
+   {
+   }
 
    void pack(NetConnection*, BitStream*);
    void write(NetConnection*, BitStream*);

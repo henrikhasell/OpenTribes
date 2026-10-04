@@ -343,6 +343,9 @@ void LightningData::unpackData(BitStream* stream)
 //
 Lightning::Lightning()
 {
+   // Shadows GameBase's mDataBlock and was not initialised; see Projectile.
+   mDataBlock = NULL;
+
    mNetFlags.set(Ghostable|ScopeAlways);
    mTypeMask |= StaticObjectType|EnvironmentObjectType;
 

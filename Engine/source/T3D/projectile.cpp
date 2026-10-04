@@ -552,7 +552,12 @@ S32 ProjectileData::scaleValue( S32 value, bool down )
 //--------------------------------------
 //
 Projectile::Projectile()
- : mPhysicsWorld( NULL ),
+ // Projectile declares its own ProjectileData* mDataBlock, shadowing
+ // GameBase's -- which GameBase does initialise -- and this was the only
+ // pointer member here that no constructor set.  Garbage is not null, so every
+ // `if (mDataBlock)` guard in this file passed straight through it.
+ : mDataBlock( NULL ),
+   mPhysicsWorld( NULL ),
    mCurrPosition( 0, 0, 0 ),
    mCurrVelocity( 0, 0, 1 ),
    mSourceObjectId( -1 ),
