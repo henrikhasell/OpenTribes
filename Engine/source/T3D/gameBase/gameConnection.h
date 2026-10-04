@@ -121,6 +121,8 @@ public:
       ObserverFacesDirection = 2, ///< A direction follows instead.
       TargetWordBits = 4,         ///< Which word of client targets went dirty.
    };
+   static_assert( DataBlocksDownloadDone < NetConnection::SendNextDownloadRequest,
+                  "GameConnection's messages must stay below the download pair" );
 
    /// Set connection arguments; these are passed to the server when we connect.
    void setConnectArgs(U32 argc, const char **argv);

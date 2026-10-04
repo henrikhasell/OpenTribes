@@ -775,9 +775,9 @@ protected:
       ReadyForNormalGhosts,
       EndGhosting,
       GhostAlwaysStarting,
-      SendNextDownloadRequest,
-      FileDownloadSizeMessage,
       NumConnectionMessages,
+      SendNextDownloadRequest = 6,
+      FileDownloadSizeMessage,
    };
    GhostInfo **mGhostArray;    ///< Linked list of ghostInfos ghosted by this side of the connection
 
