@@ -28,6 +28,7 @@
 #include "scene/sceneRenderState.h"
 #include "scene/zones/sceneRootZone.h"
 #include "scene/zones/sceneZoneSpace.h"
+#include "sim/netObject.h"   // HH: Added for Tribes 2 compatibility.
 #include "lighting/lightManager.h"
 #include "renderInstance/renderPassManager.h"
 #include "gfx/gfxDevice.h"
@@ -63,6 +64,13 @@ MODULE_BEGIN( Scene )
 
       Con::addVariable( "$Scene::disableTerrainOcclusion", TypeBool, &SceneCullingState::smDisableTerrainOcclusion,
          "Used to disable the somewhat expensive terrain occlusion testing.\n"
+         "@ingroup Rendering\n" );
+
+      // HH: Added for Tribes 2 compatibility.
+      Con::addVariable( "$Scene::clientSideObjects", TypeBool, &NetObject::smForceClientObjects,
+         "Register objects the console creates as client objects rather than server ones, so a "
+         "scene assembled by a harness is built for drawing and lands in the scene the renderer "
+         "looks at.\n\n"
          "@ingroup Rendering\n" );
 
       Con::addVariable( "$Scene::disableZoneCulling", TypeBool, &SceneCullingState::smDisableZoneCulling,
