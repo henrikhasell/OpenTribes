@@ -116,7 +116,11 @@ public:
 
    F32 mRadius;
    ColorF mColor;
-   F32 mType;        ///< A float on the wire, though it counts kinds.
+   /// An integer on the wire, not a float.  The scripts set `type = 1` on
+   /// ShrikeLight1 and `type = 2` on WildcatLight3, and the bits that arrive
+   /// are 0x00000001 and 0x00000002 -- read as floats those are the denormals
+   /// 1.4013e-45 and 2.8026e-45, which is how the mistake showed.
+   S32 mType;
    F32 mLength;
    StringTableEntry mNodeName;   ///< The shape node the light rides on.
    Point3F mDirection;

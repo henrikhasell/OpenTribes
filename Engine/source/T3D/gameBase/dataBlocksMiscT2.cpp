@@ -134,14 +134,17 @@ void RunningLightData::readT2Fields( T2Reader &reader )
    T2Fields f( reader );
 
    ColorI packed;
+   U32 type = 0;
    if( !f.takeRawFloat( mRadius ) ||
        !f.takeColor( packed ) ||
-       !f.takeRawFloat( mType ) ||
+       !f.takeInt( 32, type ) ||
        !f.takeRawFloat( mLength ) ||
        !takeName( f, mNodeName ) ||
        !f.takeRawPoint( mDirection ) ||
        !f.takeRawPoint( mOffset ) )
       return;
+
+   mType = S32( type );
 
    // Four bytes on the wire; the game holds it as a ColorF.
    mColor = packed;
