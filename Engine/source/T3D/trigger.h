@@ -39,6 +39,7 @@
 class Convex;
 class PhysicsBody;
 class Trigger;
+class T2Fields;   // HH: Added for Tribes 2 compatibility.
 
 DefineConsoleType( TypeTriggerPolyhedron, Polyhedron )
 
@@ -62,6 +63,7 @@ struct TriggerData: public GameBaseData {
    static void initPersistFields();
    virtual void packData  (BitStream* stream);
    virtual void unpackData(BitStream* stream);
+   void readT2Fields(T2Reader &reader);   // HH: Added for Tribes 2 compatibility.
 };
 
 class Trigger : public GameBase
@@ -131,6 +133,8 @@ class Trigger : public GameBase
    // NetObject
    U32  packUpdate  (NetConnection *conn, U32 mask, BitStream* stream);
    void unpackUpdate(NetConnection *conn,           BitStream* stream);
+   void readT2Fields(T2Reader &reader);   // HH: Added for Tribes 2 compatibility.
+   bool _readT2Polyhedron(T2Fields &fields, Polyhedron &out);   // HH: ditto
 
    // SceneObject
    void setTransform(const MatrixF &mat);

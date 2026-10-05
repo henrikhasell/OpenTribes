@@ -34,6 +34,7 @@
 #endif
 
 class Convex;
+class T2Fields;   // HH: Added for Tribes 2 compatibility.
 
 
 class PhysicalZone : public SceneObject
@@ -76,6 +77,8 @@ class PhysicalZone : public SceneObject
    // NetObject
    U32  packUpdate  (NetConnection *conn, U32 mask, BitStream *stream);
    void unpackUpdate(NetConnection *conn,           BitStream *stream);
+   void readT2Fields(T2Reader &reader);   // HH: Added for Tribes 2 compatibility.
+   void _readT2Volume(T2Fields &fields);  // HH: Added for Tribes 2 compatibility.
 
    // SceneObject
    void setTransform(const MatrixF &mat);

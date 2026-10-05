@@ -36,6 +36,9 @@
 #include "T3D/physics/physicsPlugin.h"
 #include "T3D/physics/physicsBody.h"
 #include "T3D/physics/physicsCollision.h"
+#include "T3D/gameBase/t2Fields.h"
+#include "T3D/gameBase/t2Affine.h"
+#include "T3D/gameBase/t2Layout.h"
 
 
 bool Trigger::smRenderTriggers = false;
@@ -125,6 +128,24 @@ void TriggerData::unpackData(BitStream* stream)
    Parent::unpackData(stream);
    stream->read(&tickPeriodMS);
    stream->read(&isClientSide);
+}
+
+/// HH: Added for Tribes 2 compatibility.
+///
+/// One word, and it is the word that matters: how often a trigger asks who is
+/// standing in it.  processTick() reads it straight off this datablock, so
+/// taking it is the whole of the work.
+///
+/// isClientSide is not sent.  Tribes 2 runs its triggers on the server and
+/// ghosts them so a client knows where they are, which is what the constructed
+/// default of false already says -- so the enter and leave callbacks stay the
+/// server's, as that engine intends.
+void TriggerData::readT2Fields(T2Reader &reader)
+{
+   Parent::readT2Fields(reader);
+
+   T2Fields f(reader);
+   f.takeInt(32, tickPeriodMS);
 }
 
 
@@ -817,6 +838,138 @@ void Trigger::unpackUpdate(NetConnection* con, BitStream* stream)
       stream->readLongString(CMD_SIZE-1, buf);
       mTickCommand = buf;
    }
+}
+
+//-----------------------------------------------------------------------------
+
+/// HH: Added for Tribes 2 compatibility.
+///
+/// Which node of Trigger's layout each of the polyhedron's three lists starts
+/// at, resolved once per class rather than per packet: the lookup is a string
+/// search and a ghost body arrives as often as packets do.
+///
+/// The counts that separate the three lists are read by the cursor to bound
+/// the loops, so they are not fields a class can see, and every word of all
+/// three is a thirty-two bit word -- which leaves the node the cursor stands on
+/// as the only thing that says which list it is in.  Tools/t2/handlayout.py
+/// names them where it writes the layout, so these are the generator's numbers
+/// rather than this file's.
+struct TriggerT2Nodes
+{
+   U32 point, plane, edge, transformSign;
+};
+
+static const TriggerT2Nodes *t2NodesFor( const char *className )
+{
+   static const char *sName = NULL;
+   static TriggerT2Nodes sNodes;
+
+   if ( !sName || dStrcmp( sName, className ) )
+   {
+      sNodes.point = T2Layout::ghostNode( className, "point" );
+      sNodes.plane = T2Layout::ghostNode( className, "plane" );
+      sNodes.edge  = T2Layout::ghostNode( className, "edge" );
+      sNodes.transformSign =
+         T2Layout::ghostNode( className, "transformSign" );
+      sName = className;
+   }
+
+   return &sNodes;
+}
+
+/// HH: Added for Tribes 2 compatibility.
+///
+/// The three counted lists of a polyhedron: the points, the planes as a normal
+/// and a distance, and the winged edges as two plane indices and two point
+/// indices.  False unless all three ran to their end, the test being that the
+/// cursor left the last list -- a volume with five of its eight points and no
+/// planes is one the server never described, and half a volume is worse than
+/// none.
+bool Trigger::_readT2Polyhedron( T2Fields &f, Polyhedron &out )
+{
+   const TriggerT2Nodes *n = t2NodesFor( getClassName() );
+
+   while ( f.atNode( n->point ) )
+   {
+      Point3F point;
+      if ( !f.takeRawPoint( point ) )
+         return false;
+      out.pointList.push_back( point );
+   }
+
+   while ( f.atNode( n->plane ) )
+   {
+      PlaneF plane;
+      if ( !f.takeRawFloat( plane.x ) || !f.takeRawFloat( plane.y ) ||
+           !f.takeRawFloat( plane.z ) || !f.takeRawFloat( plane.d ) )
+         return false;
+      out.planeList.push_back( plane );
+   }
+
+   while ( f.atNode( n->edge ) )
+   {
+      Polyhedron::Edge edge;
+      if ( !f.takeInt( 32, edge.face[0] )   || !f.takeInt( 32, edge.face[1] ) ||
+           !f.takeInt( 32, edge.vertex[0] ) || !f.takeInt( 32, edge.vertex[1] ) )
+         return false;
+      out.edgeList.push_back( edge );
+   }
+
+   return !f.atNode( n->point ) && !f.atNode( n->plane ) && !f.atNode( n->edge );
+}
+
+/// HH: Added for Tribes 2 compatibility.
+///
+/// How a mission notices somebody walking somewhere.  A Tribes 2 trigger sends
+/// its datablock, its place and the volume that is the trigger itself, and it
+/// sends all of it on every update: there is not one flag of its own in the
+/// function this came from, where this tree's own Trigger::unpackUpdate gates
+/// the transform and the polyhedron behind mask bits.
+///
+/// The volume is the object.  setTriggerPolyhedron() turns it into the object
+/// box and the clipped plane list that testObject() asks who is standing
+/// inside, so handing it over is what makes a decoded trigger a trigger rather
+/// than an empty place in the container.  Whether this client ticks it is the
+/// datablock's business and Tribes 2's answer is no -- see
+/// TriggerData::readT2Fields.
+///
+/// The datablock and the target id are GameBase's and arrive through
+/// Parent::readT2Fields, which hands the datablock to onNewDataBlock for us.
+void Trigger::readT2Fields( T2Reader &reader )
+{
+   Parent::readT2Fields( reader );
+
+   T2Fields f( reader );
+
+   // readAffineTransform: a position, three quaternion terms, and the sign of
+   // the fourth as a flag.  The sign is taken after every field below, which
+   // is the only order that works -- a flag is readable once the cursor has
+   // gone past it and no sooner, and this one sits in front of the scale and
+   // the volume.
+   Point3F pos, axis, scale;
+   if ( !f.takeRawPoint( pos ) || !f.takeRawPoint( axis ) )
+      return;
+
+   if ( !f.takeRawPoint( scale ) )
+      return;
+
+   Polyhedron poly;
+   const bool whole = _readT2Polyhedron( f, poly );
+
+   bool negative = false;
+   takeT2Flag( f, t2NodesFor( getClassName() )->transformSign, negative );
+
+   MatrixF mat;
+   t2AffineMatrix( pos, axis, negative, mat );
+
+   // Scale first, then the transform, then the volume: setTriggerPolyhedron()
+   // builds its clipped list from the scale and the world transform, so it has
+   // to be the last of the three to be told.
+   setScale( scale );
+   setTransform( mat );
+
+   if ( whole )
+      setTriggerPolyhedron( poly );
 }
 
 //ConsoleMethod( Trigger, getNumObjects, S32, 2, 2, "")

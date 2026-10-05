@@ -41,6 +41,8 @@ struct StaticShapeData: public ShapeBaseData {
    F32   energyPerDamagePoint;
 
    //
+   void readT2Fields( T2Reader &reader );   // HH: Added for Tribes 2 compatibility.
+
    DECLARE_CONOBJECT(StaticShapeData);
    static void initPersistFields();
    virtual void packData(BitStream* stream);
@@ -81,6 +83,7 @@ public:
 
    U32  packUpdate  (NetConnection *conn, U32 mask, BitStream *stream);
    void unpackUpdate(NetConnection *conn,           BitStream *stream);
+   void readT2Fields( T2Reader &reader );   // HH: Added for Tribes 2 compatibility.
 
    // power
    void setPowered(bool power)      {mPowered = power;}

@@ -29,6 +29,13 @@ class ScopeAlwaysShape : public StaticShape
    public:
       ScopeAlwaysShape();
       static void initPersistFields();
+
+      /// HH: Added for Tribes 2 compatibility.  The same body AIObjective
+      /// reads, through the same reader: the two layouts are byte-identical
+      /// and both are StaticShape's reading unchanged.  See
+      /// T3D/gameBase/aiObjectiveT2.h.
+      void readT2Fields(T2Reader& reader);
+
       DECLARE_CONOBJECT(ScopeAlwaysShape);
 };
 
@@ -41,6 +48,14 @@ ScopeAlwaysShape::ScopeAlwaysShape()
 void ScopeAlwaysShape::initPersistFields()
 {
    Parent::initPersistFields();
+}
+
+void ScopeAlwaysShape::readT2Fields(T2Reader& reader)
+{
+   // StaticShape's body: ShapeBase's, then where it stands and whether it
+   // has power.  Qualified because this class's own override is what is
+   // running; Parent::readT2Fields would come straight back here.
+   StaticShape::readT2Fields( reader );
 }
 
 IMPLEMENT_CO_NETOBJECT_V1(ScopeAlwaysShape);

@@ -32,6 +32,8 @@
 #include "renderInstance/renderPassManager.h"
 #include "gfx/gfxDrawUtil.h"
 #include "console/engineAPI.h"
+#include "T3D/gameBase/t2Fields.h"
+#include "T3D/gameBase/t2Layout.h"
 
 IMPLEMENT_CO_NETOBJECT_V1(PhysicalZone);
 
@@ -329,6 +331,147 @@ void PhysicalZone::unpackUpdate(NetConnection* con, BitStream* stream)
 
 
 //--------------------------------------------------------------------------
+/// HH: Added for Tribes 2 compatibility.
+///
+/// The nodes of this class's layout that name a field no shape can, resolved
+/// once per class rather than per packet: the lookup is a string search and a
+/// ghost body arrives as often as packets do.
+///
+/// A Tribes 2 zone sends its volume as three lists of thirty-two bit words one
+/// after another -- points, then planes, then winged edges -- and the counts
+/// that separate them are read by the cursor to bound the loops, so they are
+/// not fields a class can see.  What tells a point from a plane from an edge is
+/// which node of the layout the cursor stands on: each list's first word has
+/// one of its own, and an iteration returns to it.  The flags are here for the
+/// same reason, a flag never being a field.
+///
+/// Tools/t2/handlayout.py names them where it writes the layout, so these are
+/// the generator's numbers rather than this file's -- which is the difference
+/// between a regeneration that moves one being a diff to follow and being a
+/// silent misread.
+struct PhysicalZoneT2Nodes
+{
+   U32 point, plane, edge, velocityMod, active, initial;
+};
+
+static const PhysicalZoneT2Nodes *t2NodesFor( const char *className )
+{
+   static const char *sName = NULL;
+   static PhysicalZoneT2Nodes sNodes;
+
+   if ( !sName || dStrcmp( sName, className ) )
+   {
+      sNodes.point       = T2Layout::ghostNode( className, "point" );
+      sNodes.plane       = T2Layout::ghostNode( className, "plane" );
+      sNodes.edge        = T2Layout::ghostNode( className, "edge" );
+      sNodes.velocityMod = T2Layout::ghostNode( className, "velocityMod" );
+      sNodes.active      = T2Layout::ghostNode( className, "active" );
+      sNodes.initial     = T2Layout::ghostNode( className, "initial" );
+      sName = className;
+   }
+
+   return &sNodes;
+}
+
+/// HH: Added for Tribes 2 compatibility.
+///
+/// Where you are pushed, slowed or made light.  The whole of a Tribes 2
+/// physical zone: the transform and scale that place it, the polyhedron that
+/// is its volume, the two modifiers and the force it applies, and whether it
+/// is switched on.
+///
+/// Read in the order the server writes it, which is the order
+/// PhysicalZone::unpackUpdate below reads it in -- the two functions share an
+/// ancestor -- so this hands the fields to the same three calls.  The
+/// polyhedron goes in only when the body ran whole, the test being that the
+/// cursor reached the modifiers behind it: five points of eight and no planes
+/// would be a volume the server never described, where no polyhedron at all is
+/// merely a zone that enforces nothing.  The transform is applied either way,
+/// since it arrives in front of the lists and cannot be made wrong by them.
+void PhysicalZone::readT2Fields(T2Reader &reader)
+{
+   Parent::readT2Fields(reader);
+
+   T2Fields f(reader);
+
+   const PhysicalZoneT2Nodes *n = t2NodesFor(getClassName());
+
+   bool initial = false;
+   if(f.takeFlag(n->initial, initial) && initial)
+      _readT2Volume(f);
+
+   // Last rather than first, which is the one thing about reading a flag that
+   // is not obvious: a flag is there to be read once the cursor has passed it,
+   // and this one sits behind every field in the body.  Taken at the top it
+   // would arrive only on an update body, where there is no field at all and
+   // the cursor resolved both flags running to the end looking for one.
+   f.takeFlag(n->active, mActive);
+}
+
+/// HH: Added for Tribes 2 compatibility.
+///
+/// The initial body: the place, the volume, and what the zone does to what is
+/// inside it.  Split out so that the flag behind all of it has one place to be
+/// taken from however far down this gets.
+void PhysicalZone::_readT2Volume(T2Fields &f)
+{
+   const PhysicalZoneT2Nodes *n = t2NodesFor(getClassName());
+
+   MatrixF mat;
+   F32 *m = mat;
+   for(U32 i = 0; i < 16; i++)
+      if(!f.takeRawFloat(m[i]))
+         return;
+
+   Point3F scale;
+   if(!f.takeRawPoint(scale))
+      return;
+
+   Polyhedron poly;
+
+   while(f.atNode(n->point))
+   {
+      Point3F point;
+      if(!f.takeRawPoint(point))
+         break;
+      poly.pointList.push_back(point);
+   }
+
+   while(f.atNode(n->plane))
+   {
+      PlaneF plane;
+      if(!f.takeRawFloat(plane.x) || !f.takeRawFloat(plane.y) ||
+         !f.takeRawFloat(plane.z) || !f.takeRawFloat(plane.d))
+         break;
+      poly.planeList.push_back(plane);
+   }
+
+   while(f.atNode(n->edge))
+   {
+      Polyhedron::Edge edge;
+      if(!f.takeInt(32, edge.face[0])   || !f.takeInt(32, edge.face[1]) ||
+         !f.takeInt(32, edge.vertex[0]) || !f.takeInt(32, edge.vertex[1]))
+         break;
+      poly.edgeList.push_back(edge);
+   }
+
+   // The lists ran to their end, so what they hold is the volume the server
+   // described rather than part of it.
+   const bool whole = f.atNode(n->velocityMod);
+
+   if(whole && f.takeRawFloat(mVelocityMod) && f.takeRawFloat(mGravityMod))
+   {
+      Point3F force;
+      if(f.takeRawPoint(force))
+         mAppliedForce = force;
+   }
+
+   if(whole)
+      setPolyhedron(poly);
+   setScale(scale);
+   setTransform(mat);
+}
+
 void PhysicalZone::setPolyhedron(const Polyhedron& rPolyhedron)
 {
    mPolyhedron = rPolyhedron;

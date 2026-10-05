@@ -21,10 +21,12 @@
 //-----------------------------------------------------------------------------
 
 #include "T3D/missionArea.h"
+#include "T3D/gameBase/t2MemberDump.h"   // HH: Added for Tribes 2 compatibility.
 #include "console/consoleTypes.h"
 #include "core/stream/bitStream.h"
 #include "math/mathIO.h"
 #include "console/engineAPI.h"
+#include "T3D/gameBase/t2Fields.h"
 
 IMPLEMENT_CO_NETOBJECT_V1(MissionArea);
 
@@ -145,6 +147,44 @@ void MissionArea::unpackUpdate(NetConnection *, BitStream * stream)
       stream->read(&mFlightCeilingRange);
    }
 }
+
+/// HH: Added for Tribes 2 compatibility.
+///
+/// The same six words unpackUpdate reads and in the same order, because a
+/// Tribes 2 mission area is this one: the rectangle the mission is played
+/// inside, and the height a flying vehicle loses thrust at.
+///
+/// setArea() rather than an assignment, because the rectangle has a second
+/// home -- the static every out-of-bounds check reads -- and only setArea()
+/// puts it there.
+void MissionArea::readT2Fields(T2Reader &reader)
+{
+   Parent::readT2Fields(reader);
+
+   T2Fields f(reader);
+
+   RectI area;
+   if(!f.takeInt(32, area.point.x)  || !f.takeInt(32, area.point.y) ||
+      !f.takeInt(32, area.extent.x) || !f.takeInt(32, area.extent.y))
+      return;
+
+   setArea(area);
+
+   if(f.takeRawFloat(mFlightCeiling))
+      f.takeRawFloat(mFlightCeilingRange);
+}
+
+// HH: What the reader above filed.
+void MissionArea::dumpT2Members(T2Dump &d) const
+{
+   Parent::dumpT2Members(d);
+
+   d.put("area", mArea);
+   d.put("flightCeiling", mFlightCeiling);
+   d.put("flightCeilingRange", mFlightCeilingRange);
+}
+
+//------------------------------------------------------------------------------
 
 U32 MissionArea::packUpdate(NetConnection *, U32 mask, BitStream * stream)
 {

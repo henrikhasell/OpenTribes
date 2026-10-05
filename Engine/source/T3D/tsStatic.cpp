@@ -22,6 +22,7 @@
 
 #include "platform/platform.h"
 #include "T3D/tsStatic.h"
+#include "T3D/gameBase/t2MemberDump.h"   // HH: Added for Tribes 2 compatibility.
 
 #include "core/resourceManager.h"
 #include "core/stream/bitStream.h"
@@ -48,6 +49,10 @@
 #include "materials/materialFeatureData.h"
 #include "materials/materialFeatureTypes.h"
 #include "console/engineAPI.h"
+// HH: Added for Tribes 2 compatibility.
+#include "T3D/gameBase/t2Fields.h"
+#include "T3D/gameBase/t2ShapePath.h"
+#include "core/stringTable.h"
 
 extern bool gEditingMission;
 
@@ -264,7 +269,12 @@ bool TSStatic::onAdd()
       return false;
 
    // Setup the shape.
-   if ( !_createShape() )
+   // HH: Modified for Tribes 2 compatibility.  A ghost whose shape would not
+   // load is still added, without one.  Failing here fails registerObject,
+   // which drops the connection, and a Tribes 2 mission ghosts several
+   // hundred of these: one shape this tree cannot read would cost the whole
+   // session rather than one rock.  _createShape() has already said why.
+   if ( !_createShape() && !isGhost() )
    {
       Con::errorf( "TSStatic::onAdd() - Shape creation failed!" );
       return false;
@@ -279,6 +289,20 @@ bool TSStatic::onAdd()
 
    _updateShouldTick();
 
+   return true;
+}
+
+// HH: Added for Tribes 2 compatibility.  True the first time a shape name is
+// passed, so a complaint about it is made once however many objects name it.
+static bool noteUnloadable( StringTableEntry shape )
+{
+   static Vector<StringTableEntry> seen( __FILE__, __LINE__ );
+
+   for ( U32 i = 0; i < seen.size(); i++ )
+      if ( seen[ i ] == shape )
+         return false;
+
+   seen.push_back( shape );
    return true;
 }
 
@@ -300,10 +324,16 @@ bool TSStatic::_createShape()
 
    mShapeHash = _StringTable::hashString(mShapeName);
 
-   mShape = ResourceManager::get().load(mShapeName);
+   // HH: Modified for Tribes 2 compatibility.  The game names a shape by its
+   // bare file name, and it complains once per name rather than once per
+   // object: a mission carries several hundred of these over a dozen or so
+   // shapes, so an unloadable one would otherwise fill the log at the rate
+   // ghosts arrive and look exactly like a hang.
+   mShape = ResourceManager::get().load(shapePathT2(mShapeName));
    if ( bool(mShape) == false )
    {
-      Con::errorf( "TSStatic::_createShape() - Unable to load shape: %s", mShapeName );
+      if ( noteUnloadable( mShapeName ) )
+         Con::errorf( "TSStatic::_createShape() - Unable to load shape: %s", mShapeName );
       return false;
    }
 
@@ -687,6 +717,68 @@ void TSStatic::unpackUpdate(NetConnection *con, BitStream *stream)
 
    if ( isProperlyAdded() )
       _updateShouldTick();
+}
+
+/// The whole of a Tribes 2 TSStatic body, and none of it optional: the matrix
+/// as sixteen machine words, the scale as three more, and the shape's file
+/// name.  They land in the members the engine already places and draws this
+/// object from -- mObjToWorld, mObjScale and mShapeName -- so decoding one is
+/// the same thing as putting a rock on the map.
+///
+/// A mission ghosts several hundred of these, which is what the shape of this
+/// is about.  The initial body arrives before registerObject(), so naming the
+/// shape here is all it takes for onAdd() to load it; nothing has to be
+/// recreated in the ordinary case.  Later bodies repeat all three fields
+/// whether or not anything moved, so each is compared before it is applied:
+/// reapplying an unchanged transform would re-bin the object in the scene
+/// container, and reapplying an unchanged name would reload the shape, drop
+/// the collision data and rebuild it, several hundred times over.
+void TSStatic::readT2Fields( T2Reader &reader )
+{
+   Parent::readT2Fields( reader );
+
+   T2Fields f( reader );
+
+   MatrixF mat;
+   F32 *elements = mat;
+   for ( U32 i = 0; i < 16; i++ )
+      if ( !f.takeRawFloat( elements[ i ] ) )
+         return;
+
+   Point3F scale;
+   if ( !f.takeRawPoint( scale ) )
+      return;
+
+   // setScale() already declines an unchanged one; a matrix has to be asked.
+   setScale( scale );
+   if ( dMemcmp( (const F32 *)mObjToWorld, (const F32 *)mat, sizeof( F32 ) * 16 ) )
+      setTransform( mat );
+
+   char name[ 256 ];
+   if ( !f.takeString( name, sizeof( name ) ) || !name[ 0 ] )
+      return;
+
+   StringTableEntry shape = StringTable->insert( name );
+   if ( shape == mShapeName )
+      return;
+
+   mShapeName = shape;
+
+   if ( isProperlyAdded() )
+   {
+      _createShape();
+      _updateShouldTick();
+   }
+}
+
+// HH: What the reader above filed.  SceneObject has already put the transform
+// and the scale; the shape name is this class's own and is the field a wrong
+// string offset would show up in.
+void TSStatic::dumpT2Members( T2Dump &d ) const
+{
+   Parent::dumpT2Members( d );
+
+   d.put( "shapeName", mShapeName );
 }
 
 //----------------------------------------------------------------------------

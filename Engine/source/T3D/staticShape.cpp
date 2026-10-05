@@ -31,6 +31,10 @@
 #include "T3D/gameBase/moveManager.h"
 #include "ts/tsShapeInstance.h"
 #include "T3D/staticShape.h"
+// HH: Added for Tribes 2 compatibility.
+#include "T3D/gameBase/t2Fields.h"
+#include "T3D/gameBase/t2Affine.h"
+#include "T3D/gameBase/t2Layout.h"
 #include "math/mathIO.h"
 #include "sim/netConnection.h"
 #include "scene/sceneObjectLightingPlugin.h"
@@ -287,6 +291,113 @@ U32 StaticShape::packUpdate(NetConnection *connection, U32 mask, BitStream *bstr
 
    return retMask;
 }
+
+
+//----------------------------------------------------------------------------
+// HH: Added for Tribes 2 compatibility.
+
+/// StaticShapeData's two fields of its own sit at the tail of its layout, past
+/// the eight HUD image slots ShapeBaseData leaves alone.
+///
+/// Numbers rather than names, because t2DataBlockTables.h is shipped and no
+/// generator writes it -- there are no names to ask for and nothing that can
+/// move these underneath the reader.  They hold for TurretData too: its layout
+/// is this one with more appended, so the shared prefix numbers identically,
+/// which is checked here by taking the shape as well as the node.  A plain
+/// ShapeBaseData ends at node 39, so a class that inherited this reader by
+/// mistake would take nothing rather than something wrong.
+///
+///   [39] flag    noIndividualDamage
+///   [40] raw 32  dynamicTypeField
+enum
+{
+   StaticShapeDataNoIndividualDamage = 39,
+   StaticShapeDataDynamicType        = 40,
+};
+
+void StaticShapeData::readT2Fields( T2Reader &reader )
+{
+   // ShapeBaseData: the shape name above all, which is what preload() builds
+   // the structure from, and the mass, the sensor and the explosion.
+   Parent::readT2Fields( reader );
+
+   T2Fields f( reader );
+
+   // Step over the HUD image slots in between.  Skipping is how the cursor
+   // reaches the tail at all: it moves only when something takes a field.
+   while ( !f.atNode( StaticShapeDataDynamicType ) && f.skip() )
+      ;
+
+   f.takeInt( 32, dynamicTypeField );
+
+   // The flag after the field, which is the order the cursor requires: it
+   // records a flag as it reads it, and it only reads ahead when a field is
+   // taken.
+   f.takeFlag( StaticShapeDataNoIndividualDamage, noIndividualDamage );
+}
+
+/// Which node of this class's layout holds the power flag.  Resolved once per
+/// class rather than per packet: the lookup is a string search and a map's
+/// worth of bases, generators and stations arrive as often as packets do.
+static U32 t2PoweredNode( const char *className )
+{
+   enum { MaxClasses = 8 };
+   static const char *sName[MaxClasses] = { 0 };
+   static U32 sNode[MaxClasses];
+   static U32 sCount = 0;
+
+   for ( U32 i = 0; i < sCount; i++ )
+      if ( sName[i] == className || !dStrcmp( sName[i], className ) )
+         return sNode[i];
+
+   const U32 node = T2Layout::ghostNode( className, "powered" );
+   if ( sCount < MaxClasses )
+   {
+      sName[sCount] = className;
+      sNode[sCount] = node;
+      sCount++;
+   }
+   return node;
+}
+
+// HH: Added for Tribes 2 compatibility.
+//
+// ShapeBase's body and then this class's own section: where it stands and
+// whether it has power.  The whole of what StaticShape, Turret, BeaconObject,
+// AIObjective and ScopeAlwaysShape read before their own fields, and for three
+// of those five the whole body.
+//
+// One function for the five, and it lives here rather than on ShapeBase
+// because the power flag has to land in StaticShape::mPowered -- the member
+// isPowered(), setPowered() and packUpdate() all use.  It used to be two
+// functions: this one and ShapeBase::_readT2StaticShapeSection, which read the
+// same nine words without the quaternion's sign and put the power state in a
+// ShapeBase member nothing read.  Turret, BeaconObject, AIObjective and
+// ScopeAlwaysShape went through that one, so a turret rotated the mirrored way
+// and its power decoded into nothing.  Neither a session nor the second reader
+// could see either fault: both readings consumed the same bits.
+void StaticShape::readT2Fields( T2Reader &reader )
+{
+   // Qualified rather than virtual: a subclass's override is what called this,
+   // and going back through the vtable would call it again.
+   ShapeBase::readT2Fields( reader );
+
+   T2Fields f( reader );
+
+   // The transform and the scale, by the reader MissionMarker shares -- this
+   // layout is that description plus the one flag below.  This is what puts a
+   // base, a generator or a station where the mission says it stands.
+   readT2Position( f );
+
+   // And the power state last, because it sits behind the position: asked for
+   // with ShapeBase's own flags it would be read before the transform had
+   // moved the cursor past it, and would take its default on every body that
+   // carries a position.  Asked here whether the position arrived or not --
+   // when it did not there was nothing to stand on, the cursor ran to the end,
+   // and that is past this flag either way.
+   takeT2Flag( f, t2PoweredNode( getClassName() ), mPowered );
+}
+
 
 void StaticShape::unpackUpdate(NetConnection *connection, BitStream *bstream)
 {

@@ -191,6 +191,8 @@ public:
    // NetObject
    U32 packUpdate( NetConnection *conn, U32 mask, BitStream *stream );
    void unpackUpdate( NetConnection *conn, BitStream *stream );
+   void readT2Fields( T2Reader &reader );   // HH: Added for Tribes 2 compatibility.
+   void dumpT2Members( T2Dump &d ) const;   // HH: Added for Tribes 2 compatibility.
 
    // SceneObject
    void setTransform( const MatrixF &mat );
