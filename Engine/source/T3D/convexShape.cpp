@@ -410,65 +410,7 @@ void ConvexShape::setTransform( const MatrixF &mat )
    setMaskBits( TransformMask );
 }
 
-U32 ConvexShape::packUpdate( NetConnection *conn, U32 mask, BitStream *stream )
-{
-   U32 retMask = Parent::packUpdate( conn, mask, stream );
-   
-   if ( stream->writeFlag( mask & TransformMask ) )
-   {
-      mathWrite(*stream, getTransform());
-      mathWrite(*stream, getScale());
-   }
 
-   if ( stream->writeFlag( mask & UpdateMask ) )
-   {
-      stream->write( mMaterialName );
-
-      const U32 surfCount = mSurfaces.size();
-      stream->writeInt( surfCount, 32 );
-
-      for ( S32 i = 0; i < surfCount; i++ )      
-         mathWrite( *stream, mSurfaces[i] );               
-   }
-
-   return retMask;
-}
-
-void ConvexShape::unpackUpdate( NetConnection *conn, BitStream *stream )
-{
-   Parent::unpackUpdate( conn, stream );
-
-   if ( stream->readFlag() )  // TransformMask
-   {
-      mathRead(*stream, &mObjToWorld);
-      mathRead(*stream, &mObjScale);
-
-      setTransform( mObjToWorld );
-      setScale( mObjScale );
-   }
-
-   if ( stream->readFlag() ) // UpdateMask
-   {
-      stream->read( &mMaterialName );      
-
-      if ( isProperlyAdded() )
-         _updateMaterial();
-
-      mSurfaces.clear();
-
-      const U32 surfCount = stream->readInt( 32 );
-      for ( S32 i = 0; i < surfCount; i++ )
-      {
-         mSurfaces.increment();
-         MatrixF &mat = mSurfaces.last();
-
-         mathRead( *stream, &mat );
-      }
-
-      if ( isProperlyAdded() )
-         _updateGeometry( true );
-   }
-}
 
 void ConvexShape::prepRenderImage( SceneRenderState *state )
 {   

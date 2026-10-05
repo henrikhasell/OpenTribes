@@ -143,8 +143,6 @@ class Marker : public SceneObject
    static void initPersistFields();
    void inspectPostApply();
 
-   U32  packUpdate  (NetConnection *conn, U32 mask, BitStream *stream);
-   void unpackUpdate(NetConnection *conn,           BitStream *stream);
 };
 
 typedef Marker::SmoothingType MarkerSmoothingType;

@@ -129,8 +129,6 @@ class LevelInfo : public NetObject
          UpdateMask = BIT(0)
       };
 
-      virtual U32 packUpdate( NetConnection *conn, U32 mask, BitStream *stream );
-      virtual void unpackUpdate( NetConnection *conn, BitStream *stream );
 
       /// @}
 };

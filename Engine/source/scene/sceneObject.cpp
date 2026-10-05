@@ -765,75 +765,9 @@ bool SceneObject::_setSelectionEnabled( void *object, const char *index, const c
 
 //--------------------------------------------------------------------------
 
-U32 SceneObject::packUpdate( NetConnection* conn, U32 mask, BitStream* stream )
-{
-   U32 retMask = Parent::packUpdate( conn, mask, stream );
-
-   if ( stream->writeFlag( mask & FlagMask ) )
-      stream->writeRangedU32( (U32)mObjectFlags, 0, getObjectFlagMax() );
-
-   if ( mask & MountedMask ) 
-   {                  
-      if ( mMount.object ) 
-      {
-         S32 gIndex = conn->getGhostIndex( mMount.object );
-
-         if ( stream->writeFlag( gIndex != -1 ) ) 
-         {
-            stream->writeFlag( true );
-            stream->writeInt( gIndex, NetConnection::GhostIdBitSize );
-            if ( stream->writeFlag( mMount.node != -1 ) )
-               stream->writeInt( mMount.node, NumMountPointBits );
-            mathWrite( *stream, mMount.xfm );
-         }
-         else
-            // Will have to try again later
-            retMask |= MountedMask;
-      }
-      else
-         // Unmount if this isn't the initial packet
-         if ( stream->writeFlag( !(mask & InitialUpdateMask) ) )
-            stream->writeFlag( false );
-   }
-   else
-      stream->writeFlag( false );
-   
-   return retMask;
-}
 
 //-----------------------------------------------------------------------------
 
-void SceneObject::unpackUpdate( NetConnection* conn, BitStream* stream )
-{
-   Parent::unpackUpdate( conn, stream );
-   
-   // FlagMask
-   if ( stream->readFlag() )      
-      mObjectFlags = stream->readRangedU32( 0, getObjectFlagMax() );
-
-   // MountedMask
-   if ( stream->readFlag() ) 
-   {
-      if ( stream->readFlag() ) 
-      {
-         S32 gIndex = stream->readInt( NetConnection::GhostIdBitSize );
-         SceneObject* obj = dynamic_cast<SceneObject*>( conn->resolveGhost( gIndex ) );
-         S32 node = -1;
-         if ( stream->readFlag() ) // node != -1
-            node = stream->readInt( NumMountPointBits );
-         MatrixF xfm;
-         mathRead( *stream, &xfm );
-         if ( !obj )
-         {
-            conn->setLastError( "Invalid packet from server." );
-            return;
-         }
-         obj->mountObject( this, node, xfm );
-      }
-      else
-         unmount();
-   }
-}
 
 //-----------------------------------------------------------------------------
 

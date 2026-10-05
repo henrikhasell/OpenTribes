@@ -152,32 +152,7 @@ void MissionMarker::setTransform(const MatrixF& mat)
    setMaskBits(PositionMask);
 }
 
-U32 MissionMarker::packUpdate(NetConnection * con, U32 mask, BitStream * stream)
-{
-   U32 retMask = Parent::packUpdate(con, mask, stream);
-   if(stream->writeFlag(mask & PositionMask))
-   {
-      stream->writeAffineTransform(mObjToWorld);
-      mathWrite(*stream, mObjScale);
-   }
 
-   return(retMask);
-}
-
-void MissionMarker::unpackUpdate(NetConnection * con, BitStream * stream)
-{
-   Parent::unpackUpdate(con, stream);
-   if(stream->readFlag())
-   {
-      MatrixF mat;
-      stream->readAffineTransform(&mat);
-      Parent::setTransform(mat);
-
-      Point3F scale;
-      mathRead(*stream, &scale);
-      setScale(scale);
-   }
-}
 
 void MissionMarker::initPersistFields() {
    Parent::initPersistFields();
@@ -267,28 +242,7 @@ void WayPoint::inspectPostApply()
    setMaskBits(UpdateNameMask|UpdateTeamMask);
 }
 
-U32 WayPoint::packUpdate(NetConnection * con, U32 mask, BitStream * stream)
-{
-   U32 retMask = Parent::packUpdate(con, mask, stream);
-   if(stream->writeFlag(mask & UpdateNameMask))
-      stream->writeString(mName);
-   if(stream->writeFlag(mask & UpdateTeamMask))
-      stream->write(mTeam.mTeamId);
-   if(stream->writeFlag(mask & UpdateHiddenMask))
-      stream->writeFlag(isHidden());
-   return(retMask);
-}
 
-void WayPoint::unpackUpdate(NetConnection * con, BitStream * stream)
-{
-   Parent::unpackUpdate(con, stream);
-   if(stream->readFlag())
-      mName = stream->readSTString(true);
-   if(stream->readFlag())
-      stream->read(&mTeam.mTeamId);
-   if(stream->readFlag())
-      setHidden(stream->readFlag());
-}
 
 //-----------------------------------------------------------------------------
 // TypeWayPointTeam
@@ -439,38 +393,7 @@ void SpawnSphere::inspectPostApply()
    setMaskBits(UpdateSphereMask);
 }
 
-U32 SpawnSphere::packUpdate(NetConnection * con, U32 mask, BitStream * stream)
-{
-   U32 retMask = Parent::packUpdate(con, mask, stream);
 
-   //
-   if(stream->writeFlag(mask & UpdateSphereMask))
-   {
-      stream->writeFlag(mAutoSpawn);
-
-      stream->write(mSpawnClass);
-      stream->write(mSpawnDataBlock);
-      stream->write(mSpawnName);
-      stream->write(mSpawnProperties);
-      stream->write(mSpawnScript);
-   }
-   return(retMask);
-}
-
-void SpawnSphere::unpackUpdate(NetConnection * con, BitStream * stream)
-{
-   Parent::unpackUpdate(con, stream);
-   if(stream->readFlag())
-   {
-      mAutoSpawn = stream->readFlag();
-
-      stream->read(&mSpawnClass);
-      stream->read(&mSpawnDataBlock);
-      stream->read(&mSpawnName);
-      stream->read(&mSpawnProperties);
-      stream->read(&mSpawnScript);
-   }
-}
 
 void SpawnSphere::processTick( const Move *move )
 {
@@ -618,20 +541,7 @@ void CameraBookmark::inspectPostApply()
       Con::executef( this, "onInspectPostApply" );
 }
 
-U32 CameraBookmark::packUpdate(NetConnection * con, U32 mask, BitStream * stream)
-{
-   U32 retMask = Parent::packUpdate(con, mask, stream);
-   if(stream->writeFlag(mask & UpdateNameMask))
-      stream->writeString(mName);
-   return(retMask);
-}
 
-void CameraBookmark::unpackUpdate(NetConnection * con, BitStream * stream)
-{
-   Parent::unpackUpdate(con, stream);
-   if(stream->readFlag())
-      mName = stream->readSTString(true);
-}
 
 void CameraBookmark::initPersistFields()
 {

@@ -54,8 +54,6 @@ class VehicleBlocker : public SceneObject
    DECLARE_CONOBJECT(VehicleBlocker);
    static void initPersistFields();
 
-   U32  packUpdate  (NetConnection *conn, U32 mask, BitStream *stream);
-   void unpackUpdate(NetConnection *conn,           BitStream *stream);
 };
 
 #endif // _H_VEHICLEBLOCKER

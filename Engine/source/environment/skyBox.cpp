@@ -135,44 +135,7 @@ void SkyBox::inspectPostApply()
    _updateMaterial();
 }
 
-U32 SkyBox::packUpdate( NetConnection *conn, U32 mask, BitStream *stream )
-{
-   U32 retMask = Parent::packUpdate( conn, mask, stream );
-   
-   stream->write( mMatName );
-   stream->writeFlag( mDrawBottom );
-   stream->write( mFogBandHeight );
 
-   return retMask;
-}
-
-void SkyBox::unpackUpdate( NetConnection *conn, BitStream *stream )
-{
-   Parent::unpackUpdate( conn, stream );
-
-   String tmpString( "" );
-   stream->read( &tmpString );
-   if ( !tmpString.equal( mMatName, String::NoCase ) )
-   {
-      mMatName = tmpString;
-      _updateMaterial();
-   }
-
-   bool drawBottom = stream->readFlag();
-   F32 bandHeight = 0;
-   stream->read( &bandHeight );
-
-   // If this flag has changed
-   // we need to update the vertex buffer.
-   if (  drawBottom != mDrawBottom || 
-         bandHeight != mFogBandHeight )
-   {
-      mDrawBottom = drawBottom;
-      mFogBandHeight = bandHeight;
-      mIsVBDirty = true;
-      _initRender();
-   }
-}
 
 void SkyBox::prepRenderImage( SceneRenderState *state )
 {

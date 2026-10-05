@@ -131,33 +131,7 @@ void ReflectorDesc::initPersistFields()
    Parent::initPersistFields();
 }
 
-void ReflectorDesc::packData( BitStream *stream )
-{
-   Parent::packData( stream );
 
-   stream->write( texSize );
-   stream->write( nearDist );
-   stream->write( farDist );
-   stream->write( objectTypeMask );
-   stream->write( detailAdjust );
-   stream->write( priority );
-   stream->write( maxRateMs );
-   stream->writeFlag( useOcclusionQuery );
-}
-
-void ReflectorDesc::unpackData( BitStream *stream )
-{
-   Parent::unpackData( stream );
-
-   stream->read( &texSize );
-   stream->read( &nearDist );
-   stream->read( &farDist );
-   stream->read( &objectTypeMask );
-   stream->read( &detailAdjust );
-   stream->read( &priority );
-   stream->read( &maxRateMs );
-   useOcclusionQuery = stream->readFlag();
-}
 
 bool ReflectorDesc::preload( bool server, String &errorStr )
 {

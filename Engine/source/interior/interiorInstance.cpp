@@ -954,64 +954,9 @@ void InteriorInstance::buildConvex(const Box3F& box, Convex* convex)
 
 //-----------------------------------------------------------------------------
 
-U32 InteriorInstance::packUpdate(NetConnection* c, U32 mask, BitStream* stream)
-{
-   U32 retMask = Parent::packUpdate(c, mask, stream);
-
-   if (stream->writeFlag((mask & InitMask) != 0)) {
-      // Initial update, write the whole kit and kaboodle
-      stream->write(mCRC);
-
-      stream->writeString(mInteriorFileName);
-
-      // Write the alarm state
-      stream->writeFlag(mAlarmState);
-   }
-   else
-   {
-      stream->writeFlag(mAlarmState);
-   }
-
-   return retMask;
-}
 
 //-----------------------------------------------------------------------------
 
-void InteriorInstance::unpackUpdate(NetConnection* c, BitStream* stream)
-{
-   Parent::unpackUpdate(c, stream);
-
-   MatrixF temp;
-   Point3F tempScale;
-
-   if (stream->readFlag()) {
-      bool isNewUpdate(mInteriorRes);
-
-      if(isNewUpdate)
-         _unloadInterior();
-
-      // Initial Update
-      // CRC
-      stream->read(&mCRC);
-
-      // File
-      mInteriorFileName = stream->readSTString();
-
-      // Alarm state: Note that we handle this ourselves on the initial update
-      //  so that the state is always full on or full off...
-      mAlarmState = stream->readFlag();
-
-      if(isNewUpdate)
-      {
-         if(! _loadInterior())
-            Con::errorf("InteriorInstance::unpackUpdate - Unable to load new interior");
-      }
-   }
-   else
-   {
-      setAlarmMode(stream->readFlag());
-   }
-}
 
 //-----------------------------------------------------------------------------
 

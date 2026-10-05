@@ -114,8 +114,6 @@ public:
    void inspectPostApply();
 
    // NetObject
-   U32 packUpdate( NetConnection *conn, U32 mask, BitStream *stream );
-   void unpackUpdate( NetConnection *conn, BitStream *stream ); 
 
    // ISceneLight
    virtual void submitLights( LightManager *lm, bool staticLighting );

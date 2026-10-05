@@ -51,8 +51,6 @@ class ParticleEmitterNodeData : public GameBaseData
    ParticleEmitterNodeData();
    ~ParticleEmitterNodeData();
 
-   void packData(BitStream*);
-   void unpackData(BitStream*);
    bool preload(bool server, String &errorStr);
 
    DECLARE_CONOBJECT(ParticleEmitterNodeData);
@@ -105,8 +103,6 @@ class ParticleEmitterNode : public GameBase
    DECLARE_CONOBJECT(ParticleEmitterNode);
    static void initPersistFields();
 
-   U32  packUpdate  (NetConnection *conn, U32 mask, BitStream* stream);
-   void unpackUpdate(NetConnection *conn,           BitStream* stream);
 
    inline bool getActive( void )        { return mActive;                             };
    inline void setActive( bool active ) { mActive = active; setMaskBits( StateMask ); };

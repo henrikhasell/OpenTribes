@@ -228,8 +228,6 @@ class InteriorInstance : public SceneZoneSpace
       static void consoleInit();
 
       // NetObject.
-      virtual U32 packUpdate( NetConnection* conn, U32 mask, BitStream* stream );
-      virtual void unpackUpdate( NetConnection* conn, BitStream* stream );
 
       // SceneObject.
       virtual bool buildPolyList(PolyListContext context, AbstractPolyList *polyList, const Box3F &box, const SphereF &sphere);

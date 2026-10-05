@@ -96,7 +96,6 @@ public:
    GameBaseData();
    static void initPersistFields();
    bool preload(bool server, String &errorStr);
-   void unpackData(BitStream* stream);
 
    /// @name Callbacks
    /// @{
@@ -343,8 +342,6 @@ public:
    /// @{
 
    F32  getUpdatePriority( CameraScopeQuery *focusObject, U32 updateMask, S32 updateSkips );
-   U32  packUpdate  ( NetConnection *conn, U32 mask, BitStream *stream );
-   void unpackUpdate( NetConnection *conn,           BitStream *stream );
 
    /// Write state information necessary to perform client side prediction of an object.
    ///

@@ -111,8 +111,6 @@ protected:
    //-------------------------------------------------------
    bool onAdd();
    void onRemove();
-   U32  packUpdate  (NetConnection *conn, U32 mask, BitStream *stream);
-   void unpackUpdate(NetConnection *conn,           BitStream *stream);
 
    bool castRay(const Point3F &start, const Point3F &end, RayInfo* info);
 

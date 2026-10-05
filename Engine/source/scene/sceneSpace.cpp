@@ -177,30 +177,6 @@ void SceneSpace::_renderObject( ObjectRenderInst* ri, SceneRenderState* state, B
 
 //-----------------------------------------------------------------------------
 
-U32 SceneSpace::packUpdate( NetConnection* connection, U32 mask, BitStream* stream )
-{
-   U32 retMask = Parent::packUpdate( connection, mask, stream );
-
-   if( stream->writeFlag( mask & TransformMask ) ) 
-   {
-      mathWrite( *stream, mObjToWorld );
-      mathWrite( *stream, mObjScale );
-   }
-
-   return retMask;
-}
 
 //-----------------------------------------------------------------------------
 
-void SceneSpace::unpackUpdate( NetConnection* connection, BitStream* stream )
-{
-   Parent::unpackUpdate( connection, stream );
-
-   if( stream->readFlag() )  // TransformMask
-   {
-      mathRead( *stream, &mObjToWorld );
-      mathRead( *stream, &mObjScale );
-
-      setTransform( mObjToWorld );
-   }
-}

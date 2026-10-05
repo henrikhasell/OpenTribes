@@ -186,48 +186,7 @@ void Prefab::setScale(const VectorF & scale)
    }
 }
 
-U32 Prefab::packUpdate( NetConnection *conn, U32 mask, BitStream *stream )
-{
-   U32 retMask = Parent::packUpdate( conn, mask, stream );
 
-   mathWrite(*stream,mObjBox);
-
-   if ( stream->writeFlag( mask & FileMask ) )
-   {
-      stream->write( mFilename );
-   }
-
-   if ( stream->writeFlag( mask & TransformMask ) )
-   {
-      mathWrite(*stream, getTransform());
-      mathWrite(*stream, getScale());
-   }
-
-   return retMask;
-}
-
-void Prefab::unpackUpdate(NetConnection *conn, BitStream *stream)
-{
-   Parent::unpackUpdate(conn, stream);
-
-   mathRead(*stream, &mObjBox);
-   resetWorldBox();
-
-   // FileMask
-   if ( stream->readFlag() ) 
-   {
-      stream->read( &mFilename );
-   }
-
-   // TransformMask
-   if ( stream->readFlag() )  
-   {
-      mathRead(*stream, &mObjToWorld);
-      mathRead(*stream, &mObjScale);
-
-      setTransform( mObjToWorld );
-   }
-}
 
 bool Prefab::protectedSetFile( void *object, const char *index, const char *data )
 {

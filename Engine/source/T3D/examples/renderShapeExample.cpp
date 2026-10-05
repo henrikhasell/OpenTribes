@@ -131,51 +131,7 @@ void RenderShapeExample::setTransform(const MatrixF & mat)
    setMaskBits( TransformMask );
 }
 
-U32 RenderShapeExample::packUpdate( NetConnection *conn, U32 mask, BitStream *stream )
-{
-   // Allow the Parent to get a crack at writing its info
-   U32 retMask = Parent::packUpdate( conn, mask, stream );
 
-   // Write our transform information
-   if ( stream->writeFlag( mask & TransformMask ) )
-   {
-      mathWrite(*stream, getTransform());
-      mathWrite(*stream, getScale());
-   }
-
-   // Write out any of the updated editable properties
-   if ( stream->writeFlag( mask & UpdateMask ) )
-   {
-      stream->write( mShapeFile );
-
-      // Allow the server object a chance to handle a new shape
-      createShape();
-   }
-
-   return retMask;
-}
-
-void RenderShapeExample::unpackUpdate(NetConnection *conn, BitStream *stream)
-{
-   // Let the Parent read any info it sent
-   Parent::unpackUpdate(conn, stream);
-
-   if ( stream->readFlag() )  // TransformMask
-   {
-      mathRead(*stream, &mObjToWorld);
-      mathRead(*stream, &mObjScale);
-
-      setTransform( mObjToWorld );
-   }
-
-   if ( stream->readFlag() )  // UpdateMask
-   {
-      stream->read( &mShapeFile );
-
-      if ( isProperlyAdded() )
-         createShape();
-   }
-}
 
 //-----------------------------------------------------------------------------
 // Object Rendering

@@ -59,8 +59,6 @@ public:
    virtual void onStaticModified( const char *slotName, const char *newValue );
 
    bool preload( bool server, String &errorBuffer );
-   virtual void packData( BitStream* stream );
-   virtual void unpackData( BitStream* stream );
 
    S32 getMaterialId() const { return mNxMatId; }
 

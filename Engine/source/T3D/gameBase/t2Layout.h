@@ -21,6 +21,15 @@ namespace T2Layout
    bool readPacketData(BitStream *stream, const char *className,
                        GhostClassFn resolve = NULL, void *ctx = NULL);
 
+   bool writeDataBlock(BitStream *stream, U32 classId);
+
+   bool writeGhost(BitStream *stream, const char *className,
+                   bool isInitial = false);
+   bool writeEvent(BitStream *stream, const char *className);
+
+   bool writePacketData(BitStream *stream, const char *className,
+                        GhostClassFn resolve = NULL, void *ctx = NULL);
+
    const char *lastShapeFile();
 }
 

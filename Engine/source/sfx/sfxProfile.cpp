@@ -169,32 +169,9 @@ bool SFXProfile::preload( bool server, String &errorStr )
 
 //-----------------------------------------------------------------------------
 
-void SFXProfile::packData(BitStream* stream)
-{
-   Parent::packData( stream );
-
-   char buffer[256];
-   if ( mFilename.isEmpty() )
-      buffer[0] = 0;
-   else
-      dStrncpy( buffer, mFilename.c_str(), 256 );
-   stream->writeString( buffer );
-
-   stream->writeFlag( mPreload );
-}
 
 //-----------------------------------------------------------------------------
 
-void SFXProfile::unpackData(BitStream* stream)
-{
-   Parent::unpackData( stream );
-
-   char buffer[256];
-   stream->readString( buffer );
-   mFilename = buffer;
-
-   mPreload = stream->readFlag();
-}
 
 //-----------------------------------------------------------------------------
 

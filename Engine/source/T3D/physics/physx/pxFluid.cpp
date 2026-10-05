@@ -108,47 +108,7 @@ void PxFluid::inspectPostApply()
    setMaskBits( UpdateMask );
 }
 
-U32 PxFluid::packUpdate( NetConnection *conn, U32 mask, BitStream *stream )
-{
-   U32 retMask = Parent::packUpdate( conn, mask, stream );
 
-   if ( stream->writeFlag( mask & UpdateMask ) )
-   {
-      mathWrite( *stream, getTransform() );
-      mathWrite( *stream, getScale() );
-
-      stream->write( mEmitter ? mEmitter->getRate() : 0 );
-   }
-
-   stream->writeFlag( isProperlyAdded() && mask & ResetMask );
-
-   return retMask;
-}
-
-void PxFluid::unpackUpdate( NetConnection *conn, BitStream *stream )
-{
-   Parent::unpackUpdate( conn, stream );
-
-   // UpdateMask
-   if ( stream->readFlag() )
-   {
-      MatrixF mat;
-      mathRead( *stream, &mat );
-      Point3F scale;
-      mathRead( *stream, &scale );
-
-      setScale( scale );
-      setTransform( mat );
-
-      F32 rate;
-      stream->read( &rate );
-      setRate( rate );
-   }
-
-   // ResetMask
-   if ( stream->readFlag() )
-      resetParticles();
-}
 
 void PxFluid::setTransform( const MatrixF &mat )
 {

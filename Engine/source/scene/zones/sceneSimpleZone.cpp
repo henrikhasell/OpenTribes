@@ -97,37 +97,9 @@ bool SceneSimpleZone::onSceneAdd()
 
 //-----------------------------------------------------------------------------
 
-U32 SceneSimpleZone::packUpdate( NetConnection* connection, U32 mask, BitStream* stream )
-{
-   U32 retMask = Parent::packUpdate( connection, mask, stream );
-
-   if( stream->writeFlag( mask & AmbientMask ) )
-   {
-      stream->writeFlag( mUseAmbientLightColor );
-      stream->writeFloat( mAmbientLightColor.red, 7 );
-      stream->writeFloat( mAmbientLightColor.green, 7 );
-      stream->writeFloat( mAmbientLightColor.blue, 7 );
-      stream->writeFloat( mAmbientLightColor.alpha, 7 );
-   }
-
-   return retMask;
-}
 
 //-----------------------------------------------------------------------------
 
-void SceneSimpleZone::unpackUpdate( NetConnection* connection, BitStream* stream )
-{
-   Parent::unpackUpdate( connection, stream );
-
-   if( stream->readFlag() ) // AmbientMask
-   {
-      mUseAmbientLightColor = stream->readFlag();
-      mAmbientLightColor.red = stream->readFloat( 7 );
-      mAmbientLightColor.green = stream->readFloat( 7 );
-      mAmbientLightColor.blue = stream->readFloat( 7 );
-      mAmbientLightColor.alpha = stream->readFloat( 7 );
-   }
-}
 
 //-----------------------------------------------------------------------------
 

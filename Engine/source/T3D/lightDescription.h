@@ -88,8 +88,6 @@ public:
 
    // SimDataBlock
    virtual bool preload( bool server, String &errorStr );
-   virtual void packData( BitStream *stream );
-   virtual void unpackData( BitStream *stream );
    
    //void animateLight( LightState *state );
    void submitLight( LightState *state, const MatrixF &xfm, LightManager *lm, SimObject *object );

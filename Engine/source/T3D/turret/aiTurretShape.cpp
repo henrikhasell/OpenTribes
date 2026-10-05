@@ -275,89 +275,7 @@ bool AITurretShapeData::preload(bool server, String &errorStr)
    return true;
 }
 
-void AITurretShapeData::packData(BitStream* stream)
-{
-   Parent::packData(stream);
 
-   stream->write(maxScanHeading);
-   stream->write(maxScanPitch);
-   stream->write(maxScanDistance);
-   stream->write(maxWeaponRange);
-   stream->write(weaponLeadVelocity);
-
-   for (U32 i = 0; i < MaxStates; i++)
-      if (stream->writeFlag(state[i].name && state[i].name[0])) {
-         StateData& s = state[i];
-         // States info not needed on the client:
-         //    s.scriptNames
-         // Transitions are inc. one to account for -1 values
-         stream->writeString(state[i].name);
-
-         stream->writeInt(s.transition.rest[0]+1,NumStateBits);
-         stream->writeInt(s.transition.rest[1]+1,NumStateBits);
-         stream->writeInt(s.transition.target[0]+1,NumStateBits);
-         stream->writeInt(s.transition.target[1]+1,NumStateBits);
-         stream->writeInt(s.transition.activated[0]+1,NumStateBits);
-         stream->writeInt(s.transition.activated[1]+1,NumStateBits);
-         stream->writeInt(s.transition.timeout+1,NumStateBits);
-
-         if(stream->writeFlag(s.timeoutValue != gDefaultStateData.timeoutValue))
-            stream->write(s.timeoutValue);
-
-         stream->writeFlag(s.waitForTimeout);
-         stream->writeFlag(s.fire);
-         stream->writeFlag(s.scan);
-         stream->writeFlag(s.scaleAnimation);
-         stream->writeFlag(s.direction);
-
-         if(stream->writeFlag(s.sequence != gDefaultStateData.sequence))
-            stream->writeSignedInt(s.sequence, 16);
-      }
-}
-
-void AITurretShapeData::unpackData(BitStream* stream)
-{
-   Parent::unpackData(stream);
-
-   stream->read(&maxScanHeading);
-   stream->read(&maxScanPitch);
-   stream->read(&maxScanDistance);
-   stream->read(&maxWeaponRange);
-   stream->read(&weaponLeadVelocity);
-
-   for (U32 i = 0; i < MaxStates; i++) {
-      if (stream->readFlag()) {
-         StateData& s = state[i];
-         // States info not needed on the client:
-         //    s.scriptNames
-         // Transitions are dec. one to restore -1 values
-         s.name = stream->readSTString();
-
-         s.transition.rest[0] = stream->readInt(NumStateBits) - 1;
-         s.transition.rest[1] = stream->readInt(NumStateBits) - 1;
-         s.transition.target[0] = stream->readInt(NumStateBits) - 1;
-         s.transition.target[1] = stream->readInt(NumStateBits) - 1;
-         s.transition.activated[0] = stream->readInt(NumStateBits) - 1;
-         s.transition.activated[1] = stream->readInt(NumStateBits) - 1;
-         s.transition.timeout = stream->readInt(NumStateBits) - 1;
-         if(stream->readFlag())
-            stream->read(&s.timeoutValue);
-         else
-            s.timeoutValue = gDefaultStateData.timeoutValue;
-
-         s.waitForTimeout = stream->readFlag();
-         s.fire = stream->readFlag();
-         s.scan = stream->readFlag();
-         s.scaleAnimation = stream->readFlag();
-         s.direction = stream->readFlag();
-
-         if(stream->readFlag())
-            s.sequence = stream->readSignedInt(16);
-      }
-   }
-
-   statesLoaded = true;
-}
 
 S32 AITurretShapeData::lookupState(const char* name)
 {
@@ -1153,40 +1071,7 @@ void AITurretShape::advanceTime(F32 dt)
 
 //----------------------------------------------------------------------------
 
-U32 AITurretShape::packUpdate(NetConnection *connection, U32 mask, BitStream *bstream)
-{
-   U32 retMask = Parent::packUpdate(connection,mask,bstream);
 
-   // Indicate that the transform has changed to update the scan box
-   bstream->writeFlag(mask & PositionMask | ExtendedInfoMask);
-
-   // Handle any state changes that need to be passed along
-   if (bstream->writeFlag(mask & TurretStateMask))
-   {
-      bstream->write(mDataBlock->lookupState(mState->name));
-   }
-
-   return retMask;
-}
-
-void AITurretShape::unpackUpdate(NetConnection *connection, BitStream *bstream)
-{
-   Parent::unpackUpdate(connection,bstream);
-
-   // Transform has changed
-   if (bstream->readFlag())
-   {
-      _setScanBox();
-   }
-
-   //TurretStateMask
-   if (bstream->readFlag())
-   {
-      S32 newstate;
-      bstream->read( &newstate );
-      setTurretState(newstate);
-   }
-}
 
 //----------------------------------------------------------------------------
 

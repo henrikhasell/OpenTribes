@@ -105,8 +105,6 @@ class SFXAmbience : public SimDataBlock
                   
       // SimDataBlock.
       virtual bool onAdd();
-      virtual void packData( BitStream* stream );
-      virtual void unpackData( BitStream* stream );
       virtual bool preload( bool server, String& errorStr );
       virtual void inspectPostApply();
       

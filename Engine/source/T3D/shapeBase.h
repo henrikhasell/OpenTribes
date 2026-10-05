@@ -479,8 +479,6 @@ struct ShapeBaseImageData: public GameBaseData {
    bool preload(bool server, String &errorStr);
    S32 lookupState(const char* name);  ///< Get a state by name.
    static void initPersistFields();
-   virtual void packData(BitStream* stream);
-   virtual void unpackData(BitStream* stream);
    
    void inspectPostApply();
 
@@ -655,8 +653,6 @@ public:
    ShapeBaseData();
    ~ShapeBaseData();
    static void initPersistFields();
-   virtual void packData(BitStream* stream);
-   virtual void unpackData(BitStream* stream);
    /// @}
 
    /// @name Callbacks
@@ -1891,8 +1887,6 @@ public:
    /// @{
 
    F32 getUpdatePriority(CameraScopeQuery *focusObject, U32 updateMask, S32 updateSkips);
-   U32  packUpdate(NetConnection *conn, U32 mask, BitStream *stream);
-   void unpackUpdate(NetConnection *conn, BitStream *stream);
    void writePacketData(GameConnection *conn, BitStream *stream);
    void readPacketData(GameConnection *conn, BitStream *stream);
 

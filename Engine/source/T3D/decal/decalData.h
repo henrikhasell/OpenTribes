@@ -110,8 +110,6 @@ class DecalData : public SimDataBlock
       virtual void onRemove();
 
       virtual bool preload( bool server, String &errorStr );
-      virtual void packData( BitStream* );
-      virtual void unpackData( BitStream* );      
       
       Material* getMaterial();
       BaseMatInstance* getMaterialInstance();

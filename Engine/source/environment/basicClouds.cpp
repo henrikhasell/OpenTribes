@@ -200,52 +200,7 @@ void BasicClouds::inspectPostApply()
 // NetObject...
 
 
-U32 BasicClouds::packUpdate( NetConnection *conn, U32 mask, BitStream *stream )
-{
-   U32 retMask = Parent::packUpdate( conn, mask, stream );
 
-   for ( U32 i = 0; i < TEX_COUNT; i++ )
-   {
-      stream->writeFlag( mLayerEnabled[i] );
-
-      stream->write( mTexName[i] );
-
-      stream->write( mTexScale[i] );
-      mathWrite( *stream, mTexDirection[i] );
-      stream->write( mTexSpeed[i] );   
-      mathWrite( *stream, mTexOffset[i] );
-      
-      stream->write( mHeight[i] );
-   }
-   
-   return retMask;
-}
-
-void BasicClouds::unpackUpdate( NetConnection *conn, BitStream *stream )
-{
-   Parent::unpackUpdate( conn, stream );
-
-   for ( U32 i = 0; i < TEX_COUNT; i++ )
-   {
-      mLayerEnabled[i] = stream->readFlag();
-
-      stream->read( &mTexName[i] );
-      
-      stream->read( &mTexScale[i] );      
-      mathRead( *stream, &mTexDirection[i] );
-      stream->read( &mTexSpeed[i] );
-      mathRead( *stream, &mTexOffset[i] );
-
-      stream->read( &mHeight[i] );
-   }
-
-   if ( isProperlyAdded() )
-   {
-      // We could check if the height or texture have actually changed.
-      _initBuffers();
-      _initTexture();
-   }
-}
 
 
 // SceneObject...

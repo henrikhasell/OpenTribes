@@ -180,41 +180,7 @@ void WheeledVehicleTire::initPersistFields()
    Parent::initPersistFields();
 }
 
-void WheeledVehicleTire::packData(BitStream* stream)
-{
-   Parent::packData(stream);
 
-   stream->writeString(shapeName);
-   stream->write(mass);
-   stream->write(staticFriction);
-   stream->write(kineticFriction);
-   stream->write(restitution);
-   stream->write(radius);
-   stream->write(lateralForce);
-   stream->write(lateralDamping);
-   stream->write(lateralRelaxation);
-   stream->write(longitudinalForce);
-   stream->write(longitudinalDamping);
-   stream->write(longitudinalRelaxation);
-}
-
-void WheeledVehicleTire::unpackData(BitStream* stream)
-{
-   Parent::unpackData(stream);
-
-   shapeName = stream->readSTString();
-   stream->read(&mass);
-   stream->read(&staticFriction);
-   stream->read(&kineticFriction);
-   stream->read(&restitution);
-   stream->read(&radius);
-   stream->read(&lateralForce);
-   stream->read(&lateralDamping);
-   stream->read(&lateralRelaxation);
-   stream->read(&longitudinalForce);
-   stream->read(&longitudinalDamping);
-   stream->read(&longitudinalRelaxation);
-}
 
 
 //----------------------------------------------------------------------------
@@ -260,25 +226,7 @@ void WheeledVehicleSpring::initPersistFields()
    Parent::initPersistFields();
 }
 
-void WheeledVehicleSpring::packData(BitStream* stream)
-{
-   Parent::packData(stream);
 
-   stream->write(length);
-   stream->write(force);
-   stream->write(damping);
-   stream->write(antiSway);
-}
-
-void WheeledVehicleSpring::unpackData(BitStream* stream)
-{
-   Parent::unpackData(stream);
-
-   stream->read(&length);
-   stream->read(&force);
-   stream->read(&damping);
-   stream->read(&antiSway);
-}
 
 
 //----------------------------------------------------------------------------
@@ -472,39 +420,7 @@ void WheeledVehicleData::initPersistFields()
 
 //----------------------------------------------------------------------------
 
-void WheeledVehicleData::packData(BitStream* stream)
-{
-   Parent::packData(stream);
 
-   if (stream->writeFlag(tireEmitter))
-      stream->writeRangedU32(packed? SimObjectId((uintptr_t)tireEmitter):
-         tireEmitter->getId(),DataBlockObjectIdFirst,DataBlockObjectIdLast);
-
-   for (S32 i = 0; i < MaxSounds; i++)
-      sfxWrite( stream, sound[ i ] );
-
-   stream->write(maxWheelSpeed);
-   stream->write(engineTorque);
-   stream->write(engineBrake);
-   stream->write(brakeTorque);
-}
-
-void WheeledVehicleData::unpackData(BitStream* stream)
-{
-   Parent::unpackData(stream);
-
-   tireEmitter = stream->readFlag()?
-      (ParticleEmitterData*) stream->readRangedU32(DataBlockObjectIdFirst,
-         DataBlockObjectIdLast): 0;
-
-   for (S32 i = 0; i < MaxSounds; i++)
-      sfxRead( stream, &sound[ i ] );
-
-   stream->read(&maxWheelSpeed);
-   stream->read(&engineTorque);
-   stream->read(&engineBrake);
-   stream->read(&brakeTorque);
-}
 
 
 //----------------------------------------------------------------------------
@@ -1472,99 +1388,7 @@ void WheeledVehicle::readPacketData(GameConnection *connection, BitStream *strea
 
 //----------------------------------------------------------------------------
 
-U32 WheeledVehicle::packUpdate(NetConnection *con, U32 mask, BitStream *stream)
-{
-   U32 retMask = Parent::packUpdate(con, mask, stream);
 
-   // Update wheel datablock information
-   if (stream->writeFlag(mask & WheelMask)) 
-   {
-      Wheel* wend = &mWheel[mDataBlock->wheelCount];
-      for (Wheel* wheel = mWheel; wheel < wend; wheel++) 
-      {
-         if (stream->writeFlag(wheel->tire && wheel->spring)) 
-         {
-            stream->writeRangedU32(wheel->tire->getId(),
-               DataBlockObjectIdFirst,DataBlockObjectIdLast);
-            stream->writeRangedU32(wheel->spring->getId(),
-               DataBlockObjectIdFirst,DataBlockObjectIdLast);
-            stream->writeFlag(wheel->powered);
-
-            // Steering must be sent with full precision as it's
-            // used directly in state force calculations.
-            stream->write(wheel->steering);
-         }
-      }
-   }
-
-   // The rest of the data is part of the control object packet update.
-   // If we're controlled by this client, we don't need to send it.
-   if (stream->writeFlag(getControllingClient() == con && !(mask & InitialUpdateMask)))
-      return retMask;
-
-   stream->writeFlag(mBraking);
-
-   if (stream->writeFlag(mask & PositionMask)) 
-   {
-      Wheel* wend = &mWheel[mDataBlock->wheelCount];
-      for (Wheel* wheel = mWheel; wheel < wend; wheel++) 
-      {
-         stream->write(wheel->avel);
-         stream->write(wheel->Dy);
-         stream->write(wheel->Dx);
-      }
-   }
-   return retMask;
-}
-
-void WheeledVehicle::unpackUpdate(NetConnection *con, BitStream *stream)
-{
-   Parent::unpackUpdate(con,stream);
-
-   // Update wheel datablock information
-   if (stream->readFlag()) 
-   {
-      Wheel* wend = &mWheel[mDataBlock->wheelCount];
-      for (Wheel* wheel = mWheel; wheel < wend; wheel++) 
-      {
-         if (stream->readFlag()) 
-         {
-            SimObjectId tid = stream->readRangedU32(DataBlockObjectIdFirst,DataBlockObjectIdLast);
-            SimObjectId sid = stream->readRangedU32(DataBlockObjectIdFirst,DataBlockObjectIdLast);
-            if (!Sim::findObject(tid,wheel->tire) || !Sim::findObject(sid,wheel->spring)) 
-            {
-               con->setLastError("Invalid packet WheeledVehicle::unpackUpdate()");
-               return;
-            }
-            wheel->powered = stream->readFlag();
-            stream->read(&wheel->steering);
-
-            // Create an instance of the tire for rendering
-            delete wheel->shapeInstance;
-            wheel->shapeInstance = (wheel->tire->shape == NULL) ? 0:
-               new TSShapeInstance(wheel->tire->shape);
-         }
-      }
-   }
-
-   // After this is data that we only need if we're not the
-   // controlling client.
-   if (stream->readFlag())
-      return;
-
-   mBraking = stream->readFlag();
-
-   if (stream->readFlag()) 
-   {
-      Wheel* wend = &mWheel[mDataBlock->wheelCount];
-      for (Wheel* wheel = mWheel; wheel < wend; wheel++) 
-      {
-         stream->read(&wheel->avel);
-         stream->read(&wheel->Dy);
-         stream->read(&wheel->Dx);
-      }
-   }
-}
 
 
 //----------------------------------------------------------------------------

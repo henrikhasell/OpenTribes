@@ -111,8 +111,6 @@ public:
    void inspectPostApply();
 
    // NetObject
-   U32 packUpdate(NetConnection *conn, U32 mask, BitStream *stream);
-   void unpackUpdate(NetConnection *conn, BitStream *stream);
 
    // Editor
    void onGhostAlwaysDone();

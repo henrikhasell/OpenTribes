@@ -211,35 +211,7 @@ void Forest::onRemove()
    removeFromScene();
 }
 
-U32 Forest::packUpdate( NetConnection *connection, U32 mask, BitStream *stream )
-{
-   U32 retMask = Parent::packUpdate( connection, mask, stream );
-   
-   if ( stream->writeFlag( mask & MediaMask ) ) 
-      stream->writeString( mDataFileName );
 
-   if ( stream->writeFlag( mask & LodMask ) )
-   {
-      stream->write( mReflectionLodScalar );
-   }
-
-   return retMask;
-}
-
-void Forest::unpackUpdate(NetConnection *connection, BitStream *stream)
-{
-   Parent::unpackUpdate(connection,stream);
-   
-   if ( stream->readFlag() )
-   {
-      mDataFileName = stream->readSTString();
-   }
-
-   if ( stream->readFlag() ) // LodMask
-   {
-      stream->read( &mReflectionLodScalar );
-   }
-}
 
 void Forest::inspectPostApply()
 {

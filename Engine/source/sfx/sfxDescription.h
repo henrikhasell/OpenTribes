@@ -185,8 +185,6 @@ class SFXDescription : public SimDataBlock
 
       // SimDataBlock.
       virtual bool onAdd();
-      virtual void packData( BitStream* stream );
-      virtual void unpackData( BitStream* stream );
       virtual void inspectPostApply();
 
       /// Validates the description fixing any

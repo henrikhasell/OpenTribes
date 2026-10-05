@@ -87,8 +87,6 @@ public:
 
    // SimDataBlock
    virtual bool preload( bool server, String &errorStr );
-   virtual void packData( BitStream *stream );
-   virtual void unpackData( BitStream *stream );
 
    /// Submits render instances for corona and flare effects.
    void prepRender( SceneRenderState *state, LightFlareState *flareState );

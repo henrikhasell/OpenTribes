@@ -78,8 +78,6 @@ class LightningData : public GameBaseData
    LightningData();
    ~LightningData();
 
-   void packData(BitStream*);
-   void unpackData(BitStream*);
    bool preload(bool server, String &errorStr);
 
    DECLARE_CONOBJECT(LightningData);
@@ -233,8 +231,6 @@ class Lightning : public GameBase
    DECLARE_CONOBJECT(Lightning);
    static void initPersistFields();
 
-   U32  packUpdate  (NetConnection *conn, U32 mask, BitStream *stream);
-   void unpackUpdate(NetConnection *conn,           BitStream *stream);
 };
 
 #endif // _H_LIGHTNING

@@ -65,8 +65,6 @@ class MissionArea : public NetObject
       UpdateMask     = BIT(0)
    };
 
-   U32  packUpdate  (NetConnection *conn, U32 mask, BitStream *stream);
-   void unpackUpdate(NetConnection *conn,           BitStream *stream);
    /// @}
 
    DECLARE_CONOBJECT(MissionArea);

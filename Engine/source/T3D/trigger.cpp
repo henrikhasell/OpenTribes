@@ -113,19 +113,7 @@ void TriggerData::initPersistFields()
 
 
 //--------------------------------------------------------------------------
-void TriggerData::packData(BitStream* stream)
-{
-   Parent::packData(stream);
-   stream->write(tickPeriodMS);
-   stream->write(isClientSide);
-}
 
-void TriggerData::unpackData(BitStream* stream)
-{
-   Parent::unpackData(stream);
-   stream->read(&tickPeriodMS);
-   stream->read(&isClientSide);
-}
 
 
 //--------------------------------------------------------------------------
@@ -716,108 +704,7 @@ void Trigger::processTick(const Move* move)
 
 //--------------------------------------------------------------------------
 
-U32 Trigger::packUpdate(NetConnection* con, U32 mask, BitStream* stream)
-{
-   U32 i;
-   U32 retMask = Parent::packUpdate(con, mask, stream);
 
-   if( stream->writeFlag( mask & TransformMask ) )
-   {
-      stream->writeAffineTransform(mObjToWorld);
-   }
-
-   // Write the polyhedron
-   if( stream->writeFlag( mask & PolyMask ) )
-   {
-      stream->write(mTriggerPolyhedron.pointList.size());
-      for (i = 0; i < mTriggerPolyhedron.pointList.size(); i++)
-         mathWrite(*stream, mTriggerPolyhedron.pointList[i]);
-
-      stream->write(mTriggerPolyhedron.planeList.size());
-      for (i = 0; i < mTriggerPolyhedron.planeList.size(); i++)
-         mathWrite(*stream, mTriggerPolyhedron.planeList[i]);
-
-      stream->write(mTriggerPolyhedron.edgeList.size());
-      for (i = 0; i < mTriggerPolyhedron.edgeList.size(); i++) {
-         const Polyhedron::Edge& rEdge = mTriggerPolyhedron.edgeList[i];
-
-         stream->write(rEdge.face[0]);
-         stream->write(rEdge.face[1]);
-         stream->write(rEdge.vertex[0]);
-         stream->write(rEdge.vertex[1]);
-      }
-   }
-
-   if( stream->writeFlag( mask & EnterCmdMask ) )
-      stream->writeLongString(CMD_SIZE-1, mEnterCommand.c_str());
-   if( stream->writeFlag( mask & LeaveCmdMask ) )
-      stream->writeLongString(CMD_SIZE-1, mLeaveCommand.c_str());
-   if( stream->writeFlag( mask & TickCmdMask ) )
-      stream->writeLongString(CMD_SIZE-1, mTickCommand.c_str());
-
-   return retMask;
-}
-
-void Trigger::unpackUpdate(NetConnection* con, BitStream* stream)
-{
-   Parent::unpackUpdate(con, stream);
-
-   U32 i, size;
-
-   // Transform
-   if( stream->readFlag() )
-   {
-      MatrixF temp;
-      stream->readAffineTransform(&temp);
-      setTransform(temp);
-   }
-
-   // Read the polyhedron
-   if( stream->readFlag() )
-   {
-      Polyhedron tempPH;
-      stream->read(&size);
-      tempPH.pointList.setSize(size);
-      for (i = 0; i < tempPH.pointList.size(); i++)
-         mathRead(*stream, &tempPH.pointList[i]);
-
-      stream->read(&size);
-      tempPH.planeList.setSize(size);
-      for (i = 0; i < tempPH.planeList.size(); i++)
-         mathRead(*stream, &tempPH.planeList[i]);
-
-      stream->read(&size);
-      tempPH.edgeList.setSize(size);
-      for (i = 0; i < tempPH.edgeList.size(); i++) {
-         Polyhedron::Edge& rEdge = tempPH.edgeList[i];
-
-         stream->read(&rEdge.face[0]);
-         stream->read(&rEdge.face[1]);
-         stream->read(&rEdge.vertex[0]);
-         stream->read(&rEdge.vertex[1]);
-      }
-      setTriggerPolyhedron(tempPH);
-   }
-
-   if( stream->readFlag() )
-   {
-      char buf[CMD_SIZE];
-      stream->readLongString(CMD_SIZE-1, buf);
-      mEnterCommand = buf;
-   }
-   if( stream->readFlag() )
-   {
-      char buf[CMD_SIZE];
-      stream->readLongString(CMD_SIZE-1, buf);
-      mLeaveCommand = buf;
-   }
-   if( stream->readFlag() )
-   {
-      char buf[CMD_SIZE];
-      stream->readLongString(CMD_SIZE-1, buf);
-      mTickCommand = buf;
-   }
-}
 
 //ConsoleMethod( Trigger, getNumObjects, S32, 2, 2, "")
 DefineEngineMethod( Trigger, getNumObjects, S32, (),,

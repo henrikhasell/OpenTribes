@@ -127,21 +127,7 @@ void PointLight::_conformLights()
    Parent::setTransform( mObjToWorld );
 }
 
-U32 PointLight::packUpdate(NetConnection *conn, U32 mask, BitStream *stream )
-{
-   if ( stream->writeFlag( mask & UpdateMask ) )
-      stream->write( mRadius );
 
-   return Parent::packUpdate( conn, mask, stream );
-}
-
-void PointLight::unpackUpdate( NetConnection *conn, BitStream *stream )
-{
-   if ( stream->readFlag() ) // UpdateMask
-      stream->read( &mRadius );
-
-   Parent::unpackUpdate( conn, stream );
-}
 
 void PointLight::setScale( const VectorF &scale )
 {

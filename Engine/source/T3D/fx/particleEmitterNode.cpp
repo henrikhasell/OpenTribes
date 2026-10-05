@@ -132,22 +132,10 @@ bool ParticleEmitterNodeData::preload(bool server, String &errorStr)
 //-----------------------------------------------------------------------------
 // packData
 //-----------------------------------------------------------------------------
-void ParticleEmitterNodeData::packData(BitStream* stream)
-{
-   Parent::packData(stream);
-
-   stream->write(timeMultiple);
-}
 
 //-----------------------------------------------------------------------------
 // unpackData
 //-----------------------------------------------------------------------------
-void ParticleEmitterNodeData::unpackData(BitStream* stream)
-{
-   Parent::unpackData(stream);
-
-   stream->read(&timeMultiple);
-}
 
 
 //-----------------------------------------------------------------------------
@@ -298,69 +286,10 @@ void ParticleEmitterNode::advanceTime(F32 dt)
 //-----------------------------------------------------------------------------
 // packUpdate
 //-----------------------------------------------------------------------------
-U32 ParticleEmitterNode::packUpdate(NetConnection* con, U32 mask, BitStream* stream)
-{
-   U32 retMask = Parent::packUpdate(con, mask, stream);
-
-   if ( stream->writeFlag( mask & InitialUpdateMask ) )
-   {
-      mathWrite(*stream, getTransform());
-      mathWrite(*stream, getScale());
-   }
-
-   if ( stream->writeFlag( mask & EmitterDBMask ) )
-   {
-      if( stream->writeFlag(mEmitterDatablock != NULL) )
-      {
-         stream->writeRangedU32(mEmitterDatablock->getId(), DataBlockObjectIdFirst,
-            DataBlockObjectIdLast);
-      }
-   }
-
-   if ( stream->writeFlag( mask & StateMask ) )
-   {
-      stream->writeFlag( mActive );
-      stream->write( mVelocity );
-   }
-
-   return retMask;
-}
 
 //-----------------------------------------------------------------------------
 // unpackUpdate
 //-----------------------------------------------------------------------------
-void ParticleEmitterNode::unpackUpdate(NetConnection* con, BitStream* stream)
-{
-   Parent::unpackUpdate(con, stream);
-
-   if ( stream->readFlag() )
-   {
-      MatrixF temp;
-      Point3F tempScale;
-      mathRead(*stream, &temp);
-      mathRead(*stream, &tempScale);
-
-      setScale(tempScale);
-      setTransform(temp);
-   }
-
-   if ( stream->readFlag() )
-   {
-      mEmitterDatablockId = stream->readFlag() ?
-         stream->readRangedU32(DataBlockObjectIdFirst, DataBlockObjectIdLast) : 0;
-
-      ParticleEmitterData *emitterDB = NULL;
-      Sim::findObject( mEmitterDatablockId, emitterDB );
-      if ( isProperlyAdded() )
-         setEmitterDataBlock( emitterDB );
-   }
-
-   if ( stream->readFlag() )
-   {
-      mActive = stream->readFlag();
-      stream->read( &mVelocity );
-   }
-}
 
 void ParticleEmitterNode::setEmitterDataBlock(ParticleEmitterData* data)
 {

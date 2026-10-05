@@ -61,8 +61,6 @@ class SFXEnvironment : public SimDataBlock
 
       virtual bool onAdd();
       virtual bool preload( bool server, String& errorStr );
-      virtual void packData( BitStream* stream );
-      virtual void unpackData( BitStream* stream );
       virtual void inspectPostApply();
 
       /// @return The reverb properties of the sound environment.

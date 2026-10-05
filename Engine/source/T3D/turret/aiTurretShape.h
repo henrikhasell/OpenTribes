@@ -143,8 +143,6 @@ public:
    virtual bool onAdd();
    virtual bool preload(bool server, String &errorStr);
 
-   virtual void packData(BitStream* stream);
-   virtual void unpackData(BitStream* stream);
 
    S32 lookupState(const char* name);  ///< Get a state by name.
 };
@@ -299,8 +297,6 @@ public:
    virtual void processTick(const Move *move);
    virtual void advanceTime(F32 dt);
 
-   virtual U32  packUpdate  (NetConnection *conn, U32 mask, BitStream *stream);
-   virtual void unpackUpdate(NetConnection *conn,           BitStream *stream);
 
    void prepBatchRender( SceneRenderState *state, S32 mountedImageIndex );
 

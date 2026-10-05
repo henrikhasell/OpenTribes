@@ -113,16 +113,6 @@ public:
       mNetFlags.set(ScopeAlways | Ghostable);
       dStrcpy(message, "Hello World!");
    }
-   U32 packUpdate(NetConnection *conn, U32 mask, BitStream *stream)
-   {
-      stream->writeString(message);
-      return 0;
-   }
-   void unpackUpdate(NetConnection *conn, BitStream *stream)
-   {
-      stream->readString(message);
-      Con::printf("Got message: %s", message);
-   }
    void setMessage(const char *msg)
    {
       setMaskBits(1);

@@ -135,27 +135,7 @@ void MissionArea::initPersistFields()
 
 //------------------------------------------------------------------------------
 
-void MissionArea::unpackUpdate(NetConnection *, BitStream * stream)
-{
-   // ghost (initial) and regular updates share flag..
-   if(stream->readFlag())
-   {
-      mathRead(*stream, &mArea);
-      stream->read(&mFlightCeiling);
-      stream->read(&mFlightCeilingRange);
-   }
-}
 
-U32 MissionArea::packUpdate(NetConnection *, U32 mask, BitStream * stream)
-{
-   if(stream->writeFlag(mask & UpdateMask))
-   {
-      mathWrite(*stream, mArea);
-      stream->write(mFlightCeiling);
-      stream->write(mFlightCeilingRange);
-   }
-   return(0);
-}
 
 //-----------------------------------------------------------------------------
 

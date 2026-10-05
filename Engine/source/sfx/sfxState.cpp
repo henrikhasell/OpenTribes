@@ -209,27 +209,9 @@ bool SFXState::preload( bool server, String& errorStr )
 
 //-----------------------------------------------------------------------------
 
-void SFXState::packData( BitStream* stream )
-{
-   Parent::packData( stream );
-      
-   for( U32 i = 0; i < MaxIncludedStates; ++ i )
-      sfxWrite( stream, mIncludedStates[ i ] );
-   for( U32 i = 0; i < MaxExcludedStates; ++ i )
-      sfxWrite( stream, mExcludedStates[ i ] );
-}
 
 //-----------------------------------------------------------------------------
 
-void SFXState::unpackData( BitStream* stream )
-{
-   Parent::unpackData( stream );
-   
-   for( U32 i = 0; i < MaxIncludedStates; ++ i )
-      sfxRead( stream, &mIncludedStates[ i ] );
-   for( U32 i = 0; i < MaxExcludedStates; ++ i )
-      sfxRead( stream, &mExcludedStates[ i ] );
-}
 
 //-----------------------------------------------------------------------------
 

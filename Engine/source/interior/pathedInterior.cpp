@@ -66,27 +66,7 @@ void PathedInteriorData::initPersistFields()
    Parent::initPersistFields();
 }
 
-void PathedInteriorData::packData(BitStream *stream)
-{
-   for (S32 i = 0; i < MaxSounds; i++)
-   {
-      if (stream->writeFlag(sound[i]))
-         stream->writeRangedU32(packed? SimObjectId((uintptr_t)sound[i]):
-                                sound[i]->getId(),DataBlockObjectIdFirst,DataBlockObjectIdLast);
-   }
-   Parent::packData(stream);
-}
 
-void PathedInteriorData::unpackData(BitStream* stream)
-{
-   for (S32 i = 0; i < MaxSounds; i++) {
-      sound[i] = NULL;
-      if (stream->readFlag())
-         sound[i] = (SFXProfile*)stream->readRangedU32(DataBlockObjectIdFirst,
-                                                         DataBlockObjectIdLast);
-   }
-   Parent::unpackData(stream);
-}
 
 bool PathedInteriorData::preload(bool server, String &errorStr)
 {
@@ -273,78 +253,7 @@ void PathedInterior::resolvePathKey()
 
 
 //--------------------------------------------------------------------------
-U32 PathedInterior::packUpdate(NetConnection* con, U32 mask, BitStream* stream)
-{
-   U32 retMask = Parent::packUpdate(con, mask, stream);
-   resolvePathKey();
 
-   if (stream->writeFlag(mask & InitialUpdateMask))
-   {
-      // Inital update...
-      stream->writeString(mInteriorResName);
-      stream->write(mInteriorResIndex);
-
-      stream->writeAffineTransform(mBaseTransform);
-      mathWrite(*stream, mBaseScale);
-
-      stream->write(mPathKey);
-   }
-   if(stream->writeFlag((mask & NewPositionMask) && mPathKey != SimPath::Path::NoPathIndex))
-      stream->writeInt(S32(mCurrentPosition), gServerPathManager->getPathTimeBits(mPathKey));
-   if(stream->writeFlag((mask & NewTargetMask) && mPathKey != SimPath::Path::NoPathIndex))
-   {
-      if(stream->writeFlag(mTargetPosition < 0))
-      {
-         stream->writeFlag(mTargetPosition == -1);
-      }
-      else
-         stream->writeInt(S32(mTargetPosition), gServerPathManager->getPathTimeBits(mPathKey));
-   }
-   return retMask;
-}
-
-void PathedInterior::unpackUpdate(NetConnection* con, BitStream* stream)
-{
-   Parent::unpackUpdate(con, stream);
-
-   MatrixF tempXForm;
-   Point3F tempScale;
-
-   if (stream->readFlag())
-   {
-      // Initial
-      mInteriorResName = stream->readSTString();
-      stream->read(&mInteriorResIndex);
-
-      stream->readAffineTransform(&tempXForm);
-      mathRead(*stream, &tempScale);
-      mBaseTransform = tempXForm;
-      mBaseScale     = tempScale;
-
-      stream->read(&mPathKey);
-   }
-   if(stream->readFlag())
-   {
-      Point3F pathPos(0.0f, 0.0f, 0.0f);
-      mCurrentPosition = stream->readInt(gClientPathManager->getPathTimeBits(mPathKey));
-      if(isProperlyAdded())
-      {
-         //gClientPathManager->getPathPosition(mPathKey, mCurrentPosition, pathPos);
-         MatrixF mat = getTransform();
-         mat.setColumn(3, pathPos + mOffset);
-         setTransform(mat);
-      }
-   }
-   if(stream->readFlag())
-   {
-      if(stream->readFlag())
-      {
-         mTargetPosition = stream->readFlag() ? -1 : -2;
-      }
-      else
-         mTargetPosition = stream->readInt(gClientPathManager->getPathTimeBits(mPathKey));
-   }
-}
 
 void PathedInterior::processTick(const Move* move)
 {

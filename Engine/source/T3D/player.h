@@ -345,8 +345,6 @@ struct PlayerData: public ShapeBaseData {
    bool isJumpAction(U32 action);
 
    static void initPersistFields();
-   virtual void packData(BitStream* stream);
-   virtual void unpackData(BitStream* stream);
 
    /// @name Callbacks
    /// @{
@@ -761,8 +759,6 @@ public:
    void onCameraScopeQuery(NetConnection *cr, CameraScopeQuery *);
    void writePacketData(GameConnection *conn, BitStream *stream);
    void readPacketData (GameConnection *conn, BitStream *stream);
-   U32  packUpdate  (NetConnection *conn, U32 mask, BitStream *stream);
-   void unpackUpdate(NetConnection *conn,           BitStream *stream);
 
    virtual void prepRenderImage( SceneRenderState* state );
    virtual void renderConvex( ObjectRenderInst *ri, SceneRenderState *state, BaseMatInstance *overrideMat );   

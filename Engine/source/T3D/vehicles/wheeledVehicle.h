@@ -70,8 +70,6 @@ struct WheeledVehicleTire: public SimDataBlock
    DECLARE_CONOBJECT(WheeledVehicleTire);
    static void initPersistFields();
    bool preload(bool, String &errorStr);
-   virtual void packData(BitStream* stream);
-   virtual void unpackData(BitStream* stream);
 };
 
 
@@ -90,8 +88,6 @@ struct WheeledVehicleSpring: public SimDataBlock
    WheeledVehicleSpring();
    DECLARE_CONOBJECT(WheeledVehicleSpring);
    static void initPersistFields();
-   virtual void packData(BitStream* stream);
-   virtual void unpackData(BitStream* stream);
 };
 
 
@@ -144,8 +140,6 @@ struct WheeledVehicleData: public VehicleData
    static void initPersistFields();
    bool preload(bool, String &errorStr);
    bool mirrorWheel(Wheel* we);
-   virtual void packData(BitStream* stream);
-   virtual void unpackData(BitStream* stream);
 };
 
 
@@ -242,8 +236,6 @@ public:
 
    void writePacketData(GameConnection * conn, BitStream *stream);
    void readPacketData(GameConnection * conn, BitStream *stream);
-   U32  packUpdate(NetConnection * conn, U32 mask, BitStream *stream);
-   void unpackUpdate(NetConnection * conn, BitStream *stream);
 };
 
 

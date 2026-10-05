@@ -59,8 +59,6 @@ public:
    DECLARE_CONOBJECT( ProximityMineData );
    static void initPersistFields();
    bool preload( bool server, String& errorStr );
-   virtual void packData( BitStream* stream );
-   virtual void unpackData( BitStream* stream );
 };
 
 //----------------------------------------------------------------------------
@@ -120,8 +118,6 @@ public:
 
    void advanceTime( F32 dt );
 
-   U32  packUpdate  ( NetConnection* conn, U32 mask, BitStream* stream );
-   void unpackUpdate( NetConnection* conn, BitStream* stream );
 };
 
 #endif // _PROXIMITYMINE_H_

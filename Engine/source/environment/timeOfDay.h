@@ -83,8 +83,6 @@ public:
    virtual void onRemove();
 
    // NetObject
-   U32 packUpdate( NetConnection *conn, U32 mask, BitStream *stream );
-   void unpackUpdate( NetConnection *conn, BitStream *stream );  
 
    // ProcessObject   
    virtual void processTick( const Move *move );

@@ -363,86 +363,9 @@ bool SFXPlayList::preload( bool server, String& errorStr )
 
 //-----------------------------------------------------------------------------
 
-void SFXPlayList::packData( BitStream* stream )
-{
-   Parent::packData( stream );
-   
-   stream->writeInt( mRandomMode, NUM_RANDOM_MODE_BITS );
-   stream->writeInt( mLoopMode, NUM_LOOP_MODE_BITS );
-   stream->writeInt( mNumSlotsToPlay, NUM_SLOTS_TO_PLAY_BITS );
-   
-   #define FOR_EACH_SLOT \
-      for( U32 i = 0; i < NUM_SLOTS; ++ i )
-   
-   FOR_EACH_SLOT stream->writeInt( mSlots.mReplayMode[ i ], NUM_REPLAY_MODE_BITS );
-   FOR_EACH_SLOT stream->writeInt( mSlots.mTransitionIn[ i ], NUM_TRANSITION_MODE_BITS );
-   FOR_EACH_SLOT stream->writeInt( mSlots.mTransitionOut[ i ], NUM_TRANSITION_MODE_BITS );
-   FOR_EACH_SLOT stream->writeInt( mSlots.mStateMode[ i ], NUM_STATE_MODE_BITS );
-      
-   FOR_EACH_SLOT stream->write( mSlots.mFadeTimeIn.mValue[ i ] );
-   FOR_EACH_SLOT stream->write( mSlots.mFadeTimeIn.mVariance[ i ][ 0 ] );
-   FOR_EACH_SLOT stream->write( mSlots.mFadeTimeIn.mVariance[ i ][ 1 ] );
-   FOR_EACH_SLOT stream->write( mSlots.mFadeTimeOut.mValue[ i ] );
-   FOR_EACH_SLOT stream->write( mSlots.mFadeTimeOut.mVariance[ i ][ 0 ] );
-   FOR_EACH_SLOT stream->write( mSlots.mFadeTimeOut.mVariance[ i ][ 1 ] );
-   FOR_EACH_SLOT stream->write( mSlots.mDelayTimeIn.mValue[ i ] );
-   FOR_EACH_SLOT stream->write( mSlots.mDelayTimeIn.mVariance[ i ][ 0 ] );
-   FOR_EACH_SLOT stream->write( mSlots.mDelayTimeIn.mVariance[ i ][ 1 ] );
-   FOR_EACH_SLOT stream->write( mSlots.mDelayTimeOut.mValue[ i ] );
-   FOR_EACH_SLOT stream->write( mSlots.mDelayTimeOut.mVariance[ i ][ 0 ] );
-   FOR_EACH_SLOT stream->write( mSlots.mDelayTimeOut.mVariance[ i ][ 1 ] );
-   FOR_EACH_SLOT stream->write( mSlots.mVolumeScale.mValue[ i ] );
-   FOR_EACH_SLOT stream->write( mSlots.mVolumeScale.mVariance[ i ][ 0 ] );
-   FOR_EACH_SLOT stream->write( mSlots.mVolumeScale.mVariance[ i ][ 1 ] );
-   FOR_EACH_SLOT stream->write( mSlots.mPitchScale.mValue[ i ] );
-   FOR_EACH_SLOT stream->write( mSlots.mPitchScale.mVariance[ i ][ 0 ] );
-   FOR_EACH_SLOT stream->write( mSlots.mPitchScale.mVariance[ i ][ 1 ] );
-   FOR_EACH_SLOT stream->write( mSlots.mRepeatCount[ i ] );
-      
-   FOR_EACH_SLOT sfxWrite( stream, mSlots.mState[ i ] );
-   FOR_EACH_SLOT sfxWrite( stream, mSlots.mTrack[ i ] );
-}
 
 //-----------------------------------------------------------------------------
 
-void SFXPlayList::unpackData( BitStream* stream )
-{
-   Parent::unpackData( stream );
-   
-   mRandomMode          = ( ERandomMode ) stream->readInt( NUM_RANDOM_MODE_BITS );
-   mLoopMode            = ( ELoopMode ) stream->readInt( NUM_LOOP_MODE_BITS );
-   mNumSlotsToPlay      = stream->readInt( NUM_SLOTS_TO_PLAY_BITS );
-   
-   FOR_EACH_SLOT mSlots.mReplayMode[ i ]     = ( EReplayMode ) stream->readInt( NUM_REPLAY_MODE_BITS );
-   FOR_EACH_SLOT mSlots.mTransitionIn[ i ]   = ( ETransitionMode ) stream->readInt( NUM_TRANSITION_MODE_BITS );
-   FOR_EACH_SLOT mSlots.mTransitionOut[ i ]  = ( ETransitionMode ) stream->readInt( NUM_TRANSITION_MODE_BITS );
-   FOR_EACH_SLOT mSlots.mStateMode[ i ]      = ( EStateMode ) stream->readInt( NUM_STATE_MODE_BITS );
-      
-   FOR_EACH_SLOT stream->read( &mSlots.mFadeTimeIn.mValue[ i ] );
-   FOR_EACH_SLOT stream->read( &mSlots.mFadeTimeIn.mVariance[ i ][ 0 ] );
-   FOR_EACH_SLOT stream->read( &mSlots.mFadeTimeIn.mVariance[ i ][ 1 ] );
-   FOR_EACH_SLOT stream->read( &mSlots.mFadeTimeOut.mValue[ i ] );
-   FOR_EACH_SLOT stream->read( &mSlots.mFadeTimeOut.mVariance[ i ][ 0 ] );
-   FOR_EACH_SLOT stream->read( &mSlots.mFadeTimeOut.mVariance[ i ][ 1 ] );
-   FOR_EACH_SLOT stream->read( &mSlots.mDelayTimeIn.mValue[ i ] );
-   FOR_EACH_SLOT stream->read( &mSlots.mDelayTimeIn.mVariance[ i ][ 0 ] );
-   FOR_EACH_SLOT stream->read( &mSlots.mDelayTimeIn.mVariance[ i ][ 1 ] );
-   FOR_EACH_SLOT stream->read( &mSlots.mDelayTimeOut.mValue[ i ] );
-   FOR_EACH_SLOT stream->read( &mSlots.mDelayTimeOut.mVariance[ i ][ 0 ] );
-   FOR_EACH_SLOT stream->read( &mSlots.mDelayTimeOut.mVariance[ i ][ 1 ] );
-   FOR_EACH_SLOT stream->read( &mSlots.mVolumeScale.mValue[ i ] );
-   FOR_EACH_SLOT stream->read( &mSlots.mVolumeScale.mVariance[ i ][ 0 ] );
-   FOR_EACH_SLOT stream->read( &mSlots.mVolumeScale.mVariance[ i ][ 1 ] );
-   FOR_EACH_SLOT stream->read( &mSlots.mPitchScale.mValue[ i ] );
-   FOR_EACH_SLOT stream->read( &mSlots.mPitchScale.mVariance[ i ][ 0 ] );
-   FOR_EACH_SLOT stream->read( &mSlots.mPitchScale.mVariance[ i ][ 1 ] );
-   FOR_EACH_SLOT stream->read( &mSlots.mRepeatCount[ i ] );
-      
-   FOR_EACH_SLOT sfxRead( stream, &mSlots.mState[ i ] );
-   FOR_EACH_SLOT sfxRead( stream, &mSlots.mTrack[ i ] );
-   
-   #undef FOR_EACH_SLOT
-}
 
 //-----------------------------------------------------------------------------
 

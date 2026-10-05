@@ -159,8 +159,6 @@ public:
    virtual bool processArguments(S32 argc, const char **argv);
 
    // NetObject
-   virtual U32  packUpdate( NetConnection * conn, U32 mask, BitStream *stream );
-   virtual void unpackUpdate( NetConnection * conn, BitStream *stream );
 
    // SceneObject
    virtual void prepRenderImage( SceneRenderState *state );

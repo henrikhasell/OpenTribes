@@ -89,33 +89,8 @@ void VehicleBlocker::onRemove()
 }
 
 
-U32 VehicleBlocker::packUpdate(NetConnection *con, U32 mask, BitStream *stream)
-{
-   U32 retMask = Parent::packUpdate(con, mask, stream);
-
-   mathWrite(*stream, getTransform());
-   mathWrite(*stream, getScale());
-   mathWrite(*stream, mDimensions);
-
-   return retMask;
-}
 
 
-void VehicleBlocker::unpackUpdate(NetConnection *con, BitStream *stream)
-{
-   Parent::unpackUpdate(con, stream);
-
-   MatrixF mat;
-   Point3F scale;
-   Box3F objBox;
-   mathRead(*stream, &mat);
-   mathRead(*stream, &scale);
-   mathRead(*stream, &mDimensions);
-   mObjBox.minExtents.set(-mDimensions.x, -mDimensions.y, 0);
-   mObjBox.maxExtents.set( mDimensions.x,  mDimensions.y, mDimensions.z);
-   setScale(scale);
-   setTransform(mat);
-}
 
 
 void VehicleBlocker::buildConvex(const Box3F& box, Convex* convex)

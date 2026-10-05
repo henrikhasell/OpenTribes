@@ -129,46 +129,7 @@ void RenderMeshExample::setTransform(const MatrixF & mat)
    setMaskBits( TransformMask );
 }
 
-U32 RenderMeshExample::packUpdate( NetConnection *conn, U32 mask, BitStream *stream )
-{
-   // Allow the Parent to get a crack at writing its info
-   U32 retMask = Parent::packUpdate( conn, mask, stream );
 
-   // Write our transform information
-   if ( stream->writeFlag( mask & TransformMask ) )
-   {
-      mathWrite(*stream, getTransform());
-      mathWrite(*stream, getScale());
-   }
-
-   // Write out any of the updated editable properties
-   if ( stream->writeFlag( mask & UpdateMask ) )
-      stream->write( mMaterialName );
-
-   return retMask;
-}
-
-void RenderMeshExample::unpackUpdate(NetConnection *conn, BitStream *stream)
-{
-   // Let the Parent read any info it sent
-   Parent::unpackUpdate(conn, stream);
-
-   if ( stream->readFlag() )  // TransformMask
-   {
-      mathRead(*stream, &mObjToWorld);
-      mathRead(*stream, &mObjScale);
-
-      setTransform( mObjToWorld );
-   }
-
-   if ( stream->readFlag() )  // UpdateMask
-   {
-      stream->read( &mMaterialName );
-
-      if ( isProperlyAdded() )
-         updateMaterial();
-   }
-}
 
 //-----------------------------------------------------------------------------
 // Object Rendering

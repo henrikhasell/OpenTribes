@@ -130,9 +130,6 @@ public:
    /// the 'datablock' keyword).
    bool isClientOnly() const { return getId() < DataBlockObjectIdFirst || getId() > DataBlockObjectIdLast; }
 
-   /// HH: Added for Tribes 2 compatibility.
-   virtual bool unpackDataT2(BitStream *stream, U32 classId);
-
    /// Get the modified key for this particular datablock.
    S32 getModifiedKey() const { return modifiedKey; }
 
@@ -147,8 +144,8 @@ public:
    /// @{
 
    ///
-   virtual void packData(BitStream* stream);
-   virtual void unpackData(BitStream* stream);
+   virtual void packData(BitStream* stream, U32 classId);
+   virtual bool unpackData(BitStream* stream, U32 classId);
 
    /// Called to prepare the datablock for use, after it has been unpacked.
    ///

@@ -25,10 +25,10 @@ public:
       typedef DataBlockT2 Parent;                                           \
    public:                                                                  \
       DECLARE_CONOBJECT(className);                                         \
-      bool unpackDataT2(BitStream *stream, U32 classId)                     \
+      bool unpackData(BitStream *stream, U32 classId)                     \
       {                                                                     \
          StubT2::warn("datablock", getClassName());                         \
-         return Parent::unpackDataT2(stream, classId);                      \
+         return Parent::unpackData(stream, classId);                      \
       }                                                                     \
    };                                                                       \
    IMPLEMENT_CO_DATABLOCK_V1(className);                                     \

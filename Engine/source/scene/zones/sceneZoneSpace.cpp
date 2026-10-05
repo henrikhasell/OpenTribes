@@ -110,29 +110,9 @@ void SceneZoneSpace::setZoneGroup( U32 group )
 
 //-----------------------------------------------------------------------------
 
-U32 SceneZoneSpace::packUpdate( NetConnection* connection, U32 mask, BitStream* stream )
-{
-   U32 retMask = Parent::packUpdate( connection, mask, stream );
-
-   if( stream->writeFlag( mask & ZoneGroupMask ) )
-      stream->write( mZoneGroup );
-
-   return retMask;
-}
 
 //-----------------------------------------------------------------------------
 
-void SceneZoneSpace::unpackUpdate( NetConnection* connection, BitStream* stream )
-{
-   Parent::unpackUpdate( connection, stream );
-
-   if( stream->readFlag() ) // ZoneGroupMask
-   {
-      U32 zoneGroup;
-      stream->read( &zoneGroup );
-      setZoneGroup( zoneGroup );
-   }
-}
 
 //-----------------------------------------------------------------------------
 

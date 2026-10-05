@@ -140,29 +140,7 @@ void SpotLight::_conformLights()
    Parent::setTransform( mObjToWorld );
 }
 
-U32 SpotLight::packUpdate(NetConnection *conn, U32 mask, BitStream *stream )
-{
-   if ( stream->writeFlag( mask & UpdateMask ) )
-   {
-      stream->write( mRange );
-      stream->write( mInnerConeAngle );
-      stream->write( mOuterConeAngle );
-   }
-   
-   return Parent::packUpdate( conn, mask, stream );
-}
 
-void SpotLight::unpackUpdate( NetConnection *conn, BitStream *stream )
-{
-   if ( stream->readFlag() ) // UpdateMask
-   {   
-      stream->read( &mRange );
-      stream->read( &mInnerConeAngle );
-      stream->read( &mOuterConeAngle );
-   }
-   
-   Parent::unpackUpdate( conn, stream );
-}
 
 void SpotLight::setScale( const VectorF &scale )
 {

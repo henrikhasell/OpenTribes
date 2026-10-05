@@ -105,10 +105,8 @@ public:
 
    // This function handles sending the relevant data from the server
    // object to the client object
-   U32 packUpdate( NetConnection *conn, U32 mask, BitStream *stream );
    // This function handles receiving relevant data from the server
    // object and applying it to the client object
-   void unpackUpdate( NetConnection *conn, BitStream *stream );
 
    //--------------------------------------------------------------------------
    // Object Rendering

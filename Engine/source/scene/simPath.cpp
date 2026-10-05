@@ -503,24 +503,4 @@ void Marker::renderObject(ObjectRenderInst *ri, SceneRenderState *state, BaseMat
 
 
 //--------------------------------------------------------------------------
-U32 Marker::packUpdate(NetConnection* con, U32 mask, BitStream* stream)
-{
-   U32 retMask = Parent::packUpdate(con, mask, stream);
 
-   // Note that we don't really care about efficiency here, since this is an
-   //  edit-only ghost...
-   stream->writeAffineTransform(mObjToWorld);
-
-   return retMask;
-}
-
-void Marker::unpackUpdate(NetConnection* con, BitStream* stream)
-{
-   Parent::unpackUpdate(con, stream);
-
-   // Transform
-   MatrixF otow;
-   stream->readAffineTransform(&otow);
-
-   setTransform(otow);
-}

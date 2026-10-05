@@ -279,9 +279,6 @@ protected:
    GhostInfo *mFirstObjectRef;      ///< Head of a linked list storing GhostInfos referencing this NetObject.
 
 public:
-   /// HH: Added for Tribes 2 compatibility.
-   virtual bool unpackUpdateT2(BitStream *stream, bool isInitial);
-
    NetObject();
    ~NetObject();
 
@@ -337,19 +334,34 @@ public:
 
    /// Instructs this object to pack its state for transfer over the network.
    ///
-   /// @param   conn    Net connection being used
-   /// @param   mask    Mask indicating fields to transmit.
-   /// @param   stream  Bitstream to pack data to
+   /// HH: Modified for Tribes 2 compatibility. This writes a Tribes 2 ghost
+   /// body, and nothing else -- there is no second, Torque-native wire
+   /// format. Until a class has a real Tribes 2 encoder, the base
+   /// implementation walks the recovered layout and writes a default value
+   /// for every node, so the cursor lands where the reader expects it.
+   ///
+   /// @param   conn       Net connection being used
+   /// @param   mask       Mask indicating fields to transmit.
+   /// @param   stream     Bitstream to pack data to
+   /// @param   isInitial  True for the body that first creates the ghost.
    ///
    /// @returns Any bits which were not dealt with. The value is stored by the networking
    ///          system. Don't set bits you weren't passed.
-   virtual U32  packUpdate(NetConnection * conn, U32 mask, BitStream *stream);
+   virtual U32  packUpdate(NetConnection * conn, U32 mask, BitStream *stream,
+                           bool isInitial);
 
-   /// Instructs this object to read state data previously packed with packUpdate.
+   /// Instructs this object to read the Tribes 2 ghost body packUpdate wrote.
    ///
-   /// @param   conn    Net connection being used
-   /// @param   stream  stream to read from
-   virtual void unpackUpdate(NetConnection * conn, BitStream *stream);
+   /// HH: Modified for Tribes 2 compatibility. One method, one wire format.
+   /// The base implementation walks the recovered layout and discards every
+   /// value, which is what a class nobody has decoded yet does.
+   ///
+   /// @param   stream     stream to read from
+   /// @param   isInitial  True for the body that first creates the ghost.
+   ///
+   /// @returns False if the body could not be read, which kills the
+   ///          connection -- the stream cursor is no longer trustworthy.
+   virtual bool unpackUpdate(BitStream *stream, bool isInitial);
 
    /// Queries the object about information used to determine scope.
    ///

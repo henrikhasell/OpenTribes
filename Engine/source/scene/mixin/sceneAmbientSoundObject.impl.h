@@ -56,35 +56,9 @@ void SceneAmbientSoundObject< Base >::initPersistFields()
 
 //-----------------------------------------------------------------------------
 
-template< typename Base >
-U32 SceneAmbientSoundObject< Base >::packUpdate( NetConnection* connection, U32 mask, BitStream* stream )
-{
-   U32 retMask = Parent::packUpdate( connection, mask, stream );
-
-   if( stream->writeFlag( mask & SoundMask ) )
-      sfxWrite( stream, mSoundAmbience );
-
-   return retMask;
-}
 
 //-----------------------------------------------------------------------------
 
-template< typename Base >
-void SceneAmbientSoundObject< Base >::unpackUpdate( NetConnection* connection, BitStream* stream )
-{
-   Parent::unpackUpdate( connection, stream );
-
-   if( stream->readFlag() ) // SoundMask
-   {
-      SFXAmbience* ambience;
-
-      String errorStr;
-      if( !sfxReadAndResolve( stream, &ambience, errorStr ) )
-         Con::errorf( "SceneAmbientSoundObject::unpackUpdate - bad packet: %s", errorStr.c_str() );
-      else
-         setSoundAmbience( ambience );
-   }
-}
 
 //-----------------------------------------------------------------------------
 

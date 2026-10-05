@@ -172,36 +172,7 @@ void GroundPlane::setScale( const Point3F& scale )
    // Ignore.
 }
 
-U32 GroundPlane::packUpdate( NetConnection* connection, U32 mask, BitStream* stream )
-{
-   U32 retMask = Parent::packUpdate( connection, mask, stream );
 
-   stream->write( mSquareSize );
-   stream->write( mScaleU );
-   stream->write( mScaleV );
-   stream->write( mMaterialName );
-
-   return retMask;
-}
-
-void GroundPlane::unpackUpdate( NetConnection* connection, BitStream* stream )
-{
-   Parent::unpackUpdate( connection, stream );
-
-   stream->read( &mSquareSize );
-   stream->read( &mScaleU );
-   stream->read( &mScaleV );
-   stream->read( &mMaterialName );
-
-   // If we're added then something possibly changed in 
-   // the editor... do an update of the material and the
-   // geometry.
-   if ( isProperlyAdded() )
-   {
-      _updateMaterial();
-      mVertexBuffer = NULL;
-   }
-}
 
 void GroundPlane::_updateMaterial()
 {

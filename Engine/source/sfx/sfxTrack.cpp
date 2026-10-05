@@ -107,31 +107,9 @@ void SFXTrack::setParameter( U32 index, const char* name )
 
 //-----------------------------------------------------------------------------
 
-void SFXTrack::packData( BitStream* stream )
-{
-   Parent::packData( stream );
-   
-   sfxWrite( stream, mDescription );
-
-   for( U32 i = 0; i < MaxNumParameters; ++ i )
-      if( stream->writeFlag( mParameters[ i ] ) )
-         stream->writeString( mParameters[ i ] );
-}
 
 //-----------------------------------------------------------------------------
 
-void SFXTrack::unpackData( BitStream* stream )
-{
-   Parent::unpackData( stream );
-   
-   sfxRead( stream, &mDescription );
-
-   for( U32 i = 0; i < MaxNumParameters; ++ i )
-      if( stream->readFlag() )
-         mParameters[ i ] = stream->readSTString();
-      else
-         mParameters[ i ] = NULL;
-}
 
 //-----------------------------------------------------------------------------
 

@@ -134,42 +134,7 @@ void WaterPlane::initPersistFields()
    removeField( "scale" );
 }
 
-U32 WaterPlane::packUpdate(NetConnection* con, U32 mask, BitStream* stream)
-{
-   U32 retMask = Parent::packUpdate(con, mask, stream);
 
-   stream->write( mGridSize );
-   stream->write( mGridElementSize );   
-
-   if ( stream->writeFlag( mask & UpdateMask ) )
-   {
-      stream->write( getPosition().z );        
-   }
-
-   return retMask;
-}
-
-void WaterPlane::unpackUpdate(NetConnection* con, BitStream* stream)
-{
-   Parent::unpackUpdate(con, stream);
-
-   U32 inGridSize;
-   stream->read( &inGridSize );
-   setGridSize( inGridSize );
-
-   F32 inGridElementSize;
-   stream->read( &inGridElementSize );
-   setGridElementSize( inGridElementSize );
-
-   if( stream->readFlag() ) // UpdateMask
-   {
-      float posZ;
-      stream->read( &posZ );
-      Point3F newPos = getPosition();
-      newPos.z = posZ;
-      setPosition( newPos );
-   }  
-}
 
 void WaterPlane::setupVBIB( SceneRenderState *state )
 {

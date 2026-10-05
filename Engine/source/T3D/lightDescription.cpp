@@ -145,53 +145,7 @@ bool LightDescription::preload( bool server, String &errorStr )
    return _preload( server, errorStr );  
 }
 
-void LightDescription::packData( BitStream *stream )
-{
-   Parent::packData( stream );
 
-   stream->write( color );
-   stream->write( brightness );
-   stream->write( range );
-   stream->writeFlag( castShadows );
-
-   stream->write( animationPeriod );
-   stream->write( animationPhase );
-   stream->write( flareScale );
-
-   if ( stream->writeFlag( animationData ) )
-   {
-      stream->writeRangedU32( animationData->getId(),
-         DataBlockObjectIdFirst, 
-         DataBlockObjectIdLast );
-   }
-
-   if ( stream->writeFlag( flareData ) )
-   {
-      stream->writeRangedU32( flareData->getId(),
-         DataBlockObjectIdFirst, 
-         DataBlockObjectIdLast );
-   }
-}
-
-void LightDescription::unpackData( BitStream *stream )
-{
-   Parent::unpackData( stream );
-
-   stream->read( &color );
-   stream->read( &brightness );     
-   stream->read( &range );
-   castShadows = stream->readFlag();
-
-   stream->read( &animationPeriod );
-   stream->read( &animationPhase );
-   stream->read( &flareScale );
-   
-   if ( stream->readFlag() )   
-      animationDataId = stream->readRangedU32( DataBlockObjectIdFirst, DataBlockObjectIdLast );  
-
-   if ( stream->readFlag() )
-      flareDataId = stream->readRangedU32( DataBlockObjectIdFirst, DataBlockObjectIdLast );  
-}
 
 void LightDescription::submitLight( LightState *state, const MatrixF &xfm, LightManager *lm, SimObject *object )
 {

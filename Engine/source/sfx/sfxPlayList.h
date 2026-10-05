@@ -333,8 +333,6 @@ class SFXPlayList : public SFXTrack
       
       // SimDataBlock.
       virtual bool preload( bool server, String& errorStr );
-      virtual void packData( BitStream* stream );
-      virtual void unpackData( BitStream* stream );
       virtual void inspectPostApply();
       
       static void initPersistFields();

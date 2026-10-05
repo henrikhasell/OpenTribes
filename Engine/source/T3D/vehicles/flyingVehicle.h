@@ -108,8 +108,6 @@ struct FlyingVehicleData: public VehicleData {
    DECLARE_CONOBJECT(FlyingVehicleData);
    static void initPersistFields();
    bool preload(bool server, String &errorStr);
-   void packData(BitStream* stream);
-   void unpackData(BitStream* stream);
 };
 
 
@@ -191,8 +189,6 @@ class FlyingVehicle: public Vehicle
 
    void writePacketData(GameConnection *conn, BitStream *stream);
    void readPacketData(GameConnection *conn, BitStream *stream);
-   U32  packUpdate(NetConnection *conn, U32 mask, BitStream *stream);
-   void unpackUpdate(NetConnection *conn, BitStream *stream);
    void useCreateHeight(bool val);
 };
 

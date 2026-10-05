@@ -130,8 +130,6 @@ public:
    void inspectPostApply();
 
    // Network
-   U32 packUpdate( NetConnection *, U32 mask, BitStream *stream );
-   void unpackUpdate( NetConnection *, BitStream *stream );
 
    // Rendering
    void prepRenderImage( SceneRenderState *state );

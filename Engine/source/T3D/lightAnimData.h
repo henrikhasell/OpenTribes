@@ -102,8 +102,6 @@ public:
 
    // SimDataBlock
    virtual bool preload( bool server, String &errorStr );
-   virtual void packData( BitStream *stream );
-   virtual void unpackData( BitStream *stream );
 
    /// Animates parameters on the passed Light's LightInfo object.
    virtual void animate( LightInfo *light, LightAnimState *state );

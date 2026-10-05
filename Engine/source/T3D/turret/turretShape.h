@@ -88,8 +88,6 @@ public:
 
    static void initPersistFields();
 
-   virtual void packData(BitStream* stream);
-   virtual void unpackData(BitStream* stream);
 
    virtual bool preload(bool server, String &errorStr);
 
@@ -205,8 +203,6 @@ public:
 
    virtual void writePacketData( GameConnection* conn, BitStream* stream );
    virtual void readPacketData( GameConnection* conn, BitStream* stream );
-   virtual U32  packUpdate  (NetConnection *conn, U32 mask, BitStream *stream);
-   virtual void unpackUpdate(NetConnection *conn,           BitStream *stream);
 
    virtual void getWeaponMountTransform( S32 index, const MatrixF &xfm, MatrixF *outMat );
    virtual void getRenderWeaponMountTransform( F32 delta, S32 index, const MatrixF &xfm, MatrixF *outMat );

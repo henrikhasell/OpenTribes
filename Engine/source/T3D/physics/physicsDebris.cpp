@@ -196,46 +196,7 @@ void PhysicsDebrisData::initPersistFields()
    Parent::initPersistFields();
 }
 
-void PhysicsDebrisData::packData(BitStream* stream)
-{
-   Parent::packData(stream);
 
-   stream->writeFlag( castShadows );
-   stream->write( lifetime );
-   stream->write( lifetimeVariance );
-   stream->write( mass );
-   stream->write( dynamicFriction );
-   stream->write( staticFriction );
-   stream->write( restitution );
-   stream->write( linearDamping );
-   stream->write( angularDamping );
-   stream->write( linearSleepThreshold );
-   stream->write( angularSleepThreshold );
-   stream->write( waterDampingScale );
-   stream->write( buoyancyDensity );
-   stream->writeString( shapeName );
-}
-
-void PhysicsDebrisData::unpackData(BitStream* stream)
-{
-   Parent::unpackData(stream);
-
-   castShadows = stream->readFlag();
-   stream->read( &lifetime );
-   stream->read( &lifetimeVariance );
-   stream->read( &mass );
-   stream->read( &dynamicFriction );
-   stream->read( &staticFriction );
-   stream->read( &restitution );
-   stream->read( &linearDamping );
-   stream->read( &angularDamping );
-   stream->read( &linearSleepThreshold );
-   stream->read( &angularSleepThreshold );
-   stream->read( &waterDampingScale );
-   stream->read( &buoyancyDensity );
-
-   shapeName   = stream->readSTString();
-}
 
 ConsoleMethod( PhysicsDebrisData, preload, void, 2, 2, 
    "@brief Loads some information to have readily available at simulation time.\n\n"

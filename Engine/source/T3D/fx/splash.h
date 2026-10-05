@@ -127,8 +127,6 @@ public:
    bool onAdd();
    bool preload(bool server, String &errorStr);
    static void  initPersistFields();
-   virtual void packData(BitStream* stream);
-   virtual void unpackData(BitStream* stream);
 };
 
 //--------------------------------------------------------------------------
@@ -184,8 +182,6 @@ public:
    ~Splash();
    void setInitialState(const Point3F& point, const Point3F& normal, const F32 fade = 1.0);
 
-   U32  packUpdate  (NetConnection *conn, U32 mask, BitStream* stream);
-   void unpackUpdate(NetConnection *conn,           BitStream* stream);
 
    bool onNewDataBlock( GameBaseData *dptr, bool reload );
    DECLARE_CONOBJECT(Splash);

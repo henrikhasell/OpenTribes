@@ -64,15 +64,7 @@ void PathCameraData::initPersistFields()
    Parent::initPersistFields();
 }
 
-void PathCameraData::packData(BitStream* stream)
-{
-   Parent::packData(stream);
-}
 
-void PathCameraData::unpackData(BitStream* stream)
-{
-   Parent::unpackData(stream);
-}
 
 
 //----------------------------------------------------------------------------
@@ -412,88 +404,7 @@ void PathCamera::onNode(S32 node)
    
 }
 
-U32 PathCamera::packUpdate(NetConnection *con, U32 mask, BitStream *stream)
-{
-   Parent::packUpdate(con,mask,stream);
 
-   if (stream->writeFlag(mask & StateMask))
-      stream->writeInt(mState,StateBits);
-
-   if (stream->writeFlag(mask & PositionMask))
-      stream->write(mPosition);
-
-   if (stream->writeFlag(mask & TargetMask))
-      if (stream->writeFlag(mTargetSet))
-         stream->write(mTarget);
-
-   if (stream->writeFlag(mask & WindowMask)) {
-      stream->write(mNodeBase);
-      stream->write(mNodeCount);
-      for (int i = 0; i < mNodeCount; i++) {
-         CameraSpline::Knot *knot = mSpline.getKnot(i);
-         mathWrite(*stream, knot->mPosition);
-         mathWrite(*stream, knot->mRotation);
-         stream->write(knot->mSpeed);
-         stream->writeInt(knot->mType, CameraSpline::Knot::NUM_TYPE_BITS);
-         stream->writeInt(knot->mPath, CameraSpline::Knot::NUM_PATH_BITS);
-      }
-   }
-
-   // The rest of the data is part of the control object packet update.
-   // If we're controlled by this client, we don't need to send it.
-   if(stream->writeFlag(getControllingClient() == con && !(mask & InitialUpdateMask)))
-      return 0;
-
-   return 0;
-}
-
-void PathCamera::unpackUpdate(NetConnection *con, BitStream *stream)
-{
-   Parent::unpackUpdate(con,stream);
-
-   // StateMask
-   if (stream->readFlag())
-      mState = stream->readInt(StateBits);
-
-   // PositionMask
-   if (stream->readFlag()) 
-   {
-      stream->read(&mPosition);
-      delta.time = mPosition;
-      delta.timeVec = 0;
-   }
-
-   // TargetMask
-   if (stream->readFlag())
-   {
-      mTargetSet = stream->readFlag();
-      if (mTargetSet)
-         stream->read(&mTarget);
-   }
-
-   // WindowMask
-   if (stream->readFlag()) 
-   {
-      mSpline.removeAll();
-      stream->read(&mNodeBase);
-      stream->read(&mNodeCount);
-      for (int i = 0; i < mNodeCount; i++)
-      {
-         CameraSpline::Knot *knot = new CameraSpline::Knot();
-         mathRead(*stream, &knot->mPosition);
-         mathRead(*stream, &knot->mRotation);
-         stream->read(&knot->mSpeed);
-         knot->mType = (CameraSpline::Knot::Type)stream->readInt(CameraSpline::Knot::NUM_TYPE_BITS);
-         knot->mPath = (CameraSpline::Knot::Path)stream->readInt(CameraSpline::Knot::NUM_PATH_BITS);
-         mSpline.push_back(knot);
-      }
-   }
-
-   // Controlled by the client?
-   if (stream->readFlag())
-      return;
-
-}
 
 
 //-----------------------------------------------------------------------------

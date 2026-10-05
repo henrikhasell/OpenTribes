@@ -729,8 +729,6 @@ class SceneObject : public NetObject, private SceneContainer::Link, public Proce
       virtual void setProcessTick( bool t );
 
       // NetObject.
-      virtual U32 packUpdate( NetConnection* conn, U32 mask, BitStream* stream );
-      virtual void unpackUpdate( NetConnection* conn, BitStream* stream );
       virtual void onCameraScopeQuery( NetConnection* connection, CameraScopeQuery* query );
 
       // SimObject.

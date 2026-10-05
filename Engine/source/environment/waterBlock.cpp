@@ -93,48 +93,10 @@ void WaterBlock::onRemove()
 //-----------------------------------------------------------------------------
 // packUpdate
 //-----------------------------------------------------------------------------
-U32 WaterBlock::packUpdate(NetConnection* con, U32 mask, BitStream* stream)
-{
-   U32 retMask = Parent::packUpdate(con, mask, stream);
-
-   stream->write( mGridElementSize );
-
-   if ( stream->writeFlag( mask & UpdateMask ) )
-   {
-      // This is set to allow the user to modify the size of the water dynamically
-      // in the editor
-      mathWrite( *stream, mObjScale );
-      stream->writeAffineTransform( mObjToWorld );      
-   }
-
-   return retMask;
-}
 
 //-----------------------------------------------------------------------------
 // unpackUpdate
 //-----------------------------------------------------------------------------
-void WaterBlock::unpackUpdate(NetConnection* con, BitStream* stream)
-{
-   Parent::unpackUpdate(con, stream);
-
-   F32 gridSize = mGridElementSize;
-   stream->read( &mGridElementSize );
-   if ( gridSize != mGridElementSize )
-      mGenerateVB = true;
-
-   if( stream->readFlag() ) // UpdateMask
-   {
-      Point3F scale;
-      mathRead( *stream, &scale );
-            
-      setScale( scale );
-
-      MatrixF objToWorld;
-      stream->readAffineTransform( &objToWorld );      
-
-      setTransform( objToWorld );
-   } 
-}
 
 //-----------------------------------------------------------------------------
 // Setup vertex and index buffers

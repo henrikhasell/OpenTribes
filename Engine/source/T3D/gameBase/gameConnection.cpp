@@ -866,6 +866,18 @@ void GameConnection::setDisconnectReason(const char *str)
    mDisconnectReason[sizeof(mDisconnectReason) - 1] = 0;
 }
 
+// HH: Added for Tribes 2 compatibility.
+// What class the object in a ghost slot is, for a layout that reads another
+// object's packet data.  Player::readPacketData does when it is piloting: the
+// width of what follows is the vehicle's, and only the ghost table says which
+// vehicle it is.
+static const char *ghostClassNameT2(void *ctx, U32 ghostIndex)
+{
+   NetConnection *conn = (NetConnection *)ctx;
+   NetObject *obj = conn ? conn->resolveGhost(ghostIndex) : NULL;
+   return obj ? obj->getClassName() : NULL;
+}
+
 //----------------------------------------------------------------------------
 
 void GameConnection::handleRecordedBlock(U32 type, U32 size, void *data)
@@ -935,7 +947,9 @@ void GameConnection::writeDemoStartBlock(ResizeBitStream *stream)
 #ifdef TORQUE_NET_STATS
       U32 beginPos = stream->getBitPosition();
 #endif
-      mControlObject->writePacketData(this, stream);
+      // HH: Modified for Tribes 2 compatibility.
+      T2Layout::writePacketData(stream, mControlObject->getClassName(),
+         ghostClassNameT2, this);
 #ifdef TORQUE_NET_STATS
 //      TYPEOF( mControlObject )->getNetInfo().updateNetStatWriteData( stream->getBitPosition() - beginPos );
       
@@ -950,7 +964,9 @@ void GameConnection::writeDemoStartBlock(ResizeBitStream *stream)
       U32 beginPos = stream->getBitPosition();
 #endif
 
-      mCameraObject->writePacketData(this, stream);
+      // HH: Modified for Tribes 2 compatibility.
+      T2Layout::writePacketData(stream, mCameraObject->getClassName(),
+         ghostClassNameT2, this);
 
 #ifdef TORQUE_NET_STATS
       mCameraObject->getClassRep()->updateNetStatWriteData( stream->getBitPosition() - beginPos);
@@ -1008,7 +1024,9 @@ bool GameConnection::readDemoStartBlock(BitStream *stream)
    {
       obj = dynamic_cast<GameBase*>(resolveGhost(idx));
       setControlObject(obj);
-      obj->readPacketData(this, stream);
+      // HH: Modified for Tribes 2 compatibility.
+      T2Layout::readPacketData(stream, obj->getClassName(),
+         ghostClassNameT2, this);
    }
 
    // Get the camera object, and read it in if it's different
@@ -1019,7 +1037,9 @@ bool GameConnection::readDemoStartBlock(BitStream *stream)
    {
       obj = dynamic_cast<GameBase*>(resolveGhost(idx2));
       setCameraObject(obj);
-      obj->readPacketData(this, stream);
+      // HH: Modified for Tribes 2 compatibility.
+      T2Layout::readPacketData(stream, obj->getClassName(),
+         ghostClassNameT2, this);
    }
    return ret;
 }
@@ -1053,18 +1073,6 @@ void GameConnection::ghostWriteExtra(NetObject * nobj, BitStream * bstream)
 }
 
 //----------------------------------------------------------------------------
-
-// HH: Added for Tribes 2 compatibility.
-// What class the object in a ghost slot is, for a layout that reads another
-// object's packet data.  Player::readPacketData does when it is piloting: the
-// width of what follows is the vehicle's, and only the ghost table says which
-// vehicle it is.
-static const char *ghostClassNameT2(void *ctx, U32 ghostIndex)
-{
-   NetConnection *conn = (NetConnection *)ctx;
-   NetObject *obj = conn ? conn->resolveGhost(ghostIndex) : NULL;
-   return obj ? obj->getClassName() : NULL;
-}
 
 void GameConnection::readPacket(BitStream *bstream)
 {
@@ -1189,22 +1197,16 @@ void GameConnection::readPacket(BitStream *bstream)
 #ifdef TORQUE_NET_STATS
             U32 beginSize = bstream->getBitPosition();
 #endif
-            // HH: Modified for Tribes 2 compatibility.
-            // A remote peer is a Tribes 2 server, whose control data is laid
-            // out its way and not Torque's.  A local connection is our own
-            // server on both ends, so it keeps Torque's reader.
-            if(!isLocalConnection())
+            // HH: Modified for Tribes 2 compatibility. Control data is laid
+            // out Tribes 2's way on every connection, loopback included --
+            // there is no second, Torque-native format to pick.
+            if(!T2Layout::readPacketData(bstream, obj->getClassName(),
+                  ghostClassNameT2, this))
             {
-               if(!T2Layout::readPacketData(bstream, obj->getClassName(),
-                     ghostClassNameT2, this))
-               {
-                  Con::warnf("Dropped a packet carrying %s control data, which "
-                             "we have no layout for.", obj->getClassName());
-                  return;
-               }
+               Con::warnf("Dropped a packet carrying %s control data, which "
+                          "we have no layout for.", obj->getClassName());
+               return;
             }
-            else
-               obj->readPacketData(this, bstream);
 #ifdef TORQUE_NET_STATS
             obj->getClassRep()->updateNetStatReadData(bstream->getBitPosition() - beginSize);
 #endif
@@ -1390,7 +1392,9 @@ void GameConnection::writePacket(BitStream *bstream, PacketNotify *note)
 #ifdef TORQUE_NET_STATS
             U32 beginSize = bstream->getBitPosition();
 #endif
-            mControlObject->writePacketData(this, bstream);
+            // HH: Modified for Tribes 2 compatibility.
+            T2Layout::writePacketData(bstream, mControlObject->getClassName(),
+               ghostClassNameT2, this);
 #ifdef TORQUE_NET_STATS
             mControlObject->getClassRep()->updateNetStatWriteData(bstream->getBitPosition() - beginSize);
 #endif
@@ -1760,15 +1764,19 @@ DefineEngineMethod( GameConnection, transmitDataBlocks, void, (S32 sequence),,
             // Set the client's new modified key.
             object->setMaxDataBlockModifiedKey(pDataBlock->getModifiedKey());
 
+            // HH: Modified for Tribes 2 compatibility -- the layout for
+            // a datablock is picked by its net class id.
+            const U32 classId = pDataBlock->getClassId(object->getNetClassGroup());
+
             // Pack the datablock stream.
             mStream.setPosition(0);
             mStream.clearCompressionPoint();
-            pDataBlock->packData(&mStream);
+            pDataBlock->packData(&mStream, classId);
 
             // Unpack the datablock stream.
             mStream.setPosition(0);
             mStream.clearCompressionPoint();
-            pDataBlock->unpackData(&mStream);
+            pDataBlock->unpackData(&mStream, classId);
 
             // Call the console function to set the number of blocks to be sent.
             onDataBlockObjectReceived_callback(i, iCount);

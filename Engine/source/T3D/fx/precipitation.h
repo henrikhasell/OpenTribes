@@ -57,8 +57,6 @@ class PrecipitationData : public GameBaseData
    DECLARE_CONOBJECT(PrecipitationData);
    bool preload( bool server, String& errorStr );
    static void  initPersistFields();
-   virtual void packData(BitStream* stream);
-   virtual void unpackData(BitStream* stream);
 };
 
 struct Raindrop
@@ -270,8 +268,6 @@ class Precipitation : public GameBase
    DECLARE_CONOBJECT(Precipitation);
    static void initPersistFields();
    
-   U32  packUpdate(NetConnection*, U32 mask, BitStream* stream);
-   void unpackUpdate(NetConnection*, BitStream* stream);
 
    void setPercentage(F32 pct);
    void modifyStorm(F32 pct, U32 ms);

@@ -66,8 +66,6 @@ public:
    void onRemove();
    
    // GameBaseData
-   void packData(BitStream* stream);
-   void unpackData(BitStream* stream);   
    bool preload(bool server, String &errorBuffer );
 
 public:
@@ -253,8 +251,6 @@ public:
    void interpolateTick( F32 delta );
    void processTick( const Move *move );
    void advanceTime( F32 timeDelta );
-   U32 packUpdate( NetConnection *conn, U32 mask, BitStream *stream );
-   void unpackUpdate( NetConnection *conn, BitStream *stream );
 
    bool isDestroyed() const { return mDestroyed; }
    void destroy();

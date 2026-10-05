@@ -151,110 +151,10 @@ bool SplashData::onAdd()
 //--------------------------------------------------------------------------
 // Pack data
 //--------------------------------------------------------------------------
-void SplashData::packData(BitStream* stream)
-{
-   Parent::packData(stream);
-
-   mathWrite(*stream, scale);
-   stream->write(delayMS);
-   stream->write(delayVariance);
-   stream->write(lifetimeMS);
-   stream->write(lifetimeVariance);
-   stream->write(width);
-   stream->write(numSegments);
-   stream->write(velocity);
-   stream->write(height);
-   stream->write(acceleration);
-   stream->write(texWrap);
-   stream->write(texFactor);
-   stream->write(ejectionFreq);
-   stream->write(ejectionAngle);
-   stream->write(ringLifetime);
-   stream->write(startRadius);
-
-   if( stream->writeFlag( explosion ) )
-   {
-      stream->writeRangedU32(explosion->getId(), DataBlockObjectIdFirst, DataBlockObjectIdLast);
-   }
-
-   S32 i;
-   for( i=0; i<NUM_EMITTERS; i++ )
-   {
-      if( stream->writeFlag( emitterList[i] != NULL ) )
-      {
-         stream->writeRangedU32( emitterList[i]->getId(), DataBlockObjectIdFirst,  DataBlockObjectIdLast );
-      }
-   }
-
-   for( i=0; i<NUM_TIME_KEYS; i++ )
-   {
-      stream->write( colors[i] );
-   }
-
-   for( i=0; i<NUM_TIME_KEYS; i++ )
-   {
-      stream->write( times[i] );
-   }
-
-   for( i=0; i<NUM_TEX; i++ )
-   {
-      stream->writeString(textureName[i]);
-   }
-}
 
 //--------------------------------------------------------------------------
 // Unpack data
 //--------------------------------------------------------------------------
-void SplashData::unpackData(BitStream* stream)
-{
-   Parent::unpackData(stream);
-
-   mathRead(*stream, &scale);
-   stream->read(&delayMS);
-   stream->read(&delayVariance);
-   stream->read(&lifetimeMS);
-   stream->read(&lifetimeVariance);
-   stream->read(&width);
-   stream->read(&numSegments);
-   stream->read(&velocity);
-   stream->read(&height);
-   stream->read(&acceleration);
-   stream->read(&texWrap);
-   stream->read(&texFactor);
-   stream->read(&ejectionFreq);
-   stream->read(&ejectionAngle);
-   stream->read(&ringLifetime);
-   stream->read(&startRadius);
-
-   if( stream->readFlag() )
-   {
-      explosionId = stream->readRangedU32( DataBlockObjectIdFirst, DataBlockObjectIdLast );
-   }
-
-   U32 i;
-   for( i=0; i<NUM_EMITTERS; i++ )
-   {
-      if( stream->readFlag() )
-      {
-         emitterIDList[i] = stream->readRangedU32( DataBlockObjectIdFirst, DataBlockObjectIdLast );
-      }
-   }
-
-   for( i=0; i<NUM_TIME_KEYS; i++ )
-   {
-      stream->read( &colors[i] );
-   }
-
-   for( i=0; i<NUM_TIME_KEYS; i++ )
-   {
-      stream->read( &times[i] );
-   }
-
-   for( i=0; i<NUM_TEX; i++ )
-   {
-      textureName[i] = stream->readSTString();
-   }
-}
 
 //--------------------------------------------------------------------------
 // Preload data - load resources
@@ -671,28 +571,7 @@ void Splash::spawnExplosion()
 //--------------------------------------------------------------------------
 // packUpdate
 //--------------------------------------------------------------------------
-U32 Splash::packUpdate(NetConnection* con, U32 mask, BitStream* stream)
-{
-   U32 retMask = Parent::packUpdate(con, mask, stream);
-
-   if( stream->writeFlag(mask & GameBase::InitialUpdateMask) )
-   {
-      mathWrite(*stream, mInitialPosition);
-   }
-
-   return retMask;
-}
 
 //--------------------------------------------------------------------------
 // unpackUpdate
 //--------------------------------------------------------------------------
-void Splash::unpackUpdate(NetConnection* con, BitStream* stream)
-{
-   Parent::unpackUpdate(con, stream);
-
-   if( stream->readFlag() )
-   {
-      mathRead(*stream, &mInitialPosition);
-      setPosition( mInitialPosition );
-   }
-}

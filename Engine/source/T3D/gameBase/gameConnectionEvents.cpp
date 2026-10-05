@@ -155,7 +155,7 @@ void SimDataBlockEvent::pack(NetConnection *conn, BitStream *bstream)
       bstream->writeClassId(classId, NetClassTypeDataBlock, conn->getNetClassGroup());
       bstream->writeInt(mIndex, DataBlockObjectIdBitSize);
       bstream->writeInt(mTotal, DataBlockObjectIdBitSize + 1);
-      obj->packData(bstream);
+      obj->packData(bstream, classId);
 #ifdef TORQUE_DEBUG_NET
       bstream->writeInt(classId ^ DebugChecksum, 32);
 #endif
@@ -198,7 +198,7 @@ void SimDataBlockEvent::unpack(NetConnection *cptr, BitStream *bstream)
          Con::printf(" - SimDataBlockEvent: unpacking event of type: %s", mObj->getClassName());
          #endif
          
-         if( !mObj->unpackDataT2( bstream, classId ) )
+         if( !mObj->unpackData( bstream, classId ) )
          {
             cptr->setLastError( "Could not read a %s datablock, %d of %d.",
                mObj->getClassName(), mIndex, mTotal );
@@ -243,7 +243,7 @@ void SimDataBlockEvent::write(NetConnection *cptr, BitStream *bstream)
       bstream->writeClassId(classId, NetClassTypeDataBlock, cptr->getNetClassGroup());
       bstream->writeInt(mIndex, DataBlockObjectIdBitSize);
       bstream->writeInt(mTotal, DataBlockObjectIdBitSize + 1);
-      mObj->packData(bstream);
+      mObj->packData(bstream, classId);
    }
 }
 

@@ -127,8 +127,6 @@ struct VehicleData: public ShapeBaseData
    VehicleData();
    bool preload(bool server, String &errorStr);
    static void initPersistFields();
-   virtual void packData(BitStream* stream);
-   virtual void unpackData(BitStream* stream);
 
    DECLARE_CONOBJECT(VehicleData);
 
@@ -225,8 +223,6 @@ class Vehicle: public ShapeBase
 
    void writePacketData(GameConnection * conn, BitStream *stream);
    void readPacketData (GameConnection * conn, BitStream *stream);
-   U32  packUpdate  (NetConnection *conn, U32 mask, BitStream *stream);
-   void unpackUpdate(NetConnection *conn,           BitStream *stream);
 
    void updateLiftoffDust( F32 dt );
    void updateDamageSmoke( F32 dt );

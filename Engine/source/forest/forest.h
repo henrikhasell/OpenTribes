@@ -171,8 +171,6 @@ public:
    bool isTreeInRange( const Point2F& point, F32 radius ) const;
 
    // Network
-   U32 packUpdate( NetConnection *conn, U32 mask, BitStream *stream );
-   void unpackUpdate( NetConnection *conn, BitStream *stream );
 
    //IForestCollision *getCollision() const { return mCollision; }
 

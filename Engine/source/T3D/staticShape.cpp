@@ -107,19 +107,7 @@ void StaticShapeData::initPersistFields()
    Parent::initPersistFields();
 }
 
-void StaticShapeData::packData(BitStream* stream)
-{
-   Parent::packData(stream);
-   stream->writeFlag(noIndividualDamage);
-   stream->write(dynamicTypeField);
-}
 
-void StaticShapeData::unpackData(BitStream* stream)
-{
-   Parent::unpackData(stream);
-   noIndividualDamage = stream->readFlag();
-   stream->read(&dynamicTypeField);
-}
 
 
 //----------------------------------------------------------------------------
@@ -264,53 +252,7 @@ void StaticShape::onUnmount(ShapeBase*,S32)
 
 //----------------------------------------------------------------------------
 
-U32 StaticShape::packUpdate(NetConnection *connection, U32 mask, BitStream *bstream)
-{
-   U32 retMask = Parent::packUpdate(connection,mask,bstream);
-   if (bstream->writeFlag(mask & PositionMask | ExtendedInfoMask))
-   {
 
-      // Write the transform (do _not_ use writeAffineTransform.  Since this is a static
-      //  object, the transform must be RIGHT THE *&)*$&^ ON or it will goof up the
-      //  synchronization between the client and the server.
-      mathWrite(*bstream,mObjToWorld);
-      mathWrite(*bstream, mObjScale);
-   }
-
-   // powered?
-   bstream->writeFlag(mPowered);
-
-   if (mLightPlugin) 
-   {
-      retMask |= mLightPlugin->packUpdate(this, ExtendedInfoMask, connection, mask, bstream);
-   }
-
-   return retMask;
-}
-
-void StaticShape::unpackUpdate(NetConnection *connection, BitStream *bstream)
-{
-   Parent::unpackUpdate(connection,bstream);
-   if (bstream->readFlag())
-   {
-      MatrixF mat;
-      mathRead(*bstream,&mat);
-      Parent::setTransform(mat);
-      Parent::setRenderTransform(mat);
-
-      VectorF scale;
-      mathRead(*bstream, &scale);
-      setScale(scale);
-   }
-
-   // powered?
-   mPowered = bstream->readFlag();
-
-   if (mLightPlugin)
-   {
-      mLightPlugin->unpackUpdate(this, connection, bstream);
-   }
-}
 
 
 //----------------------------------------------------------------------------

@@ -156,92 +156,9 @@ void ScenePolyhedralObject< Base, P >::_renderObject( ObjectRenderInst* ri, Scen
 
 //-----------------------------------------------------------------------------
 
-template< typename Base, typename P >
-U32 ScenePolyhedralObject< Base, P >::packUpdate( NetConnection* connection, U32 mask, BitStream* stream )
-{
-   U32 retMask = Parent::packUpdate( connection, mask, stream );
-
-   if( stream->writeFlag( !mIsBox && ( mask & PolyMask ) ) )
-   {
-      // Write planes.
-
-      const U32 numPlanes = mPolyhedron.getNumPlanes();
-      const typename PolyhedronType::PlaneType* planes = mPolyhedron.getPlanes();
-
-      stream->writeInt( numPlanes, 8 );
-      for( U32 i = 0; i < numPlanes; ++ i )
-         mathWrite( *stream, planes[ i ] );
-
-      // Write points.
-
-      const U32 numPoints = mPolyhedron.getNumPoints();
-      const typename PolyhedronType::PointType* points = mPolyhedron.getPoints();
-
-      stream->writeInt( numPoints, 8 );
-      for( U32 i = 0; i < numPoints; ++ i )
-         mathWrite( *stream, points[ i ] );
-
-      // Write edges.
-
-      const U32 numEdges = mPolyhedron.getNumEdges();
-      const typename PolyhedronType::EdgeType* edges = mPolyhedron.getEdges();
-
-      stream->writeInt( numEdges, 8 );
-      for( U32 i = 0; i < numEdges; ++ i )
-      {
-         const typename PolyhedronType::EdgeType& edge = edges[ i ];
-
-         stream->writeInt( edge.face[ 0 ], 8 );
-         stream->writeInt( edge.face[ 1 ], 8 );
-         stream->writeInt( edge.vertex[ 0 ], 8 );
-         stream->writeInt( edge.vertex[ 1 ], 8 );
-      }
-   }
-
-   return retMask;
-}
 
 //-----------------------------------------------------------------------------
 
-template< typename Base, typename P >
-void ScenePolyhedralObject< Base, P >::unpackUpdate( NetConnection* connection, BitStream* stream )
-{
-   Parent::unpackUpdate( connection, stream );
-
-   if( stream->readFlag() )  // PolyMask
-   {
-      // Read planes.
-
-      const U32 numPlanes = stream->readInt( 8 );
-      mPolyhedron.planeList.setSize( numPlanes );
-
-      for( U32 i = 0; i < numPlanes; ++ i )
-         mathRead( *stream, &mPolyhedron.planeList[ i ] );
-
-      // Read points.
-
-      const U32 numPoints = stream->readInt( 8 );
-      mPolyhedron.pointList.setSize( numPoints );
-
-      for( U32 i = 0; i < numPoints; ++ i )
-         mathRead( *stream, &mPolyhedron.pointList[ i ] );
-
-      // Read edges.
-
-      const U32 numEdges = stream->readInt( 8 );
-      mPolyhedron.edgeList.setSize( numEdges );
-
-      for( U32 i = 0; i < numEdges; ++ i )
-      {
-         typename PolyhedronType::EdgeType& edge = mPolyhedron.edgeList[ i ];
-
-         edge.face[ 0 ] = stream->readInt( 8 );
-         edge.face[ 1 ] = stream->readInt( 8 );
-         edge.vertex[ 0 ] = stream->readInt( 8 );
-         edge.vertex[ 1 ] = stream->readInt( 8 );
-      }
-   }
-}
 
 //-----------------------------------------------------------------------------
 

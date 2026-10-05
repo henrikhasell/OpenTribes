@@ -152,62 +152,7 @@ bool ForestItemData::onAdd()
    return true;
 }
 
-void ForestItemData::packData(BitStream* stream)
-{ 
-   Parent::packData(stream);
 
-   String localName = getInternalName();
-   if ( localName.isEmpty() )
-      localName = getName();
-
-   stream->write( localName );
-
-   stream->writeString(mShapeFile);
-   
-   stream->writeFlag( mCollidable );
-
-   stream->write( mRadius );
-
-   stream->write( mMass );
-   stream->write( mRigidity );
-   stream->write( mTightnessCoefficient );
-   stream->write( mDampingCoefficient );
-
-   stream->write( mWindScale );
-   stream->write( mTrunkBendScale );
-   stream->write( mWindBranchAmp );
-   stream->write( mWindDetailAmp );
-   stream->write( mWindDetailFreq );
-}
-
-void ForestItemData::unpackData(BitStream* stream)
-{
-   Parent::unpackData(stream);
-
-   String localName;
-   stream->read( &localName );
-   setInternalName( localName );
-
-   char readBuffer[1024];
-
-   stream->readString(readBuffer);
-   mShapeFile = StringTable->insert(readBuffer);
-   
-   mCollidable = stream->readFlag();
-
-   stream->read( &mRadius );
-
-   stream->read( &mMass );
-   stream->read( &mRigidity );
-   stream->read( &mTightnessCoefficient );
-   stream->read( &mDampingCoefficient );
-
-   stream->read( &mWindScale );
-   stream->read( &mTrunkBendScale );
-   stream->read( &mWindBranchAmp );
-   stream->read( &mWindDetailAmp );
-   stream->read( &mWindDetailFreq );
-}
 
 const ForestItem ForestItem::Invalid;
 

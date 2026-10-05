@@ -315,16 +315,19 @@ F32 NetObject::getUpdatePriority(CameraScopeQuery*, U32, S32 updateSkips)
    return F32(updateSkips) * 0.1;
 }
 
-U32 NetObject::packUpdate(NetConnection* conn, U32 mask, BitStream* stream)
+// HH: Modified for Tribes 2 compatibility. Both halves speak the recovered
+// Tribes 2 layout for this class and nothing else. Encoding is deferred
+// class by class; until a class has a real encoder, writing the layout's
+// default values keeps the body the width the reader will take it at, which
+// is what the loopback and demo round trips need.
+U32 NetObject::packUpdate(NetConnection *conn, U32 mask, BitStream *stream,
+                          bool isInitial)
 {
+   T2Layout::writeGhost(stream, getClassName(), isInitial);
    return 0;
 }
 
-void NetObject::unpackUpdate(NetConnection*, BitStream*)
-{
-}
-
-bool NetObject::unpackUpdateT2(BitStream *stream, bool isInitial)
+bool NetObject::unpackUpdate(BitStream *stream, bool isInitial)
 {
    return T2Layout::readGhost(stream, getClassName(), isInitial);
 }

@@ -220,61 +220,7 @@ void CloudLayer::inspectPostApply()
 // NetObject...
 
 
-U32 CloudLayer::packUpdate( NetConnection *conn, U32 mask, BitStream *stream )
-{
-   U32 retMask = Parent::packUpdate( conn, mask, stream );
 
-   stream->write( mTextureName );
-   
-   for ( U32 i = 0; i < TEX_COUNT; i++ )
-   {
-      stream->write( mTexScale[i] );      
-      stream->write( mTexSpeed[i] );
-      mathWrite( *stream, mTexDirection[i] );
-   }
-
-   stream->write( mBaseColor );
-   stream->write( mCoverage );
-   stream->write( mExposure );
-   stream->write( mWindSpeed );
-   stream->write( mHeight );
-
-   return retMask;
-}
-
-void CloudLayer::unpackUpdate( NetConnection *conn, BitStream *stream )
-{
-   Parent::unpackUpdate( conn, stream );
-
-   String oldTextureName = mTextureName;
-   stream->read( &mTextureName );
-
-   for ( U32 i = 0; i < TEX_COUNT; i++ )
-   {
-      stream->read( &mTexScale[i] );      
-      stream->read( &mTexSpeed[i] );
-      mathRead( *stream, &mTexDirection[i] );
-   }
-
-   stream->read( &mBaseColor );
-
-   F32 oldCoverage = mCoverage;
-   stream->read( &mCoverage );
-   stream->read( &mExposure );
-
-   stream->read( &mWindSpeed );
-
-   F32 oldHeight = mHeight;
-   stream->read( &mHeight );
-
-   if ( isProperlyAdded() )
-   {
-      if ( ( oldTextureName != mTextureName ) || ( ( oldCoverage == 0.0f ) != ( mCoverage == 0.0f ) ) )
-         _initTexture();
-      if ( oldHeight != mHeight )
-         _initBuffers();
-   }
-}
 
 
 // SceneObject...

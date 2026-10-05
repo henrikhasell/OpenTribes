@@ -88,8 +88,6 @@ class ParticleData : public SimDataBlock
    // move this procedure to Particle
    void initializeParticle(Particle*, const Point3F&);
 
-   void packData(BitStream* stream);
-   void unpackData(BitStream* stream);
    bool onAdd();
    bool preload(bool server, String &errorStr);
    DECLARE_CONOBJECT(ParticleData);

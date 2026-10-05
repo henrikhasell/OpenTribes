@@ -84,8 +84,6 @@ public:
    virtual void inspectPostApply();      
 
    // NetObject
-   virtual U32 packUpdate( NetConnection *conn, U32 mask, BitStream *stream );
-   virtual void unpackUpdate( NetConnection *conn, BitStream *stream );
 
    // SceneObject
    void prepRenderImage( SceneRenderState* state );

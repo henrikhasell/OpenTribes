@@ -43,8 +43,6 @@ struct StaticShapeData: public ShapeBaseData {
    //
    DECLARE_CONOBJECT(StaticShapeData);
    static void initPersistFields();
-   virtual void packData(BitStream* stream);
-   virtual void unpackData(BitStream* stream);
 };
 
 
@@ -79,8 +77,6 @@ public:
    void interpolateTick(F32 delta);
    void setTransform(const MatrixF &mat);
 
-   U32  packUpdate  (NetConnection *conn, U32 mask, BitStream *stream);
-   void unpackUpdate(NetConnection *conn,           BitStream *stream);
 
    // power
    void setPowered(bool power)      {mPowered = power;}

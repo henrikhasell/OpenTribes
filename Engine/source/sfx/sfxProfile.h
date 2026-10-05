@@ -145,8 +145,6 @@ class SFXProfile : public SFXTrack
       // SimObject 
       bool onAdd();
       void onRemove();
-      void packData( BitStream* stream );
-      void unpackData( BitStream* stream );
 
       /// Returns the sound filename.
       const String& getSoundFileName() const { return mFilename; }

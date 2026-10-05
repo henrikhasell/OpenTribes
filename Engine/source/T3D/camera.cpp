@@ -84,17 +84,9 @@ void CameraData::initPersistFields()
 
 //-----------------------------------------------------------------------------
 
-void CameraData::packData(BitStream* stream)
-{
-   Parent::packData(stream);
-}
 
 //-----------------------------------------------------------------------------
 
-void CameraData::unpackData(BitStream* stream)
-{
-   Parent::unpackData(stream);
-}
 
 //=============================================================================
 //    Camera.
@@ -992,152 +984,9 @@ void Camera::readPacketData(GameConnection *connection, BitStream *bstream)
 
 //----------------------------------------------------------------------------
 
-U32 Camera::packUpdate(NetConnection *con, U32 mask, BitStream *bstream)
-{
-   Parent::packUpdate(con, mask, bstream);
-
-   if (bstream->writeFlag(mask & UpdateMask))
-   {
-      bstream->writeFlag(mLocked);
-      mathWrite(*bstream, mOffset);
-   }
-
-   if(bstream->writeFlag(mask & NewtonCameraMask))
-   {
-      bstream->write(mAngularForce);
-      bstream->write(mAngularDrag);
-      bstream->write(mMass);
-      bstream->write(mDrag);
-      bstream->write(mFlyForce);
-      bstream->write(mSpeedMultiplier);
-      bstream->write(mBrakeMultiplier);
-   }
-
-   if(bstream->writeFlag(mask & EditOrbitMask))
-   {
-      bstream->write(mEditOrbitPoint.x);
-      bstream->write(mEditOrbitPoint.y);
-      bstream->write(mEditOrbitPoint.z);
-      bstream->write(mCurrentEditOrbitDist);
-   }
-
-   // The rest of the data is part of the control object packet update.
-   // If we're controlled by this client, we don't need to send it.
-   if(bstream->writeFlag(getControllingClient() == con && !(mask & InitialUpdateMask)))
-      return 0;
-
-   if (bstream->writeFlag(mask & MoveMask))
-   {
-      Point3F pos;
-      mObjToWorld.getColumn(3,&pos);
-      bstream->write(pos.x);
-      bstream->write(pos.y);
-      bstream->write(pos.z);
-      bstream->write(mRot.x);
-      bstream->write(mRot.z);
-
-      // Only required if in NewtonFlyMode
-      F32 len = mVelocity.len();
-      if(bstream->writeFlag(mNewtonMode && len > 0.02f))
-      {
-         Point3F outVel = mVelocity;
-         outVel *= 1.0f/len;
-         bstream->writeNormalVector(outVel, 10);
-         len *= 32.0f;  // 5 bits of fraction
-         if(len > 8191)
-            len = 8191;
-         bstream->writeInt((S32)len, 13);
-      }
-
-      // Rotation
-      len = mAngularVelocity.len();
-      if(bstream->writeFlag(mNewtonRotation && len > 0.02f))
-      {
-         Point3F outVel = mAngularVelocity;
-         outVel *= 1.0f/len;
-         bstream->writeNormalVector(outVel, 10);
-         len *= 32.0f;  // 5 bits of fraction
-         if(len > 8191)
-            len = 8191;
-         bstream->writeInt((S32)len, 13);
-      }
-   }
-
-   return 0;
-}
 
 //----------------------------------------------------------------------------
 
-void Camera::unpackUpdate(NetConnection *con, BitStream *bstream)
-{
-   Parent::unpackUpdate(con,bstream);
-
-   if (bstream->readFlag())
-   {
-      mLocked = bstream->readFlag();
-      mathRead(*bstream, &mOffset);
-   }
-
-   // NewtonCameraMask
-   if(bstream->readFlag())
-   {
-      bstream->read(&mAngularForce);
-      bstream->read(&mAngularDrag);
-      bstream->read(&mMass);
-      bstream->read(&mDrag);
-      bstream->read(&mFlyForce);
-      bstream->read(&mSpeedMultiplier);
-      bstream->read(&mBrakeMultiplier);
-   }
-
-   // EditOrbitMask
-   if(bstream->readFlag())
-   {
-      bstream->read(&mEditOrbitPoint.x);
-      bstream->read(&mEditOrbitPoint.y);
-      bstream->read(&mEditOrbitPoint.z);
-      bstream->read(&mCurrentEditOrbitDist);
-   }
-
-   // controlled by the client?
-   if(bstream->readFlag())
-      return;
-
-   // MoveMask
-   if (bstream->readFlag())
-   {
-      Point3F pos,rot;
-      bstream->read(&pos.x);
-      bstream->read(&pos.y);
-      bstream->read(&pos.z);
-      bstream->read(&rot.x);
-      bstream->read(&rot.z);
-      _setPosition(pos,rot);
-
-      // NewtonMode
-      if(bstream->readFlag())
-      {
-         bstream->readNormalVector(&mVelocity, 10);
-         mVelocity *= bstream->readInt(13) / 32.0f;
-      }
-
-      // NewtonRotation
-      mNewtonRotation = bstream->readFlag();
-      if(mNewtonRotation)
-      {
-         bstream->readNormalVector(&mAngularVelocity, 10);
-         mAngularVelocity *= bstream->readInt(13) / 32.0f;
-      }
-
-      if(mMode != OrbitObjectMode)
-      {
-         // New delta for client side interpolation
-         mDelta.pos = pos;
-         mDelta.rot = rot;
-         mDelta.posVec = mDelta.rotVec = VectorF(0.0f, 0.0f, 0.0f);
-      }
-   }
-}
 
 //----------------------------------------------------------------------------
 

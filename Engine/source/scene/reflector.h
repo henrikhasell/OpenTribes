@@ -69,8 +69,6 @@ public:
 
    static void initPersistFields();
 
-   virtual void packData( BitStream *stream );
-   virtual void unpackData( BitStream* stream );   
    virtual bool preload( bool server, String &errorStr );
 
    U32 texSize;   

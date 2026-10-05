@@ -92,8 +92,6 @@ public:
    bool        onAdd();
    bool        preload( bool server, String &errorStr );
    static void initPersistFields();
-   void        packData( BitStream *stream );
-   void        unpackData( BitStream *stream );
 
    DECLARE_CONOBJECT( PhysicsDebrisData );
 

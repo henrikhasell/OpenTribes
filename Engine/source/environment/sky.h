@@ -172,8 +172,6 @@ public:
    static void initPersistFields();
    static void consoleInit();
 
-   U32  packUpdate( NetConnection *conn, U32 mask, BitStream *stream );
-   void unpackUpdate( NetConnection *conn, BitStream *stream );
 
    void prepRenderImage( SceneRenderState *state );
    void _renderObject( ObjectRenderInst *ri, SceneRenderState *state, BaseMatInstance *mi );

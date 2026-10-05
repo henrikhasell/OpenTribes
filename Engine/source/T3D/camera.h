@@ -44,8 +44,6 @@ class CameraData: public ShapeBaseData
       DECLARE_DESCRIPTION( "A datablock that describes a camera." );
 
       static void initPersistFields();
-      virtual void packData(BitStream* stream);
-      virtual void unpackData(BitStream* stream);
 };
 
 
@@ -229,8 +227,6 @@ class Camera: public ShapeBase
 
       virtual void writePacketData( GameConnection* conn, BitStream* stream );
       virtual void readPacketData( GameConnection* conn, BitStream* stream );
-      virtual U32  packUpdate( NetConnection* conn, U32 mask, BitStream* stream );
-      virtual void unpackUpdate( NetConnection* conn, BitStream* stream );
 
       DECLARE_CONOBJECT( Camera );
       DECLARE_CATEGORY( "Game" );

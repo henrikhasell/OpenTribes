@@ -242,25 +242,9 @@ void Portal::setSidePassable( Side side, bool value )
 
 //-----------------------------------------------------------------------------
 
-U32 Portal::packUpdate( NetConnection *con, U32 mask, BitStream *stream )
-{
-   U32 retMask = Parent::packUpdate( con, mask, stream );
-
-   stream->writeFlag( mPassableSides[ FrontSide ] );
-   stream->writeFlag( mPassableSides[ BackSide ] );
-
-   return retMask;
-}
 
 //-----------------------------------------------------------------------------
 
-void Portal::unpackUpdate( NetConnection *con, BitStream *stream )
-{
-   Parent::unpackUpdate( con, stream );
-
-   mPassableSides[ FrontSide ] = stream->readFlag();
-   mPassableSides[ BackSide ] = stream->readFlag();
-}
 
 //-----------------------------------------------------------------------------
 

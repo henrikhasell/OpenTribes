@@ -115,8 +115,6 @@ class HoverVehicleData : public VehicleData
    HoverVehicleData();
    ~HoverVehicleData();
 
-   void packData(BitStream*);
-   void unpackData(BitStream*);
    bool preload(bool server, String &errorStr);
 
    DECLARE_CONOBJECT(HoverVehicleData);
@@ -205,8 +203,6 @@ class HoverVehicle : public Vehicle
    DECLARE_CONOBJECT(HoverVehicle);
 //   static void initPersistFields();
 
-   U32  packUpdate  (NetConnection *conn, U32 mask, BitStream *stream);
-   void unpackUpdate(NetConnection *conn,           BitStream *stream);
 };
 
 #endif // _H_HOVERVEHICLE

@@ -72,8 +72,6 @@ class SceneSpace : public SceneObject
       virtual void prepRenderImage( SceneRenderState* state );
 
       // NetObject.
-      virtual U32 packUpdate( NetConnection* connection, U32 mask, BitStream* stream );
-      virtual void unpackUpdate( NetConnection* connection, BitStream* stream );
 
       // SimObject.
       virtual void onEditorEnable();

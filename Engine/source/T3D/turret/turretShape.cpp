@@ -176,41 +176,7 @@ void TurretShapeData::initPersistFields()
    Parent::initPersistFields();
 }
 
-void TurretShapeData::packData(BitStream* stream)
-{
-   Parent::packData(stream);
 
-   stream->writeFlag(zRotOnly);
-
-   stream->writeInt(weaponLinkType,NumFireLinkTypeBits);
-
-   stream->write(cameraOffset);
-
-   stream->write(maxHeading);
-   stream->write(minPitch);
-   stream->write(maxPitch);
-
-   stream->write(headingRate);
-   stream->write(pitchRate);
-}
-
-void TurretShapeData::unpackData(BitStream* stream)
-{
-   Parent::unpackData(stream);
-
-   zRotOnly = stream->readFlag();
-
-   weaponLinkType = (FireLinkType)stream->readInt(NumFireLinkTypeBits);
-
-   stream->read(&cameraOffset);
-
-   stream->read(&maxHeading);
-   stream->read(&minPitch);
-   stream->read(&maxPitch);
-
-   stream->read(&headingRate);
-   stream->read(&pitchRate);
-}
 
 bool TurretShapeData::preload(bool server, String &errorStr)
 {
@@ -1062,77 +1028,7 @@ void TurretShape::readPacketData(GameConnection *connection, BitStream *stream)
    mTurretDelta.rotVec.set(0.0f, 0.0f, 0.0f);
 }
 
-U32 TurretShape::packUpdate(NetConnection *connection, U32 mask, BitStream *stream)
-{
-   // Handle rotation ourselves (so it is not locked to the Z axis like for Items)
-   U32 retMask = Parent::packUpdate( connection, mask & (~Item::RotationMask), stream );
 
-   if (stream->writeFlag(mask & InitialUpdateMask)) {
-      stream->writeFlag(mRespawn);
-   }
-
-   if ( stream->writeFlag( mask & Item::RotationMask ) )
-   {
-      QuatF rot( mObjToWorld );
-      mathWrite( *stream, rot );
-   }
-
-   // The rest of the data is part of the control object packet update.
-   // If we're controlled by this client, we don't need to send it.
-   if(stream->writeFlag((NetConnection*)getControllingClient() == connection && !(mask & InitialUpdateMask)))
-      return 0;
-
-   if (stream->writeFlag(mask & TurretUpdateMask))
-   {
-      stream->write(mRot.x);
-      stream->write(mRot.z);
-      stream->write(allowManualRotation);
-      stream->write(allowManualFire);
-   }
-
-   return retMask;
-}
-
-void TurretShape::unpackUpdate(NetConnection *connection, BitStream *stream)
-{
-   Parent::unpackUpdate(connection,stream);
-
-   // InitialUpdateMask
-   if (stream->readFlag()) {
-      mRespawn = stream->readFlag();
-   }
-
-   // Item::RotationMask
-   if ( stream->readFlag() )
-   {
-      QuatF rot;
-      mathRead( *stream, &rot );
-
-      Point3F pos = mObjToWorld.getPosition();
-      rot.setMatrix( &mObjToWorld );
-      mObjToWorld.setPosition( pos );
-   }
-
-   // controlled by the client?
-   if(stream->readFlag())
-      return;
-
-   // TurretUpdateMask
-   if (stream->readFlag())
-   {
-      Point3F rot(0.0f, 0.0f, 0.0f);
-      stream->read(&rot.x);
-      stream->read(&rot.z);
-      _setRotation(rot);
-
-      // New delta for client side interpolation
-      mTurretDelta.rot = rot;
-      mTurretDelta.rotVec = VectorF(0.0f, 0.0f, 0.0f);
-
-      stream->read(&allowManualRotation);
-      stream->read(&allowManualFire);
-   }
-}
 
 //----------------------------------------------------------------------------
 

@@ -128,8 +128,6 @@ public:
    
    static void initPersistFields();
    
-   void packData(BitStream* stream);
-   void unpackData(BitStream* stream);
    
    bool preload( bool server, String &errorBuffer );
    //bool onAdd();
@@ -245,8 +243,6 @@ public:
    void onDeleteNotify( SimObject *obj );
 
    // NetObject
-   U32 packUpdate( NetConnection *conn, U32 mask, BitStream *stream );
-   void unpackUpdate( NetConnection *conn, BitStream *stream );
 
    // SceneObject
    void prepRenderImage( SceneRenderState *state );

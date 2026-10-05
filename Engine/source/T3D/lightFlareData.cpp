@@ -213,51 +213,7 @@ bool LightFlareData::preload( bool server, String &errorStr )
    return _preload( server, errorStr );
 }
 
-void LightFlareData::packData( BitStream *stream )
-{
-   Parent::packData( stream );
 
-   stream->writeFlag( mFlareEnabled );
-   stream->write( mFlareTextureName );   
-   stream->write( mScale );
-   stream->write( mOcclusionRadius );
-   stream->writeFlag( mRenderReflectPass );
-
-   stream->write( mElementCount );
-
-   for ( U32 i = 0; i < mElementCount; i++ )
-   {
-      mathWrite( *stream, mElementRect[i] );
-      stream->write( mElementDist[i] );
-      stream->write( mElementScale[i] );
-      stream->write( mElementTint[i] );
-      stream->writeFlag( mElementRotate[i] );
-      stream->writeFlag( mElementUseLightColor[i] );
-   }
-}
-
-void LightFlareData::unpackData( BitStream *stream )
-{
-   Parent::unpackData( stream );
-
-   mFlareEnabled = stream->readFlag();
-   stream->read( &mFlareTextureName );   
-   stream->read( &mScale );
-   stream->read( &mOcclusionRadius );
-   mRenderReflectPass = stream->readFlag();
-
-   stream->read( &mElementCount );
-
-   for ( U32 i = 0; i < mElementCount; i++ )
-   {
-      mathRead( *stream, &mElementRect[i] );
-      stream->read( &mElementDist[i] );
-      stream->read( &mElementScale[i] );
-      stream->read( &mElementTint[i] );
-      mElementRotate[i] = stream->readFlag();
-      mElementUseLightColor[i] = stream->readFlag();
-   }
-}
 
 bool LightFlareData::_testVisibility(const SceneRenderState *state, LightFlareState *flareState, U32 *outVisDelta, F32 *outOcclusionFade, Point3F *outLightPosSS)
 {

@@ -153,35 +153,7 @@ bool ProximityMineData::preload( bool server, String& errorStr )
    return true;
 }
 
-void ProximityMineData::packData( BitStream* stream )
-{
-   Parent::packData( stream );
 
-   stream->write( armingDelay );
-   sfxWrite( stream, armingSound );
-
-   stream->write( autoTriggerDelay );
-   stream->writeFlag( triggerOnOwner );
-   stream->write( triggerRadius );
-   stream->write( triggerSpeed );
-   stream->write( triggerDelay );
-   sfxWrite( stream, triggerSound );
-}
-
-void ProximityMineData::unpackData( BitStream* stream )
-{
-   Parent::unpackData(stream);
-
-   stream->read( &armingDelay );
-   sfxRead( stream, &armingSound );
-
-   stream->read( &autoTriggerDelay );
-   triggerOnOwner = stream->readFlag();
-   stream->read( &triggerRadius );
-   stream->read( &triggerSpeed );
-   stream->read( &triggerDelay );
-   sfxRead( stream, &triggerSound );
-}
 
 //----------------------------------------------------------------------------
 
@@ -557,68 +529,7 @@ void ProximityMine::advanceTime( F32 dt )
 
 //----------------------------------------------------------------------------
 
-U32 ProximityMine::packUpdate( NetConnection* connection, U32 mask, BitStream* stream )
-{
-   // Handle rotation ourselves (so it is not locked to the Z axis like for Items)
-   U32 retMask = Parent::packUpdate( connection, mask & (~Item::RotationMask), stream );
 
-   if ( stream->writeFlag( mask & Item::RotationMask ) )
-   {
-      QuatF rot( mObjToWorld );
-      mathWrite( *stream, rot );
-   }
-
-   if ( stream->writeFlag( !mStatic && ( mask & DeployedMask ) && ( mState > Thrown ) ) )
-   {
-      mathWrite( *stream, mStickyCollisionPos );
-      mathWrite( *stream, mStickyCollisionNormal );
-   }
-
-   stream->writeFlag( ( mask & ExplosionMask ) && ( mState == Exploded ) );
-
-   return retMask;
-}
-
-void ProximityMine::unpackUpdate( NetConnection* connection, BitStream* stream )
-{
-   Parent::unpackUpdate( connection, stream );
-
-   // Item::RotationMask
-   if ( stream->readFlag() )
-   {
-      QuatF rot;
-      mathRead( *stream, &rot );
-
-      Point3F pos = mObjToWorld.getPosition();
-      rot.setMatrix( &mObjToWorld );
-      mObjToWorld.setPosition( pos );
-   }
-
-   // !mStatic && ( mask & DeployedMask ) && ( mState > Thrown )
-   if ( stream->readFlag() )
-   {
-      mathRead( *stream, &mStickyCollisionPos );
-      mathRead( *stream, &mStickyCollisionNormal );
-
-      mAtRest = true;
-
-      setDeployedPos( mStickyCollisionPos, mStickyCollisionNormal );
-   }
-
-   // ( mask & ExplosionMask ) && ( mState == Exploded )
-   if ( stream->readFlag() )
-   {
-      // start the explosion visuals on the client
-      explode();
-   }
-
-   if ( mStatic && mState <= Deployed )
-   {
-      // static mines are armed immediately
-      mState = Deployed;
-      mStateTimeout = 0;
-   }
-}
 
 //----------------------------------------------------------------------------
 

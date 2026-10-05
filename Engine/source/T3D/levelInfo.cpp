@@ -177,74 +177,9 @@ void LevelInfo::inspectPostApply()
 
 //-----------------------------------------------------------------------------
 
-U32 LevelInfo::packUpdate(NetConnection *conn, U32 mask, BitStream *stream)
-{
-   U32 retMask = Parent::packUpdate(conn, mask, stream);
-
-   stream->write( mNearClip );
-   stream->write( mVisibleDistance );
-   stream->write( mDecalBias );
-
-   stream->write( mFogData.density );
-   stream->write( mFogData.densityOffset );
-   stream->write( mFogData.atmosphereHeight );
-   stream->write( mFogData.color );
-
-   stream->write( mCanvasClearColor );
-   stream->write( mWorldSize );
-
-   stream->writeFlag( mAdvancedLightmapSupport );
-   stream->write( mAmbientLightBlendPhase );
-   mathWrite( *stream, mAmbientLightBlendCurve );
-
-   sfxWrite( stream, mSoundAmbience );
-   stream->writeInt( mSoundDistanceModel, 1 );
-      
-   return retMask;
-}
 
 //-----------------------------------------------------------------------------
 
-void LevelInfo::unpackUpdate(NetConnection *conn, BitStream *stream)
-{
-   Parent::unpackUpdate(conn, stream);
-
-   stream->read( &mNearClip );
-   stream->read( &mVisibleDistance );
-   stream->read( &mDecalBias );
-
-   stream->read( &mFogData.density );
-   stream->read( &mFogData.densityOffset );
-   stream->read( &mFogData.atmosphereHeight );
-   stream->read( &mFogData.color );
-
-   stream->read( &mCanvasClearColor );
-   stream->read( &mWorldSize );
-
-   mAdvancedLightmapSupport = stream->readFlag();
-   stream->read( &mAmbientLightBlendPhase );
-   mathRead( *stream, &mAmbientLightBlendCurve );
-
-   String errorStr;
-   if( !sfxReadAndResolve( stream, &mSoundAmbience, errorStr ) )
-      Con::errorf( "%s", errorStr.c_str() );
-   mSoundDistanceModel = ( SFXDistanceModel ) stream->readInt( 1 );
-   
-   if( isProperlyAdded() )
-   {
-      _updateSceneGraph();
-      
-      if( mSoundscape )
-      {
-         if( mSoundAmbience )
-            mSoundscape->setAmbience( mSoundAmbience );
-         else
-            mSoundscape->setAmbience( &sDefaultAmbience );
-      }
-
-      SFX->setDistanceModel( mSoundDistanceModel );
-   }
-}
 
 //-----------------------------------------------------------------------------
 

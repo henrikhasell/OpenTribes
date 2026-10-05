@@ -64,8 +64,6 @@ public:
 
    virtual bool      onAdd();
    virtual void      onRemove();
-   virtual U32       packUpdate( NetConnection* connection, U32 mask, BitStream* stream );
-   virtual void      unpackUpdate( NetConnection* connection, BitStream* stream );
    virtual void      prepRenderImage( SceneRenderState* state );
    virtual bool      castRay( const Point3F& start, const Point3F& end, RayInfo* info );
    virtual void      buildConvex( const Box3F& box, Convex* convex );

@@ -224,8 +224,6 @@ class SFXEmitter : public SceneObject
       bool onAdd();
       void onRemove();
       void onStaticModified( const char *slotName, const char *newValue = NULL );
-      U32 packUpdate( NetConnection *conn, U32 mask, BitStream *stream );
-      void unpackUpdate( NetConnection *conn, BitStream *stream );
       void setTransform( const MatrixF &mat );
       void setScale( const VectorF &scale );
       bool containsPoint( const Point3F& point ) { return false; }

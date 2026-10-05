@@ -74,8 +74,6 @@ public:
    void onPhysicsReset( PhysicsResetEvent reset );
 
    // NetObject
-   virtual U32 packUpdate( NetConnection *conn, U32 mask, BitStream *stream );
-   virtual void unpackUpdate( NetConnection *conn, BitStream *stream );
 
    // SceneObject
    virtual void setTransform( const MatrixF &mat );

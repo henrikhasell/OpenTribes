@@ -131,20 +131,4 @@ bool PxMaterial::preload( bool server, String &errorBuffer )
    return Parent::preload( server, errorBuffer );
 }
 
-void PxMaterial::packData( BitStream* stream )
-{
-   Parent::packData( stream );
-   
-   stream->write( restitution );
-   stream->write( staticFriction );
-   stream->write( dynamicFriction );
-}
 
-void PxMaterial::unpackData( BitStream* stream )
-{
-   Parent::unpackData( stream );
-
-   stream->read( &restitution );
-   stream->read( &staticFriction );
-   stream->read( &dynamicFriction );
-}

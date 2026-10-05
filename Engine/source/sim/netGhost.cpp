@@ -71,7 +71,7 @@ public:
 #ifdef TORQUE_NET_STATS
          U32 beginSize = bstream->getBitPosition();
 #endif
-         U32 retMask = obj->packUpdate(ps, 0xFFFFFFFF, bstream);
+         U32 retMask = obj->packUpdate(ps, 0xFFFFFFFF, bstream, true);
          if ( retMask != 0 ) obj->setMaskBits( retMask );
 
 #ifdef TORQUE_NET_STATS
@@ -89,7 +89,7 @@ public:
 #ifdef TORQUE_NET_STATS
          U32 beginSize = bstream->getBitPosition();
 #endif
-         U32 retMask = object->packUpdate(ps, 0xFFFFFFFF, bstream);
+         U32 retMask = object->packUpdate(ps, 0xFFFFFFFF, bstream, true);
          if ( retMask != 0 ) object->setMaskBits( retMask );
 #ifdef TORQUE_NET_STATS
          object->getClassRep()->updateNetStatPack(0xFFFFFFFF, bstream->getBitPosition() - beginSize);
@@ -125,7 +125,7 @@ public:
          // is read differently, from the class's recovered layout.  A false is
          // a failed walk that has already moved the stream, and the body
          // carries no length to recover from.
-         if(!object->unpackUpdateT2(bstream, true))
+         if(!object->unpackUpdate(bstream, true))
          {
             ps->setLastError("Could not read a %s ghost.",
                object->getClassName());
@@ -473,7 +473,8 @@ void NetConnection::ghostWritePacket(BitStream *bstream, PacketNotify *notify)
 #ifdef TORQUE_DEBUG_NET
          U32 startPos = bstream->getCurPos();
 #endif
-         if(walk->flags & GhostInfo::NotYetGhosted)
+         const bool isInitial = (walk->flags & GhostInfo::NotYetGhosted) != 0;
+         if(isInitial)
          {
             S32 classId = walk->obj->getClassId(getNetClassGroup());
             bstream->writeClassId(classId, NetClassTypeObject, getNetClassGroup());
@@ -496,7 +497,7 @@ void NetConnection::ghostWritePacket(BitStream *bstream, PacketNotify *notify)
 #ifdef TORQUE_NET_STATS
          U32 beginSize = bstream->getBitPosition();
 #endif
-         U32 retMask = walk->obj->packUpdate(this, updateMask, bstream);
+         U32 retMask = walk->obj->packUpdate(this, updateMask, bstream, isInitial);
 #ifdef TORQUE_NET_STATS
          walk->obj->getClassRep()->updateNetStatPack(updateMask, bstream->getBitPosition() - beginSize);
 #endif
@@ -621,7 +622,7 @@ void NetConnection::ghostReadPacket(BitStream *bstream)
             U32 beginSize = bstream->getBitPosition();
 #endif
             // HH: Modified for Tribes 2 compatibility.
-            if(!obj->unpackUpdateT2(bstream, true))
+            if(!obj->unpackUpdate(bstream, true))
             {
                setLastError("Could not read a new %s ghost.",
                   obj->getClassName());
@@ -677,7 +678,7 @@ void NetConnection::ghostReadPacket(BitStream *bstream)
             U32 beginSize = bstream->getBitPosition();
 #endif
             // HH: Modified for Tribes 2 compatibility.
-            if(!mLocalGhosts[index]->unpackUpdateT2(bstream, false))
+            if(!mLocalGhosts[index]->unpackUpdate(bstream, false))
             {
                setLastError("Could not read a %s ghost update.",
                   mLocalGhosts[index]->getClassName());
@@ -1026,7 +1027,7 @@ void NetConnection::activateGhosting()
                 // Pack the server object's update.
                 mStream.setPosition(0);
                 mStream.clearCompressionPoint();
-                U32 retMask = mGhostArray[j]->obj->packUpdate(this, 0xFFFFFFFF, &mStream);
+                U32 retMask = mGhostArray[j]->obj->packUpdate(this, 0xFFFFFFFF, &mStream, true);
                 if ( retMask != 0 ) 
                    mGhostArray[j]->obj->setMaskBits( retMask );
 
@@ -1040,7 +1041,7 @@ void NetConnection::activateGhosting()
                 // Unpack the client object's update.
                 mStream.setPosition(0);
                 mStream.clearCompressionPoint();
-                pObject->unpackUpdate(pClient, &mStream);
+                pObject->unpackUpdate(&mStream, true);
             }
             else
             {
@@ -1297,7 +1298,7 @@ void NetConnection::ghostWriteStartBlock(ResizeBitStream *stream)
    {
       if(mLocalGhosts[i])
       {
-         U32 retMask = mLocalGhosts[i]->packUpdate(this, 0xFFFFFFFF, stream);
+         U32 retMask = mLocalGhosts[i]->packUpdate(this, 0xFFFFFFFF, stream, true);
          if ( retMask != 0 ) mLocalGhosts[i]->setMaskBits( retMask );
          stream->validate();
       }
@@ -1334,7 +1335,7 @@ void NetConnection::ghostReadStartBlock(BitStream *stream)
    {
       if(mLocalGhosts[i])
       {
-         mLocalGhosts[i]->unpackUpdate(this, stream);
+         mLocalGhosts[i]->unpackUpdate(stream, true);
          if(!mLocalGhosts[i]->registerObject())
          {
             if(mErrorBuffer.isEmpty())

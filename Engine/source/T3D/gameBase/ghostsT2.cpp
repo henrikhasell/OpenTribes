@@ -10,10 +10,10 @@
       typedef NetObject Parent;                                             \
    public:                                                                  \
       DECLARE_CONOBJECT(className);                                         \
-      bool unpackUpdateT2(BitStream *stream, bool isInitial)                \
+      bool unpackUpdate(BitStream *stream, bool isInitial)                \
       {                                                                     \
          StubT2::warn("ghost", getClassName());                             \
-         return Parent::unpackUpdateT2(stream, isInitial);                  \
+         return Parent::unpackUpdate(stream, isInitial);                  \
       }                                                                     \
    };                                                                       \
    IMPLEMENT_CO_NETOBJECT_V1(className);                                    \

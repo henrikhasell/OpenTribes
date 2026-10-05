@@ -210,63 +210,7 @@ void TimeOfDay::onRemove()
    Parent::onRemove();
 }
 
-U32 TimeOfDay::packUpdate(NetConnection *conn, U32 mask, BitStream *stream )
-{
-   U32 retMask = Parent::packUpdate( conn, mask, stream );
 
-   if ( stream->writeFlag( mask & OrbitMask ) )
-   {
-      stream->write( mStartTimeOfDay );
-      stream->write( mDayLen );
-      stream->write( mTimeOfDay );
-      stream->write( mAxisTilt );
-      stream->write( mAzimuthOverride );
-
-      stream->write( mDayScale );
-      stream->write( mNightScale );
-
-      stream->writeFlag( mPlay );
-   }
-
-   if ( stream->writeFlag( mask & AnimateMask ) )
-   {
-      stream->write( mAnimateTime );
-      stream->write( mAnimateSpeed );
-   }
-
-   return retMask;
-}
-
-void TimeOfDay::unpackUpdate( NetConnection *conn, BitStream *stream )
-{
-   Parent::unpackUpdate( conn, stream );
-
-   if ( stream->readFlag() ) // OrbitMask
-   {
-      stream->read( &mStartTimeOfDay );
-      stream->read( &mDayLen );
-      stream->read( &mTimeOfDay );
-      stream->read( &mAxisTilt );
-      stream->read( &mAzimuthOverride );
-
-      stream->read( &mDayScale );
-      stream->read( &mNightScale );
-
-      mPlay = stream->readFlag();
-
-      _updatePosition();
-   }
-
-   if ( stream->readFlag() ) // AnimateMask
-   {
-      F32 time, speed;
-      stream->read( &time );
-      stream->read( &speed );
-
-      if( isProperlyAdded() )
-         animate( time, speed );
-   }
-}
 
 void TimeOfDay::processTick( const Move *move )
 {

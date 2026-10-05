@@ -53,8 +53,6 @@ public:
    };
    SFXProfile *sound[MaxSounds];
    static void initPersistFields();
-   virtual void packData(BitStream* stream);
-   virtual void unpackData(BitStream* stream);
    bool preload(bool server, String &errorStr);
    PathedInteriorData();
 
@@ -149,8 +147,6 @@ private:
    Point3F getVelocity();
    void advance(F64 timeDelta);
 
-   U32  packUpdate(NetConnection *conn, U32 mask, BitStream* stream);
-   void unpackUpdate(NetConnection *conn, BitStream* stream);
 };
 
 #endif // _H_PATHEDINTERIOR

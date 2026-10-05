@@ -112,8 +112,6 @@ public:
 
    virtual void onNameChange(const char *name);
    virtual bool onAdd();
-   virtual void packData(BitStream* stream);
-   virtual void unpackData(BitStream* stream);
 
    /// Called from Forest the first time a datablock is used
    /// in order to lazy load content.

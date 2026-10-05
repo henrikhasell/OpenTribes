@@ -164,35 +164,9 @@ bool SFXAmbience::preload( bool server, String& errorStr )
 
 //-----------------------------------------------------------------------------
 
-void SFXAmbience::packData( BitStream* stream )
-{
-   Parent::packData( stream );
-      
-   sfxWrite( stream, mEnvironment );
-   sfxWrite( stream, mSoundTrack );
-   
-   stream->write( mRolloffFactor );
-   stream->write( mDopplerFactor );
-
-   for( U32 i = 0; i < MaxStates; ++ i )
-      sfxWrite( stream, mState[ i ] );
-}
 
 //-----------------------------------------------------------------------------
 
-void SFXAmbience::unpackData( BitStream* stream )
-{
-   Parent::unpackData( stream );
-      
-   sfxRead( stream, &mEnvironment );
-   sfxRead( stream, &mSoundTrack );
-   
-   stream->read( &mRolloffFactor );
-   stream->read( &mDopplerFactor );
-
-   for( U32 i = 0; i < MaxStates; ++ i )
-      sfxRead( stream, &mState[ i ] );
-}
 
 //-----------------------------------------------------------------------------
 

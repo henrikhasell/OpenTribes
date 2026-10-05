@@ -129,8 +129,6 @@ class ExplosionData : public GameBaseData {
    bool onAdd();
    bool preload(bool server, String &errorStr);
    static void  initPersistFields();
-   virtual void packData(BitStream* stream);
-   virtual void unpackData(BitStream* stream);
 };
 
 

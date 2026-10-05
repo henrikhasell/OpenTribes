@@ -81,8 +81,6 @@ class SFXTrack : public SimDataBlock
       void setParameter( U32 index, const char* name );
       
       // SimDataBlock.
-      virtual void packData( BitStream* stream );
-      virtual void unpackData( BitStream* stream );
       virtual bool preload( bool server, String& errorStr );
       virtual bool onAdd();
       virtual void inspectPostApply();

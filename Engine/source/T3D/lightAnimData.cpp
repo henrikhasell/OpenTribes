@@ -252,25 +252,7 @@ void LightAnimData::AnimValue<COUNT>::read( BitStream *stream )
    }
 }
 
-void LightAnimData::packData( BitStream *stream )
-{
-   Parent::packData( stream );
 
-   mOffset.write( stream );
-   mRot.write( stream );
-   mColor.write( stream );
-   mBrightness.write( stream );
-}
-
-void LightAnimData::unpackData( BitStream *stream )
-{
-   Parent::unpackData( stream );
-
-   mOffset.read( stream );
-   mRot.read( stream );
-   mColor.read( stream );
-   mBrightness.read( stream );
-}
 
 void LightAnimData::animate( LightInfo *lightInfo, LightAnimState *state )
 {   

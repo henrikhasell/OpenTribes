@@ -40,8 +40,6 @@ struct PathCameraData: public ShapeBaseData {
    DECLARE_CONOBJECT(PathCameraData);
    static void consoleInit();
    static void initPersistFields();
-   virtual void packData(BitStream* stream);
-   virtual void unpackData(BitStream* stream);
 };
 
 
@@ -112,8 +110,6 @@ public:
    void interpolateTick(F32 dt);
    void getCameraTransform(F32* pos,MatrixF* mat);
 
-   U32  packUpdate(NetConnection *, U32 mask, BitStream *stream);
-   void unpackUpdate(NetConnection *, BitStream *stream);
 
    void reset(F32 speed = 1);
    void pushFront(CameraSpline::Knot *knot);

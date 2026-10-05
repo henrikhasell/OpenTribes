@@ -236,79 +236,7 @@ void FlyingVehicleData::initPersistFields()
    Parent::initPersistFields();
 }
 
-void FlyingVehicleData::packData(BitStream* stream)
-{
-   Parent::packData(stream);
 
-   for (S32 i = 0; i < MaxSounds; i++)
-   {
-      if (stream->writeFlag(sound[i]))
-      {
-         SimObjectId writtenId = packed ? SimObjectId((uintptr_t)sound[i]) : sound[i]->getId();
-         stream->writeRangedU32(writtenId, DataBlockObjectIdFirst, DataBlockObjectIdLast);
-      }
-   }
-
-   for (S32 j = 0; j < MaxJetEmitters; j++)
-   {
-      if (stream->writeFlag(jetEmitter[j]))
-      {
-         SimObjectId writtenId = packed ? SimObjectId((uintptr_t)jetEmitter[j]) : jetEmitter[j]->getId();
-         stream->writeRangedU32(writtenId, DataBlockObjectIdFirst,DataBlockObjectIdLast);
-      }
-   }
-
-   stream->write(maneuveringForce);
-   stream->write(horizontalSurfaceForce);
-   stream->write(verticalSurfaceForce);
-   stream->write(autoInputDamping);
-   stream->write(steeringForce);
-   stream->write(steeringRollForce);
-   stream->write(rollForce);
-   stream->write(autoAngularForce);
-   stream->write(rotationalDrag);
-   stream->write(autoLinearForce);
-   stream->write(maxAutoSpeed);
-   stream->write(hoverHeight);
-   stream->write(createHoverHeight);
-   stream->write(minTrailSpeed);
-   stream->write(vertThrustMultiple);
-}
-
-void FlyingVehicleData::unpackData(BitStream* stream)
-{
-   Parent::unpackData(stream);
-
-   for (S32 i = 0; i < MaxSounds; i++) {
-      sound[i] = NULL;
-      if (stream->readFlag())
-         sound[i] = (SFXProfile*)stream->readRangedU32(DataBlockObjectIdFirst,
-                                                         DataBlockObjectIdLast);
-   }
-
-   for (S32 j = 0; j < MaxJetEmitters; j++) {
-      jetEmitter[j] = NULL;
-      if (stream->readFlag())
-         jetEmitter[j] = (ParticleEmitterData*)stream->readRangedU32(DataBlockObjectIdFirst,
-                                                                     DataBlockObjectIdLast);
-   }
-
-   stream->read(&maneuveringForce);
-   stream->read(&horizontalSurfaceForce);
-   stream->read(&verticalSurfaceForce);
-   stream->read(&autoInputDamping);
-   stream->read(&steeringForce);
-   stream->read(&steeringRollForce);
-   stream->read(&rollForce);
-   stream->read(&autoAngularForce);
-   stream->read(&rotationalDrag);
-   stream->read(&autoLinearForce);
-   stream->read(&maxAutoSpeed);
-   stream->read(&hoverHeight);
-   stream->read(&createHoverHeight);
-   stream->read(&minTrailSpeed);
-   stream->read(&vertThrustMultiple);
-}
 
 
 //----------------------------------------------------------------------------
@@ -756,33 +684,7 @@ void FlyingVehicle::readPacketData(GameConnection *connection, BitStream *stream
    mDelta.rot[1] = mRigid.angPosition;
 }
 
-U32 FlyingVehicle::packUpdate(NetConnection *con, U32 mask, BitStream *stream)
-{
-   U32 retMask = Parent::packUpdate(con, mask, stream);
 
-   // The rest of the data is part of the control object packet update.
-   // If we're controlled by this client, we don't need to send it.
-   if(stream->writeFlag(getControllingClient() == con && !(mask & InitialUpdateMask)))
-      return retMask;
-
-   stream->writeFlag(createHeightOn);
-
-   stream->writeInt(mThrustDirection,NumThrustBits);
-
-   return retMask;
-}
-
-void FlyingVehicle::unpackUpdate(NetConnection *con, BitStream *stream)
-{
-   Parent::unpackUpdate(con,stream);
-
-   if(stream->readFlag())
-      return;
-
-   createHeightOn = stream->readFlag();
-
-   mThrustDirection = ThrustDirection(stream->readInt(NumThrustBits));
-}
 
 void FlyingVehicle::initPersistFields()
 {

@@ -40,8 +40,38 @@ static void noteString(const char *str)
    }
 }
 
+/// Reading takes a node's value off the wire; writing puts a default one on
+/// it at the same width. Every branch below therefore asks for its value
+/// through one of these two and then treats it the same way, so the writer
+/// cannot drift away from the reader's idea of how wide a node is.
+static U32 xferInt(BitStream *stream, U32 bits, bool write)
+{
+   if(!bits)
+      return 0;
+
+   if(write)
+   {
+      stream->writeInt(0, bits);
+      return 0;
+   }
+
+   return stream->readInt(bits);
+}
+
+static bool xferFlag(BitStream *stream, bool write)
+{
+   if(write)
+   {
+      stream->writeFlag(false);
+      return false;
+   }
+
+   return stream->readFlag();
+}
+
 static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
-                     S32 at, U32 *slots, U32 depth, bool isInitial)
+                     S32 at, U32 *slots, U32 depth, bool isInitial,
+                     bool write)
 {
    if(depth > 8)
    {
@@ -69,7 +99,7 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
             return true;
 
          case OpFlag:
-            at = stream->readFlag() ? n.b : n.a;
+            at = xferFlag(stream, write) ? n.b : n.a;
             continue;
 
          case OpInitial:
@@ -78,7 +108,7 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
 
          case OpCountBits:
          {
-            U32 v = n.bits ? stream->readInt(n.bits) : 0;
+            U32 v = xferInt(stream, n.bits, write);
             U32 set = 0;
             for(; v; v >>= 1)
                set += v & 1;
@@ -89,15 +119,21 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
 
          case OpPacketDataOf:
          {
-            const U32 idx = stream->readInt(n.bits);
+            const U32 idx = xferInt(stream, n.bits, write);
             const char *cls = sResolve ? sResolve(sResolveCtx, idx) : NULL;
             if(!cls)
             {
-               Con::warnf("T2 layout: %s reads the packet data of ghost %d, "
-                          "which we cannot name", layout->name, idx);
+               Con::warnf("T2 layout: %s %s the packet data of ghost %d, "
+                          "which we cannot name", layout->name,
+                          write ? "writes" : "reads", idx);
                return false;
             }
-            if(!readPacketData(stream, cls, sResolve, sResolveCtx))
+            if(write)
+            {
+               if(!writePacketData(stream, cls, sResolve, sResolveCtx))
+                  return false;
+            }
+            else if(!readPacketData(stream, cls, sResolve, sResolveCtx))
                return false;
             at = n.a;
             continue;
@@ -105,7 +141,7 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
 
          case OpSelect:
          {
-            const U32 v = stream->readInt(n.bits);
+            const U32 v = xferInt(stream, n.bits, write);
             if(!layout->select || v >= (1U << n.bits))
             {
                Con::warnf("T2 layout: %s node %d select %u out of range",
@@ -118,7 +154,7 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
 
          case OpReadBr:
          {
-            const U32 v = n.bits ? stream->readInt(n.bits) : 0;
+            const U32 v = xferInt(stream, n.bits, write);
             if(!layout->select)
             {
                Con::warnf("T2 layout: %s node %d has no select table",
@@ -132,7 +168,7 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
          }
 
          case OpCount:
-            slots[n.b & 7] = n.bits ? stream->readInt(n.bits) : 0;
+            slots[n.b & 7] = xferInt(stream, n.bits, write);
             break;
 
          case OpLoop:
@@ -145,7 +181,8 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
                return false;
             }
             for(U32 i = 0; i < count; i++)
-               if(!runGraph(stream, layout, n.b, slots, depth + 1, isInitial))
+               if(!runGraph(stream, layout, n.b, slots, depth + 1, isInitial,
+                            write))
                   return false;
             at = n.a;
             continue;
@@ -159,20 +196,27 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
          case OpColor:
          case OpRaw:
          case OpDataBlockId:
-            if(n.bits)
-               stream->readInt(n.bits);
+            xferInt(stream, n.bits, write);
             break;
 
          case OpPoint:
          {
-            Point3F p;
-            stream->readCompressedPoint(&p, 0.01f);
+            Point3F p(0.0f, 0.0f, 0.0f);
+            if(write)
+               stream->writeCompressedPoint(p, 0.01f);
+            else
+               stream->readCompressedPoint(&p, 0.01f);
             break;
          }
 
          case OpString:
-            stream->readString(buf);
-            noteString(buf);
+            if(write)
+               stream->writeString("");
+            else
+            {
+               stream->readString(buf);
+               noteString(buf);
+            }
             break;
 
          default:
@@ -191,7 +235,8 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
 
 static bool runNamed(BitStream *stream, const char *name,
                      const T2DataBlockLayout *table, U32 count,
-                     bool *found = NULL, bool isInitial = false)
+                     bool *found = NULL, bool isInitial = false,
+                     bool write = false)
 {
    if(!name)
       return false;
@@ -206,7 +251,7 @@ static bool runNamed(BitStream *stream, const char *name,
 
       U32 slots[8] = { 0, 0, 0, 0, 0, 0, 0, 0 };
       return runGraph(stream, &table[i], table[i].root, slots, 0,
-                      isInitial);
+                      isInitial, write);
    }
 
    return false;
@@ -216,22 +261,25 @@ static bool runNamed(BitStream *stream, const char *name,
 
 static Vector<StringTableEntry> sUnimplemented(__FILE__, __LINE__);
 
-static void warnUnimplemented(const char *kind, const char *name)
+static void warnUnimplemented(const char *kind, const char *name, bool write)
 {
    char what[192];
    dSprintf(what, sizeof(what), "%s %s", kind, name ? name : "(unnamed)");
 
-   StringTableEntry key = StringTable->insert(what);
+   char keyed[256];
+   dSprintf(keyed, sizeof(keyed), "%s %s", write ? "write" : "read", what);
+
+   StringTableEntry key = StringTable->insert(keyed);
    for(U32 i = 0; i < sUnimplemented.size(); i++)
       if(sUnimplemented[i] == key)
          return;
    sUnimplemented.push_back(key);
 
-   Con::errorf("No Tribes 2 layout for %s -- the rest of the packet is lost.",
-               what);
+   Con::errorf("No Tribes 2 layout for %s -- the rest of the %s is lost.",
+               what, write ? "body we are writing" : "packet");
 }
 
-bool readDataBlock(BitStream *stream, U32 classId)
+static bool runDataBlock(BitStream *stream, U32 classId, bool write)
 {
    AssertFatal(ELEMENTS(sT2DataBlocks) == NetClassTable::DataBlockCount,
       "The datablock layouts are not one per net class id!");
@@ -241,55 +289,100 @@ bool readDataBlock(BitStream *stream, U32 classId)
    {
       char id[32];
       dSprintf(id, sizeof(id), "class id %u", classId);
-      warnUnimplemented("datablock", id);
+      warnUnimplemented("datablock", id, write);
       return false;
    }
 
    const T2DataBlockLayout *layout = &sT2DataBlocks[classId];
    U32 slots[8] = { 0, 0, 0, 0, 0, 0, 0, 0 };
-   return runGraph(stream, layout, layout->root, slots, 0, false);
+   return runGraph(stream, layout, layout->root, slots, 0, false, write);
 }
 
-bool readGhost(BitStream *stream, const char *className, bool isInitial)
+static bool runGhost(BitStream *stream, const char *className,
+                     bool isInitial, bool write)
 {
    bool found = false;
    const bool ok = runNamed(stream, className, sT2GhostsRecovered,
-                            ELEMENTS(sT2GhostsRecovered), &found, isInitial);
+                            ELEMENTS(sT2GhostsRecovered), &found, isInitial,
+                            write);
    if(!found)
-      warnUnimplemented("ghost", className);
+      warnUnimplemented("ghost", className, write);
    return ok;
 }
 
-bool readEvent(BitStream *stream, const char *className)
+static bool runEvent(BitStream *stream, const char *className, bool write)
 {
    bool found = false;
    const bool ok = runNamed(stream, className, sT2EventsRecovered,
-                            ELEMENTS(sT2EventsRecovered), &found);
+                            ELEMENTS(sT2EventsRecovered), &found, false,
+                            write);
    if(found)
       return ok;
 
    const bool shipped = runNamed(stream, className, sT2Events,
-                                 ELEMENTS(sT2Events), &found);
+                                 ELEMENTS(sT2Events), &found, false, write);
    if(!found)
-      warnUnimplemented("event", className);
+      warnUnimplemented("event", className, write);
    return shipped;
 }
 
-bool readPacketData(BitStream *stream, const char *className,
-                    GhostClassFn resolve, void *ctx)
+static bool runPacketData(BitStream *stream, const char *className,
+                          GhostClassFn resolve, void *ctx, bool write)
 {
    sResolve = resolve;
    sResolveCtx = ctx;
 
    bool found = false;
    bool ok = runNamed(stream, className, sT2PacketDataRecovered,
-                      ELEMENTS(sT2PacketDataRecovered), &found);
+                      ELEMENTS(sT2PacketDataRecovered), &found, false, write);
    if(!found)
       ok = runNamed(stream, className, sT2PacketData,
-                    ELEMENTS(sT2PacketData), &found);
+                    ELEMENTS(sT2PacketData), &found, false, write);
    if(!found)
-      warnUnimplemented("control object", className);
+      warnUnimplemented("control object", className, write);
    return ok;
+}
+
+bool readDataBlock(BitStream *stream, U32 classId)
+{
+   return runDataBlock(stream, classId, false);
+}
+
+bool readGhost(BitStream *stream, const char *className, bool isInitial)
+{
+   return runGhost(stream, className, isInitial, false);
+}
+
+bool readEvent(BitStream *stream, const char *className)
+{
+   return runEvent(stream, className, false);
+}
+
+bool readPacketData(BitStream *stream, const char *className,
+                    GhostClassFn resolve, void *ctx)
+{
+   return runPacketData(stream, className, resolve, ctx, false);
+}
+
+bool writeDataBlock(BitStream *stream, U32 classId)
+{
+   return runDataBlock(stream, classId, true);
+}
+
+bool writeGhost(BitStream *stream, const char *className, bool isInitial)
+{
+   return runGhost(stream, className, isInitial, true);
+}
+
+bool writeEvent(BitStream *stream, const char *className)
+{
+   return runEvent(stream, className, true);
+}
+
+bool writePacketData(BitStream *stream, const char *className,
+                     GhostClassFn resolve, void *ctx)
+{
+   return runPacketData(stream, className, resolve, ctx, true);
 }
 
 }

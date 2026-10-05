@@ -126,8 +126,6 @@ class RigidShapeData : public ShapeBaseData
    ~RigidShapeData();
 
    static void initPersistFields();
-   void packData(BitStream*);
-   void unpackData(BitStream*);
    bool preload(bool server, String &errorStr);
 
    DECLARE_CONOBJECT(RigidShapeData);
@@ -287,8 +285,6 @@ public:
    void getCameraTransform(F32* pos, MatrixF* mat);
    ///@}
 
-   U32  packUpdate  (NetConnection *conn, U32 mask, BitStream *stream);
-   void unpackUpdate(NetConnection *conn,           BitStream *stream);
 
    DECLARE_CONOBJECT(RigidShape);
    DECLARE_CALLBACK( void, onEnterLiquid, ( const char* objId, const char* waterCoverage, const char* liquidType ));

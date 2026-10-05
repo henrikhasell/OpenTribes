@@ -81,8 +81,6 @@ class MissionMarker : public ShapeBase
       void inspectPostApply();
 
       // NetObject
-      U32  packUpdate  (NetConnection *conn, U32 mask, BitStream *stream);
-      void unpackUpdate(NetConnection *conn,           BitStream *stream);
 
       DECLARE_CONOBJECT(MissionMarker);
       static void initPersistFields();
@@ -127,8 +125,6 @@ class WayPoint : public MissionMarker
       void inspectPostApply();
 
       // NetObject
-      U32 packUpdate(NetConnection *conn, U32 mask, BitStream *stream);
-      void unpackUpdate(NetConnection *conn, BitStream *stream);
 
       // field data
       StringTableEntry              mName;
@@ -162,8 +158,6 @@ class SpawnSphere : public MissionMarker
          NextFreeMask     = Parent::NextFreeMask << 1
       };
 
-      U32  packUpdate  (NetConnection *conn, U32 mask, BitStream *stream);
-      void unpackUpdate(NetConnection *conn,           BitStream *stream);
 
       // ProcessObject
       void advanceTime( F32 timeDelta );
@@ -217,8 +211,6 @@ class CameraBookmark : public MissionMarker
       void inspectPostApply();
 
       // NetObject
-      U32 packUpdate(NetConnection *conn, U32 mask, BitStream *stream);
-      void unpackUpdate(NetConnection *conn, BitStream *stream);
 
       // field data
       StringTableEntry              mName;

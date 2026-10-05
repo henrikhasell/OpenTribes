@@ -161,11 +161,6 @@ bool GameBaseData::preload(bool server, String &errorStr)
    return true;
 }
 
-void GameBaseData::unpackData(BitStream* stream)
-{
-   Parent::unpackData(stream);
-   packed = true;
-}
 
 //----------------------------------------------------------------------------
 bool UNPACK_DB_ID(BitStream * stream, U32 & id)
@@ -516,70 +511,7 @@ void GameBase::readPacketData(GameConnection*, BitStream*)
 {
 }
 
-U32 GameBase::packUpdate( NetConnection *connection, U32 mask, BitStream *stream )
-{
-   U32 retMask = Parent::packUpdate( connection, mask, stream );
-       
-   if ( stream->writeFlag( mask & ScaleMask ) )  
-   {
-      // Only write one bit if the scale is one.
-      if ( stream->writeFlag( mObjScale != Point3F::One ) )
-         mathWrite( *stream, mObjScale );   
-   }
 
-   if ( stream->writeFlag( ( mask & DataBlockMask ) && mDataBlock != NULL ) ) 
-   {
-      stream->writeRangedU32( mDataBlock->getId(),
-                              DataBlockObjectIdFirst,
-                              DataBlockObjectIdLast );
-      if ( stream->writeFlag( mNetFlags.test( NetOrdered ) ) )
-         stream->writeInt( mOrderGUID, 16 );
-   }
-
-#ifdef TORQUE_DEBUG_NET_MOVES
-   stream->write(mLastMoveId);
-   stream->writeFlag(mIsAiControlled);
-#endif
-
-   return retMask;
-}
-
-void GameBase::unpackUpdate(NetConnection *con, BitStream *stream)
-{
-   Parent::unpackUpdate( con, stream );
-   
-   // ScaleMask
-   if ( stream->readFlag() ) 
-   {
-      if ( stream->readFlag() )
-      {
-         VectorF scale;
-         mathRead( *stream, &scale );
-         setScale( scale );
-      }
-      else
-         setScale( Point3F::One );
-   }
-
-   // DataBlockMask
-   if ( stream->readFlag() )
-   {
-      GameBaseData *dptr = 0;
-      SimObjectId id = stream->readRangedU32( DataBlockObjectIdFirst,
-                                              DataBlockObjectIdLast );
-      if ( stream->readFlag() )
-         mOrderGUID = stream->readInt( 16 );
-
-      if ( !Sim::findObject( id, dptr ) || !setDataBlock( dptr ) )
-         con->setLastError( "Invalid packet GameBase::unpackUpdate()" );
-   }
-
-#ifdef TORQUE_DEBUG_NET_MOVES
-   stream->read(&mLastMoveId);
-   mTicksSinceLastMove = 0;
-   mIsAiControlled = stream->readFlag();
-#endif
-}
 
 void GameBase::onMount( SceneObject *obj, S32 node )
 {      

@@ -97,17 +97,14 @@ void SimDataBlock::onStaticModified(const char* slotName, const char* newValue)
 
 //-----------------------------------------------------------------------------
 
-void SimDataBlock::packData(BitStream*)
+void SimDataBlock::packData(BitStream *stream, U32 classId)
 {
+   T2Layout::writeDataBlock(stream, classId);
 }
 
 //-----------------------------------------------------------------------------
 
-void SimDataBlock::unpackData(BitStream*)
-{
-}
-
-bool SimDataBlock::unpackDataT2(BitStream *stream, U32 classId)
+bool SimDataBlock::unpackData(BitStream *stream, U32 classId)
 {
    return T2Layout::readDataBlock(stream, classId);
 }
@@ -171,9 +168,11 @@ DefineConsoleMethod( SimDataBlock, reloadOnLocalClient, void, (),,
    U8 buffer[ 16384 ];
    BitStream stream( buffer, 16384 );
 
-   object->packData( &stream );
+   const U32 classId = object->getClassId( localClient->getNetClassGroup() );
+
+   object->packData( &stream, classId );
    stream.setPosition(0);
-   object->unpackData( &stream );
+   object->unpackData( &stream, classId );
 
    if( !object->preload( false, NetConnection::getErrorBuffer() ) )
    {

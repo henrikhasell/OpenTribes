@@ -60,8 +60,6 @@ struct TriggerData: public GameBaseData {
 
    bool onAdd();
    static void initPersistFields();
-   virtual void packData  (BitStream* stream);
-   virtual void unpackData(BitStream* stream);
 };
 
 class Trigger : public GameBase
@@ -129,8 +127,6 @@ class Trigger : public GameBase
    void inspectPostApply();
 
    // NetObject
-   U32  packUpdate  (NetConnection *conn, U32 mask, BitStream* stream);
-   void unpackUpdate(NetConnection *conn,           BitStream* stream);
 
    // SceneObject
    void setTransform(const MatrixF &mat);

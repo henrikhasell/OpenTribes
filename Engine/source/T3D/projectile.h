@@ -128,8 +128,6 @@ public:
 
    ProjectileData();
 
-   void packData(BitStream*);
-   void unpackData(BitStream*);
    bool preload(bool server, String &errorStr);
 
    static bool setLifetime( void *object, const char *index, const char *data );
@@ -184,8 +182,6 @@ public:
 
    // NetObject
    F32 getUpdatePriority(CameraScopeQuery *focusObject, U32 updateMask, S32 updateSkips);
-   U32  packUpdate  (NetConnection *conn, U32 mask, BitStream *stream);
-   void unpackUpdate(NetConnection *conn,           BitStream *stream);
 
    // SceneObject
    Point3F getVelocity() const { return mCurrVelocity; }

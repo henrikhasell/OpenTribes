@@ -253,58 +253,7 @@ bool DecalData::preload( bool server, String &errorStr )
    return true;
 }
 
-void DecalData::packData( BitStream *stream )
-{
-   Parent::packData( stream );
 
-   stream->write( lookupName );
-   stream->write( size );
-   stream->write( materialName );
-   stream->write( lifeSpan );
-   stream->write( fadeTime );
-	stream->write( texCoordCount );
-
-   for (S32 i = 0; i < texCoordCount; i++)
-      mathWrite( *stream, texRect[i] );
-
-   stream->write( fadeStartPixelSize );
-   stream->write( fadeEndPixelSize );
-   stream->write( renderPriority );
-   stream->write( clippingMasks );
-   stream->write( clippingAngle );
-   
-	stream->write( texRows );
-   stream->write( texCols );
-	stream->write( frame );
-	stream->write( randomize );
-}
-
-void DecalData::unpackData( BitStream *stream )
-{
-   Parent::unpackData( stream );
-
-   stream->read( &lookupName );
-   stream->read( &size );  
-   stream->read( &materialName );
-   _updateMaterial();
-   stream->read( &lifeSpan );
-   stream->read( &fadeTime );
-	stream->read( &texCoordCount );
-
-   for (S32 i = 0; i < texCoordCount; i++)
-      mathRead(*stream, &texRect[i]);
-
-   stream->read( &fadeStartPixelSize );
-   stream->read( &fadeEndPixelSize );
-   stream->read( &renderPriority );
-   stream->read( &clippingMasks );
-   stream->read( &clippingAngle );
-   
-	stream->read( &texRows );
-   stream->read( &texCols );
-	stream->read( &frame );
-	stream->read( &randomize );
-}
 
 void DecalData::_initMaterial()
 {

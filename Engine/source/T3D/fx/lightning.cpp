@@ -309,33 +309,7 @@ bool LightningData::preload(bool server, String &errorStr)
 
 
 //--------------------------------------------------------------------------
-void LightningData::packData(BitStream* stream)
-{
-   Parent::packData(stream);
 
-   U32 i;
-   for (i = 0; i < MaxThunders; i++)
-      sfxWrite( stream, thunderSounds[ i ] );
-   for (i = 0; i < MaxTextures; i++) {
-      stream->writeString(strikeTextureNames[i]);
-   }
-
-   sfxWrite( stream, strikeSound );
-}
-
-void LightningData::unpackData(BitStream* stream)
-{
-   Parent::unpackData(stream);
-
-   U32 i;
-   for (i = 0; i < MaxThunders; i++)
-      sfxRead( stream, &thunderSounds[ i ] );
-   for (i = 0; i < MaxTextures; i++) {
-      strikeTextureNames[i] = stream->readSTString();
-   }
-
-   sfxRead( stream, &strikeSound );
-}
 
 
 //--------------------------------------------------------------------------
@@ -845,62 +819,8 @@ void Lightning::strikeObject(ShapeBase*)
 
 
 //--------------------------------------------------------------------------
-U32 Lightning::packUpdate(NetConnection* con, U32 mask, BitStream* stream)
-{
-   U32 retMask = Parent::packUpdate(con, mask, stream);
-
-   // Only write data if this is the initial packet or we've been inspected.
-   if (stream->writeFlag(mask & (InitialUpdateMask | ExtendedInfoMask)))
-   {
-      // Initial update
-      mathWrite(*stream, getPosition());
-      mathWrite(*stream, mObjScale);
-
-      stream->write(strikeWidth);
-      stream->write(chanceToHitTarget);
-      stream->write(strikeRadius);
-      stream->write(boltStartRadius);
-      stream->write(color.red);
-      stream->write(color.green);
-      stream->write(color.blue);
-      stream->write(fadeColor.red);
-      stream->write(fadeColor.green);
-      stream->write(fadeColor.blue);
-      stream->write(useFog);
-      stream->write(strikesPerMinute);
-   }
-
-   return retMask;
-}
 
 //--------------------------------------------------------------------------
-void Lightning::unpackUpdate(NetConnection* con, BitStream* stream)
-{
-   Parent::unpackUpdate(con, stream);
-
-   if (stream->readFlag())
-   {
-      // Initial update
-      Point3F pos;
-      mathRead(*stream, &pos);
-      setPosition( pos );
-
-      mathRead(*stream, &mObjScale);
-
-      stream->read(&strikeWidth);
-      stream->read(&chanceToHitTarget);
-      stream->read(&strikeRadius);
-      stream->read(&boltStartRadius);
-      stream->read(&color.red);
-      stream->read(&color.green);
-      stream->read(&color.blue);
-      stream->read(&fadeColor.red);
-      stream->read(&fadeColor.green);
-      stream->read(&fadeColor.blue);
-      stream->read(&useFog);
-      stream->read(&strikesPerMinute);
-   }
-}
 
 //--------------------------------------------------------------------------
 

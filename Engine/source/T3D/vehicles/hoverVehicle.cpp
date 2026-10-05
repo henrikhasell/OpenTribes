@@ -337,100 +337,8 @@ bool HoverVehicleData::preload(bool server, String &errorStr)
 
 
 //--------------------------------------------------------------------------
-void HoverVehicleData::packData(BitStream* stream)
-{
-   Parent::packData(stream);
-
-   stream->write(dragForce);
-   stream->write(vertFactor);
-   stream->write(floatingThrustFactor);
-   stream->write(mainThrustForce);
-   stream->write(reverseThrustForce);
-   stream->write(strafeThrustForce);
-   stream->write(turboFactor);
-   stream->write(stabLenMin);
-   stream->write(stabLenMax);
-   stream->write(stabSpringConstant);
-   stream->write(stabDampingConstant);
-   stream->write(gyroDrag);
-   stream->write(normalForce);
-   stream->write(restorativeForce);
-   stream->write(steeringForce);
-   stream->write(rollForce);
-   stream->write(pitchForce);
-   mathWrite(*stream, dustTrailOffset);
-   stream->write(triggerTrailHeight);
-   stream->write(dustTrailFreqMod);
-
-   for (S32 i = 0; i < MaxSounds; i++)
-      if (stream->writeFlag(sound[i]))
-         stream->writeRangedU32(packed? SimObjectId((uintptr_t)sound[i]):
-                                sound[i]->getId(),DataBlockObjectIdFirst,DataBlockObjectIdLast);
-
-   for (S32 j = 0; j < MaxJetEmitters; j++)
-   {
-      if (stream->writeFlag(jetEmitter[j]))
-      {
-         SimObjectId writtenId = packed ? SimObjectId((uintptr_t)jetEmitter[j]) : jetEmitter[j]->getId();
-         stream->writeRangedU32(writtenId, DataBlockObjectIdFirst,DataBlockObjectIdLast);
-      }
-   }
-
-   if (stream->writeFlag( dustTrailEmitter ))
-   {
-      stream->writeRangedU32( dustTrailEmitter->getId(), DataBlockObjectIdFirst,  DataBlockObjectIdLast );
-   }
-   stream->write(floatingGravMag);
-   stream->write(brakingForce);
-   stream->write(brakingActivationSpeed);
-}
 
 
-void HoverVehicleData::unpackData(BitStream* stream)
-{
-   Parent::unpackData(stream);
-
-   stream->read(&dragForce);
-   stream->read(&vertFactor);
-   stream->read(&floatingThrustFactor);
-   stream->read(&mainThrustForce);
-   stream->read(&reverseThrustForce);
-   stream->read(&strafeThrustForce);
-   stream->read(&turboFactor);
-   stream->read(&stabLenMin);
-   stream->read(&stabLenMax);
-   stream->read(&stabSpringConstant);
-   stream->read(&stabDampingConstant);
-   stream->read(&gyroDrag);
-   stream->read(&normalForce);
-   stream->read(&restorativeForce);
-   stream->read(&steeringForce);
-   stream->read(&rollForce);
-   stream->read(&pitchForce);
-   mathRead(*stream, &dustTrailOffset);
-   stream->read(&triggerTrailHeight);
-   stream->read(&dustTrailFreqMod);
-
-   for (S32 i = 0; i < MaxSounds; i++)
-      sound[i] = stream->readFlag()?
-         (SFXProfile*) stream->readRangedU32(DataBlockObjectIdFirst,
-                                               DataBlockObjectIdLast): 0;
-
-   for (S32 j = 0; j < MaxJetEmitters; j++) {
-      jetEmitter[j] = NULL;
-      if (stream->readFlag())
-         jetEmitter[j] = (ParticleEmitterData*)stream->readRangedU32(DataBlockObjectIdFirst,
-                                                                     DataBlockObjectIdLast);
-   }
-
-   if( stream->readFlag() )
-   {
-      dustTrailID = (S32) stream->readRangedU32(DataBlockObjectIdFirst, DataBlockObjectIdLast);
-   }
-   stream->read(&floatingGravMag);
-   stream->read(&brakingForce);
-   stream->read(&brakingActivationSpeed);
-}
 
 
 //--------------------------------------------------------------------------
@@ -608,23 +516,7 @@ void HoverVehicle::advanceTime(F32 dt)
 
 //--------------------------------------------------------------------------
 
-U32 HoverVehicle::packUpdate(NetConnection* con, U32 mask, BitStream* stream)
-{
-   U32 retMask = Parent::packUpdate(con, mask, stream);
 
-   //
-   stream->writeInt(mThrustDirection,NumThrustBits);
-
-   return retMask;
-}
-
-void HoverVehicle::unpackUpdate(NetConnection* con, BitStream* stream)
-{
-   Parent::unpackUpdate(con, stream);
-
-   mThrustDirection = ThrustDirection(stream->readInt(NumThrustBits));
-   //
-}
 
 
 //--------------------------------------------------------------------------

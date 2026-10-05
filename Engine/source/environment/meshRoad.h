@@ -450,8 +450,6 @@ public:
    bool writeField( StringTableEntry fieldname, const char *value );
 
    // NetObject
-   U32 packUpdate(NetConnection *, U32, BitStream *);
-   void unpackUpdate(NetConnection *, BitStream *);
 
    // SceneObject
    virtual void prepRenderImage( SceneRenderState* sceneState );
