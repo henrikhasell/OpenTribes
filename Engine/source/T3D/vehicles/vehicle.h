@@ -124,11 +124,18 @@ struct VehicleData: public ShapeBaseData
    F32 splashVelEpsilon;
 
    //
+   /// HH: Added for Tribes 2 compatibility.  Fields a Tribes 2 server sends
+   /// that this tree has nowhere to put: the two impact sounds are its own
+   /// pair rather than Torque's body sounds, and the collision-damage pair
+   /// below them has no equivalent here at all.
+   S32 mT2ImpactSoundId[Body::MaxSounds];
+
    VehicleData();
    bool preload(bool server, String &errorStr);
    static void initPersistFields();
    virtual void packData(BitStream* stream);
    virtual void unpackData(BitStream* stream);
+   void readT2Fields(T2Reader& reader);   // HH: Added for Tribes 2 compatibility.
 
    DECLARE_CONOBJECT(VehicleData);
 
@@ -227,6 +234,31 @@ class Vehicle: public ShapeBase
    void readPacketData (GameConnection * conn, BitStream *stream);
    U32  packUpdate  (NetConnection *conn, U32 mask, BitStream *stream);
    void unpackUpdate(NetConnection *conn,           BitStream *stream);
+
+   /// @name Tribes 2 compatibility
+   /// HH: Added.  The three kinds of vehicle differ by a handful of fields
+   /// at the end of a body that is otherwise one description, so the shared
+   /// part is read here and each kind adds its own.  Split in two because
+   /// flags are readable only once the cursor has gone past them: a subclass
+   /// takes its fields after _readT2Values() and every flag, its own and
+   /// this class's, after that.
+   /// @{
+protected:
+   const struct VehicleT2Nodes *_readT2Values(T2Reader& reader);
+   void _takeT2Flags(T2Reader& reader, const struct VehicleT2Nodes *n);
+
+   bool    mT2Frozen;                ///< the server has stopped integrating it
+   bool    mT2FreeLook;              ///< from the pilot's move
+   bool    mT2Trigger[6];
+   bool    mT2HavePacketPosition;
+   Point3F mT2PacketPosition;
+
+public:
+   void readT2Fields(T2Reader& reader);
+   void dumpT2Members(T2Dump& d) const;
+   void readT2PacketData(T2Reader& reader);
+   bool getT2CompressionPoint(Point3F& out) const;
+   /// @}
 
    void updateLiftoffDust( F32 dt );
    void updateDamageSmoke( F32 dt );

@@ -46,6 +46,7 @@ class CameraData: public ShapeBaseData
       static void initPersistFields();
       virtual void packData(BitStream* stream);
       virtual void unpackData(BitStream* stream);
+      void readT2Fields( T2Reader &reader );   // HH: Added for Tribes 2 compatibility.
 };
 
 
@@ -133,6 +134,14 @@ class Camera: public ShapeBase
       /// @}
 
       bool mLocked;
+
+      /// HH: Added for Tribes 2 compatibility.
+      ///
+      /// Where the control packet last said this camera was, and whether it
+      /// said.  Kept because it is the compression point the rest of that
+      /// packet is measured from; see getT2CompressionPoint().
+      Point3F mT2PacketPosition;
+      bool mT2HavePacketPosition;
 
       CameraMotionMode  mMode;
 
@@ -229,6 +238,10 @@ class Camera: public ShapeBase
 
       virtual void writePacketData( GameConnection* conn, BitStream* stream );
       virtual void readPacketData( GameConnection* conn, BitStream* stream );
+      // HH: Added for Tribes 2 compatibility.
+      void readT2Fields( T2Reader &reader );
+      void readT2PacketData( T2Reader &reader );
+      bool getT2CompressionPoint( Point3F &out ) const;
       virtual U32  packUpdate( NetConnection* conn, U32 mask, BitStream* stream );
       virtual void unpackUpdate( NetConnection* conn, BitStream* stream );
 

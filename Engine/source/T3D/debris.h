@@ -89,11 +89,16 @@ struct DebrisData : public GameBaseData
 
    DebrisData();
 
+   /// HH: Added for Tribes 2 compatibility.  Tribes 2 sends one field Torque
+   /// has no equivalent for: whether the debris renders as a flat billboard.
+   bool     mT2Render2D;
+
    bool        onAdd();
    bool        preload( bool server, String &errorStr );
    static void initPersistFields();
    void        packData(BitStream* stream);
    void        unpackData(BitStream* stream);
+   void        readT2Fields(T2Reader& reader);   // HH: Added for Tribes 2 compatibility.
 
    DECLARE_CONOBJECT(DebrisData);
 

@@ -35,10 +35,12 @@
 #include "T3D/fx/particleEmitter.h"
 #include "T3D/fx/explosion.h"
 #include "T3D/gameBase/gameProcess.h"
+#include "T3D/gameBase/t2Fields.h"
 #include "core/resourceManager.h"
 #include "gfx/gfxTransformSaver.h"
 #include "console/engineAPI.h"
 #include "lighting/lightQuery.h"
+#include "T3D/gameBase/t2ArtPath.h"   // HH: Added for Tribes 2 compatibility.
 
 
 const U32 csmStaticCollisionMask =  TerrainObjectType  |
@@ -116,6 +118,7 @@ DebrisData::DebrisData()
    gravModifier = 1.0f;
    terminalVelocity = 0.0f;
    ignoreWater = true;
+   mT2Render2D = false;
 }
 
 bool DebrisData::onAdd()
@@ -200,7 +203,9 @@ bool DebrisData::preload(bool server, String &errorStr)
 
    if( shapeName && shapeName[0] != '\0' && !bool(shape) )
    {
-      shape = ResourceManager::get().load(shapeName);
+      // HH: Added for Tribes 2 compatibility.  The game names the debris
+      // bare and they live under shapes/; see T3D/gameBase/t2ArtPath.h.
+      shape = ResourceManager::get().load(shapePathT2(shapeName));
       if( bool(shape) == false )
       {
          errorStr = String::ToString("DebrisData::load: Couldn't load shape \"%s\"", shapeName);
@@ -318,6 +323,73 @@ void DebrisData::packData(BitStream* stream)
          explosion->getId(),DataBlockObjectIdFirst,DataBlockObjectIdLast);
    }
 
+}
+
+// HH: Added for Tribes 2 compatibility.
+//
+// Tribes 2's DebrisData is Torque's with three differences, which is why it
+// reads into the engine's own fields rather than into a parallel set: it sends
+// a render2D flag Torque has not got, it writes the spin range twice (the
+// second pair overwrites the first, as it does in the retail client), and it
+// swaps fade and useRadiusMass.  Everything else is the same field under the
+// same name, so DebrisData::preload and Debris act on what is read here
+// without anything further being wired up.
+//
+// Field order and the two string identities are from the retail binary
+// (0x6844d0), cross-checked against t2-demo-parser, and this datablock is one
+// of the seventy-four the two readers agree on to the bit over nine sessions.
+void DebrisData::readT2Fields( T2Reader& reader )
+{
+   Parent::readT2Fields( reader );
+
+   T2Fields f( reader );
+
+   f.takeRawFloat( elasticity );
+   f.takeRawFloat( friction );
+   f.takeInt( 32, numBounces );
+   f.takeInt( 32, bounceVariance );
+   f.takeRawFloat( minSpinSpeed );
+   f.takeRawFloat( maxSpinSpeed );
+
+   // Four bools, each a byte on the wire: Tribes 2 writes them with
+   // sizeof(bool) rather than as flags.
+   f.takeInt( 8, mT2Render2D );
+   f.takeInt( 8, explodeOnMaxBounce );
+   f.takeInt( 8, staticOnMaxBounce );
+   f.takeInt( 8, snapOnMaxBounce );
+
+   f.takeRawFloat( lifetime );
+   f.takeRawFloat( lifetimeVariance );
+   f.takeRawFloat( minSpinSpeed );
+   f.takeRawFloat( maxSpinSpeed );
+   f.takeRawFloat( velocity );
+   f.takeRawFloat( velocityVariance );
+
+   f.takeInt( 8, useRadiusMass );
+   f.takeInt( 8, fade );
+
+   f.takeRawFloat( baseRadius );
+   f.takeRawFloat( gravModifier );
+   f.takeRawFloat( terminalVelocity );
+
+   f.takeInt( 8, ignoreWater );
+
+   char name[256];
+   if ( f.takeString( name, sizeof( name ) ) )
+      textureName = StringTable->insert( name );
+   if ( f.takeString( name, sizeof( name ) ) )
+      shapeName = StringTable->insert( name );
+
+   // Two emitters and an explosion, each sent only if it is set.  The cursor
+   // hides the flags that said which, so these are filed only when all three
+   // arrived -- see T2Fields::takeDataBlockRun.  preload() resolves the ids.
+   U32 refs[3];
+   if ( f.takeDataBlockRun( refs, 3 ) == 3 )
+   {
+      emitterIDList[0] = S32( refs[0] );
+      emitterIDList[1] = S32( refs[1] );
+      explosionId      = S32( refs[2] );
+   }
 }
 
 void DebrisData::unpackData(BitStream* stream)

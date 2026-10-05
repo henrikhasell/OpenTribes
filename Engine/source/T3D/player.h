@@ -180,6 +180,44 @@ struct PlayerData: public ShapeBaseData {
    F32 groundImpactShakeDuration; ///< How long to shake
    F32 groundImpactShakeFalloff;  ///< How fast the shake disapates
 
+   /// @name The Tribes 2 fields Torque 3D has no member for
+   ///
+   /// Everything else a Tribes 2 PlayerData sends lands in the members above,
+   /// which is most of it -- the two lineages share a TGE player, so the run
+   /// forces, the jump figures, the look angles, the splash and the ground
+   /// impact shake are all the same fields under the same names.  What is left
+   /// is jetting, which Torque 3D does not have, the heat a sensor sees, and
+   /// four splash figures Tribes 2 adds.
+   /// @{
+   // HH: Added for Tribes 2 compatibility.
+   F32 mT2JetForce;
+   F32 mT2UnderwaterJetForce;
+   F32 mT2UnderwaterVertJetFactor;
+   F32 mT2JetEnergyDrain;
+   F32 mT2UnderwaterJetEnergyDrain;
+   F32 mT2MinJetEnergy;
+   F32 mT2MaxJetForwardSpeed;
+   F32 mT2MaxJetHorizontalPercentage;
+   S32 mT2JetEmitterId;
+   S32 mT2JetEffectId;
+
+   F32 mT2MediumSplashSoundVelocity;
+   F32 mT2HardSplashSoundVelocity;
+   F32 mT2ExitSplashSoundVelocity;
+   F32 mT2FootstepSplashHeight;
+
+   F32 mT2HeatDecayPerSec;
+   F32 mT2HeatIncreasePerSec;
+
+   /// Tribes 2 sends thirty-two sound slots where Torque 3D keeps eighteen.
+   /// The ids are kept as sent rather than filed into sound[]: both lists
+   /// start from the same TGE footstep table, but nothing here establishes
+   /// that the first eighteen still line up, and a wrong footstep is harder to
+   /// notice than a missing one.
+   enum { T2MaxSounds = 32 };
+   S32 mT2SoundId[T2MaxSounds];
+   /// @}
+
    /// Zounds!
    enum Sounds {
       FootSoft,
@@ -270,7 +308,26 @@ struct PlayerData: public ShapeBaseData {
       NumExtraActionAnims = 512 - NumTableActionAnims,
       NumActionAnims = NumTableActionAnims + NumExtraActionAnims,
       ActionAnimBits = 9,
-      NullAnimation = (1 << ActionAnimBits) - 1
+      NullAnimation = (1 << ActionAnimBits) - 1,
+
+      /// HH: Added for Tribes 2 compatibility.
+      ///
+      /// Tribes 2 sends an action animation index in eight bits, not the nine
+      /// Torque uses, and this is a separate constant for the same reason
+      /// ShapeBase::T2ThreadSequenceBits is: the one above is still Torque's
+      /// own wire format at packUpdate and unpackUpdate, and NullAnimation and
+      /// the size of the action table are derived from it.
+      ///
+      /// Both of Player's action fields are eight-bit nodes -- action and
+      /// armAction -- in the recovered table and in the hand-written layout
+      /// alike.  Asking for nine made the take fail on its width, and since a
+      /// take that does not match consumes nothing, the cursor stayed on that
+      /// node for the rest of the body: armAction, the action state, the
+      /// recover ticks, the position, the velocity, both head angles, the body
+      /// rotation, the echoed move and the energy were all behind it and all
+      /// node-gated, so a body that carried an action animation delivered
+      /// nothing but the impact sound.
+      T2ActionAnimBits = 8
    };
 
    static ActionAnimationDef ActionAnimationList[NumTableActionAnims];
@@ -337,6 +394,10 @@ struct PlayerData: public ShapeBaseData {
    /// @}
 
    //
+   // HH: Added for Tribes 2 compatibility.
+   void readT2Fields( T2Reader &reader );
+   bool onAdd();
+
    DECLARE_CONOBJECT(PlayerData);
    PlayerData();
    bool preload(bool server, String &errorStr);
@@ -372,6 +433,14 @@ class Player: public ShapeBase
    typedef ShapeBase Parent;
 
 public:
+
+   /// HH: Added for Tribes 2 compatibility.  A Tribes 2 server states the
+   /// mission's gravity rather than leaving the client at its own default,
+   /// and sends it as a GravityEvent before anything simulates.  Static
+   /// because this tree's player gravity is: one value for the mission.
+   static void setGravity( F32 gravity ) { mGravity = gravity; }
+   static F32  getGravity() { return mGravity; }
+
    enum Pose {
       StandPose = 0,
       SprintPose,
@@ -438,6 +507,42 @@ protected:
    static F32 mGravity;             ///< Gravity
    S32 mImpactSound;
 
+   /// @name The Tribes 2 state the ghost and the control packet carry
+   ///
+   /// The rest of a Tribes 2 Player body lands in the members beside these --
+   /// mState, mRecoverTicks, mJumpDelay, mHead, mRot, mVelocity,
+   /// mJumpSurfaceLastContact and mActionAnimation are the same fields Torque
+   /// sends.  These are the ones it does not have.
+   /// @{
+   // HH: Added for Tribes 2 compatibility.
+
+   /// Where in the action animation the server says we are, or -1 when it did
+   /// not say.  Only sent while the animation has not reached its end.
+   F32 mT2ActionAnimPos;
+
+   /// Two bits Tribes 2 sends between the recover ticks and the position.
+   /// Neither this port's recovered layout nor the second reader names them,
+   /// so they are carried rather than guessed at: the shape of the body is
+   /// settled and what the two mean is not.
+   bool mT2MoveFlag0;
+   bool mT2MoveFlag1;
+
+   /// Whether the server will let this body teleport us rather than be
+   /// interpolated to.
+   bool mT2AllowWarp;
+
+   /// From the control packet: whether our move is being ignored, and whether
+   /// we are a vehicle's pilot rather than its passenger.
+   bool mT2DisableMove;
+   bool mT2Pilot;
+
+   /// Where the control packet last said we were, and whether it said.  Kept
+   /// because it is the compression point the rest of that packet is measured
+   /// from; see getT2CompressionPoint().
+   Point3F mT2PacketPosition;
+   bool mT2HavePacketPosition;
+   /// @}
+
    bool mUseHeadZCalc;              ///< Including mHead.z in transform calculations
 
    S32 mMountPending;               ///< mMountPending suppresses tickDelay countdown so players will sit until
@@ -492,6 +597,7 @@ protected:
       U32 action;
       TSThread* thread;
    } mArmAnimation;
+
    TSThread* mArmThread;
 
    TSThread* mHeadVThread;
@@ -672,6 +778,15 @@ protected:
    void enableHeadZCalc() { mUseHeadZCalc = true; }
 
 public:
+   /// HH: Added for Tribes 2 compatibility.
+   /// The action animation's index and how far through it the body is.
+   ///
+   /// Script can set a thread's position on a ShapeBase and cannot read one,
+   /// so there was nothing to sample with when asking whether a ghosted player
+   /// animates or merely slides.  Answers on either side, so the server's copy
+   /// and the client's ghost are the same question.
+   const char *getActionThread();
+
    DECLARE_CONOBJECT(Player);
 
    Player();
@@ -761,6 +876,15 @@ public:
    void onCameraScopeQuery(NetConnection *cr, CameraScopeQuery *);
    void writePacketData(GameConnection *conn, BitStream *stream);
    void readPacketData (GameConnection *conn, BitStream *stream);
+   // HH: Added for Tribes 2 compatibility.
+   void readT2Fields( T2Reader &reader );
+   void readT2PacketData( T2Reader &reader );
+   bool getT2CompressionPoint( Point3F &out ) const;
+   /// The field half of readT2Fields(), kept apart so that every flag can be
+   /// taken after it however it ends.  See the struct in player.cpp.
+   void _readT2Body( class T2Fields &f, const struct PlayerT2Nodes &n,
+                     struct PlayerT2Body &b );
+   void dumpT2Members( T2Dump &d ) const;
    U32  packUpdate  (NetConnection *conn, U32 mask, BitStream *stream);
    void unpackUpdate(NetConnection *conn,           BitStream *stream);
 

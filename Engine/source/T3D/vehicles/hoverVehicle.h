@@ -111,12 +111,21 @@ class HoverVehicleData : public VehicleData
   public:
    F32 maxThrustSpeed;
 
+   /// HH: Added for Tribes 2 compatibility.  Three scales a Tribes 2 server
+   /// sends for how hard each thruster drives its emitter; this tree runs
+   /// its jet emitters off the thrust level alone and has nowhere to put
+   /// them.
+   F32 mT2MainThrustEmitterFactor;
+   F32 mT2StrafeThrustEmitterFactor;
+   F32 mT2ReverseThrustEmitterFactor;
+
   public:
    HoverVehicleData();
    ~HoverVehicleData();
 
    void packData(BitStream*);
    void unpackData(BitStream*);
+   void readT2Fields(T2Reader& reader);   // HH: Added for Tribes 2 compatibility.
    bool preload(bool server, String &errorStr);
 
    DECLARE_CONOBJECT(HoverVehicleData);
@@ -207,6 +216,7 @@ class HoverVehicle : public Vehicle
 
    U32  packUpdate  (NetConnection *conn, U32 mask, BitStream *stream);
    void unpackUpdate(NetConnection *conn,           BitStream *stream);
+   void readT2Fields(T2Reader& reader);   // HH: Added for Tribes 2 compatibility.
 };
 
 #endif // _H_HOVERVEHICLE

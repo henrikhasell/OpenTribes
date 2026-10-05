@@ -40,6 +40,9 @@
 #include "T3D/physics/physicsCollision.h"
 #include "ts/tsShapeInstance.h"
 #include "console/engineAPI.h"
+#include "core/stringTable.h"
+#include "T3D/gameBase/t2Fields.h"
+#include "T3D/gameBase/t2Layout.h"
 
 
 const F32 sRotationSpeed = 6.0f;        // Secs/Rotation
@@ -238,6 +241,69 @@ void ItemData::unpackData(BitStream* stream)
    simpleServerCollision = stream->readFlag();
 }
 
+/// The same fields off a Tribes 2 wire, which sends all of them but the last:
+/// simpleServerCollision is this engine's own and has no bit there.
+///
+/// Every field here is unambiguous by shape, so none needs naming -- the two
+/// ten-bit fractions are sent unconditionally, and each optional field that
+/// follows has a different width from the one after it, so a take that misses
+/// is an absent field and nothing else.  The two booleans do need a node,
+/// because a flag is never a field the cursor stands on; they are taken last,
+/// after every field, because a flag is only recorded once the cursor has gone
+/// past it.
+void ItemData::readT2Fields( T2Reader& reader )
+{
+   // ShapeBaseData: the shape, the sensor, the explosion and the debris.
+   Parent::readT2Fields( reader );
+
+   // Walked rather than written by hand, so the layout names nothing and the
+   // flags are named here by the node that reads them.  Found by walking
+   // Tools/t2/replay.py's trace of the layout against ItemData::unpackData at
+   // 0x00603750: sticky stands between elasticity and the gravity gate, and
+   // lightOnlyStatic is the last thing in the light block.  takeFlag reports
+   // against the node if a regeneration moves either, rather than leaving the
+   // member at its default.
+   enum LayoutNode { NodeSticky = 41, NodeLightOnlyStatic = 53 };
+
+   T2Fields f( reader );
+
+   f.takeFloat( 10, friction );
+   f.takeFloat( 10, elasticity );
+
+   // Absent means one, which is what the engine's own reader puts there.
+   if ( !f.takeFloat( 10, gravityMod ) )
+      gravityMod = 1.0f;
+
+   if ( !f.takeRawFloat( maxVelocity ) )
+      maxVelocity = -1.0f;
+
+   // The light.  Its type is two bits the walk recorded as a branch whose four
+   // arms converge, so the cursor spends it and no class is offered the value
+   // -- the same one-sided-control-op gap as the flags had.  Everything behind
+   // it is readable, so the colour and the timing arrive and only which of the
+   // four kinds of light it is does not.
+   F32 channel;
+   if ( f.takeFloat( 7, channel ) )
+   {
+      lightColor.red = channel;
+      f.takeFloat( 7, lightColor.green );
+      f.takeFloat( 7, lightColor.blue );
+      f.takeFloat( 7, lightColor.alpha );
+
+      f.takeInt( 32, lightTime );
+      f.takeRawFloat( lightRadius );
+
+      // A light arrived, so it is one of the lit kinds rather than none.  Which
+      // one is the field above that cannot be read; constant is the kind a
+      // mission uses for all but a handful of items.
+      if ( lightType == Item::NoLight )
+         lightType = Item::ConstantLight;
+   }
+
+   f.takeFlag( NodeSticky, sticky );
+   f.takeFlag( NodeLightOnlyStatic, lightOnlyStatic );
+}
+
 
 //----------------------------------------------------------------------------
 
@@ -324,6 +390,7 @@ Item::Item()
    mCollisionObject = 0;
    mCollisionTimeout = 0;
    mPhysicsRep = NULL;
+   mT2Collidable = true;
 
    mConvex.init(this);
    mWorkingQueryBox.minExtents.set(-1e9, -1e9, -1e9);
@@ -1165,7 +1232,208 @@ void Item::unpackUpdate(NetConnection *connection, BitStream *stream)
    Parent::setTransform(mat);
 }
 
-DefineEngineMethod( Item, isStatic, bool, (),, 
+//----------------------------------------------------------------------------
+
+/// Which node of Item's layout is which of its own fields.
+///
+/// Resolved once per class rather than per packet -- the lookup is a string
+/// search and an item body arrives as often as packets do.  Items are most of
+/// what a mission scatters about, so this is a hot path.
+struct ItemT2Nodes
+{
+   U32 scale, throwSrc, rotationAngle, position, velocity;
+   U32 rotate, isStatic, collidable, rotationDown, atRest, warp;
+   bool named;
+};
+
+static const ItemT2Nodes *itemT2NodesFor( const char *className )
+{
+   enum { MaxClasses = 8 };
+   static const char *sName[MaxClasses] = { 0 };
+   static ItemT2Nodes sNodes[MaxClasses];
+   static U32 sCount = 0;
+
+   StringTableEntry key = StringTable->insert( className );
+   for ( U32 i = 0; i < sCount; i++ )
+      if ( sName[i] == key )
+         return &sNodes[i];
+
+   if ( sCount >= MaxClasses )
+      return NULL;
+
+   ItemT2Nodes &n = sNodes[sCount];
+
+   n.scale         = T2Layout::ghostNode( className, "scale" );
+   n.throwSrc      = T2Layout::ghostNode( className, "throwSrc" );
+   n.rotationAngle = T2Layout::ghostNode( className, "rotationAngle" );
+   n.position      = T2Layout::ghostNode( className, "position" );
+   n.velocity      = T2Layout::ghostNode( className, "velocity" );
+   n.rotate        = T2Layout::ghostNode( className, "rotate" );
+   n.isStatic      = T2Layout::ghostNode( className, "static" );
+   n.collidable    = T2Layout::ghostNode( className, "collidable" );
+   n.rotationDown  = T2Layout::ghostNode( className, "rotationDown" );
+   n.atRest        = T2Layout::ghostNode( className, "atRest" );
+   n.warp          = T2Layout::ghostNode( className, "warp" );
+
+   // All or nothing.  A subclass whose layout does not carry Item's section
+   // would otherwise match the end-of-layout sentinel on every atNode() and
+   // take fields that are not there.
+   n.named = n.scale    != U32( T2Reader::NoNode ) &&
+             n.position != U32( T2Reader::NoNode ) &&
+             n.velocity != U32( T2Reader::NoNode );
+
+   sName[sCount] = key;
+   sCount++;
+   return &n;
+}
+
+/// The same body off a Tribes 2 wire.
+///
+/// ShapeBase reads the section in front of this one -- the datablock, the
+/// damage, the sound and thread and image slots -- so this takes only the four
+/// masks Item adds and then applies the lot the way unpackUpdate above does,
+/// ending in setTransform so the item is actually placed rather than merely
+/// decoded.
+///
+/// Four of those masks carry a run of whole floats, which is why the fields
+/// are taken by node: by shape the scale, the rotation angle, the position and
+/// the velocity are indistinguishable, and an item that sent only its position
+/// would have it filed as its scale.  The names come from the layout, written
+/// in Tools/t2/handlayout.py beside the reading they describe, so they are the
+/// generator's statement rather than magic numbers here.
+void Item::readT2Fields( T2Reader& reader )
+{
+   // GameBase and ShapeBase, their fields and then their flags: by the time
+   // this returns the cursor stands on the first field of Item's own section.
+   Parent::readT2Fields( reader );
+
+   const ItemT2Nodes *n = itemT2NodesFor( getClassName() );
+   if ( !n || !n->named )
+      return;
+
+   T2Fields f( reader );
+
+   // -- the fields, in the order the layout reads them.
+
+   // InitialUpdateMask.  Absent scale means unit scale, as unpackUpdate has it.
+   Point3F scale;
+   const bool haveScale = f.atNode( n->scale ) && f.takeRawPoint( scale );
+
+   // ThrowSrcMask: the ghost that threw it, which is what the collision
+   // timeout is counted against so a thrown item does not hit the thrower.
+   U32 throwSrc = 0;
+   const bool haveThrowSrc = f.atNode( n->throwSrc ) && f.takeInt( 10, throwSrc );
+
+   // RotationMask: an angle about Z, whole rather than quantised.
+   F32 angle = 0.0f;
+   const bool haveRotation = f.atNode( n->rotationAngle ) && f.takeRawFloat( angle );
+
+   // PositionMask, and the velocity that follows it unless the item settled.
+   Point3F pos;
+   const bool havePosition = f.atNode( n->position ) && f.takeRawPoint( pos );
+
+   Point3F velocity;
+   const bool haveVelocity = f.atNode( n->velocity ) && f.takeRawPoint( velocity );
+
+   // -- then the booleans, every one of them after every field above.
+
+   // These three sit inside InitialUpdateMask, so whether the first was
+   // recorded is also the answer to whether that block arrived -- which is
+   // what decides a missing scale between "unit" and "leave it alone".
+   const bool haveInitial = f.takeFlag( n->rotate, mRotate );
+   f.takeFlag( n->isStatic, mStatic );
+   f.takeFlag( n->collidable, mT2Collidable );
+
+   bool rotationDown = false;
+   f.takeFlag( n->rotationDown, rotationDown );
+
+   bool warp = false;
+   f.takeFlag( n->atRest, mAtRest );
+   f.takeFlag( n->warp, warp );
+
+   // -- and act on it.
+
+   // Assigned rather than set through setScale(), which dirties the net mask
+   // to send the scale on: that is the server's to do, not a ghost's.  The
+   // transform below resets the world box, which is the other half of what
+   // setScale() would have done.
+   if ( haveScale )
+      mObjScale = scale;
+   else if ( haveInitial )
+      mObjScale.set( 1.0f, 1.0f, 1.0f );
+
+   // Resolved against the server connection, as ShapeBase resolves the ghost
+   // it is mounted to: readT2Fields is handed a cursor rather than a
+   // connection, and on a client there is only the one.  A thrower that has
+   // not arrived yet leaves no timeout rather than failing the packet.
+   if ( haveThrowSrc )
+   {
+      if ( NetConnection *con = NetConnection::getConnectionToServer() )
+         setCollisionTimeout( dynamic_cast< ShapeBase * >(
+            con->resolveGhost( S32( throwSrc ) ) ) );
+   }
+
+   MatrixF mat = mObjToWorld;
+
+   if ( haveRotation )
+   {
+      // About Z, the flag saying which way round, exactly as the engine's own
+      // reader builds it.
+      AngAxisF aa;
+      aa.axis.set( 0.0f, 0.0f, rotationDown ? -1.0f : 1.0f );
+      aa.angle = angle;
+      aa.setMatrix( &mat );
+
+      Point3F at;
+      mObjToWorld.getColumn( 3, &at );
+      mat.setColumn( 3, at );
+   }
+
+   if ( havePosition )
+   {
+      const F32 speed = mVelocity.len();
+      mVelocity = haveVelocity ? velocity : VectorF( 0.0f, 0.0f, 0.0f );
+
+      if ( warp && isProperlyAdded() )
+      {
+         // Interpolate across the next few ticks rather than snapping, which
+         // is the whole of what the warp bit is for.
+         delta.warpOffset = pos - delta.pos;
+         const F32 as = ( speed + mVelocity.len() ) * 0.5f * TickSec;
+         const F32 dt = ( as > 0.00001f ) ? delta.warpOffset.len() / as
+                                          : F32( sMaxWarpTicks );
+         delta.warpTicks = S32( ( dt > sMinWarpTicks )
+            ? getMax( mFloor( dt + 0.5f ), 1.0f ) : 0.0f );
+
+         if ( delta.warpTicks )
+         {
+            if ( delta.warpTicks > sMaxWarpTicks )
+               delta.warpTicks = sMaxWarpTicks;
+            delta.warpOffset /= F32( delta.warpTicks );
+         }
+         else
+         {
+            delta.pos = pos;
+            mat.setColumn( 3, pos );
+         }
+      }
+      else
+      {
+         delta.warpTicks = 0;
+         delta.posVec.set( 0.0f, 0.0f, 0.0f );
+         delta.pos = pos;
+         delta.dt = 0.0f;
+         mat.setColumn( 3, pos );
+      }
+   }
+
+   // Unconditional, as unpackUpdate ends: mat starts as the transform the
+   // object already has, so a body that carried neither a rotation nor a
+   // position still gets its world box reset against whatever scale arrived.
+   Parent::setTransform( mat );
+}
+
+DefineEngineMethod( Item, isStatic, bool, (),,
    "@brief Is the object static (ie, non-movable)?\n\n"   
    "@return True if the object is static, false if it is not.\n"
    "@tsexample\n"

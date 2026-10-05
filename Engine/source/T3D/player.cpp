@@ -22,6 +22,10 @@
 
 #include "platform/platform.h"
 #include "T3D/player.h"
+// HH: Added for Tribes 2 compatibility.
+#include "T3D/gameBase/t2Fields.h"
+#include "T3D/gameBase/t2Layout.h"
+#include "T3D/gameBase/t2MemberDump.h"
 
 #include "platform/profiler.h"
 #include "math/mMath.h"
@@ -56,6 +60,7 @@
 #include "T3D/decal/decalManager.h"
 #include "T3D/decal/decalData.h"
 #include "materials/baseMatInstance.h"
+#include "T3D/gameBase/t2ArtPath.h"   // HH: Added for Tribes 2 compatibility.
 
 // Amount of time if takes to transition to a new action sequence.
 static F32 sAnimationTransitionTime = 0.25f;
@@ -247,6 +252,17 @@ IMPLEMENT_CALLBACK( PlayerData, onLeaveMissionArea, void, ( Player* obj ), ( obj
 
 PlayerData::PlayerData()
 {
+   // HH: Added for Tribes 2 compatibility.
+   mT2JetForce = mT2UnderwaterJetForce = mT2UnderwaterVertJetFactor = 0.0f;
+   mT2JetEnergyDrain = mT2UnderwaterJetEnergyDrain = mT2MinJetEnergy = 0.0f;
+   mT2MaxJetForwardSpeed = mT2MaxJetHorizontalPercentage = 0.0f;
+   mT2JetEmitterId = mT2JetEffectId = 0;
+   mT2MediumSplashSoundVelocity = mT2HardSplashSoundVelocity = 0.0f;
+   mT2ExitSplashSoundVelocity = mT2FootstepSplashHeight = 0.0f;
+   mT2HeatDecayPerSec = mT2HeatIncreasePerSec = 0.0f;
+   for ( U32 i = 0; i < T2MaxSounds; i++ )
+      mT2SoundId[i] = 0;
+
    shadowEnable = true;
    shadowSize = 256;
    shadowProjectionDistance = 14.0f;
@@ -571,7 +587,9 @@ bool PlayerData::preload(bool server, String &errorStr)
 
       if (shapeNameFP[i] && shapeNameFP[i][0])
       {
-         mShapeFP[i] = ResourceManager::get().load(shapeNameFP[i]);
+      // HH: Added for Tribes 2 compatibility.  The game names the TR2weapon_ first-person shapes
+      // bare and they live under shapes/; see T3D/gameBase/t2ArtPath.h.
+         mShapeFP[i] = ResourceManager::get().load(shapePathT2(shapeNameFP[i]));
          if (bool(mShapeFP[i]) == false)
          {
             errorStr = String::ToString("PlayerData: Couldn't load mounted image %d shape \"%s\"",i,shapeNameFP[i]);
@@ -1565,6 +1583,14 @@ Player::Player()
 {
    mTypeMask |= PlayerObjectType | DynamicShapeObjectType;
 
+   // HH: Added for Tribes 2 compatibility.
+   mT2ActionAnimPos = -1.0f;
+   mT2MoveFlag0 = mT2MoveFlag1 = false;
+   mT2AllowWarp = false;
+   mT2DisableMove = mT2Pilot = false;
+   mT2PacketPosition.set( 0.0f, 0.0f, 0.0f );
+   mT2HavePacketPosition = false;
+
    delta.pos = mAnchorPoint = Point3F(0,0,100);
    delta.rot = delta.head = Point3F(0,0,0);
    delta.rotOffset.set(0.0f,0.0f,0.0f);
@@ -2015,6 +2041,45 @@ void Player::processTick(const Move* move)
 {
    PROFILE_SCOPE(Player_ProcessTick);
 
+   // HH: Added for Tribes 2 compatibility.
+   // A Player ghost can be on the tick list before its datablock has arrived.
+   // GameBase::readT2Fields says so in as many words: a datablock id whose
+   // object is not here yet "leaves the id stored and the pointer null rather
+   // than failing the packet", which is right for a reader that cannot choose
+   // the order packets arrive in, and is where stock T3D would instead have
+   // called setLastError and dropped the connection.
+   //
+   // Everything below runs on that object. updateMove reads mDataBlock on
+   // nearly every line -- sprintPitchScale, minLookAngle, maxForwardSpeed --
+   // so a Player ticked before its datablock lands faults there, in code that
+   // looks like plain field arithmetic and is not wrong. That matches the
+   // measured crash: Player::updateMove, roughly one spawned run in six, and
+   // intermittent depending on which other Players share the tick list,
+   // because what decides it is whether this one's datablock happened to
+   // arrive first.
+   //
+   // Guarded once, here, rather than at each use: the sibling fault in
+   // advanceTime grew a second crash site the moment the first was patched.
+   // A Player with no datablock has no speeds, no angles and no sequences, so
+   // there is nothing for a tick to do with it; it simulates from the tick
+   // after its datablock arrives.
+   //
+   // It says so once because a silent return would turn a datablock that
+   // never arrives into a player that merely stands still -- much harder to
+   // find than the crash it replaces.
+   if (!mDataBlock)
+   {
+      static bool reported = false;
+      if (!reported)
+      {
+         reported = true;
+         Con::warnf("Player %d ticked with no datablock -- its PlayerData has "
+                    "not arrived yet. Skipping its ticks until it does.",
+                    getId());
+      }
+      return;
+   }
+
    bool prevMoveMotion = mMoveMotion;
    Pose prevPose = getPose();
 
@@ -2186,10 +2251,59 @@ void Player::interpolateTick(F32 dt)
    delta.dt = dt;
 }
 
+const char *Player::getActionThread()
+{
+   char *buf = Con::getReturnBuffer(64);
+
+   if (!mShapeInstance || !mActionAnimation.thread)
+   {
+      dSprintf(buf, 64, "%d none", mActionAnimation.action);
+      return buf;
+   }
+
+   dSprintf(buf, 64, "%d %.4f", mActionAnimation.action,
+            mShapeInstance->getPos(mActionAnimation.thread));
+   return buf;
+}
+
+DefineEngineMethod(Player, getActionThread, const char *, (), ,
+   "@brief The action animation index and the thread's position, or "
+   "\"<index> none\" when there is no thread to read.\n\n@ingroup Game")
+{
+   return object->getActionThread();
+}
+
 void Player::advanceTime(F32 dt)
 {
    // Client side animations
    Parent::advanceTime(dt);
+
+   // HH: Added for Tribes 2 compatibility.
+   // Everything below drives the shape, and both updateActionThread and
+   // updateAnimation dereference mShapeInstance without checking it -- in
+   // getTriggerState and getNodeAnimationState, which are arithmetic on a
+   // member and a member array and so read as impossible crash sites until it
+   // is clear the object is null rather than the function wrong.
+   //
+   // This is a seatbelt rather than a fix.  The reason a ghost Player had no
+   // shape was that preloadNextDataBlock skipped preload for every datablock
+   // on every non-local connection, so nothing ever asked for one; that is
+   // fixed elsewhere.  The check stays because a null here is a crash and not
+   // a glitch, but it says so once rather than returning quietly -- a silent
+   // return would turn a regression in preload into a player that simply does
+   // not animate, which is far harder to find than the crash it replaced.
+   if (!mShapeInstance)
+   {
+      static bool reported = false;
+      if (!reported)
+      {
+         reported = true;
+         Con::warnf("Player %d is being advanced with no shape instance -- "
+                    "its datablock was never preloaded.", getId());
+      }
+      return;
+   }
+
    updateActionThread();
    updateAnimation(dt);
    updateSplash();
@@ -3644,6 +3758,48 @@ void Player::setActionThread(U32 action,bool forward,bool hold,bool wait,bool fs
 void Player::updateActionThread()
 {
    PROFILE_START(UpdateActionThread);
+
+   // HH: Added for Tribes 2 compatibility.
+   // A ShapeBase is allowed to have no shape -- ShapeBase::onNewDataBlock says
+   // so in as many words, "even if loadShape succeeds, there may not actually
+   // be a shape assigned to this object", and leaves mShapeInstance null while
+   // still returning true.  Of this file's 86 uses of it, five are guarded, and
+   // the rest are safe only because they sit behind a thread handle that cannot
+   // exist without a shape.  This function is the exception: the trigger reads
+   // below are behind isGhost() and nothing else, so the first frame a
+   // shapeless Player is advanced on a client dereferences null and the process
+   // dies in TSShapeInstance::getTriggerState.
+   //
+   // There is nothing for this function to do without a shape -- no threads to
+   // position, no triggers to read -- so it returns rather than guarding each
+   // use.  That is a client staying up, not a Tribes 2 player armour becoming
+   // visible: a Player with no shape still draws nothing, and why its datablock
+   // has none is the shape work, not this.
+   if (!mShapeInstance)
+   {
+      // Once, not per frame.  A Con::errorf on a per-frame path floods the
+      // console and wedges telnet, which has read as a hang here before.
+      static bool reported = false;
+      if (!reported)
+      {
+         reported = true;
+         // The datablock's *shape name* is the thing worth printing.  Its
+         // SimObject name is legitimately absent on a Tribes 2 datablock --
+         // they arrive by id, not by name -- so reporting that says nothing.
+         // ShapeBaseData::preload only loads a shape when shapeName is
+         // non-empty, and says nothing when it is, so an empty one here is the
+         // whole explanation.
+         Con::warnf("Player::updateActionThread: no shape instance on %s "
+                    "datablock class '%s' shapeFile '%s' -- animation skipped "
+                    "for every such Player this session.",
+                    isGhost() ? "ghost" : "server object",
+                    mDataBlock ? mDataBlock->getClassName() : "none",
+                    mDataBlock && mDataBlock->shapeName ? mDataBlock->shapeName
+                                                        : "<empty>");
+      }
+      PROFILE_END();
+      return;
+   }
 
    // Select an action animation sequence, this assumes that
    // this function is called once per tick.
@@ -5938,6 +6094,725 @@ void Player::readPacketData(GameConnection *connection, BitStream *stream)
    else
       setControlObject(0);
 }
+
+
+//----------------------------------------------------------------------------
+// HH: Added for Tribes 2 compatibility.
+
+/// Which node of Player's ghost layout holds a named field.
+///
+/// The hand-written layouts in Tools/t2/handlayout.py name their nodes, so
+/// Player's own section is read by name rather than by number: a name survives
+/// the tables being regenerated and a number does not, and this body has two
+/// runs that begin with a thirty-two bit word, so shape alone cannot tell the
+/// first of one from the first of the other.  Resolved once per process -- the
+/// lookup is a string search and a ghost body arrives as often as packets do.
+struct PlayerT2Nodes
+{
+   U32 impactSound, action, actionHoldAtEnd, actionFirstPerson;
+   U32 actionFirstPersonAtEnd, actionAnimPos, armAction;
+   U32 actionState, recoverTicks, moveFlag0, moveFlag1, position;
+   U32 velocityMag, velocityDir, headX, headZ, rotationZ;
+   U32 movePyaw, movePpitch, moveProll, movePx, movePy, movePz;
+   U32 moveFreeLook, moveTrigger[MaxTriggerKeys];
+   U32 allowWarp, energy;
+};
+
+static const PlayerT2Nodes &playerT2Nodes()
+{
+   static PlayerT2Nodes n;
+   static bool resolved = false;
+   if ( resolved )
+      return n;
+
+   #define PLAYER_NODE( member, field ) \
+      n.member = T2Layout::ghostNode( "Player", field )
+
+   PLAYER_NODE( impactSound, "impactSound" );
+   PLAYER_NODE( action, "action" );
+   PLAYER_NODE( actionHoldAtEnd, "actionHoldAtEnd" );
+   PLAYER_NODE( actionFirstPerson, "actionFirstPerson" );
+   PLAYER_NODE( actionFirstPersonAtEnd, "actionFirstPersonAtEnd" );
+   PLAYER_NODE( actionAnimPos, "actionAnimPos" );
+   PLAYER_NODE( armAction, "armAction" );
+   PLAYER_NODE( actionState, "actionState" );
+   PLAYER_NODE( recoverTicks, "recoverTicks" );
+   PLAYER_NODE( moveFlag0, "moveFlag0" );
+   PLAYER_NODE( moveFlag1, "moveFlag1" );
+   PLAYER_NODE( position, "position" );
+   PLAYER_NODE( velocityMag, "velocityMag" );
+   PLAYER_NODE( velocityDir, "velocityDir" );
+   PLAYER_NODE( headX, "headX" );
+   PLAYER_NODE( headZ, "headZ" );
+   PLAYER_NODE( rotationZ, "rotationZ" );
+   PLAYER_NODE( movePyaw, "move.pyaw" );
+   PLAYER_NODE( movePpitch, "move.ppitch" );
+   PLAYER_NODE( moveProll, "move.proll" );
+   PLAYER_NODE( movePx, "move.px" );
+   PLAYER_NODE( movePy, "move.py" );
+   PLAYER_NODE( movePz, "move.pz" );
+   PLAYER_NODE( moveFreeLook, "move.freeLook" );
+   PLAYER_NODE( allowWarp, "allowWarp" );
+   PLAYER_NODE( energy, "energy" );
+
+   #undef PLAYER_NODE
+
+   char field[32];
+   for ( U32 i = 0; i < MaxTriggerKeys; i++ )
+   {
+      dSprintf( field, sizeof( field ), "move.trigger%d", i );
+      n.moveTrigger[i] = T2Layout::ghostNode( "Player", field );
+   }
+
+   resolved = true;
+   return n;
+}
+
+/// Which node of Player's control-data layout is which.
+///
+/// Numbers rather than names, because genpacketdata.py emits no name table --
+/// only the ghost generator does.  Each is checkable against the statement
+/// that built it in Tools/t2/handlayout.py, and each is used with a take that
+/// checks the shape as well, so a table that moved fails here rather than
+/// filing a value in the wrong member.  They are needed and the shapes are
+/// not enough: the recover delay and the jump delay are both seven bits and
+/// either may be absent, and the position block is three machine words
+/// followed -- when it is absent -- by three more.
+enum PlayerT2PacketNode
+{
+   T2PacketRecoverTicks   = 18,
+   T2PacketJumpDelay      = 16,
+   T2PacketPosition       = 14,
+   T2PacketDisableMove    = 2,
+   T2PacketPilot          = 1,
+};
+
+/// A fraction of the stated width, whichever way the layout types it: the
+/// hand-written layouts read one as a raw field of n bits and the walked ones
+/// as a float of n, and both are the same bits over the same range.
+static bool takePlayerT2Fraction( T2Fields &f, U32 bits, F32 &out )
+{
+   if ( f.takeFloat( bits, out ) )
+      return true;
+
+   U32 raw;
+   if ( !f.takeInt( bits, raw ) )
+      return false;
+
+   out = F32( raw ) / F32( ( 1 << bits ) - 1 );
+   return true;
+}
+
+/// The same, signed: what Tribes 2 writes for an angle it has scaled by a
+/// limit, where the fraction runs from -1 to 1.
+static bool takePlayerT2Signed( T2Fields &f, U32 bits, F32 &out )
+{
+   if ( f.takeFloat( bits, out ) )
+      return true;
+
+   U32 raw;
+   if ( !f.takeInt( bits, raw ) )
+      return false;
+
+   out = F32( raw ) * 2.0f / F32( ( 1 << bits ) - 1 ) - 1.0f;
+   return true;
+}
+
+/// readNormalVector(n) as the single raw field of 2n+1 bits that
+/// handlayout.py describes one as.  ShapeBase rebuilds the eight-bit kind the
+/// same way; a velocity direction is the ten-bit kind.
+static bool takePlayerT2Normal( T2Fields &f, U32 n, Point3F &out )
+{
+   U32 word;
+   if ( !f.takeInt( 2 * n + 1, word ) )
+      return false;
+
+   // The n+1 bits of phi were written first, so they are the low ones.
+   const U32 phiBits = word & ( ( 1 << ( n + 1 ) ) - 1 );
+   const U32 thetaBits = ( word >> ( n + 1 ) ) & ( ( 1 << n ) - 1 );
+
+   F32 phi   = F32( phiBits ) * 2.0f / F32( ( 1 << ( n + 1 ) ) - 1 ) - 1.0f;
+   F32 theta = F32( thetaBits ) * 2.0f / F32( ( 1 << n ) - 1 ) - 1.0f;
+
+   phi   *= M_PI_F;
+   theta *= M_PI_F / 2.0f;
+
+   out.x = mSin( phi ) * mCos( theta );
+   out.y = mCos( phi ) * mCos( theta );
+   out.z = mSin( theta );
+   return true;
+}
+
+/// The fields of a Tribes 2 PlayerData, which is all of it but one flag.
+///
+/// Its own, rather than a method, so that the flag can be taken after it
+/// whichever of the early returns ends it.  That order matters: the cursor
+/// records a flag as it reads it and only reads ahead when a field is taken,
+/// so a flag is not readable until the cursor has gone past it.
+/// renderFirstPerson sits in front of everything here, but putting the take
+/// at the end costs nothing and keeps every reader in this tree the same
+/// shape -- the one where that rule cannot be got wrong.
+static void readPlayerDataT2Fields( T2Fields &f, PlayerData *d )
+{
+   // Everything here is a run of whole floats in a fixed order, which is what
+   // makes it safe to take by shape: not one of them is optional, so the
+   // cursor cannot be standing on a later field than the one being asked for.
+   F32 v[13];
+   U32 got = 0;
+   while ( got < 13 && f.takeRawFloat( v[got] ) )
+      got++;
+   if ( got < 13 )
+      return;
+
+   d->minLookAngle                  = v[0];
+   d->maxLookAngle                  = v[1];
+   d->maxFreelookAngle              = v[2];
+   d->maxTimeScale                  = v[3];
+   d->maxStepHeight                 = v[4];
+   d->mT2JetForce                   = v[5];
+   d->mT2UnderwaterJetForce         = v[6];
+   d->mT2UnderwaterVertJetFactor    = v[7];
+   d->mT2JetEnergyDrain             = v[8];
+   d->mT2UnderwaterJetEnergyDrain   = v[9];
+   d->mT2MinJetEnergy               = v[10];
+   d->mT2MaxJetForwardSpeed         = v[11];
+   d->mT2MaxJetHorizontalPercentage = v[12];
+
+   U32 refs[PlayerData::T2MaxSounds];
+   if ( f.takeDataBlockRun( refs, 2 ) == 2 )
+   {
+      d->mT2JetEmitterId = S32( refs[0] );
+      d->mT2JetEffectId  = S32( refs[1] );
+   }
+
+   F32 w[9];
+   got = 0;
+   while ( got < 9 && f.takeRawFloat( w[got] ) )
+      got++;
+   if ( got < 9 )
+      return;
+
+   d->runForce                   = w[0];
+   d->runEnergyDrain             = w[1];
+   d->minRunEnergy               = w[2];
+   d->maxForwardSpeed            = w[3];
+   d->maxBackwardSpeed           = w[4];
+   d->maxSideSpeed               = w[5];
+   d->maxUnderwaterForwardSpeed  = w[6];
+   d->maxUnderwaterBackwardSpeed = w[7];
+   d->maxUnderwaterSideSpeed     = w[8];
+
+   if ( !f.takeRawFloat( d->runSurfaceAngle ) )
+      return;
+
+   F32 j[8];
+   got = 0;
+   while ( got < 8 && f.takeRawFloat( j[got] ) )
+      got++;
+   if ( got < 8 )
+      return;
+
+   // recoverDelay is a tick count here and a whole float on the wire, as it is
+   // in Torque's own unpackData.
+   d->recoverDelay         = S32( j[0] );
+   d->recoverRunForceScale = j[1];
+   d->jumpForce            = j[2];
+   d->jumpEnergyDrain      = j[3];
+   d->minJumpEnergy        = j[4];
+   d->minJumpSpeed         = j[5];
+   d->maxJumpSpeed         = j[6];
+   d->jumpSurfaceAngle     = j[7];
+
+   if ( !f.takeInt( PlayerData::JumpDelayBits, d->jumpDelay ) )
+      return;
+
+   F32 h[6];
+   got = 0;
+   while ( got < 6 && f.takeRawFloat( h[got] ) )
+      got++;
+   if ( got < 6 )
+      return;
+
+   d->horizMaxSpeed     = h[0];
+   d->horizResistSpeed  = h[1];
+   d->horizResistFactor = h[2];
+   d->upMaxSpeed        = h[3];
+   d->upResistSpeed     = h[4];
+   d->upResistFactor    = h[5];
+
+   F32 sp[9];
+   got = 0;
+   while ( got < 9 && f.takeRawFloat( sp[got] ) )
+      got++;
+   if ( got < 9 )
+      return;
+
+   d->splashVelocity               = sp[0];
+   d->splashAngle                  = sp[1];
+   d->splashFreqMod                = sp[2];
+   d->splashVelEpsilon             = sp[3];
+   d->bubbleEmitTime               = sp[4];
+   d->mT2MediumSplashSoundVelocity = sp[5];
+   d->mT2HardSplashSoundVelocity   = sp[6];
+   d->mT2ExitSplashSoundVelocity   = sp[7];
+   d->mT2FootstepSplashHeight      = sp[8];
+
+   if ( !f.takeRawFloat( d->minImpactSpeed ) )
+      return;
+
+   // Thirty-two sound slots, each its own flag and id.  A run with holes in it
+   // cannot be told from a shorter one, so the ids are filed only when every
+   // one arrived -- which, over nine sessions, is every time.
+   if ( f.takeDataBlockRun( refs, PlayerData::T2MaxSounds ) ==
+        PlayerData::T2MaxSounds )
+      for ( U32 i = 0; i < PlayerData::T2MaxSounds; i++ )
+         d->mT2SoundId[i] = S32( refs[i] );
+
+   if ( !f.takeRawPoint( d->boxSize ) )
+      return;
+
+   if ( f.takeDataBlockRun( refs, 1 ) == 1 )
+      d->footPuffID = S32( refs[0] );
+   if ( !f.takeInt( 32, d->footPuffNumParts ) ||
+        !f.takeRawFloat( d->footPuffRadius ) )
+      return;
+
+   if ( f.takeDataBlockRun( refs, 1 ) == 1 )
+      d->decalID = S32( refs[0] );
+   if ( !f.takeRawFloat( d->decalOffset ) )
+      return;
+
+   if ( f.takeDataBlockRun( refs, 2 ) == 2 )
+   {
+      d->dustID   = S32( refs[0] );
+      d->splashId = S32( refs[1] );
+   }
+
+   if ( f.takeDataBlockRun( refs, PlayerData::NUM_SPLASH_EMITTERS ) ==
+        PlayerData::NUM_SPLASH_EMITTERS )
+      for ( U32 i = 0; i < PlayerData::NUM_SPLASH_EMITTERS; i++ )
+         d->splashEmitterIDList[i] = S32( refs[i] );
+
+   F32 g[11];
+   got = 0;
+   while ( got < 11 && f.takeRawFloat( g[got] ) )
+      got++;
+   if ( got < 11 )
+      return;
+
+   d->mT2HeatDecayPerSec    = g[0];
+   d->mT2HeatIncreasePerSec = g[1];
+   d->groundImpactMinSpeed  = g[2];
+   d->groundImpactShakeFreq.set( g[3], g[4], g[5] );
+   d->groundImpactShakeAmp.set( g[6], g[7], g[8] );
+   d->groundImpactShakeDuration = g[9];
+   d->groundImpactShakeFalloff  = g[10];
+}
+
+void PlayerData::readT2Fields( T2Reader &reader )
+{
+   // ShapeBaseData: the shape, the mass and drag, the camera limits, the
+   // sensor, the command-circuit icon and the explosion and debris it leaves.
+   Parent::readT2Fields( reader );
+
+   T2Fields f( reader );
+
+   readPlayerDataT2Fields( f, this );
+
+   // The one flag of this class's own that carries a value, taken after the
+   // fields for the reason readPlayerDataT2Fields explains.  A number rather
+   // than a name because the datablock layouts are not written by hand and so
+   // name nothing; t2DataBlockTables.h has no generator either, which is what
+   // makes the number safe -- nothing can regenerate it underneath this.
+   enum { RenderFirstPersonNode = 39 };
+   f.takeFlag( RenderFirstPersonNode, renderFirstPerson );
+}
+
+/// The ids this datablock arrived holding, turned into the pointers the player
+/// uses.
+///
+/// Here rather than in preload(), for the reason AudioProfile resolves its
+/// description here: a datablock from a Tribes 2 server is never preloaded --
+/// GameConnection skips it, most of the fifty-four classes still being shells
+/// whose defaults it would act on -- so preload() is not a hook that runs.
+/// The datablocks these name are sent before this one, so they are already in
+/// the sim by the time the body is read.
+bool PlayerData::onAdd()
+{
+   if ( footPuffID > 0 && !footPuffEmitter )
+      Sim::findObject( SimObjectId( footPuffID ), footPuffEmitter );
+   if ( decalID > 0 && !decalData )
+      Sim::findObject( SimObjectId( decalID ), decalData );
+   if ( dustID > 0 && !dustEmitter )
+      Sim::findObject( SimObjectId( dustID ), dustEmitter );
+   if ( splashId > 0 && !splash )
+      Sim::findObject( SimObjectId( splashId ), splash );
+
+   for ( U32 i = 0; i < NUM_SPLASH_EMITTERS; i++ )
+      if ( splashEmitterIDList[i] > 0 && !splashEmitterList[i] )
+         Sim::findObject( SimObjectId( splashEmitterIDList[i] ),
+                          splashEmitterList[i] );
+
+   return Parent::onAdd();
+}
+
+/// What a Tribes 2 Player body said, gathered before anything acts on it.
+///
+/// The fields and the flags cannot be taken together.  The cursor records a
+/// flag as it reads it, and it only reads ahead when a field is taken -- so a
+/// flag behind the last field of a body has not been seen while a class is
+/// still taking fields, and asking early quietly leaves the member at its
+/// default.  Worse, which flags are readable depends on the body: one with no
+/// fields runs the cursor to the end looking for one and records them all.
+/// So the fields are taken first, into this, and the flags after.
+///
+/// Most of what is here goes on to drive something -- the action thread, the
+/// state machine, the position -- and most of that needs a flag as well as a
+/// field, which is the other reason the acting waits until both are in.
+struct PlayerT2Body
+{
+   bool haveImpact;      S32 impactSound;
+   bool haveAction;      U32 action;
+   bool haveAnimPos;     F32 animPos;
+   bool haveArmAction;   U32 armAction;
+   bool haveState;       U32 state;
+   bool haveRecover;     S32 recoverTicks;
+   bool havePosition;    Point3F position;
+   bool haveVelocity;    Point3F velocity;
+   bool haveHead;        F32 headX, headZ;
+   bool haveRotation;    F32 rotationZ;
+   bool haveEnergy;      F32 energy;
+   U32 pyaw, ppitch, proll;
+   S32 px, py, pz;
+};
+
+void Player::_readT2Body( T2Fields &f, const PlayerT2Nodes &n,
+                           PlayerT2Body &b )
+{
+   dMemset( &b, 0, sizeof( b ) );
+   b.animPos = -1.0f;
+
+   b.haveImpact = f.atNode( n.impactSound ) &&
+                  f.takeInt( PlayerData::ImpactBits, b.impactSound );
+
+   b.haveAction = f.atNode( n.action ) &&
+                  f.takeInt( PlayerData::T2ActionAnimBits, b.action );
+   if ( b.haveAction )
+   {
+      // Whether the animation had reached its end decided whether a position
+      // follows, and it is a bit the cursor spends on a branch rather than a
+      // field.  But standing on the position is the same answer, and it needs
+      // no flag at all: the server only sends one when it has not ended.
+      b.haveAnimPos = f.atNode( n.actionAnimPos ) &&
+                      takePlayerT2Signed( f, 6, b.animPos );
+   }
+
+   b.haveArmAction = f.atNode( n.armAction ) &&
+                     f.takeInt( PlayerData::T2ActionAnimBits, b.armAction );
+
+   // MoveMask, absent entirely when this is the object we drive: the server
+   // says so with a flag whose set arm is the end of the body.
+   b.haveState = f.atNode( n.actionState ) &&
+                 f.takeInt( NumStateBits, b.state );
+   if ( b.haveState )
+   {
+      b.haveRecover = f.atNode( n.recoverTicks ) &&
+                      f.takeInt( PlayerData::RecoverDelayBits, b.recoverTicks );
+
+      b.havePosition = f.atNode( n.position ) && f.takePoint( b.position );
+
+      // Velocity, as a magnitude in thirty-seconds and a direction.  Torque
+      // reads the two the other way about; the layout and the second reader
+      // agree that Tribes 2 writes the magnitude first.
+      S32 magnitude;
+      Point3F direction;
+      if ( f.atNode( n.velocityMag ) && f.takeInt( 13, magnitude ) &&
+           f.atNode( n.velocityDir ) && takePlayerT2Normal( f, 10, direction ) )
+      {
+         b.velocity = direction * ( F32( magnitude ) / 32.0f );
+         b.haveVelocity = true;
+      }
+
+      b.haveHead = f.atNode( n.headX ) && takePlayerT2Signed( f, 6, b.headX ) &&
+                   f.atNode( n.headZ ) && takePlayerT2Signed( f, 6, b.headZ );
+
+      b.haveRotation = f.atNode( n.rotationZ ) &&
+                       takePlayerT2Fraction( f, 7, b.rotationZ );
+
+      // The move the server echoed back, in the packed form Move::unpack
+      // fills and unclamp() reads.
+      U32 angle;
+      b.pyaw = ( f.atNode( n.movePyaw ) && f.takeInt( 16, angle ) ) ? angle : 0;
+      b.ppitch = ( f.atNode( n.movePpitch ) && f.takeInt( 16, angle ) ) ? angle : 0;
+      b.proll = ( f.atNode( n.moveProll ) && f.takeInt( 16, angle ) ) ? angle : 0;
+
+      f.takeInt( 6, b.px );
+      f.takeInt( 6, b.py );
+      f.takeInt( 6, b.pz );
+   }
+
+   // Energy, a fraction of this player's maximum, and the one field sent
+   // whether or not the move section was.
+   b.haveEnergy = f.atNode( n.energy ) &&
+                  takePlayerT2Fraction( f, EnergyLevelBits, b.energy );
+}
+
+void Player::readT2Fields( T2Reader &reader )
+{
+   // ShapeBase: the datablock, the damage, the sounds, the animation threads
+   // and the eight image slots.  All of it read by the layer this layout is
+   // built on top of, so none of it is repeated here.
+   Parent::readT2Fields( reader );
+
+   const PlayerT2Nodes &n = playerT2Nodes();
+   T2Fields f( reader );
+
+   PlayerT2Body b;
+   _readT2Body( f, n, b );
+
+   // ---- the flags, now that the cursor has been past them ----
+
+   bool hold = mActionAnimation.holdAtEnd;
+   bool firstPerson = mActionAnimation.firstPerson;
+   f.takeFlag( n.actionHoldAtEnd, hold );
+
+   // Only one of the two firstPerson flags lies on the arm the body walked,
+   // and which one did is what says whether the animation had ended -- the bit
+   // that decided it went on the branch and cannot be taken.
+   const bool atEnd = f.takeFlag( n.actionFirstPersonAtEnd, firstPerson );
+   if ( !atEnd )
+      f.takeFlag( n.actionFirstPerson, firstPerson );
+
+   f.takeFlag( n.moveFlag0, mT2MoveFlag0 );
+   f.takeFlag( n.moveFlag1, mT2MoveFlag1 );
+   f.takeFlag( n.allowWarp, mT2AllowWarp );
+
+   Move &move = delta.move;
+   bool freeLook = move.freeLook;
+   bool trigger[MaxTriggerKeys];
+   for ( U32 i = 0; i < MaxTriggerKeys; i++ )
+      trigger[i] = move.trigger[i];
+
+   f.takeFlag( n.moveFreeLook, freeLook );
+   for ( U32 i = 0; i < MaxTriggerKeys; i++ )
+      f.takeFlag( n.moveTrigger[i], trigger[i] );
+
+   // ---- and now act on the pair ----
+
+   if ( b.haveImpact )
+      mImpactSound = b.impactSound;
+
+   mT2ActionAnimPos = b.animPos;
+
+   if ( b.haveAction )
+   {
+      // Started the way Torque's own unpackUpdate starts it, so a body read
+      // off a Tribes 2 wire animates through the engine's threads rather than
+      // beside them.
+      if ( isProperlyAdded() && mShapeInstance )
+      {
+         setActionThread( b.action, true, hold, true, firstPerson );
+
+         const bool inDeath = inDeathAnim();
+         if ( atEnd )
+         {
+            mShapeInstance->clearTransition( mActionAnimation.thread );
+            mShapeInstance->setPos( mActionAnimation.thread,
+                                    mActionAnimation.forward ? 1.0f : 0.0f );
+            if ( inDeath )
+               mDeath.lastPos = 1.0f;
+         }
+         else if ( b.haveAnimPos && b.animPos > 0.0f )
+         {
+            mShapeInstance->setPos( mActionAnimation.thread, b.animPos );
+            if ( inDeath )
+               mDeath.lastPos = b.animPos;
+         }
+
+         mMountPending = S32( inSittingAnim() ? sMountPendingTickWait : 0 );
+      }
+      else
+      {
+         // Not in the scene yet, which a Tribes 2 ghost often is not: a body
+         // can arrive before the datablock it names.  Kept for the thread
+         // onAdd will start.
+         mActionAnimation.action = b.action;
+         mActionAnimation.holdAtEnd = hold;
+         mActionAnimation.atEnd = atEnd;
+         mActionAnimation.firstPerson = firstPerson;
+      }
+   }
+
+   if ( b.haveArmAction )
+   {
+      if ( isProperlyAdded() && mShapeInstance )
+         setArmThread( b.armAction );
+      else
+         mArmAnimation.action = b.armAction;
+   }
+
+   if ( b.haveState )
+   {
+      mPredictionCount = sMaxPredictionTicks;
+
+      if ( b.haveRecover )
+      {
+         mRecoverTicks = b.recoverTicks;
+         setState( ActionState( b.state ), mRecoverTicks );
+      }
+      else
+         setState( ActionState( b.state ) );
+
+      mVelocity = b.haveVelocity ? b.velocity : Point3F( 0.0f, 0.0f, 0.0f );
+
+      // The look angles arrive as fractions of the limits this player's
+      // datablock sets, so without the datablock there is nothing to scale by
+      // and they are left alone rather than put somewhere wrong.
+      if ( b.haveHead && mDataBlock )
+      {
+         mHead.x = b.headX * mDataBlock->maxLookAngle;
+         mHead.z = b.headZ * mDataBlock->maxFreelookAngle;
+      }
+
+      move.pyaw = b.pyaw;
+      move.ppitch = b.ppitch;
+      move.proll = b.proll;
+      move.px = b.px;
+      move.py = b.py;
+      move.pz = b.pz;
+      move.unclamp();
+      move.freeLook = freeLook;
+      for ( U32 i = 0; i < MaxTriggerKeys; i++ )
+         move.trigger[i] = trigger[i];
+
+      // Put where the server says, without the warp interpolation Torque
+      // would compute towards it.  This is Torque's own no-warp branch: the
+      // warp needs a previous position a ghost on its first body has not had,
+      // and a player who arrives in the wrong place looks worse than one who
+      // arrives without being smoothed into it.
+      if ( b.havePosition )
+      {
+         Point3F rot( 0.0f, 0.0f, b.haveRotation ? b.rotationZ * M_2PI_F
+                                                 : mRot.z );
+
+         delta.pos = b.position;
+         delta.rot = rot;
+         delta.posVec.set( 0.0f, 0.0f, 0.0f );
+         delta.rotVec.set( 0.0f, 0.0f, 0.0f );
+         delta.warpTicks = 0;
+         delta.dt = 0.0f;
+         delta.head = mHead;
+         delta.headVec.set( 0.0f, 0.0f, 0.0f );
+         setPosition( b.position, rot );
+      }
+   }
+
+   if ( b.haveEnergy && mDataBlock )
+      setEnergyLevel( b.energy * mDataBlock->maxEnergy );
+}
+
+/// The two animation indices, which the value check could not see before.
+///
+/// Player had no dump of its own, so everything printed for it came from
+/// ShapeBase and SceneObject -- the transform and a few flags.  That is the
+/// blind spot t2MemberDump.h warns about: a dump that falls behind its reader
+/// loses coverage quietly, and the field this missed is the one that was being
+/// lost.  Three of the four bodies in play-weapons that carry an action
+/// animation carry *nothing else*, so the whole of the T2ActionAnimBits fault
+/// was invisible to the instrument meant to catch it -- the run with the fix
+/// and the run without it were identical to the last count.  With these two
+/// lines they differ by exactly the four readings, and the four agree with the
+/// second reader.
+///
+/// Only these two, and deliberately.  The rest of what _readT2Body files --
+/// the energy, the head angles, the body rotation -- is held here in the
+/// engine's units where the second reader reports the wire's, so naming those
+/// would manufacture disagreements that are a convention rather than a fault.
+/// These two are raw indices on both sides: both branches above store
+/// b.action unchanged, whether through setActionThread or directly.
+void Player::dumpT2Members( T2Dump &d ) const
+{
+   Parent::dumpT2Members( d );
+
+   d.put( "action", S32( mActionAnimation.action ) );
+   d.put( "armAction", S32( mArmAnimation.action ) );
+}
+
+/// What the object a client drives sends each tick.
+///
+/// The one layout in this protocol no walk of the bits could have produced:
+/// when the player is piloting, what follows is the vehicle's own packet data,
+/// and how wide that is depends on which ghost an index names rather than on
+/// anything in the stream.  T2Reader asks the connection through its Env, so
+/// by the time this runs those bits are already read and accounted for; the
+/// two trailing flags are all that is left.
+void Player::readT2PacketData( T2Reader &reader )
+{
+   // ShapeBase: the energy level and the recharge rate.
+   Parent::readT2PacketData( reader );
+
+   T2Fields f( reader );
+
+   U32 state;
+   if ( f.takeInt( NumStateBits, state ) )
+      mState = ActionState( state );
+
+   S32 ticks;
+   if ( f.atNode( T2PacketRecoverTicks ) &&
+        f.takeInt( PlayerData::RecoverDelayBits, ticks ) )
+      mRecoverTicks = ticks;
+
+   S32 delay;
+   if ( f.atNode( T2PacketJumpDelay ) &&
+        f.takeInt( PlayerData::JumpDelayBits, delay ) )
+      mJumpDelay = delay;
+
+   // Not mounted: the whole position and velocity as machine words.  Taken by
+   // node because the three words after this block are three more of the same
+   // shape, so a mounted player would otherwise have its head rotation filed
+   // as a position.
+   Point3F pos;
+   const bool havePos = f.atNode( T2PacketPosition ) && f.takeRawPoint( pos );
+   if ( havePos )
+   {
+      f.takeRawPoint( mVelocity );
+      f.takeInt( 4, mJumpSurfaceLastContact );
+      mT2PacketPosition = pos;
+   }
+
+   f.takeRawFloat( mHead.x );
+   f.takeRawFloat( mHead.z );
+
+   Point3F rot( 0.0f, 0.0f, mRot.z );
+   f.takeRawFloat( rot.z );
+
+   setPosition( havePos ? pos : delta.pos, rot );
+   delta.pos = havePos ? pos : delta.pos;
+   delta.head = mHead;
+   delta.rot = rot;
+
+   mT2HavePacketPosition = havePos;
+
+   f.takeFlag( T2PacketDisableMove, mT2DisableMove );
+   f.takeFlag( T2PacketPilot, mT2Pilot );
+}
+
+/// This position is the compression point every compressed point later in the
+/// packet is measured from, and the ghost section is later in the packet.
+///
+/// Nothing else sets it: the branch of readPacket that reads an explicit
+/// compression point is the branch taken when there is no control object at
+/// all.  Getting it wrong costs no bits and so cannot fail the gate -- it puts
+/// every object in the mission somewhere else.
+bool Player::getT2CompressionPoint( Point3F &out ) const
+{
+   if ( !mT2HavePacketPosition )
+      return false;
+
+   out = mT2PacketPosition;
+   return true;
+}
+
 
 U32 Player::packUpdate(NetConnection *con, U32 mask, BitStream *stream)
 {

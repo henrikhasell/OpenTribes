@@ -110,6 +110,7 @@ struct FlyingVehicleData: public VehicleData {
    bool preload(bool server, String &errorStr);
    void packData(BitStream* stream);
    void unpackData(BitStream* stream);
+   void readT2Fields(T2Reader& reader);   // HH: Added for Tribes 2 compatibility.
 };
 
 
@@ -193,6 +194,7 @@ class FlyingVehicle: public Vehicle
    void readPacketData(GameConnection *conn, BitStream *stream);
    U32  packUpdate(NetConnection *conn, U32 mask, BitStream *stream);
    void unpackUpdate(NetConnection *conn, BitStream *stream);
+   void readT2Fields(T2Reader& reader);   // HH: Added for Tribes 2 compatibility.
    void useCreateHeight(bool val);
 };
 

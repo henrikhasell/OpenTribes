@@ -62,6 +62,7 @@ struct ItemData: public ShapeBaseData {
    static void initPersistFields();
    virtual void packData(BitStream* stream);
    virtual void unpackData(BitStream* stream);
+   void readT2Fields(T2Reader& reader);   // HH: Added for Tribes 2 compatibility.
 };
 
 
@@ -99,6 +100,11 @@ class Item: public ShapeBase
    //
    VectorF mVelocity;
    bool mAtRest;
+
+   /// HH: Added for Tribes 2 compatibility.  Whether the item collides at
+   /// all, which Tribes 2 sends on an initial body and this engine has no
+   /// equivalent of: a T3D item is always collideable.
+   bool mT2Collidable;
 
    S32 mAtRestCounter;
    static const S32 csmAtRestTimer;
@@ -183,6 +189,7 @@ class Item: public ShapeBase
 
    U32  packUpdate  (NetConnection *conn, U32 mask, BitStream *stream);
    void unpackUpdate(NetConnection *conn,           BitStream *stream);
+   void readT2Fields(T2Reader& reader);   // HH: Added for Tribes 2 compatibility.
 };
 
 typedef Item::LightType ItemLightType;

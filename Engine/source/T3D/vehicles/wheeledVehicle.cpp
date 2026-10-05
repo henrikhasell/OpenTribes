@@ -45,6 +45,10 @@
 #include "materials/materialDefinition.h"
 #include "materials/baseMatInstance.h"
 #include "lighting/lightQuery.h"
+#include "T3D/gameBase/t2Layout.h"   // HH: Added for Tribes 2 compatibility.
+#include "T3D/gameBase/t2Fields.h"
+#include "T3D/gameBase/t2Affine.h"
+#include "T3D/gameBase/t2ArtPath.h"   // HH: Added for Tribes 2 compatibility.
 
 
 // Collision masks are used to determin what type of objects the
@@ -101,7 +105,9 @@ bool WheeledVehicleTire::preload(bool server, String &errorStr)
    {
 
       // Load up the shape resource
-      shape = ResourceManager::get().load(shapeName);
+      // HH: Added for Tribes 2 compatibility.  The game names a vehicle's tyres
+      // bare and they live under shapes/; see T3D/gameBase/t2ArtPath.h.
+      shape = ResourceManager::get().load(shapePathT2(shapeName));
       if (!bool(shape)) 
       {
          errorStr = String::ToString("WheeledVehicleTire: Couldn't load shape \"%s\"",shapeName);
@@ -296,6 +302,18 @@ ConsoleDocClass( WheeledVehicleData,
 
 WheeledVehicleData::WheeledVehicleData()
 {
+   // HH: Added for Tribes 2 compatibility.
+   mT2TireRadius = mT2TireFriction = mT2TireRestitution = 0.0f;
+   mT2TireLateralForce = mT2TireLateralDamping = 0.0f;
+   mT2TireLateralRelaxation = 0.0f;
+   mT2TireLongitudinalForce = mT2TireLongitudinalDamping = 0.0f;
+   mT2TireLongitudinalRelaxation = 0.0f;
+   mT2SpringForce = mT2SpringDamping = 0.0f;
+   mT2AntiSwayForce = mT2AntiRockForce = 0.0f;
+   mT2StaticLoadScale = mT2StabilizerForce = 0.0f;
+   mT2GyroForce = mT2GyroDamping = 0.0f;
+   mT2TireEmitterId = -1;
+
    tireEmitter = 0;
    maxWheelSpeed = 40;
    engineTorque = 1;
@@ -504,6 +522,174 @@ void WheeledVehicleData::unpackData(BitStream* stream)
    stream->read(&engineTorque);
    stream->read(&engineBrake);
    stream->read(&brakeTorque);
+}
+
+/// Which node of WheeledVehicle's control-data layout the brake is.  A
+/// number rather than a name because genpacketdata.py emits no name table;
+/// it is checkable against the statement in Tools/t2/handlayout.py that
+/// built it, and takeFlag refuses a node that is not a flag.
+enum WheeledVehicleT2PacketNode
+{
+   T2PacketBraking = 19,
+};
+
+/// HH: Added for Tribes 2 compatibility.
+///
+/// Tribes 2 keeps the tire and spring constants on the vehicle where this
+/// tree keeps them on WheeledVehicleTire and WheeledVehicleSpring datablocks
+/// of their own -- which a Tribes 2 server never sends, because it has no
+/// such datablocks.  So the nine tire constants and the four spring ones are
+/// stored under their own names here rather than dropped: a wheel that grips
+/// is the difference between a vehicle that drives and one that slides.
+void WheeledVehicleData::readT2Fields(T2Reader& reader)
+{
+   Parent::readT2Fields(reader);
+
+   T2Fields f(reader);
+
+   if (!f.takeRawFloat(mT2TireFriction))
+      return;
+
+   f.takeRawFloat(mT2TireRestitution);
+   f.takeRawFloat(mT2TireRadius);
+   f.takeRawFloat(mT2TireLateralForce);
+   f.takeRawFloat(mT2TireLateralDamping);
+   f.takeRawFloat(mT2TireLateralRelaxation);
+   f.takeRawFloat(mT2TireLongitudinalForce);
+   f.takeRawFloat(mT2TireLongitudinalDamping);
+   f.takeRawFloat(mT2TireLongitudinalRelaxation);
+
+   // The tire emitter, then the jet, engine, squeal and wheel-impact sounds.
+   U32 refs[1 + MaxSounds];
+   if (f.takeDataBlockRun(refs, 1 + MaxSounds) == 1 + MaxSounds)
+   {
+      mT2TireEmitterId = S32(refs[0]);
+      tireEmitter = (ParticleEmitterData *)(uintptr_t)refs[0];
+
+      // preload() puts these through sfxResolve(), which wants the id
+      // shifted up one with its low bit set -- that is how sfxRead marks a
+      // pointer as holding an id rather than a name.
+      for (U32 i = 0; i < MaxSounds; i++)
+         sound[i] = (SFXTrack *)(uintptr_t)((refs[1 + i] << 1) | 1);
+   }
+
+   f.takeRawFloat(mT2SpringForce);
+   f.takeRawFloat(mT2SpringDamping);
+   f.takeRawFloat(mT2AntiSwayForce);
+   f.takeRawFloat(mT2AntiRockForce);
+   f.takeRawFloat(maxWheelSpeed);
+   f.takeRawFloat(engineTorque);
+   f.takeRawFloat(brakeTorque);
+   f.takeRawFloat(mT2StaticLoadScale);
+   f.takeRawFloat(mT2StabilizerForce);
+   f.takeRawFloat(mT2GyroForce);
+   f.takeRawFloat(mT2GyroDamping);
+}
+
+/// HH: Added for Tribes 2 compatibility.
+///
+/// Vehicle's body, then the brake and six wheels of three words each: how
+/// fast the wheel is turning and the two directions it is deformed in, which
+/// is what makes a tire look like it is gripping rather than sliding.
+///
+/// The wheel words are eighteen of one shape, so each is taken by its own
+/// node.  A vehicle with fewer than six wheels still sends six.
+/// Tribes 2 sends six wheels whatever the vehicle has -- the only stock
+/// WheeledVehicleData is the MPB, whose shape carries six ground/spring node
+/// pairs -- so the layout has six of everything.
+enum { WheelsT2 = 6 };
+
+/// Which node of a wheeled vehicle's layout is which, resolved once per class.
+///
+/// It used to be nineteen T2Layout::ghostNode calls and eighteen dSprintfs per
+/// body, inside the wheel loop -- and each lookup is a string search over the
+/// layout list and then over the field list.  A vehicle sends a body as often
+/// as packets arrive.  The lookup's own documentation says to resolve it once
+/// per class; this is that.
+struct WheeledVehicleT2Nodes
+{
+   U32 avel[WheelsT2], dy[WheelsT2], dx[WheelsT2];
+   U32 braking;
+};
+
+static const WheeledVehicleT2Nodes *wheelNodes(const char *className)
+{
+   static const char *sName = NULL;
+   static WheeledVehicleT2Nodes sNodes;
+
+   if (!sName || dStrcmp(sName, className))
+   {
+      char field[32];
+      for (U32 i = 0; i < WheelsT2; i++)
+      {
+         dSprintf(field, sizeof(field), "wheel%u.avel", i);
+         sNodes.avel[i] = T2Layout::ghostNode(className, field);
+         dSprintf(field, sizeof(field), "wheel%u.dy", i);
+         sNodes.dy[i] = T2Layout::ghostNode(className, field);
+         dSprintf(field, sizeof(field), "wheel%u.dx", i);
+         sNodes.dx[i] = T2Layout::ghostNode(className, field);
+      }
+      sNodes.braking = T2Layout::ghostNode(className, "braking");
+      sName = className;
+   }
+
+   return &sNodes;
+}
+
+void WheeledVehicle::readT2Fields(T2Reader& reader)
+{
+   const VehicleT2Nodes *n = _readT2Values(reader);
+
+   T2Fields f(reader);
+
+   const WheeledVehicleT2Nodes *w2 = wheelNodes(getClassName());
+
+   for (U32 i = 0; i < WheelsT2; i++)
+   {
+      if (i >= U32(WheeledVehicleData::MaxWheels))
+         break;
+
+      Wheel &w = mWheel[i];
+
+      if (!f.atNode(w2->avel[i]) || !f.takeRawFloat(w.avel))
+         break;
+
+      if (f.atNode(w2->dy[i]))
+         f.takeRawFloat(w.Dy);
+
+      if (f.atNode(w2->dx[i]))
+         f.takeRawFloat(w.Dx);
+   }
+
+   _takeT2Flags(reader, n);
+
+   takeT2Flag(f, w2->braking, mBraking);
+}
+
+/// HH: Added for Tribes 2 compatibility.
+///
+/// Vehicle's control data, then the brake and the same six wheels.  The
+/// brake is a flag and so is read after the wheels even though it arrives
+/// before them -- the cursor goes past it on its way to the first wheel.
+void WheeledVehicle::readT2PacketData(T2Reader& reader)
+{
+   Parent::readT2PacketData(reader);
+
+   T2Fields f(reader);
+
+   for (U32 i = 0; i < WheelsT2; i++)
+   {
+      if (i >= U32(WheeledVehicleData::MaxWheels))
+         break;
+
+      Wheel &w = mWheel[i];
+      if (!f.takeRawFloat(w.avel))
+         break;
+      f.takeRawFloat(w.Dy);
+      f.takeRawFloat(w.Dx);
+   }
+
+   f.takeFlag(T2PacketBraking, mBraking);
 }
 
 

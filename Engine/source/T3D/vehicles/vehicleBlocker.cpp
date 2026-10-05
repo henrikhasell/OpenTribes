@@ -22,12 +22,14 @@
 
 #include "platform/platform.h"
 #include "T3D/vehicles/vehicleBlocker.h"
+#include "T3D/gameBase/t2MemberDump.h"   // HH: Added for Tribes 2 compatibility.
 
 #include "core/stream/bitStream.h"
 #include "scene/sceneRenderState.h"
 #include "scene/sceneManager.h"
 #include "math/mathIO.h"
 #include "console/consoleTypes.h"
+#include "T3D/gameBase/t2Fields.h"
 
 IMPLEMENT_CO_NETOBJECT_V1(VehicleBlocker);
 
@@ -115,6 +117,68 @@ void VehicleBlocker::unpackUpdate(NetConnection *con, BitStream *stream)
    mObjBox.maxExtents.set( mDimensions.x,  mDimensions.y, mDimensions.z);
    setScale(scale);
    setTransform(mat);
+}
+
+
+/// HH: Added for Tribes 2 compatibility.
+///
+/// Twenty-two words, which is what unpackUpdate below already reads: the
+/// transform, the scale and the half-extents of the box a vehicle may not
+/// drive into.  The box is the whole object -- nothing is rendered for one --
+/// so the dimensions reaching mObjBox is the difference between a blocker that
+/// blocks and an empty place in the container.
+///
+/// The second reader names the last six words two corners of a bounding box
+/// rather than a scale and a set of dimensions.  Both readings are three words
+/// and three words, so no recorded session can separate them, but this one is
+/// what the Torque tree this class came from writes, and what a session shows
+/// agrees with it: the first triple arrives as (1, 1, 1), which is an identity
+/// scale rather than a plausible lower corner.
+void VehicleBlocker::readT2Fields(T2Reader &reader)
+{
+   Parent::readT2Fields(reader);
+
+   T2Fields f(reader);
+
+   MatrixF mat;
+   F32 *m = mat;
+   for(U32 i = 0; i < 16; i++)
+      if(!f.takeRawFloat(m[i]))
+         return;
+
+   Point3F scale;
+   Point3F dimensions;
+   if(!f.takeRawPoint(scale) || !f.takeRawPoint(dimensions))
+      return;
+
+   mDimensions = dimensions;
+   mObjBox.minExtents.set(-mDimensions.x, -mDimensions.y, 0);
+   mObjBox.maxExtents.set( mDimensions.x,  mDimensions.y, mDimensions.z);
+   setScale(scale);
+   setTransform(mat);
+}
+
+// HH: What the reader above filed.
+//
+// Read back out of mObjBox rather than out of mDimensions, because the box is
+// what the rest of the engine collides against: a reader that filed the right
+// dimensions into the wrong half of the box would still have mDimensions
+// right, and that is the fault worth catching.
+//
+// Only one of the second reader's two names is here, and the other is a
+// finding rather than an omission.  It calls them boundsMin and boundsMax and
+// reports (1,1,1) and (2,2,4) for this mission's blockers -- but the body
+// sends a scale and then the dimensions, in that order, and (1,1,1) is the
+// scale.  So its boundsMin is the scale under another name; this tree files
+// it with setScale() and SceneObject dumps it as "scale", where it compares
+// and agrees.  Dumping mObjBox.minExtents as boundsMin would put (-2,-2,0)
+// against (1,1,1) and report a disagreement that is the name's and not the
+// reader's.
+void VehicleBlocker::dumpT2Members(T2Dump &d) const
+{
+   Parent::dumpT2Members(d);
+
+   d.put("boundsMax", mObjBox.maxExtents);
 }
 
 

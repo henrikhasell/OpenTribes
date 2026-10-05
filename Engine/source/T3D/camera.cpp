@@ -22,6 +22,9 @@
 
 #include "platform/platform.h"
 #include "T3D/camera.h"
+// HH: Added for Tribes 2 compatibility.
+#include "T3D/gameBase/t2Fields.h"
+#include "T3D/gameBase/t2Layout.h"
 
 #include "math/mMath.h"
 #include "core/stream/bitStream.h"
@@ -252,6 +255,10 @@ F32 Camera::smMovementSpeed = 40.0f;
 
 Camera::Camera()
 {
+   // HH: Added for Tribes 2 compatibility.
+   mT2PacketPosition.set( 0.0f, 0.0f, 0.0f );
+   mT2HavePacketPosition = false;
+
    mNetFlags.clear(Ghostable);
    mTypeMask |= CameraObjectType;
    mDelta.pos = Point3F(0.0f, 0.0f, 100.0f);
@@ -904,6 +911,206 @@ void Camera::writePacketData(GameConnection *connection, BitStream *bstream)
 }
 
 //----------------------------------------------------------------------------
+
+
+//----------------------------------------------------------------------------
+// HH: Added for Tribes 2 compatibility.
+
+/// Nothing of its own: a Tribes 2 CameraData is a ShapeBaseData and no more.
+/// Its layout is the same hundred and twenty-seven nodes, and the second
+/// reader says the same independently.  The override carries that where the
+/// next agent will look for it rather than leaving the class looking
+/// unfinished.
+void CameraData::readT2Fields( T2Reader &reader )
+{
+   Parent::readT2Fields( reader );
+}
+
+/// Which node of Camera's ghost layout is which field.  Resolved once: the
+/// lookup is a string search and a ghost body arrives as often as packets do.
+struct CameraT2Nodes
+{
+   U32 position, rotationX, rotationZ;
+};
+
+static const CameraT2Nodes &cameraT2Nodes()
+{
+   static CameraT2Nodes n;
+   static bool resolved = false;
+   if ( !resolved )
+   {
+      n.position  = T2Layout::ghostNode( "Camera", "position" );
+      n.rotationX = T2Layout::ghostNode( "Camera", "rotationX" );
+      n.rotationZ = T2Layout::ghostNode( "Camera", "rotationZ" );
+      resolved = true;
+   }
+   return n;
+}
+
+/// Which node of Camera's control-data layout is which.
+///
+/// Numbers rather than names: genpacketdata.py emits no name table, and this
+/// layout is in the shipped t2PacketDataTables.h, which no generator writes at
+/// all -- so unlike a recovered table nothing can move these underneath the
+/// reader.  Each is used with a take that checks the shape as well.
+///
+/// The two orbit nodes are what the mode is read back from.  Tribes 2 sends
+/// the mode as a ranged integer of three bits, and the layout spends those
+/// bits resolving a select, so no class can take the value -- but mode 3 is
+/// the only one that lands on the first node below and mode 4 the only one
+/// that lands on the second, and those two are the only modes whose meaning a
+/// client acts on differently.
+enum CameraT2PacketNode
+{
+   T2PacketPosition      = 2,
+   T2PacketOrbitObject   = 8,    ///< OrbitObjectMode's three distances
+   T2PacketObserving     = 11,
+   T2PacketOrbitGhost    = 12,
+   T2PacketOrbitPoint    = 14,   ///< OrbitPointMode's three distances
+};
+
+void Camera::readT2Fields( T2Reader &reader )
+{
+   // ShapeBase: the datablock, the damage, the cloak and fade, the animation
+   // threads and the mounted images.  All of it read by the layer this layout
+   // is built on, so none of it is repeated here.
+   Parent::readT2Fields( reader );
+
+   const CameraT2Nodes &n = cameraT2Nodes();
+   T2Fields f( reader );
+
+   // A position and two angles, and the whole of this class's own body.  The
+   // run is unconditional within its gate and nothing follows it, so the only
+   // question is whether the gate was taken -- which is what standing on the
+   // first word answers.
+   Point3F pos, rot( 0.0f, 0.0f, 0.0f );
+   if ( !f.atNode( n.position ) || !f.takeRawPoint( pos ) )
+      return;
+
+   if ( f.atNode( n.rotationX ) )
+      f.takeRawFloat( rot.x );
+   if ( f.atNode( n.rotationZ ) )
+      f.takeRawFloat( rot.z );
+
+   // Where the view goes, by the same call Torque's own unpackUpdate makes of
+   // it: _setPosition sets the transform and the interpolation delta together,
+   // so a camera read off a Tribes 2 wire is looked through rather than merely
+   // recorded.
+   //
+   // There are no flags of this class's own to take afterwards.  The one bit
+   // Tribes 2 sends -- set when this client is the one driving, and the end of
+   // the body when it is -- cannot be recovered: with it set nothing follows,
+   // which is indistinguishable from it clear and the update gate behind it
+   // clear.  Nothing is lost, because a client already knows which object it
+   // was given to drive.
+   _setPosition( pos, rot );
+}
+
+/// What the camera a client is driving sends each tick.
+///
+/// This is the control object every join exercises: a client watches the
+/// mission through one of these from the moment it connects until it spawns,
+/// so eight of the nine recorded sessions carry nothing else.
+void Camera::readT2PacketData( T2Reader &reader )
+{
+   // ShapeBase: the energy level and the recharge rate.  Sixty-four bits at
+   // the head of every packet carrying control data, which the shipped layout
+   // for this class used to miss -- and missing them threw out the whole event
+   // section behind it.
+   Parent::readT2PacketData( reader );
+
+   T2Fields f( reader );
+
+   Point3F pos;
+   const bool havePos = f.atNode( T2PacketPosition ) && f.takeRawPoint( pos );
+
+   Point3F rot( 0.0f, 0.0f, 0.0f );
+   f.takeRawFloat( rot.x );
+   f.takeRawFloat( rot.z );
+
+   // The mode, read back from which arm of the select the cursor came out on.
+   // Only the two orbit modes change what a client does with what follows;
+   // the other three it can be in -- stationary, free rotate and fly -- all
+   // amount to sitting where the server says, which is what StationaryMode
+   // does here.
+   GameBase *orbit = NULL;
+   if ( f.atNode( T2PacketOrbitObject ) )
+   {
+      mMode = OrbitObjectMode;
+      f.takeRawFloat( mMinOrbitDist );
+      f.takeRawFloat( mMaxOrbitDist );
+      f.takeRawFloat( mCurOrbitDist );
+
+      // A one-bit field rather than a flag: the layout types it as a value,
+      // so it is standing on it and can be taken.
+      f.takeInt( 1, mObservingClientObject );
+
+      S32 ghostIndex;
+      if ( f.atNode( T2PacketOrbitGhost ) && f.takeInt( 10, ghostIndex ) )
+         if ( NetConnection *con = NetConnection::getConnectionToServer() )
+            orbit = dynamic_cast< GameBase * >( con->resolveGhost( ghostIndex ) );
+   }
+   else if ( f.atNode( T2PacketOrbitPoint ) )
+   {
+      mMode = OrbitPointMode;
+      f.takeRawFloat( mMinOrbitDist );
+      f.takeRawFloat( mMaxOrbitDist );
+      f.takeRawFloat( mCurOrbitDist );
+
+      // The point this camera orbits, compressed against the compression
+      // point -- which is the position above, set below for the ghosts behind
+      // this in the packet.  The cursor has already applied it.
+      f.takePoint( mPosition );
+   }
+   else
+   {
+      mMode = StationaryMode;
+      mObservingClientObject = false;
+   }
+
+   // Followed the way Torque's own readPacketData follows one, so that an
+   // orbiting camera ticks after what it orbits rather than a frame behind it.
+   if ( orbit != (GameBase *)mOrbitObject )
+   {
+      if ( mOrbitObject )
+      {
+         clearProcessAfter();
+         clearNotify( mOrbitObject );
+      }
+
+      mOrbitObject = orbit;
+      if ( mOrbitObject )
+      {
+         processAfter( mOrbitObject );
+         deleteNotify( mOrbitObject );
+      }
+   }
+
+   if ( havePos )
+   {
+      mT2PacketPosition = pos;
+      mT2HavePacketPosition = true;
+      _setPosition( pos, rot );
+   }
+}
+
+/// The camera's own position is the compression point the rest of the packet
+/// is measured from, the ghost section included.  Torque's own
+/// readPacketData sets it from here too; the branch of readPacket that reads
+/// an explicit one is the branch taken when there is no control object at all.
+///
+/// This is the one that matters in practice: a Camera is the control object in
+/// eight of the nine recorded sessions, so every ghost position in nearly all
+/// of them is measured from here.
+bool Camera::getT2CompressionPoint( Point3F &out ) const
+{
+   if ( !mT2HavePacketPosition )
+      return false;
+
+   out = mT2PacketPosition;
+   return true;
+}
+
 
 void Camera::readPacketData(GameConnection *connection, BitStream *bstream)
 {

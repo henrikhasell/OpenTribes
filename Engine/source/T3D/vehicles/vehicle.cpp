@@ -22,6 +22,7 @@
 
 #include "platform/platform.h"
 #include "T3D/vehicles/vehicle.h"
+#include "T3D/gameBase/t2MemberDump.h"   // HH: Added for Tribes 2 compatibility.
 
 #include "math/mMath.h"
 #include "console/simBase.h"
@@ -43,6 +44,8 @@
 #include "scene/sceneRenderState.h"
 #include "T3D/trigger.h"
 #include "T3D/item.h"
+#include "T3D/gameBase/t2Layout.h"   // HH: Added for Tribes 2 compatibility.
+#include "T3D/gameBase/t2Fields.h"
 #include "gfx/primBuilder.h"
 #include "gfx/gfxDrawUtil.h"
 #include "materials/materialDefinition.h"
@@ -138,6 +141,10 @@ IMPLEMENT_CALLBACK( VehicleData, onLeaveLiquid, void, ( Vehicle* obj, const char
 
 VehicleData::VehicleData()
 {
+   // HH: Added for Tribes 2 compatibility.
+   for (U32 i = 0; i < Body::MaxSounds; i++)
+      mT2ImpactSoundId[i] = -1;
+
    shadowEnable = true;
    shadowSize = 256;
    shadowProjectionDistance = 14.0f;
@@ -447,6 +454,98 @@ void VehicleData::unpackData(BitStream* stream)
    stream->read(&collDamageMultiplier);
 }
 
+/// HH: Added for Tribes 2 compatibility.
+///
+/// Everything a vehicle is made of that is not the shape: how heavy it feels,
+/// how hard it has to hit something to be damaged by it, what it throws up
+/// when it moves and what it sounds like doing so.  All three kinds send this
+/// section first and then their own, which is why it is here.
+///
+/// Shape alone is enough for the whole of it, unusually: past the two
+/// restitution words every field is a machine word or a datablock reference
+/// and they arrive in one fixed order with nothing optional between them --
+/// the only optional things are the references themselves, and those come in
+/// runs that are taken as runs.  Measured against a session rather than
+/// assumed: the first hover vehicle in spawn reads a body restitution of 0.5,
+/// a maximum steering angle of 0.785 -- a quarter turn, in radians -- and
+/// eleven references in the one run, which is five water sounds, a dust
+/// emitter, three damage emitters and two splash emitters.
+void VehicleData::readT2Fields(T2Reader& reader)
+{
+   // ShapeBaseData: the shape, the mass, the sounds and the rest.
+   Parent::readT2Fields(reader);
+
+   T2Fields f(reader);
+
+   if (!f.takeRawFloat(body.restitution))
+      return;
+   f.takeRawFloat(body.friction);
+
+   // The two impact sounds, which Tribes 2 sends as a pair of their own.
+   U32 ids[Body::MaxSounds];
+   if (f.takeDataBlockRun(ids, Body::MaxSounds) == Body::MaxSounds)
+      for (U32 i = 0; i < Body::MaxSounds; i++)
+      {
+         mT2ImpactSoundId[i] = S32(ids[i]);
+         // preload() resolves these from the id left in the pointer, which
+         // is how this tree carries a reference between unpack and preload.
+         body.sound[i] = (SFXProfile *)(uintptr_t)ids[i];
+      }
+
+   f.takeRawFloat(minImpactSpeed);
+   f.takeRawFloat(softImpactSpeed);
+   f.takeRawFloat(hardImpactSpeed);
+   f.takeRawFloat(minRollSpeed);
+   f.takeRawFloat(maxSteeringAngle);
+   f.takeRawFloat(maxDrag);
+   f.takeRawFloat(minDrag);
+   f.takeRawFloat(jetForce);
+   f.takeRawFloat(jetEnergyDrain);
+   f.takeRawFloat(minJetEnergy);
+   f.takeRawFloat(cameraOffset);
+   f.takeRawFloat(cameraLag);
+   f.takeRawFloat(triggerDustHeight);
+   f.takeRawFloat(dustHeight);
+   f.takeRawFloat(numDmgEmitterAreas);
+   f.takeRawFloat(exitSplashSoundVel);
+   f.takeRawFloat(softSplashSoundVel);
+   f.takeRawFloat(medSplashSoundVel);
+   f.takeRawFloat(hardSplashSoundVel);
+
+   // Five water sounds, a dust emitter, three damage emitters and two splash
+   // emitters, each sent behind its own flag.  A run with a hole in it cannot
+   // be told from a shorter run, so they are filed only when the whole run
+   // arrived -- an emitter in the wrong slot is worse than none.
+   U32 refs[11];
+   if (f.takeDataBlockRun(refs, 11) == 11)
+   {
+      // The water sounds are resolved here rather than in preload(), which
+      // is where this class's own unpackData resolves them.
+      for (U32 i = 0; i < MaxSounds; i++)
+         waterSound[i] = dynamic_cast<SFXProfile *>(Sim::findObject(refs[i]));
+
+      dustID = S32(refs[MaxSounds]);
+
+      for (U32 i = 0; i < VC_NUM_DAMAGE_EMITTERS; i++)
+         damageEmitterIDList[i] = S32(refs[MaxSounds + 1 + i]);
+
+      for (U32 i = 0; i < VC_NUM_SPLASH_EMITTERS; i++)
+         splashEmitterIDList[i] =
+            S32(refs[MaxSounds + 1 + VC_NUM_DAMAGE_EMITTERS + i]);
+   }
+
+   for (U32 j = 0; j < VC_NUM_DAMAGE_EMITTER_AREAS; j++)
+      f.takeRawPoint(damageEmitterOffset[j]);
+
+   for (U32 k = 0; k < VC_NUM_DAMAGE_LEVELS; k++)
+      f.takeRawFloat(damageLevelTolerance[k]);
+
+   f.takeRawFloat(splashFreqMod);
+   f.takeRawFloat(splashVelEpsilon);
+   f.takeRawFloat(collDamageThresholdVel);
+   f.takeRawFloat(collDamageMultiplier);
+}
+
 
 //----------------------------------------------------------------------------
 
@@ -646,6 +745,13 @@ Vehicle::Vehicle()
    mSteering.set(0,0);
    mThrottle = 0;
    mJetting = false;
+
+   // HH: Added for Tribes 2 compatibility.
+   mT2Frozen = false;
+   mT2FreeLook = false;
+   dMemset(mT2Trigger, 0, sizeof(mT2Trigger));
+   mT2HavePacketPosition = false;
+   mT2PacketPosition.set(0, 0, 0);
 
    mCameraOffset.set(0,0,0);
 
@@ -1580,6 +1686,350 @@ void Vehicle::readPacketData(GameConnection *connection, BitStream *stream)
 
    mDisableMove = stream->readFlag();
    stream->setCompressionPoint(mRigid.linPosition);
+}
+
+
+//----------------------------------------------------------------------------
+// HH: Added for Tribes 2 compatibility.
+//
+// Three kinds of vehicle, one description.  FlyingVehicle, HoverVehicle and
+// WheeledVehicle read 225, 223 and 242 nodes and the first 222 of each are
+// the same statements in the same order, because in the retail binary they
+// are the same function: Vehicle::unpackUpdate, with a handful of fields
+// after it.  Written once here for that reason -- three copies would agree
+// today and drift the first time one of them was corrected.
+//
+// Nothing in the vehicle section can be told apart by shape.  Past the two
+// nine-bit steering angles it is machine words: a quaternion and three
+// vectors, thirteen of them in a row, any of which may be absent as a group.
+// So the fields are taken by the node that carries them, and the names come
+// from Tools/t2/handlayout.py, which describes these layouts statement by
+// statement from the binary.  Each take still names its shape, so a table
+// that moved a field fails here rather than filing it in the wrong member.
+//
+// No recorded session carries a vehicle ghost -- nobody drove one in the nine
+// captures -- so this reading rests on the description and on t2-demo-parser
+// agreeing with it field for field, not on measurement.  That is worth
+// knowing before trusting it: the gate can tell you the layout reads out
+// clean, and cannot tell you these values land in the right members.
+
+/// Which node of a vehicle's layout is which field.
+struct VehicleT2Nodes
+{
+   U32 steeringYaw, steeringPitch;
+   U32 movePYaw, movePPitch, movePRoll, movePX, movePY, movePZ;
+   U32 position;
+   U32 angPosition[4];
+   U32 linMomentum[3];
+   U32 angMomentum[3];
+   U32 energy;
+
+   // The booleans, which are never fields a cursor stands on.
+   U32 jetting, frozen, moveFreeLook, moveTrigger[6];
+
+   bool named;
+};
+
+/// A fraction of the stated width, whichever way the layout types it.  Same
+/// as shapeBase.cpp's: the hand-written layouts read one as a raw field of n
+/// bits and the walked ones as a float of n, and both are the same bits over
+/// the same range.
+static bool takeVehicleT2Fraction(T2Fields &f, U32 bits, F32 &out)
+{
+   if (f.takeFloat(bits, out))
+      return true;
+
+   U32 raw;
+   if (!f.takeInt(bits, raw))
+      return false;
+
+   out = F32(raw) / F32((1 << bits) - 1);
+   return true;
+}
+
+/// Resolved once per class rather than per packet: the lookup is a string
+/// search and a ghost body arrives as often as packets do.
+static const VehicleT2Nodes *t2VehicleNodesFor(const char *className)
+{
+   enum { MaxClasses = 4 };
+   static const char *sName[MaxClasses] = { 0 };
+   static VehicleT2Nodes sNodes[MaxClasses];
+   static U32 sCount = 0;
+
+   for (U32 i = 0; i < sCount; i++)
+      if (sName[i] == className || !dStrcmp(sName[i], className))
+         return &sNodes[i];
+
+   if (sCount >= MaxClasses)
+      return NULL;
+
+   VehicleT2Nodes &n = sNodes[sCount];
+   bool any = false;
+
+   #define T2VN( member, field )                                        \
+      n.member = T2Layout::ghostNode( className, field );               \
+      if ( n.member != U32( T2Reader::NoNode ) ) any = true;
+
+   T2VN( steeringYaw,   "steeringYaw" );
+   T2VN( steeringPitch, "steeringPitch" );
+   T2VN( movePYaw,      "move.pyaw" );
+   T2VN( movePPitch,    "move.ppitch" );
+   T2VN( movePRoll,     "move.proll" );
+   T2VN( movePX,        "move.px" );
+   T2VN( movePY,        "move.py" );
+   T2VN( movePZ,        "move.pz" );
+   T2VN( position,      "position" );
+   T2VN( energy,        "energy" );
+   T2VN( jetting,       "jetting" );
+   T2VN( frozen,        "frozen" );
+   T2VN( moveFreeLook,  "move.freeLook" );
+
+   char field[32];
+   for (U32 i = 0; i < 4; i++)
+   {
+      dSprintf(field, sizeof(field), "angPosition%u", i);
+      T2VN( angPosition[i], field );
+   }
+   for (U32 i = 0; i < 3; i++)
+   {
+      dSprintf(field, sizeof(field), "linMomentum%u", i);
+      T2VN( linMomentum[i], field );
+      dSprintf(field, sizeof(field), "angMomentum%u", i);
+      T2VN( angMomentum[i], field );
+   }
+   for (U32 i = 0; i < 6; i++)
+   {
+      dSprintf(field, sizeof(field), "move.trigger%u", i);
+      T2VN( moveTrigger[i], field );
+   }
+
+   #undef T2VN
+
+   n.named = any;
+   sName[sCount] = className;
+   sCount++;
+   return &n;
+}
+
+/// The shared fields, in the order the body sends them.  Split out from the
+/// flags so that a subclass can take its own fields in between: a flag is
+/// readable only once the cursor has gone past it, and the cursor moves only
+/// when a field is taken, so every flag in this body -- this class's and the
+/// subclass's -- has to wait until the last field of the subclass is in.
+const VehicleT2Nodes *Vehicle::_readT2Values(T2Reader& reader)
+{
+   // ShapeBase: the damage, the sound, thread and image slots, and its own
+   // flags, which are all behind fields it has already taken.
+   Parent::readT2Fields(reader);
+
+   const VehicleT2Nodes *n = t2VehicleNodesFor(getClassName());
+   if (!n || !n->named)
+      return NULL;
+
+   T2Fields f(reader);
+
+
+   // Steering, as a fraction of the datablock's maximum each way, which is
+   // how this tree's own unpackUpdate reads the same two fields.
+   F32 yaw, pitch;
+   if (f.atNode(n->steeringYaw) && takeVehicleT2Fraction(f, 9, yaw) &&
+       f.atNode(n->steeringPitch) && takeVehicleT2Fraction(f, 9, pitch) &&
+       mDataBlock)
+   {
+      const F32 maxAngle = mDataBlock->maxSteeringAngle;
+      mSteering.x = 2.0f * yaw * maxAngle - maxAngle;
+      mSteering.y = 2.0f * pitch * maxAngle - maxAngle;
+   }
+
+   // The pilot's move, which is what the server is driving this from.  The
+   // three angles are optional and the three axes are not.
+   Move &move = mDelta.move;
+   U32 v;
+   if (f.atNode(n->movePYaw)   && f.takeInt(16, v)) move.pyaw   = v;
+   if (f.atNode(n->movePPitch) && f.takeInt(16, v)) move.ppitch = v;
+   if (f.atNode(n->movePRoll)  && f.takeInt(16, v)) move.proll  = v;
+   if (f.atNode(n->movePX)     && f.takeInt(6, v))  move.px     = v;
+   if (f.atNode(n->movePY)     && f.takeInt(6, v))  move.py     = v;
+   if (f.atNode(n->movePZ)     && f.takeInt(6, v))  move.pz     = v;
+
+   // PositionMask: where the body is and how it is moving.  All or none of
+   // the four, and they are thirteen words of one shape, so each is taken by
+   // its own node rather than by counting.
+   Point3F pos;
+   if (f.atNode(n->position) && f.takePoint(pos))
+   {
+      mRigid.linPosition = pos;
+
+      F32 q[4];
+      bool haveRot = true;
+      for (U32 i = 0; i < 4; i++)
+         haveRot &= f.atNode(n->angPosition[i]) && f.takeRawFloat(q[i]);
+      if (haveRot)
+      {
+         mRigid.angPosition.set(q[0], q[1], q[2], q[3]);
+         mDelta.rot[1] = mDelta.rot[0] = mRigid.angPosition;
+      }
+
+      for (U32 i = 0; i < 3; i++)
+         if (f.atNode(n->linMomentum[i]))
+            f.takeRawFloat(((F32 *)mRigid.linMomentum)[i]);
+      for (U32 i = 0; i < 3; i++)
+         if (f.atNode(n->angMomentum[i]))
+            f.takeRawFloat(((F32 *)mRigid.angMomentum)[i]);
+
+      // What makes the thing move rather than sit where it was put: the
+      // momenta are the state the integrator runs on, and velocity and the
+      // inertial tensor are derived from them.
+      mRigid.updateInertialTensor();
+      mRigid.updateVelocity();
+      mRigid.updateCenterOfMass();
+
+      mDelta.pos = mRigid.linPosition;
+      mDelta.posVec.set(0, 0, 0);
+      mDelta.dt = 0;
+      mDelta.warpCount = mDelta.warpTicks = 0;
+      setPosition(mRigid.linPosition, mRigid.angPosition);
+   }
+
+   F32 energy;
+   if (f.atNode(n->energy) && takeVehicleT2Fraction(f, 8, energy) && mDataBlock)
+      setEnergyLevel(energy * mDataBlock->maxEnergy);
+
+   return n;
+}
+
+/// The shared booleans, taken once every field of the whole body is in.
+void Vehicle::_takeT2Flags(T2Reader& reader, const VehicleT2Nodes *n)
+{
+   if (!n)
+      return;
+
+   T2Fields f(reader);
+
+   f.takeFlag(n->jetting, mJetting);
+
+   // Tribes 2 calls this frozen and reads it where this tree reads atRest;
+   // both mean the server has stopped integrating the body, and atRest is
+   // what the client's own integrator looks at.
+   if (f.takeFlag(n->frozen, mT2Frozen))
+      mRigid.atRest = mT2Frozen;
+
+   f.takeFlag(n->moveFreeLook, mT2FreeLook);
+   mDelta.move.freeLook = mT2FreeLook;
+
+   for (U32 i = 0; i < 6; i++)
+   {
+      f.takeFlag(n->moveTrigger[i], mT2Trigger[i]);
+      if (i < U32(MaxTriggerKeys))
+         mDelta.move.trigger[i] = mT2Trigger[i];
+   }
+}
+
+void Vehicle::readT2Fields(T2Reader& reader)
+{
+   _takeT2Flags(reader, _readT2Values(reader));
+}
+
+// HH: What the reader above filed, which for a vehicle is the rigid body and
+// not the transform.
+//
+// SceneObject dumps `position` from getPosition(), and for a vehicle that is
+// the wrong member: the reader puts the body's position in mRigid.linPosition
+// and the transform is built from it on the sim tick, not in the packet path.
+// So the value check saw 6,482 vehicle updates carrying a position with
+// `position` unchanged, and read that as a reader that does not apply it. The
+// reader applies it; the dump was looking at the wrong member. Found by
+// checking the reader before reporting the gap, which is the only reason it is
+// not in a report as a fault.
+//
+// The names here shadow SceneObject's deliberately -- a derived dump runs
+// after Parent::dumpT2Members, so the rigid body wins, which is right because
+// it is what this class's reader fills.
+//
+// Not here: steeringYaw and steeringPitch. The body sends a fraction and the
+// reader turns it into an angle through the datablock's maxSteeringAngle, so
+// comparing them would need that inverted -- and the datablock is an
+// unresolved id when a body is replayed outside a connection.
+void Vehicle::dumpT2Members(T2Dump& d) const
+{
+   Parent::dumpT2Members(d);
+
+   d.put("position", mRigid.linPosition);
+   d.put("angPosition", mRigid.angPosition);
+   d.put("linMomentum", mRigid.linMomentum);
+   d.put("angMomentum", mRigid.angMomentum);
+   d.put("jetting", mJetting);
+}
+
+/// Which node of the control-object layout is which.  Numbers rather than
+/// names because genpacketdata.py emits no name table; each is checkable
+/// against the statement in Tools/t2/handlayout.py that built it, and each is
+/// used with a take that checks the shape as well.
+enum VehicleT2PacketNode
+{
+   T2PacketDisableMove = 2,
+   T2PacketFrozen      = 1,
+};
+
+/// What a client is sent about the vehicle it is driving, which is a fuller
+/// state than the ghost gets: the rigid body exactly rather than quantised,
+/// because this is the one object whose motion the client predicts.
+void Vehicle::readT2PacketData(T2Reader& reader)
+{
+   // ShapeBase: the energy level and the recharge rate.
+   Parent::readT2PacketData(reader);
+
+   T2Fields f(reader);
+
+   f.takeRawFloat(mSteering.x);
+   f.takeRawFloat(mSteering.y);
+
+   Point3F pos;
+   if (f.takeRawPoint(pos))
+   {
+      mRigid.linPosition = pos;
+      mT2PacketPosition = pos;
+      mT2HavePacketPosition = true;
+   }
+
+   F32 q[4];
+   if (f.takeRawFloat(q[0]) && f.takeRawFloat(q[1]) &&
+       f.takeRawFloat(q[2]) && f.takeRawFloat(q[3]))
+      mRigid.angPosition.set(q[0], q[1], q[2], q[3]);
+
+   f.takeRawPoint(mRigid.linMomentum);
+   f.takeRawPoint(mRigid.angMomentum);
+
+   mRigid.updateInertialTensor();
+   mRigid.updateVelocity();
+   mRigid.updateCenterOfMass();
+
+   if (mT2HavePacketPosition)
+   {
+      mDelta.pos = mRigid.linPosition;
+      mDelta.posVec.set(0, 0, 0);
+      mDelta.dt = 0;
+      mDelta.rot[1] = mDelta.rot[0] = mRigid.angPosition;
+      setPosition(mRigid.linPosition, mRigid.angPosition);
+   }
+
+   // After the fields, as every flag must be.
+   f.takeFlag(T2PacketDisableMove, mDisableMove);
+   if (f.takeFlag(T2PacketFrozen, mT2Frozen))
+      mRigid.atRest = mT2Frozen;
+}
+
+/// The driven object's position is the compression point every compressed
+/// point later in the packet is measured from, and the ghost section is later
+/// in the packet.  Getting it wrong costs no bits and so cannot fail the
+/// gate; it puts every object in the mission somewhere else.
+bool Vehicle::getT2CompressionPoint(Point3F& out) const
+{
+   if (!mT2HavePacketPosition)
+      return false;
+
+   out = mT2PacketPosition;
+   return true;
 }
 
 

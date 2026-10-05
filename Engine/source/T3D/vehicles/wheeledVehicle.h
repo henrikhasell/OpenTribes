@@ -124,6 +124,30 @@ struct WheeledVehicleData: public VehicleData
    F32 engineBrake;              // Break force applied when throttle is 0
    F32 brakeTorque;              // Force used when brakeing
 
+   /// HH: Added for Tribes 2 compatibility.  Tribes 2 keeps the tire and
+   /// spring constants on the vehicle where this tree keeps them on the
+   /// WheeledVehicleTire and WheeledVehicleSpring datablocks, which it does
+   /// not send at all -- so there is no datablock of this tree's to put
+   /// these in and they are kept here under their own names.
+   F32 mT2TireRadius;
+   F32 mT2TireFriction;
+   F32 mT2TireRestitution;
+   F32 mT2TireLateralForce;
+   F32 mT2TireLateralDamping;
+   F32 mT2TireLateralRelaxation;
+   F32 mT2TireLongitudinalForce;
+   F32 mT2TireLongitudinalDamping;
+   F32 mT2TireLongitudinalRelaxation;
+   F32 mT2SpringForce;
+   F32 mT2SpringDamping;
+   F32 mT2AntiSwayForce;
+   F32 mT2AntiRockForce;
+   F32 mT2StaticLoadScale;
+   F32 mT2StabilizerForce;
+   F32 mT2GyroForce;
+   F32 mT2GyroDamping;
+   S32 mT2TireEmitterId;
+
    // Initialized onAdd
    struct Wheel 
    {
@@ -146,6 +170,7 @@ struct WheeledVehicleData: public VehicleData
    bool mirrorWheel(Wheel* we);
    virtual void packData(BitStream* stream);
    virtual void unpackData(BitStream* stream);
+   void readT2Fields(T2Reader& reader);   // HH: Added for Tribes 2 compatibility.
 };
 
 
@@ -244,6 +269,8 @@ public:
    void readPacketData(GameConnection * conn, BitStream *stream);
    U32  packUpdate(NetConnection * conn, U32 mask, BitStream *stream);
    void unpackUpdate(NetConnection * conn, BitStream *stream);
+   void readT2Fields(T2Reader& reader);        // HH: Added for Tribes 2 compatibility.
+   void readT2PacketData(T2Reader& reader);
 };
 
 

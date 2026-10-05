@@ -40,6 +40,9 @@
 #include "sfx/sfxProfile.h"
 #include "sfx/sfxSource.h"
 #include "T3D/missionArea.h"
+#include "T3D/gameBase/t2Layout.h"   // HH: Added for Tribes 2 compatibility.
+#include "T3D/gameBase/t2Fields.h"
+#include "T3D/gameBase/t2Affine.h"
 
 //----------------------------------------------------------------------------
 
@@ -310,6 +313,86 @@ void FlyingVehicleData::unpackData(BitStream* stream)
    stream->read(&vertThrustMultiple);
 }
 
+/// HH: Added for Tribes 2 compatibility.
+///
+/// What a Tribes 2 flier is: its jets, and the sixteen forces that decide how
+/// it answers the stick.  Every one of them maps onto a field of this tree's
+/// own, because this class and Tribes 2's are the same class one fork apart.
+///
+/// Shape is enough throughout.  The two sounds and four jet emitters are one
+/// run of six references and the rest is a fixed run of words, so there is
+/// nothing of the same shape that is optional beside something else.
+void FlyingVehicleData::readT2Fields(T2Reader& reader)
+{
+   // VehicleData: the body, the impact speeds, the emitters and the rest.
+   Parent::readT2Fields(reader);
+
+   T2Fields f(reader);
+
+   // The jet activate and deactivate sounds, then the forward, backward,
+   // downward and contrail emitters.
+   U32 refs[MaxSounds + MaxJetEmitters];
+   if (f.takeDataBlockRun(refs, MaxSounds + MaxJetEmitters) ==
+       MaxSounds + MaxJetEmitters)
+   {
+      // preload() resolves both of these out of the pointers they are left
+      // in, which is how this class carries a reference across.
+      for (U32 i = 0; i < MaxSounds; i++)
+         sound[i] = (SFXProfile *)(uintptr_t)refs[i];
+      for (U32 i = 0; i < MaxJetEmitters; i++)
+         jetEmitter[i] = (ParticleEmitterData *)(uintptr_t)refs[MaxSounds + i];
+   }
+
+   f.takeRawFloat(maneuveringForce);
+   f.takeRawFloat(horizontalSurfaceForce);
+   f.takeRawFloat(verticalSurfaceForce);
+   f.takeRawFloat(autoInputDamping);
+   f.takeRawFloat(steeringForce);
+   f.takeRawFloat(steeringRollForce);
+   f.takeRawFloat(rollForce);
+   f.takeRawFloat(autoAngularForce);
+   f.takeRawFloat(rotationalDrag);
+   f.takeRawFloat(maxAutoSpeed);
+   f.takeRawFloat(autoLinearForce);
+   f.takeRawFloat(hoverHeight);
+   f.takeRawFloat(createHoverHeight);
+   f.takeRawFloat(minTrailSpeed);
+   f.takeRawFloat(vertThrustMultiple);
+   f.takeRawFloat(maxSpeed);
+}
+
+/// HH: Added for Tribes 2 compatibility.
+///
+/// Vehicle's body and then two fields of its own, both behind a second
+/// control gate: a flier skips them when this client is the one flying it.
+/// Flags last, as they must be -- and thrustDirection sits behind this
+/// class's own flag, so the fields have to be in before either is readable.
+void FlyingVehicle::readT2Fields(T2Reader& reader)
+{
+   const VehicleT2Nodes *n = _readT2Values(reader);
+
+   T2Fields f(reader);
+
+   U32 dir;
+   if (f.takeInt(NumThrustBits, dir))
+      mThrustDirection = ThrustDirection(dir);
+
+   _takeT2Flags(reader, n);
+
+   // Resolved once per class rather than per body, and guarded: a name that
+   // stops resolving gives NoNode, and takeFlag reports that against the
+   // layout after formatting and interning the complaint.
+   static const char *sName = NULL;
+   static U32 sCreateHeightOn = U32(T2Reader::NoNode);
+   if (!sName || dStrcmp(sName, getClassName()))
+   {
+      sCreateHeightOn = T2Layout::ghostNode(getClassName(), "createHeightOn");
+      sName = getClassName();
+   }
+
+   takeT2Flag(f, sCreateHeightOn, createHeightOn);
+}
+
 
 //----------------------------------------------------------------------------
 
@@ -325,6 +408,14 @@ FlyingVehicle::FlyingVehicle()
    mSteering.set(0,0);
    mThrottle = 0;
    mJetting = false;
+
+   // HH: Added for Tribes 2 compatibility, and latent rather than live: the
+   // only writer is updateMove and the only reader is updateForces, and on a
+   // ghost neither runs, because processTick returns at `mPredictionCount-- <=
+   // 0` before either.  It becomes live the day a ghost vehicle integrates
+   // locally -- which is one line elsewhere -- so it is set to the value
+   // updateMove starts from rather than left for that change to discover.
+   mCeilingFactor = 1.0f;
 
    mJetSound = 0;
    mEngineSound = 0;

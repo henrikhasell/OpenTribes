@@ -36,6 +36,8 @@
 #include "sfx/sfxSource.h"
 #include "T3D/fx/particleEmitter.h"
 #include "math/mathIO.h"
+#include "T3D/gameBase/t2Layout.h"   // HH: Added for Tribes 2 compatibility.
+#include "T3D/gameBase/t2Fields.h"
 
 
 IMPLEMENT_CO_DATABLOCK_V1(HoverVehicleData);
@@ -116,6 +118,11 @@ HoverVehicle::JetActivation HoverVehicle::sJetActivation[NumThrustDirections] = 
 //
 HoverVehicleData::HoverVehicleData()
 {
+   // HH: Added for Tribes 2 compatibility.
+   mT2MainThrustEmitterFactor = 0.0f;
+   mT2StrafeThrustEmitterFactor = 0.0f;
+   mT2ReverseThrustEmitterFactor = 0.0f;
+
    dragForce            = 0;
    vertFactor           = 0.25f;
    floatingThrustFactor = 0.15f;
@@ -432,6 +439,77 @@ void HoverVehicleData::unpackData(BitStream* stream)
    stream->read(&brakingActivationSpeed);
 }
 
+/// HH: Added for Tribes 2 compatibility.
+///
+/// A hover vehicle is held up by four stabilisers and pushed about by three
+/// thrusters, and this is the description of both.  As with the flier, this
+/// tree's fields are the same fields: only the three emitter scales at the
+/// end have nowhere of their own to go.
+void HoverVehicleData::readT2Fields(T2Reader& reader)
+{
+   Parent::readT2Fields(reader);
+
+   T2Fields f(reader);
+
+   if (!f.takeRawFloat(dragForce))
+      return;
+
+   f.takeRawFloat(mainThrustForce);
+   f.takeRawFloat(reverseThrustForce);
+   f.takeRawFloat(strafeThrustForce);
+   f.takeRawFloat(turboFactor);
+   f.takeRawFloat(stabLenMin);
+   f.takeRawFloat(stabLenMax);
+   f.takeRawFloat(stabSpringConstant);
+   f.takeRawFloat(stabDampingConstant);
+   f.takeRawFloat(gyroDrag);
+   f.takeRawFloat(normalForce);
+   f.takeRawFloat(restorativeForce);
+   f.takeRawFloat(steeringForce);
+   f.takeRawFloat(rollForce);
+   f.takeRawFloat(pitchForce);
+   f.takeRawFloat(floatingThrustFactor);
+   f.takeRawFloat(brakingForce);
+
+   f.takeRawPoint(dustTrailOffset);
+   f.takeRawFloat(triggerTrailHeight);
+   f.takeRawFloat(dustTrailFreqMod);
+
+   // The float, thrust and turbo sounds, three jet emitters and the dust
+   // trail, which is one run of seven.
+   U32 refs[MaxSounds + MaxJetEmitters + 1];
+   const U32 want = MaxSounds + MaxJetEmitters + 1;
+   if (f.takeDataBlockRun(refs, want) == want)
+   {
+      for (U32 i = 0; i < MaxSounds; i++)
+         sound[i] = (SFXProfile *)(uintptr_t)refs[i];
+      for (U32 i = 0; i < MaxJetEmitters; i++)
+         jetEmitter[i] = (ParticleEmitterData *)(uintptr_t)refs[MaxSounds + i];
+      dustTrailID = S32(refs[MaxSounds + MaxJetEmitters]);
+   }
+
+   f.takeRawFloat(mT2MainThrustEmitterFactor);
+   f.takeRawFloat(mT2StrafeThrustEmitterFactor);
+   f.takeRawFloat(mT2ReverseThrustEmitterFactor);
+}
+
+/// HH: Added for Tribes 2 compatibility.
+///
+/// Vehicle's body and three bits of thrust direction, which unlike the
+/// flier's is sent whether or not this client is driving.
+void HoverVehicle::readT2Fields(T2Reader& reader)
+{
+   const VehicleT2Nodes *n = _readT2Values(reader);
+
+   T2Fields f(reader);
+
+   U32 dir;
+   if (f.takeInt(NumThrustBits, dir))
+      mThrustDirection = ThrustDirection(dir);
+
+   _takeT2Flags(reader, n);
+}
+
 
 //--------------------------------------------------------------------------
 //--------------------------------------
@@ -440,6 +518,16 @@ HoverVehicle::HoverVehicle()
 {
    // Todo: ScopeAlways?
    mNetFlags.set(Ghostable);
+
+   // HH: Added for Tribes 2 compatibility.  mThrustLevel is written only by
+   // updateForces, which runs from processTick's simulation branch -- and a
+   // ghost never reaches that branch on a Tribes 2 connection.  Vehicle's
+   // constructor leaves mPredictionCount at 0 and the only thing that ever
+   // raises it is Torque's unpackUpdate, which a T2 body does not go through,
+   // so `if (mPredictionCount-- <= 0) return;` fires on every tick of every
+   // ghost vehicle for the life of the connection.  advanceTime does run, once
+   // a frame, and reads this for the engine sound's volume.
+   mThrustLevel   = 0.0f;
 
    mFloating      = false;
    mForwardThrust = 0;
