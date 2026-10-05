@@ -107,9 +107,21 @@ void SimDataBlock::unpackData(BitStream*)
 {
 }
 
+static void takeT2Fields(void *ctx, T2Reader &reader)
+{
+   static_cast<SimDataBlock *>(ctx)->readT2Fields(reader);
+}
+
 bool SimDataBlock::unpackDataT2(BitStream *stream, U32 classId)
 {
-   return T2Layout::readDataBlock(stream, classId);
+   return T2Layout::readDataBlock(stream, classId, takeT2Fields, this);
+}
+
+/// Nothing: a Tribes 2 datablock body is its own class's fields from the first
+/// bit.  SimDataBlock::packData writes none, and the layouts agree -- the
+/// table is one entry per net class id and each starts in the class named.
+void SimDataBlock::readT2Fields(T2Reader &)
+{
 }
 
 //-----------------------------------------------------------------------------

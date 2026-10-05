@@ -29,6 +29,7 @@
 
 // Forward Refs
 class BitStream;
+class T2Reader;   // HH: Added for Tribes 2 compatibility.
 
 /// Root DataBlock class.
 ///
@@ -131,7 +132,16 @@ public:
    bool isClientOnly() const { return getId() < DataBlockObjectIdFirst || getId() > DataBlockObjectIdLast; }
 
    /// HH: Added for Tribes 2 compatibility.
+   ///
+   /// The driver, as NetObject::unpackUpdateT2 is for a ghost: the layout is
+   /// found from the class id, the cursor is built over it and handed to
+   /// readT2Fields(), and the remainder is discarded.  A subclass overrides
+   /// readT2Fields().
    virtual bool unpackDataT2(BitStream *stream, U32 classId);
+
+   /// Take this datablock's Tribes 2 fields off the cursor, innermost base
+   /// first.  The pattern is in T3D/gameBase/t2Fields.h.
+   virtual void readT2Fields(T2Reader &reader);
 
    /// Get the modified key for this particular datablock.
    S32 getModifiedKey() const { return modifiedKey; }
