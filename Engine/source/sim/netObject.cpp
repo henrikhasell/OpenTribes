@@ -28,6 +28,7 @@
 #include "console/consoleTypes.h"
 #include "console/engineAPI.h"
 #include "T3D/gameBase/t2Layout.h"
+#include "T3D/gameBase/t2MemberDump.h"   // HH: Added for Tribes 2 compatibility.
 
 IMPLEMENT_CONOBJECT(NetObject);
 
@@ -39,6 +40,8 @@ ConsoleDocClass( NetObject,
 //----------------------------------------------------------------------------
 NetObject *NetObject::mDirtyList = NULL;
 
+bool NetObject::smForceClientObjects = false;
+
 NetObject::NetObject()
 {
 	// netFlags will clear itself to 0
@@ -47,6 +50,24 @@ NetObject::NetObject()
    mPrevDirtyList = NULL;
    mNextDirtyList = NULL;
    mDirtyMaskBits = 0;
+
+   // HH: Added for Tribes 2 compatibility.
+   // Here rather than in onAdd, because onAdd is already too late for a class
+   // that does its loading before calling Parent::onAdd.
+   // InteriorInstance::onAdd is one: it runs _loadInterior() first, and that
+   // is where a client interior is checksummed and prepped for rendering.
+   // With the flag set in onAdd the interior was still a server object when
+   // it loaded, skipped prepForRendering, and was then put in the client
+   // scene anyway -- so the renderer reached an Interior with no vertex
+   // buffer, no render nodes and its lightmaps still on it, and walked off
+   // the empty mZoneRNList the first frame it was in shot.
+   //
+   // A ghost is marked before registerObject by the connection that creates
+   // it, so this is where the flag belongs to imitate one: an object built
+   // while it is set is a client object from birth, whatever order its onAdd
+   // does things in.
+   if(smForceClientObjects)
+      mNetFlags.set(IsGhost | ForcedClient);
 }
 
 NetObject::~NetObject()
@@ -294,6 +315,12 @@ void NetObject::clearScopeAlways()
 
 bool NetObject::onAdd()
 {
+   // HH: The force-client flag is set in the constructor, not here.  See the
+   // comment there: a subclass that loads before calling Parent::onAdd reads
+   // isClientObject() before this line would ever run.
+   if(smForceClientObjects)
+      mNetFlags.set(IsGhost | ForcedClient);
+
    if(mNetFlags.test(ScopeAlways))
       setScopeAlways();
 
@@ -324,9 +351,28 @@ void NetObject::unpackUpdate(NetConnection*, BitStream*)
 {
 }
 
+static void takeT2Fields(void *ctx, T2Reader &reader)
+{
+   static_cast<NetObject *>(ctx)->readT2Fields(reader);
+}
+
 bool NetObject::unpackUpdateT2(BitStream *stream, bool isInitial)
 {
-   return T2Layout::readGhost(stream, getClassName(), isInitial);
+   return T2Layout::readGhost(stream, getClassName(), isInitial,
+                              takeT2Fields, this);
+}
+
+/// Nothing.  A Tribes 2 NetObject update body is empty: SimpleNetObject, which
+/// derives straight from NetObject, has a layout of one string and no more, so
+/// there is nothing in front of a subclass's own first field.  The chain starts
+/// paying out at GameBase.
+void NetObject::readT2Fields(T2Reader &)
+{
+}
+
+// HH: A NetObject reads nothing of its own, so it has nothing to say.
+void NetObject::dumpT2Members(T2Dump &) const
+{
 }
 
 void NetObject::onCameraScopeQuery(NetConnection *cr, CameraScopeQuery* /*camInfo*/)

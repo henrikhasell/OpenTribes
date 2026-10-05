@@ -34,6 +34,8 @@
 //-----------------------------------------------------------------------------
 class NetConnection;
 class NetObject;
+class T2Reader;   // HH: Added for Tribes 2 compatibility.
+class T2Dump;     // HH: Added for Tribes 2 compatibility.
 
 //-----------------------------------------------------------------------------
 
@@ -270,6 +272,12 @@ protected:
       ScopeLocal        =  BIT(7),  ///< Ghost only to local client.
       Ghostable         =  BIT(8),  ///< Set if this object CAN ghost.
 
+      /// HH: Added for Tribes 2 compatibility.
+      /// Made a client object by $Scene::clientSideObjects rather than by a
+      /// connection, so there is no server counterpart and nothing that was
+      /// sent from one -- a checksum least of all.
+      ForcedClient      =  BIT(9),
+
       MaxNetFlagBit     =  15
    };
 
@@ -280,7 +288,26 @@ protected:
 
 public:
    /// HH: Added for Tribes 2 compatibility.
+   ///
+   /// The driver: it finds this class's layout, has the cursor built over it,
+   /// hands it to readT2Fields() and then discards whatever was left.  A
+   /// subclass overrides readT2Fields(), not this.
    virtual bool unpackUpdateT2(BitStream *stream, bool isInitial);
+
+   /// Take this class's Tribes 2 fields off the cursor, innermost base first:
+   /// an override calls Parent::readT2Fields(reader) and then takes its own.
+   /// The pattern and the primitives are in T3D/gameBase/t2Fields.h.
+   virtual void readT2Fields(T2Reader &reader);
+
+   /// Say what readT2Fields() above filed, so a value check can look at it.
+   ///
+   /// Console reflection cannot: what a Tribes 2 reader fills is mObjToWorld,
+   /// mCRC, mT2SkinBase -- members with no console field -- while what a
+   /// SceneObject registers is locked, canSave and isRenderEnabled.  An
+   /// override calls Parent::dumpT2Members(d) and then puts its own, named as
+   /// the second reader names them.  T3D/gameBase/t2MemberDump.h is the
+   /// pattern and says what a name here is claiming.
+   virtual void dumpT2Members(T2Dump &d) const;
 
    NetObject();
    ~NetObject();
@@ -296,6 +323,17 @@ public:
    /// @}
 
    static void collapseDirtyList();
+
+   /// HH: Added for Tribes 2 compatibility.
+   /// Register objects the console creates as client objects rather than server
+   /// ones. An object built from script is a server object, and almost nothing
+   /// to do with drawing exists on one: SceneObject::addToScene puts it in
+   /// gServerSceneGraph, which the renderer never looks at, and a class like
+   /// TerrainBlock builds no quadtree, no materials and no textures at all
+   /// unless isClientObject(). So a scene assembled by a harness is not merely
+   /// invisible without this, it is unrenderable.
+   /// Exposed as $Scene::clientSideObjects; see TASK-43.
+   static bool smForceClientObjects;
 
    /// Used to mark a bit as dirty; ie, that its corresponding set of fields need to be transmitted next update.
    ///
