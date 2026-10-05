@@ -51,7 +51,7 @@ IMPLEMENT_CO_CLIENTEVENT_V1(SetMissionCRCEvent);
 
 ConsoleDocClass( SimDataBlockEvent,
 				"@brief Use by GameConnection to process incoming datablocks.\n\n"
-				"Not intended for game development, internal use only, but does expose onDataBlockObjectReceived.\n\n "
+				"Not intended for game development, internal use only, but does expose ClientReceivedDataBlock.\n\n "
 				"@internal");
 
 ConsoleDocClass( Sim2DAudioEvent,
@@ -251,9 +251,6 @@ void SimDataBlockEvent::process(NetConnection *cptr)
 {
    if(mProcess)
    {
-      //call the console function to set the number of blocks to be sent
-      Con::executef("onDataBlockObjectReceived", Con::getIntArg(mIndex), Con::getIntArg(mTotal));
-
       // HH: Modified so that the loading bar moves as the datablocks arrive.
       if(Con::isFunction("ClientReceivedDataBlock"))
          Con::executef("ClientReceivedDataBlock", Con::getIntArg(mIndex),

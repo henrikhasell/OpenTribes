@@ -176,15 +176,6 @@ IMPLEMENT_GLOBAL_CALLBACK( onChallengeRequestRejected, void, (const char *reason
    "reporting an error.\n\n" );
 
 
-IMPLEMENT_GLOBAL_CALLBACK( onDataBlockObjectReceived, void, (U32 index, U32 total), (index, total),
-   "@brief Called on the client each time a datablock has been received.\n\n"
-   "This callback is typically used to notify the player of how far along "
-   "in the datablock download process they are.\n\n"
-   "@param index The index of the datablock just received.\n"
-   "@param total The total number of datablocks to be received.\n\n"
-   "@see GameConnection, GameConnection::transmitDataBlocks(), GameConnection::onDataBlocksDone()\n\n"
-   "@ingroup Networking\n");
-
 // HH: Added for Tribes 2 compatibility.
 IMPLEMENT_CALLBACK( GameConnection, sensorPing, void, (bool state), (state),
    "@brief Called on the client when a sensor sweeps over the control object.\n\n" );
@@ -1777,9 +1768,6 @@ DefineEngineMethod( GameConnection, transmitDataBlocks, void, (S32 sequence),,
             mStream.setPosition(0);
             mStream.clearCompressionPoint();
             pDataBlock->unpackData(&mStream, classId);
-
-            // Call the console function to set the number of blocks to be sent.
-            onDataBlockObjectReceived_callback(i, iCount);
 
             // Preload the datablock on the dummy client.
             pDataBlock->preload(false, NetConnection::getErrorBuffer());
