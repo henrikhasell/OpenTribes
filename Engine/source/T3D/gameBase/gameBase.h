@@ -97,6 +97,7 @@ public:
    static void initPersistFields();
    bool preload(bool server, String &errorStr);
    void unpackData(BitStream* stream);
+   void readT2Fields(T2Reader& reader);   // HH: Added for Tribes 2 compatibility.
 
    /// @name Callbacks
    /// @{
@@ -203,6 +204,10 @@ protected:
 
    F32 mCameraFov;
 
+   /// HH: Added for Tribes 2 compatibility.
+   U32 mT2DataBlockId;
+   S32 mT2TargetId;
+
    /// The WaterObject we are currently within.
    WaterObject *mCurrentWaterObject;
    
@@ -259,6 +264,22 @@ public:
 
    /// Returns the datablock for this object.
    GameBaseData* getDataBlock()  { return mDataBlock; }
+
+   /// HH: Added for Tribes 2 compatibility.
+   ///
+   /// The two fields every Tribes 2 ghost that carries a datablock opens its
+   /// body with.  Debris and Projectile read this and nothing more, so the
+   /// three share it; see the comment on the definition.
+   /// @{
+   void readT2Fields( T2Reader& reader );
+
+   /// The id the server sent, kept whether or not a datablock of that id has
+   /// arrived yet: the ghost may be read before the datablock it names.
+   U32           getT2DataBlockId() const { return mT2DataBlockId; }
+
+   /// The sensor target this object is, or -1 when the server sent none.
+   S32           getT2TargetId() const { return mT2TargetId; }
+   /// @}
 
    /// Called when a new datablock is set. This allows subclasses to
    /// appropriately handle new datablocks.
@@ -361,6 +382,29 @@ public:
    /// @param   conn    Connection for which we're generating this data.
    /// @param   stream  Bitstream to read.
    virtual void readPacketData( GameConnection *conn, BitStream *stream );
+
+   /// HH: Added for Tribes 2 compatibility.
+   ///
+   /// The same state, as a Tribes 2 server sends it: through readPacketData
+   /// but by its own layout, which T2Layout owns.  So the cursor is built
+   /// there and handed here, exactly as readT2Fields is for a ghost body --
+   /// and for the same reason, a class ported half way leaves the stream
+   /// where a class not ported at all leaves it.
+   ///
+   /// This is a separate override from readT2Fields because it is a separate
+   /// layout for the same class: what a client's own object sends each tick is
+   /// not what its ghost sends.
+   virtual void readT2PacketData( T2Reader &reader );
+
+   /// Drive readT2PacketData() through T2Layout's fields callback.
+   static void takeT2PacketData( void *ctx, T2Reader &reader );
+
+   /// The position this control object's packet data carried, if it carried
+   /// one.  Tribes 2 measures every compressed point later in the packet from
+   /// it -- the ghost section included -- and the branch of readPacket that
+   /// reads an explicit compression point is the one taken when there is no
+   /// control object at all.  So the object has to be asked.
+   virtual bool getT2CompressionPoint( Point3F &out ) const { return false; }
 
    /// Gets the checksum for packet data.
    ///

@@ -25,6 +25,10 @@
 #include "T3D/shapeBase.h"
 #include "core/resourceManager.h"
 #include "core/stream/bitStream.h"
+#include "T3D/gameBase/t2Fields.h"   // HH: Added for Tribes 2 compatibility.
+#include "T3D/gameBase/t2Affine.h"
+#include "T3D/gameBase/t2Layout.h"
+#include "T3D/gameBase/t2Undescribed.h"
 #include "ts/tsShapeInstance.h"
 #include "console/consoleInternal.h"
 #include "console/consoleTypes.h"
@@ -44,6 +48,7 @@
 #include "sfx/sfxTypes.h"
 #include "scene/sceneManager.h"
 #include "core/stream/fileStream.h"
+#include "T3D/gameBase/t2ArtPath.h"   // HH: Added for Tribes 2 compatibility.
 
 //----------------------------------------------------------------------------
 
@@ -164,6 +169,35 @@ ShapeBaseImageData::ShapeBaseImageData()
    emap = false;
 
    mountPoint = 0;
+
+   // HH: Added for Tribes 2 compatibility.
+   mT2ProjectileId = -1;
+   mT2MuzzleFlashId = -1;
+   mT2IsSeeker = false;
+   mT2SeekerRadius = 0.0f;
+   mT2MaxSeekAngle = 0.0f;
+   mT2SeekerLockTime = 0.0f;
+   mT2SeekerFreeTime = 0.0f;
+   mT2MaxLockRange = 0.0f;
+   mT2LightTime = 0;
+   mT2IsTargetLockRequired = false;
+   mT2ShellExitDir.set( 0.0f, 0.0f, 1.0f );
+   mT2ShellExitVariance = 0.0f;
+   mT2ShellVelocity = 0.0f;
+   mT2CasingId = -1;
+   mT2AccuFire = false;
+
+   for ( U32 i = 0; i < MaxStates; i++ )
+   {
+      mT2StateSent[i] = false;
+      for ( U32 t = 0; t < 11; t++ )
+         mT2StateTransition[i][t] = 0;     // nought is no transition
+      mT2StateSequence[i] = 0;
+      mT2StateSequenceVis[i] = 0;
+      mT2StateFlashSequence[i] = false;
+      mT2StateEmitterNode[i] = -1;
+      mT2StateSoundId[i] = -1;
+   }
    mountOffset.identity();
    eyeOffset.identity();
    correctMuzzleVector = true;
@@ -450,7 +484,9 @@ bool ShapeBaseImageData::preload(bool server, String &errorStr)
 
       if (name && name[0]) {
          // Resolve shapename
-         shape[i] = ResourceManager::get().load(name);
+      // HH: Added for Tribes 2 compatibility.  The game names the weapons, the packs and the turret barrels
+      // bare and they live under shapes/; see T3D/gameBase/t2ArtPath.h.
+         shape[i] = ResourceManager::get().load(shapePathT2(name));
          if (!bool(shape[i])) {
             errorStr = String::ToString("Unable to load shape: %s", name);
             return false;
@@ -1140,6 +1176,454 @@ void ShapeBaseImageData::packData(BitStream* stream)
       }
    stream->write(maxConcurrentSounds);
    stream->writeFlag(useRemainderDT);
+}
+
+// HH: Added for Tribes 2 compatibility.
+//
+// The leading fields of Tribes 2's ShapeBaseImageData, which are the ones that
+// decide whether a mounted weapon appears at all: the shape to render, the
+// node to hang it on, the offset from that node, and the projectile it fires.
+// They read into Torque's own fields, so preload() loads the shape and
+// ShapeBase::setImage mounts it with nothing further wired up.
+//
+// It stops at the projectile references on purpose.  This datablock is 1,285
+// nodes -- the second largest in the protocol -- and almost all of that is the
+// thirty-one entry state machine, which is script-driven and not needed to
+// mount or render anything.  Reading it would mean matching several hundred
+// same-shaped fields against the retail binary's order, which is a task of its
+// own and not this one; what is read here is cross-checked against
+// t2-demo-parser, and the rest is discarded as it was before.
+/// Which node of a ShapeBaseImageData layout is which of its leading fields.
+///
+/// TurretImageData extends this one and numbers its own layout differently,
+/// so the lookup is by the class the body arrived as.  Resolved once per
+/// class rather than per packet.
+struct ShapeBaseImageDataT2Nodes
+{
+   bool named;      ///< false when this concrete class is not described
+   U32 mountOffset[6];
+   U32 mass, minEnergy;
+   U32 projectile, muzzleFlash;
+
+   // The rest of the leading fields, and then the state machine.
+   U32 seekerRadius, maxSeekAngle, seekerLockTime, seekerFreeTime;
+   U32 isTargetLockRequired, maxLockRange, cloakable;
+   U32 lightRadius, lightTime, lightColor[4];
+   U32 shellExitDir[3], shellExitVariance, shellVelocity, casing, accuFire;
+
+   struct State
+   {
+      U32 name, transition[11], timeoutValue;
+      U32 waitForTimeout, fire, ejectShell, scaleAnimation, direction, reload;
+      U32 energyDrain, loaded, spin, recoil;
+      U32 sequenceNegative, sequence, sequenceVisNegative, sequenceVis;
+      U32 flashSequence, ignoreLoadedForReady;
+      U32 emitter, emitterTime, emitterNode, sound;
+   };
+   State state[ShapeBaseImageData::MaxStates];
+};
+
+static const ShapeBaseImageDataT2Nodes *t2ImageDataNodesFor( const char *className )
+{
+   enum { MaxClasses = 8 };
+   static const char *sName[MaxClasses] = { 0 };
+   static ShapeBaseImageDataT2Nodes sNodes[MaxClasses];
+   static ShapeBaseImageDataT2Nodes sNone;
+   static bool sNoneReady = false;
+   static U32 sCount = 0;
+
+   if ( !sNoneReady )
+   {
+      for ( U32 i = 0; i < sizeof( sNone ) / sizeof( U32 ); i++ )
+         ( (U32 *)&sNone )[i] = U32( T2Reader::NoNode );
+      sNone.named = false;
+      sNoneReady = true;
+   }
+
+   for ( U32 i = 0; i < sCount; i++ )
+      if ( sName[i] == className || !dStrcmp( sName[i], className ) )
+         return &sNodes[i];
+
+   if ( sCount >= MaxClasses )
+      return &sNone;
+
+   ShapeBaseImageDataT2Nodes &n = sNodes[sCount];
+
+   char field[24];
+   for ( U32 i = 0; i < 6; i++ )
+   {
+      dSprintf( field, sizeof( field ), "mountOffset%u", i );
+      n.mountOffset[i] = T2Layout::dataBlockNode( className, field );
+   }
+   n.mass        = T2Layout::dataBlockNode( className, "mass" );
+   n.minEnergy   = T2Layout::dataBlockNode( className, "minEnergy" );
+   n.projectile  = T2Layout::dataBlockNode( className, "projectile" );
+   n.muzzleFlash = T2Layout::dataBlockNode( className, "muzzleFlash" );
+
+   n.seekerRadius   = T2Layout::dataBlockNode( className, "seekerRadius" );
+   n.maxSeekAngle   = T2Layout::dataBlockNode( className, "maxSeekAngle" );
+   n.seekerLockTime = T2Layout::dataBlockNode( className, "seekerLockTime" );
+   n.seekerFreeTime = T2Layout::dataBlockNode( className, "seekerFreeTime" );
+   n.isTargetLockRequired =
+      T2Layout::dataBlockNode( className, "isTargetLockRequired" );
+   n.maxLockRange = T2Layout::dataBlockNode( className, "maxLockRange" );
+   n.cloakable    = T2Layout::dataBlockNode( className, "cloakable" );
+   n.lightRadius  = T2Layout::dataBlockNode( className, "lightRadius" );
+   n.lightTime    = T2Layout::dataBlockNode( className, "lightTime" );
+   n.lightColor[0] = T2Layout::dataBlockNode( className, "lightColorRed" );
+   n.lightColor[1] = T2Layout::dataBlockNode( className, "lightColorGreen" );
+   n.lightColor[2] = T2Layout::dataBlockNode( className, "lightColorBlue" );
+   n.lightColor[3] = T2Layout::dataBlockNode( className, "lightColorAlpha" );
+   for ( U32 i = 0; i < 3; i++ )
+   {
+      dSprintf( field, sizeof( field ), "shellExitDir%u", i );
+      n.shellExitDir[i] = T2Layout::dataBlockNode( className, field );
+   }
+   n.shellExitVariance =
+      T2Layout::dataBlockNode( className, "shellExitVariance" );
+   n.shellVelocity = T2Layout::dataBlockNode( className, "shellVelocity" );
+   n.casing        = T2Layout::dataBlockNode( className, "casing" );
+   n.accuFire      = T2Layout::dataBlockNode( className, "accuFire" );
+
+   // And the state machine: thirty-one states of twenty-three fields and
+   // eleven transitions each, by name rather than by a stride that happens to
+   // hold.  A thousand string searches, once per class, where the alternative
+   // is a thousand numbers in this file.
+   static const char *sTransition[11] =
+   {
+      "NotLoaded", "Loaded", "NoAmmo", "Ammo", "NoTarget", "Target",
+      "NotWet", "Wet", "TriggerUp", "TriggerDown", "Timeout"
+   };
+
+   char named[64];
+   for ( U32 i = 0; i < ShapeBaseImageData::MaxStates; i++ )
+   {
+      ShapeBaseImageDataT2Nodes::State &st = n.state[i];
+
+      #define T2_STATE_NODE( member, suffix )                                 \
+         dSprintf( named, sizeof( named ), "state%u." suffix, i );             \
+         st.member = T2Layout::dataBlockNode( className, named )
+
+      T2_STATE_NODE( name, "name" );
+      T2_STATE_NODE( timeoutValue, "timeoutValue" );
+      T2_STATE_NODE( waitForTimeout, "waitForTimeout" );
+      T2_STATE_NODE( fire, "fire" );
+      T2_STATE_NODE( ejectShell, "ejectShell" );
+      T2_STATE_NODE( scaleAnimation, "scaleAnimation" );
+      T2_STATE_NODE( direction, "direction" );
+      T2_STATE_NODE( reload, "reload" );
+      T2_STATE_NODE( energyDrain, "energyDrain" );
+      T2_STATE_NODE( loaded, "loaded" );
+      T2_STATE_NODE( spin, "spin" );
+      T2_STATE_NODE( recoil, "recoil" );
+      T2_STATE_NODE( sequenceNegative, "sequenceNegative" );
+      T2_STATE_NODE( sequence, "sequence" );
+      T2_STATE_NODE( sequenceVisNegative, "sequenceVisNegative" );
+      T2_STATE_NODE( sequenceVis, "sequenceVis" );
+      T2_STATE_NODE( flashSequence, "flashSequence" );
+      T2_STATE_NODE( ignoreLoadedForReady, "ignoreLoadedForReady" );
+      T2_STATE_NODE( emitter, "emitter" );
+      T2_STATE_NODE( emitterTime, "emitterTime" );
+      T2_STATE_NODE( emitterNode, "emitterNode" );
+      T2_STATE_NODE( sound, "sound" );
+
+      #undef T2_STATE_NODE
+
+      for ( U32 t = 0; t < 11; t++ )
+      {
+         dSprintf( named, sizeof( named ), "state%u.transitionOn%s", i,
+                   sTransition[t] );
+         st.transition[t] = T2Layout::dataBlockNode( className, named );
+      }
+   }
+
+   sName[sCount] = className;
+   sCount++;
+   return &n;
+}
+
+void ShapeBaseImageData::readT2Fields( T2Reader& reader )
+{
+   Parent::readT2Fields( reader );
+
+   T2Fields f( reader );
+
+   U32 crc;
+   if ( f.takeInt( 32, crc ) )
+   {
+      mCRC[0] = crc;
+      computeCRC = true;
+   }
+
+   char name[256];
+   if ( f.takeString( name, sizeof( name ) ) )
+      shapeName = StringTable->insert( name );
+
+   if ( !f.takeInt( 32, mountPoint ) )
+      return;
+
+   // The mount offset, the mass and the minimum energy are machine words in a
+   // row with the offset optional, and this used to be told apart by counting
+   // -- eight words meant an offset and the two behind it, two meant just
+   // those two, anything else filed none.  The table names them now, so each
+   // is asked for where it lives.
+   const ShapeBaseImageDataT2Nodes *n =
+      t2ImageDataNodesFor( getClassName() );
+
+   F32 word[8];
+   bool haveOffset = n->named;
+
+   if ( n->named )
+   {
+      for ( U32 i = 0; i < 6; i++ )
+         haveOffset &= n->mountOffset[i] != U32( T2Reader::NoNode ) &&
+                       f.atNode( n->mountOffset[i] ) && f.takeRawFloat( word[i] );
+   }
+   else
+   {
+      // Undescribed: back to the run length, which is what told these apart
+      // before the table named them.  Eight words is an offset and the two
+      // behind it; two is just those two.
+      U32 got = 0;
+      while ( got < 8 && f.takeRawFloat( word[got] ) )
+         got++;
+
+      haveOffset = got == 8;
+      if ( got == 2 )
+      {
+         mass = word[0];
+         minEnergy = word[1];
+      }
+      else if ( got == 8 )
+      {
+         mass = word[6];
+         minEnergy = word[7];
+      }
+   }
+
+   if ( haveOffset )
+   {
+      // Rebuilt by the one function that knows how -- see t2Affine.h, which
+      // also carries the evidence for which way the sign goes.  It is not
+      // applied here, and the reason is this layout rather than the protocol:
+      // takeFlag can read a flag now but needs its node, and the generator
+      // does not name a transformSign for this datablock even though it names
+      // the rest of it.  Naming it is a Tools/t2 job; until then a mount
+      // offset turned more than a third of the way round comes out mirrored.
+      t2AffineMatrix( Point3F( word[0], word[1], word[2] ),
+                      Point3F( word[3], word[4], word[5] ), false,
+                      mountOffset );
+   }
+
+   if ( n->named )
+   {
+      if ( n->mass != U32( T2Reader::NoNode ) && f.atNode( n->mass ) )
+         f.takeRawFloat( mass );
+      if ( n->minEnergy != U32( T2Reader::NoNode ) && f.atNode( n->minEnergy ) )
+         f.takeRawFloat( minEnergy );
+   }
+
+   // The projectile and the muzzle flash, each by name.  With only one of
+   // the two sent there used to be nothing to say which it was, so neither
+   // was filed; an image that sends a muzzle flash and no projectile now
+   // gets its muzzle flash.
+   U32 id;
+   if ( n->named )
+   {
+      if ( n->projectile != U32( T2Reader::NoNode ) &&
+           f.atNode( n->projectile ) && f.takeDataBlockId( id ) )
+         mT2ProjectileId = S32( id );
+
+      if ( n->muzzleFlash != U32( T2Reader::NoNode ) &&
+           f.atNode( n->muzzleFlash ) && f.takeDataBlockId( id ) )
+         mT2MuzzleFlashId = S32( id );
+   }
+   else
+   {
+      U32 refs[2];
+      if ( f.takeDataBlockRun( refs, 2 ) == 2 )
+      {
+         mT2ProjectileId  = S32( refs[0] );
+         mT2MuzzleFlashId = S32( refs[1] );
+      }
+   }
+
+   if ( mT2ProjectileId >= 0 )
+   {
+      ProjectileData *data = NULL;
+      if ( Sim::findObject( SimObjectId( mT2ProjectileId ), data ) )
+         projectile = data;
+   }
+
+   // What a weapon that locks on sends.
+   if ( f.atNode( n->seekerRadius ) )
+   {
+      mT2IsSeeker = true;
+      f.takeRawFloat( mT2SeekerRadius );
+      f.takeRawFloat( mT2MaxSeekAngle );
+      f.takeRawFloat( mT2SeekerLockTime );
+      f.takeRawFloat( mT2SeekerFreeTime );
+      if ( f.atNode( n->maxLockRange ) )
+         f.takeRawFloat( mT2MaxLockRange );
+   }
+
+   // The light it casts while firing.  Reached without its type, which the
+   // cursor resolves as a select -- taken below with the other decisions.
+   if ( f.atNode( n->lightRadius ) )
+   {
+      f.takeRawFloat( lightRadius );
+      f.takeInt( 32, mT2LightTime );
+      lightDuration = mT2LightTime;
+      f.takeFloat( 7, lightColor.red );
+      f.takeFloat( 7, lightColor.green );
+      f.takeFloat( 7, lightColor.blue );
+      f.takeFloat( 7, lightColor.alpha );
+   }
+
+   if ( f.atNode( n->shellExitDir[0] ) )
+   {
+      f.takeRawPoint( mT2ShellExitDir );
+      f.takeRawFloat( mT2ShellExitVariance );
+      f.takeRawFloat( mT2ShellVelocity );
+   }
+
+   if ( f.atNode( n->casing ) && f.takeDataBlockId( id ) )
+      mT2CasingId = S32( id );
+
+   _readT2States( f, n );
+
+   // Every flag of the leading section, after every field of the body: a flag
+   // is readable only once the cursor has gone past it, and the state machine
+   // is what moves the cursor past these.
+   f.takeFlagNamed( n->isTargetLockRequired, mT2IsTargetLockRequired );
+   f.takeFlagNamed( n->cloakable, cloakable );
+   f.takeFlagNamed( n->accuFire, mT2AccuFire );
+}
+
+/// The thirty-one entry state machine: what makes a weapon fire rather than
+/// hang in a hand.
+///
+/// Read in two passes over the states for the reason flags are read last --
+/// the cursor moves only when a field is taken, and nearly every state is
+/// mostly flags and selects.  So the first pass takes the fields of all
+/// thirty-one, which leaves the cursor past the end, and the second reads the
+/// decisions out of the record the cursor kept.
+///
+/// What Torque has a field for goes into Torque's own state arrays, because
+/// the machine is Torque's too: ShapeBase::updateImageState runs these.  A
+/// transition arrives as a one-based state index where Torque wants the name
+/// of a state, so the indices are kept and resolved once every state has been
+/// read -- a transition can name a state further down the list.
+void ShapeBaseImageData::_readT2States( T2Fields &f,
+                                        const ShapeBaseImageDataT2Nodes *n )
+{
+   char text[256];
+   U32 id;
+
+   // Pass one: the fields.
+   for ( U32 i = 0; i < MaxStates; i++ )
+   {
+      const ShapeBaseImageDataT2Nodes::State &st = n->state[i];
+
+      if ( !f.atNode( st.name ) || !f.takeString( text, sizeof( text ) ) )
+         continue;
+
+      mT2StateSent[i] = true;
+      stateName[i] = StringTable->insert( text );
+
+      if ( f.atNode( st.timeoutValue ) )
+         f.takeRawFloat( stateTimeoutValue[i] );
+      if ( f.atNode( st.energyDrain ) )
+         f.takeRawFloat( stateEnergyDrain[i] );
+
+      // readSignedInt(16) is a sign bit and fifteen more; the sign is a flag,
+      // so it is applied in the second pass.
+      if ( f.atNode( st.sequence ) )
+         f.takeInt( 15, mT2StateSequence[i] );
+      if ( f.atNode( st.sequenceVis ) )
+         f.takeInt( 15, mT2StateSequenceVis[i] );
+
+      if ( f.atNode( st.emitter ) && f.takeDataBlockId( id ) )
+      {
+         ParticleEmitterData *data = NULL;
+         if ( Sim::findObject( SimObjectId( id ), data ) )
+            stateEmitter[i] = data;
+
+         f.takeRawFloat( stateEmitterTime[i] );
+         f.takeInt( 32, mT2StateEmitterNode[i] );
+      }
+
+      if ( f.atNode( st.sound ) && f.takeDataBlockId( id ) )
+         mT2StateSoundId[i] = S32( id );
+   }
+
+   // Pass two: the decisions.
+   for ( U32 i = 0; i < MaxStates; i++ )
+   {
+      if ( !mT2StateSent[i] )
+         continue;
+
+      const ShapeBaseImageDataT2Nodes::State &st = n->state[i];
+
+      for ( U32 t = 0; t < 11; t++ )
+      {
+         U32 to;
+         if ( f.takeSelectNamed( st.transition[t], to ) )
+            mT2StateTransition[i][t] = S32( to );
+      }
+
+      f.takeFlagNamed( st.waitForTimeout, stateWaitForTimeout[i] );
+      f.takeFlagNamed( st.fire, stateFire[i] );
+      f.takeFlagNamed( st.ejectShell, stateEjectShell[i] );
+      f.takeFlagNamed( st.scaleAnimation, stateScaleAnimation[i] );
+      f.takeFlagNamed( st.direction, stateDirection[i] );
+      f.takeFlagNamed( st.reload, stateReload[i] );
+      f.takeFlagNamed( st.flashSequence, mT2StateFlashSequence[i] );
+      f.takeFlagNamed( st.ignoreLoadedForReady, stateIgnoreLoadedForReady[i] );
+
+      // The three thread states, each three bits the cursor resolved.
+      U32 which;
+      if ( f.takeSelectNamed( st.loaded, which ) && which <= StateData::NotLoaded )
+         stateLoaded[i] = StateData::LoadedState( which );
+      if ( f.takeSelectNamed( st.spin, which ) && which <= StateData::FullSpin )
+         stateSpin[i] = StateData::SpinState( which );
+      if ( f.takeSelectNamed( st.recoil, which ) && which <= StateData::HeavyRecoil )
+         stateRecoil[i] = StateData::RecoilState( which );
+
+      // And the signs of the two sequence indices.
+      bool negative = false;
+      if ( f.takeFlagNamed( st.sequenceNegative, negative ) && negative )
+         mT2StateSequence[i] = -mT2StateSequence[i];
+      negative = false;
+      if ( f.takeFlagNamed( st.sequenceVisNegative, negative ) && negative )
+         mT2StateSequenceVis[i] = -mT2StateSequenceVis[i];
+   }
+
+   // Now that every state has a name, the transitions can have the names
+   // Torque's state machine looks them up by.  A zero index is no transition,
+   // which Torque spells as no name.
+   for ( U32 i = 0; i < MaxStates; i++ )
+   {
+      if ( !mT2StateSent[i] )
+         continue;
+
+      const char **field[11] =
+      {
+         &stateTransitionNotLoaded[i], &stateTransitionLoaded[i],
+         &stateTransitionNoAmmo[i],    &stateTransitionAmmo[i],
+         &stateTransitionNoTarget[i],  &stateTransitionTarget[i],
+         &stateTransitionNotWet[i],    &stateTransitionWet[i],
+         &stateTransitionTriggerUp[i], &stateTransitionTriggerDown[i],
+         &stateTransitionTimeout[i],
+      };
+
+      for ( U32 t = 0; t < 11; t++ )
+      {
+         const S32 to = mT2StateTransition[i][t];
+         if ( to > 0 && to <= S32( MaxStates ) && mT2StateSent[to - 1] )
+            *field[t] = stateName[to - 1];
+      }
+   }
 }
 
 void ShapeBaseImageData::unpackData(BitStream* stream)

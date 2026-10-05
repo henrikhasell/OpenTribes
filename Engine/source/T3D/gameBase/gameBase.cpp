@@ -29,6 +29,7 @@
 #include "sim/netConnection.h"
 #include "T3D/gameBase/gameConnection.h"
 #include "math/mathIO.h"
+#include "T3D/gameBase/t2Fields.h"
 #include "T3D/gameBase/moveManager.h"
 #include "T3D/gameBase/gameProcess.h"
 
@@ -167,6 +168,18 @@ void GameBaseData::unpackData(BitStream* stream)
    packed = true;
 }
 
+// HH: Added for Tribes 2 compatibility.
+//
+// Nothing, and the layout says so outright: GameBaseData's entry in
+// t2DataBlockTables.h is a single OpEnd.  Tribes 2's GameBaseData::packData
+// writes no fields of its own, so a datablock's body is its own class's fields
+// from the first bit -- which is worth knowing before porting one of the fifty
+// that derive from this, because there is no shared prefix to account for.
+void GameBaseData::readT2Fields( T2Reader& reader )
+{
+   Parent::readT2Fields( reader );
+}
+
 //----------------------------------------------------------------------------
 bool UNPACK_DB_ID(BitStream * stream, U32 & id)
 {
@@ -224,8 +237,10 @@ ConsoleDocClass( GameBase,
 );
 
 GameBase::GameBase()
-: mDataBlock( NULL ),  
+: mDataBlock( NULL ),
   mControllingClient( NULL ),
+  mT2DataBlockId( 0 ),
+  mT2TargetId( -1 ),
   mCurrentWaterObject( NULL )
 {
    mNetFlags.set(Ghostable);
@@ -516,6 +531,19 @@ void GameBase::readPacketData(GameConnection*, BitStream*)
 {
 }
 
+/// Nothing: the layouts in the packet-data table all begin in ShapeBase, which
+/// is where the first two words are.  The override is here rather than there
+/// so that every control object has one entry point whether or not it is a
+/// ShapeBase.
+void GameBase::readT2PacketData(T2Reader &)
+{
+}
+
+void GameBase::takeT2PacketData(void *ctx, T2Reader &reader)
+{
+   static_cast<GameBase *>(ctx)->readT2PacketData(reader);
+}
+
 U32 GameBase::packUpdate( NetConnection *connection, U32 mask, BitStream *stream )
 {
    U32 retMask = Parent::packUpdate( connection, mask, stream );
@@ -542,6 +570,96 @@ U32 GameBase::packUpdate( NetConnection *connection, U32 mask, BitStream *stream
 #endif
 
    return retMask;
+}
+
+// HH: Added for Tribes 2 compatibility.
+//
+// GameBase::unpackUpdate reads two fields in Tribes 2 -- the datablock this
+// object is built from, and the sensor target it is -- and this is the one
+// reader for all three classes whose body is nothing else: GameBase, Debris
+// and Projectile have byte-identical layouts, so Debris and Projectile inherit
+// this and override nothing.  Everything that carries a datablock reads this
+// section first, which is where the field chain starts paying out: NetObject
+// and SceneObject contribute no bits at all.
+//
+// Both takes are shape-matched and tolerant, which is doing more work here
+// than it looks.  The recovered layouts do not agree on how these two fields
+// are modelled: the walk saw the binary branch on each of them, so in some
+// classes the datablock id is a field and the target id is a branch the cursor
+// resolves itself, and in others -- GrenadeProjectile, for one -- it is the
+// other way about.  A reader that assumed either shape would be wrong for half
+// its subclasses.  Asking by op and width is right for both, because an
+// eleven-bit datablock id and a nine-bit target id cannot be mistaken for each
+// other, and a field the cursor consumed as a branch simply is not offered.
+void GameBase::readT2Fields( T2Reader& reader )
+{
+   Parent::readT2Fields( reader );
+
+   // HH: The initial body only, and this is a fix rather than a tidy-up.
+   //
+   // Both takes below are GameBase's header, and the measurement is
+   // unambiguous: of 19,163 ghost-section updates in play-weapons not one
+   // carries a datablock id or a target id, while 230 of 320 creates carry
+   // both.  The target id was taken ungated -- no atNode, just
+   // takeInt(9, target) -- so on an update it took whatever nine-bit field
+   // the body opened with.
+   //
+   // For a FlyingVehicle that is steeringYaw, also nine bits.  So GameBase ate
+   // the steering, the cursor moved one node past where Vehicle expected it,
+   // and every atNode after that failed: the move axes, the position, the
+   // orientation and both momenta.  3,731 FlyingVehicle updates, 1,824
+   // HoverVehicle and 929 WheeledVehicle sent a position that never reached
+   // the object, and mT2TargetId held a steering angle.
+   //
+   // The datablock id is gated too.  It is op-checked, which makes it safer
+   // but not safe: an update carrying an image slot's datablock id opens on an
+   // OpDataBlockId node, and this would have taken that as the object's own
+   // datablock.
+   if ( !reader.isInitial() )
+      return;
+
+   T2Fields f( reader );
+
+   // DataBlockMask.  Matched on the datablock op rather than on an integer of
+   // the same width, so this cannot take the target id by mistake.
+   U32 id;
+   if ( f.takeDataBlockId( id ) )
+   {
+      mT2DataBlockId = id;
+
+      // Hand it to the engine the way T3D's own unpackUpdate does, so a ghost
+      // read off a Tribes 2 wire reaches onNewDataBlock -- and through it the
+      // shape and sound preloading a subclass needs -- by the same path a
+      // T3D-protocol ghost does.  A datablock that has not arrived yet leaves
+      // the id stored and the pointer null rather than failing the packet:
+      // nothing here can usefully complain at the rate packets arrive.
+      GameBaseData* dptr = NULL;
+      // HH: T2_NO_DB_RESOLVE is a probe, not a feature.
+      //
+      // A replayed body's datablock id is a raw wire id looked up in whatever
+      // Sim the replaying client happens to have, which is not the namespace it
+      // came from.  So the pointer this stores may be any object that happened
+      // to hold that id, and the leading hypothesis for the four projectile
+      // crashes is that it is one that was later deleted: the faulting
+      // instruction reads mDataBlock->muzzleVelocity through a pointer holding
+      // the text "transform.elements.7", which is a String this harness's own
+      // member dump allocated -- consistent with freed memory reused, and with
+      // glibc's heap checker reporting nothing because the block is live again.
+      //
+      // Setting this env var skips the resolve so mDataBlock stays null and the
+      // readers' own null guards take over.  If the crashes stop, the pointer
+      // was the cause; if they do not, it is not, and that is worth one run
+      // either way.
+      if ( !getenv( "T2_NO_DB_RESOLVE" ) &&
+           Sim::findObject( SimObjectId( id ), dptr ) )
+         setDataBlock( dptr );
+   }
+
+   // TargetMask, then an explicit id.  Nine bits, and -1 stands for "none",
+   // which is the value the member already holds.
+   S32 target;
+   if ( f.takeInt( 9, target ) )
+      mT2TargetId = target;
 }
 
 void GameBase::unpackUpdate(NetConnection *con, BitStream *stream)

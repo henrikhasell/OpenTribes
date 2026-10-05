@@ -22,6 +22,7 @@
 
 #include "platform/platform.h"
 #include "T3D/shapeBase.h"
+#include "T3D/gameBase/t2MemberDump.h"   // HH: Added for Tribes 2 compatibility.
 
 #include "core/dnet.h"
 #include "sfx/sfxSystem.h"
@@ -30,6 +31,11 @@
 #include "sfx/sfxDescription.h"
 #include "T3D/sfx/sfx3DWorld.h"
 #include "T3D/gameBase/gameConnection.h"
+#include "T3D/gameBase/t2ShapePath.h"   // HH: Added for Tribes 2 compatibility.
+#include "T3D/gameBase/t2Fields.h"
+#include "T3D/gameBase/t2Affine.h"
+#include "T3D/gameBase/t2Layout.h"
+#include "T3D/gameBase/t2Undescribed.h"
 #include "console/consoleTypes.h"
 #include "console/engineAPI.h"
 #include "core/stream/bitStream.h"
@@ -189,8 +195,22 @@ ShapeBaseData::ShapeBaseData()
    inheritEnergyFromMount( false ),
    mCRC( 0 ),
    debrisDetail( -1 )
-{      
+{
    dMemset( mountPointNode, -1, sizeof( S32 ) * SceneObject::NumMountPoints );
+
+   // HH: Added for Tribes 2 compatibility.
+   mT2SensorRadius = -1;
+   mT2SensorColor.set( 255, 255, 255, 255 );
+   mT2Heat = 0.0f;
+   mT2CmdCategory = NULL;
+   mT2CmdMiniIconName = NULL;
+   mT2CmdIconId = -1;
+   mT2CanControl = false;
+   mT2Emap = false;
+   mT2CanObserve = false;
+   mT2ObserveThroughObject = false;
+   mT2ShieldEffectLifetimeMS = 0;
+   mT2ShieldEffectScale.set( 1.0f, 1.0f, 1.0f );
 }
 
 struct ShapeBaseDataProto
@@ -225,15 +245,6 @@ static ShapeBaseDataProto gShapeBaseDataProto;
 ShapeBaseData::~ShapeBaseData()
 {
 
-}
-
-// HH: Added for Tribes 2 compatibility.
-static String shapePathT2(const char *name)
-{
-   String path(name);
-   if(path.find('/') != String::NPos || path.find('\\') != String::NPos)
-      return path;
-   return String("shapes/") + path;
 }
 
 bool ShapeBaseData::preload(bool server, String &errorStr)
@@ -765,6 +776,240 @@ void ShapeBaseData::packData(BitStream* stream)
 }
 
 // HH: Modified for Tribes 2 compatibility.
+// HH: Added for Tribes 2 compatibility.
+//
+// Tribes 2's ShapeBaseData is Torque's with a sensor, a command-map icon and a
+// shield effect added, so what Torque names reads into its own fields -- the
+// shape name above all, which is what preload() loads the shape from.
+//
+// Field order is from the retail binary, cross-checked against t2-demo-parser.
+// Two runs of this body cannot be filed and are read and dropped instead: the
+// nine optional floats from mass to cameraMaxFov are all thirty-two bits with
+// a flag each, and the four datablock references are a flag and an id each, so
+// a run that arrives with holes in it cannot be told from a shorter one.  They
+// are filed only when the whole run came through.  A datablock layout has no
+// field names to settle it with -- only the hand-written ghost layouts have
+// those -- so the fix is a naming pass over the datablock tables rather than
+// anything this class can do.  The eight HUD images at the tail are the same
+// shape again and are left for whoever needs the HUD.
+/// Which node of a ShapeBaseData layout is which field.
+///
+/// Every class that extends this one has its own layout with its own
+/// numbering, so the lookup is by the class the body arrived as -- a
+/// PlayerData and a TurretData carry the same section at different nodes.
+/// Resolved once per class; the lookup is a string search and fifteen
+/// hundred datablock bodies arrive in a join.
+struct ShapeBaseDataT2Nodes
+{
+   U32 optional[9];      ///< mass through cameraMaxFov
+   U32 cmdIcon, explosion, underwaterExplosion, debris;
+   U32 canControl, canObserve, observeThroughObject;
+   U32 emap, isInvincible, renderWhenDestroyed;
+   U32 inheritEnergyFromMount, firstPersonOnly, useEyePoint;
+
+   /// False when this concrete class has no description in the table.
+   ///
+   /// Only the layouts gendatablocknames.py describes have names, and a
+   /// class without them must not simply skip every take -- which is what
+   /// this reader did for a while.  Naming the fields was meant to let the
+   /// nine optional floats and the four references be filed one at a time
+   /// instead of all-or-nothing, and it does; but the lookup is per concrete
+   /// class, only ShapeBaseData itself was described, and ShapeBaseData is
+   /// never sent on its own.  So for PlayerData, TurretData and every other
+   /// subclass every take was skipped and thirteen fields stopped being read
+   /// at all.  Every gate stayed green; the value harness found it.
+   bool named;
+};
+
+static const char *const sShapeBaseT2Optional[9] =
+{
+   "mass", "drag", "density", "maxEnergy", "cameraMaxDist", "cameraMinDist",
+   "cameraDefaultFov", "cameraMinFov", "cameraMaxFov"
+};
+
+static const ShapeBaseDataT2Nodes *t2ShapeBaseDataNodesFor( const char *className )
+{
+   enum { MaxClasses = 32 };
+   static const char *sName[MaxClasses] = { 0 };
+   static ShapeBaseDataT2Nodes sNodes[MaxClasses];
+   static ShapeBaseDataT2Nodes sNone;
+   static bool sNoneReady = false;
+   static U32 sCount = 0;
+
+   if ( !sNoneReady )
+   {
+      for ( U32 i = 0; i < sizeof( sNone ) / sizeof( U32 ); i++ )
+         ( (U32 *)&sNone )[i] = U32( T2Reader::NoNode );
+      sNone.named = false;
+      sNoneReady = true;
+   }
+
+   for ( U32 i = 0; i < sCount; i++ )
+      if ( sName[i] == className || !dStrcmp( sName[i], className ) )
+         return &sNodes[i];
+
+   if ( sCount >= MaxClasses )
+      return &sNone;
+
+   ShapeBaseDataT2Nodes &n = sNodes[sCount];
+   bool any = false;
+
+   #define T2SN( member, field )                                        \
+      n.member = T2Layout::dataBlockNode( className, field );           \
+      if ( n.member != U32( T2Reader::NoNode ) ) any = true;
+
+   for ( U32 i = 0; i < 9; i++ )
+   {
+      n.optional[i] = T2Layout::dataBlockNode( className,
+                                               sShapeBaseT2Optional[i] );
+      if ( n.optional[i] != U32( T2Reader::NoNode ) ) any = true;
+   }
+
+   T2SN( cmdIcon,                "cmdIcon" );
+   T2SN( explosion,              "explosion" );
+   T2SN( underwaterExplosion,    "underwaterExplosion" );
+   T2SN( debris,                 "debris" );
+   T2SN( canControl,             "canControl" );
+   T2SN( canObserve,             "canObserve" );
+   T2SN( observeThroughObject,   "observeThroughObject" );
+   T2SN( emap,                   "emap" );
+   T2SN( isInvincible,           "isInvincible" );
+   T2SN( renderWhenDestroyed,    "renderWhenDestroyed" );
+   T2SN( inheritEnergyFromMount, "inheritEnergyFromMount" );
+   T2SN( firstPersonOnly,        "firstPersonOnly" );
+   T2SN( useEyePoint,            "useEyePoint" );
+
+   #undef T2SN
+
+   n.named = any;
+   if ( !any )
+      T2Undescribed::note( className );
+
+   sName[sCount] = className;
+   sCount++;
+   return &n;
+}
+
+/// One datablock reference, taken only where the cursor stands on the node
+/// that holds it.
+static void takeT2DataRef( T2Fields &f, U32 node, S32 &out )
+{
+   U32 id;
+   if ( node != U32( T2Reader::NoNode ) && f.atNode( node ) &&
+        f.takeDataBlockId( id ) )
+      out = S32( id );
+}
+
+void ShapeBaseData::readT2Fields( T2Reader& reader )
+{
+   Parent::readT2Fields( reader );
+
+   T2Fields f( reader );
+
+   // The shape checksum, where the server bothered to send one.  Taken before
+   // the shape name, which is how it is told from the floats further down.
+   U32 crc;
+   if ( f.takeInt( 32, crc ) )
+   {
+      mCRC = crc;
+      computeCRC = true;
+   }
+
+   char name[256];
+   if ( f.takeString( name, sizeof( name ) ) )
+      shapeName = StringTable->insert( name );
+
+   // Nine machine words, every one of them optional on its own.  They used
+   // to be filed only when all nine arrived, because by shape a body sending
+   // two of them is indistinguishable from the first two -- and a density
+   // filed as a mass is worse than no density.  The table names them now, so
+   // each is asked for where it lives and a body sending two files two.
+   const ShapeBaseDataT2Nodes *n = t2ShapeBaseDataNodesFor( getClassName() );
+
+   F32 *const slot[9] = { &mass, &drag, &density, &maxEnergy, &cameraMaxDist,
+                          &cameraMinDist, &cameraDefaultFov, &cameraMinFov,
+                          &cameraMaxFov };
+
+   if ( n->named )
+   {
+      for ( U32 i = 0; i < 9; i++ )
+         if ( n->optional[i] != U32( T2Reader::NoNode ) &&
+              f.atNode( n->optional[i] ) )
+            f.takeRawFloat( *slot[i] );
+   }
+   else
+   {
+      // Undescribed: back to telling them apart by the length of the run,
+      // which is worse -- a body sending two of the nine files nothing --
+      // but is a great deal better than filing none of the nine ever.
+      F32 word[9];
+      U32 got = 0;
+      while ( got < 9 && f.takeRawFloat( word[got] ) )
+         got++;
+      if ( got == 9 )
+         for ( U32 i = 0; i < 9; i++ )
+            *slot[i] = word[i];
+   }
+
+   if ( f.takeString( name, sizeof( name ) ) )
+      debrisShapeName = StringTable->insert( name );
+
+   // The sensor: a radius and the colour it paints on the command circuit.
+   if ( f.takeInt( 10, mT2SensorRadius ) )
+   {
+      S32 r = 255, g = 255, b = 255, a = 255;
+      f.takeInt( 8, r );
+      f.takeInt( 8, g );
+      f.takeInt( 8, b );
+      f.takeInt( 8, a );
+      mT2SensorColor.set( r, g, b, a );
+   }
+
+   f.takeRawFloat( mT2Heat );
+
+   if ( f.takeString( name, sizeof( name ) ) )
+      mT2CmdCategory = StringTable->insert( name );
+   if ( f.takeString( name, sizeof( name ) ) )
+      mT2CmdMiniIconName = StringTable->insert( name );
+
+   // The four references, each by name for the same reason -- and by run
+   // length where this class is not described, for the reason above.
+   if ( n->named )
+   {
+      takeT2DataRef( f, n->cmdIcon,             mT2CmdIconId );
+      takeT2DataRef( f, n->explosion,           explosionID );
+      takeT2DataRef( f, n->underwaterExplosion, underwaterExplosionID );
+      takeT2DataRef( f, n->debris,              debrisID );
+   }
+   else
+   {
+      U32 refs[4];
+      if ( f.takeDataBlockRun( refs, 4 ) == 4 )
+      {
+         mT2CmdIconId          = S32( refs[0] );
+         explosionID           = S32( refs[1] );
+         underwaterExplosionID = S32( refs[2] );
+         debrisID              = S32( refs[3] );
+      }
+   }
+
+   f.takeInt( 32, mT2ShieldEffectLifetimeMS );
+   f.takeRawPoint( mT2ShieldEffectScale );
+
+   // Nine booleans, after every field as flags must be.  None of them was
+   // readable until the table named their nodes; three have a field of this
+   // tree's own to go into and the rest are kept beside them.
+   f.takeFlag( n->canControl,             mT2CanControl );
+   f.takeFlag( n->canObserve,             mT2CanObserve );
+   f.takeFlag( n->observeThroughObject,   mT2ObserveThroughObject );
+   f.takeFlag( n->emap,                   mT2Emap );
+   f.takeFlag( n->isInvincible,           isInvincible );
+   f.takeFlag( n->renderWhenDestroyed,    renderWhenDestroyed );
+   f.takeFlag( n->inheritEnergyFromMount, inheritEnergyFromMount );
+   f.takeFlag( n->firstPersonOnly,        firstPersonOnly );
+   f.takeFlag( n->useEyePoint,            useEyePoint );
+}
+
 void ShapeBaseData::unpackData(BitStream* stream)
 {
    Parent::unpackData(stream);
@@ -970,6 +1215,43 @@ ShapeBase::ShapeBase()
       mTrigger[i] = false;
 
    mWeaponCamShake = NULL;
+
+   // HH: Added for Tribes 2 compatibility.  A slot the server did not send is
+   // -1 rather than 0, because 0 is a datablock id.
+   for (i = 0; i < T2MaxSoundSlots; i++)
+      mT2Sound[i].profileId = -1;
+   for (i = 0; i < T2MaxThreadSlots; i++)
+   {
+      mT2Thread[i].sequence = -1;
+      mT2Thread[i].state = -1;
+      mT2Thread[i].forward = true;
+      mT2Thread[i].atEnd = false;
+   }
+   for (i = 0; i < T2MaxImageSlots; i++)
+   {
+      mT2Image[i].dataBlockId = -1;
+      mT2Image[i].skinTag = -1;
+      mT2Image[i].skinName = NULL;
+      mT2Image[i].fireCount = 0;
+      mT2Image[i].present = false;
+      mT2Image[i].triggerDown = false;
+      mT2Image[i].loaded = true;
+      mT2Image[i].ammo = false;
+      mT2Image[i].wet = false;
+      mT2Image[i].target = false;
+      mT2Image[i].firing = false;
+   }
+   mT2FadeTime = 0.0f;
+   mT2ShieldNormal.set( 0.0f, 0.0f, 1.0f );
+   mT2EnergyPercent = 0.0f;
+   mT2StateValue1 = 0;
+   mT2StateValue2 = 0;
+   mT2MountObject = -1;
+   mT2MountNode = -1;
+   mT2ActiveImage = -1;
+   mT2BlowApart = false;
+   mT2IsControlled = false;
+   mT2StateBMode = false;
 }
 
 
@@ -3102,6 +3384,101 @@ void ShapeBase::readPacketData(GameConnection *connection, BitStream *stream)
    stream->read(&mRechargeRate);
 }
 
+/// The two words every control object opens with, whichever class it is.
+/// Where a mission_marker()-shaped layout puts its transform and scale, per
+/// class, since each layout numbers its own nodes.  Resolved once per class:
+/// the lookup is a string search and a ghost body arrives as often as packets.
+static void t2PositionNodes( const char *className, U32 *transform, U32 *sign,
+                             U32 *scale )
+{
+   enum { MaxClasses = 12 };
+   static const char *sName[MaxClasses] = { 0 };
+   static U32 sTransform[MaxClasses], sSign[MaxClasses], sScale[MaxClasses];
+   static U32 sCount = 0;
+
+   for ( U32 i = 0; i < sCount; i++ )
+   {
+      if ( sName[i] == className || !dStrcmp( sName[i], className ) )
+      {
+         *transform = sTransform[i];
+         *sign = sSign[i];
+         *scale = sScale[i];
+         return;
+      }
+   }
+
+   *transform = T2Layout::ghostNode( className, "transform" );
+   *sign = T2Layout::ghostNode( className, "transformSign" );
+   *scale = T2Layout::ghostNode( className, "scale" );
+
+   if ( sCount < MaxClasses )
+   {
+      sName[sCount] = className;
+      sTransform[sCount] = *transform;
+      sSign[sCount] = *sign;
+      sScale[sCount] = *scale;
+      sCount++;
+   }
+}
+
+bool ShapeBase::readT2Position( T2Fields &f )
+{
+   U32 transformNode, signNode, scaleNode;
+   t2PositionNodes( getClassName(), &transformNode, &signNode, &scaleNode );
+
+   // Taken by node.  The nine words are unconditional within the block, but
+   // the block itself is optional and the field in front of it is ShapeBase's
+   // ten-bit mount node -- so an object that sent no position would otherwise
+   // read its mount as the first word of a transform.
+   if ( !f.atNode( transformNode ) )
+      return false;
+
+   Point3F pos;
+   if ( !f.takeRawPoint( pos ) )
+      return false;
+
+   Point3F axis;
+   if ( !f.takeRawPoint( axis ) )
+      return false;
+
+   Point3F scale;
+   const bool haveScale = f.atNode( scaleNode ) && f.takeRawPoint( scale );
+
+   // The sign of the quaternion's fourth term, after the fields: a flag is
+   // readable only once the cursor has gone past it, and the cursor moves only
+   // when a field is taken.  This one sits between the transform and the
+   // scale, so taking it before the scale would have read a default -- and the
+   // default is the wrong rotation half the time rather than no rotation at
+   // all, which is the kind of mistake that looks like a modelling error.
+   bool negative = false;
+   takeT2Flag( f, signNode, negative );
+
+   MatrixF mat;
+   t2AffineMatrix( pos, axis, negative, mat );
+
+   // Placed through SceneObject's setTransform rather than a subclass's own,
+   // which is for the editor moving one.  It sets the render transform too.
+   SceneObject::setTransform( mat );
+
+   if ( haveScale )
+      setScale( scale );
+
+   return true;
+}
+
+void ShapeBase::readT2PacketData( T2Reader &reader )
+{
+   Parent::readT2PacketData( reader );
+
+   T2Fields f( reader );
+
+   F32 energy;
+   if ( f.takeRawFloat( energy ) )
+      setEnergyLevel( energy );
+
+   f.takeRawFloat( mRechargeRate );
+}
+
 F32 ShapeBase::getUpdatePriority(CameraScopeQuery *camInfo, U32 updateMask, S32 updateSkips)
 {
    // If it's the scope object, must be high priority
@@ -3253,6 +3630,519 @@ U32 ShapeBase::packUpdate(NetConnection *con, U32 mask, BitStream *stream)
    }
 
    return retMask;
+}
+
+// HH: Added for Tribes 2 compatibility. -------------------------------------
+//
+// Which node of a layout holds which of this body's fields.
+//
+// A ShapeBase body is four sound slots, four animation threads and eight image
+// slots, and within a run every slot has the same shape: eleven bits of
+// datablock id, or five of sequence and two of state.  Shape cannot say which
+// slot a value belongs to, and which slot it is is the whole of the
+// information -- measured over nine recorded sessions, every Item body carries
+// exactly one thread and it is always slot 1, and a Player that carries two
+// images carries slots 0 and 2.  Filing them in the order they arrive is not
+// an approximation; for Item it is wrong every time.
+//
+// So the slots are taken by node index, which is the field's identity, and the
+// identities come from the generator rather than from counting nodes by hand:
+// handlayout.py names the fields of the layouts it writes and genghost.py
+// emits them.  Every take still checks the shape as well, so a regenerated
+// table that moved a field fails on the shape rather than quietly filling a
+// member from somewhere else.
+//
+// A layout the walk recovered names nothing, and for those this reads the
+// damage fields -- whose widths are unique -- and leaves the rest to be
+// discarded.  It does not guess: past the damage fields almost every width in
+// this body occurs twice, so a body with its first slot absent would file the
+// second slot's value into the first slot's member.  The fix for one of those
+// six classes is one line in handlayout.py, describing it the way Player,
+// Item, Camera, StaticShape and Turret are already described.
+struct ShapeBaseT2Nodes
+{
+   U32 damageLevel, damageState, damageDir;
+   U32 sound[ShapeBase::T2MaxSoundSlots];
+   U32 threadSequence[ShapeBase::T2MaxThreadSlots];
+   U32 threadState[ShapeBase::T2MaxThreadSlots];
+   U32 imageDataBlock[ShapeBase::T2MaxImageSlots];
+   U32 imageSkinTag[ShapeBase::T2MaxImageSlots];
+   U32 imageSkinName[ShapeBase::T2MaxImageSlots];
+   U32 imageFireCount[ShapeBase::T2MaxImageSlots];
+   U32 fadeTime, shieldNormal, energyPercent, stateValue1, stateValue2;
+   U32 mountObject, mountNode;
+
+   // The booleans.  A flag is never a field the cursor stands on -- it reads
+   // one to pick the next node -- so these are read by node out of the record
+   // T2Reader keeps, which is the only way a class sees a boolean at all.
+   U32 blowApart, cloaked, isControlled, fading, fadeOut, fadeVal, stateBMode;
+   U32 threadForward[ShapeBase::T2MaxThreadSlots];
+   U32 threadAtEnd[ShapeBase::T2MaxThreadSlots];
+   U32 imageTriggerDown[ShapeBase::T2MaxImageSlots];
+   U32 imageLoaded[ShapeBase::T2MaxImageSlots];
+   U32 imageAmmo[ShapeBase::T2MaxImageSlots];
+   U32 imageWet[ShapeBase::T2MaxImageSlots];
+   U32 imageTarget[ShapeBase::T2MaxImageSlots];
+   U32 imageFiring[ShapeBase::T2MaxImageSlots];
+
+   bool named;      ///< false when this layout names nothing
+};
+
+static U32 t2NodeOf( const char *className, const char *field, bool *any )
+{
+   const U32 node = T2Layout::ghostNode( className, field );
+   if ( node != U32( T2Reader::NoNode ) )
+      *any = true;
+   return node;
+}
+
+/// Resolved once per class rather than per packet: the lookup is a string
+/// search, and a ghost body arrives as often as packets do.
+static const ShapeBaseT2Nodes *t2NodesFor( const char *className )
+{
+   enum { MaxClasses = 24 };
+   static const char *sName[MaxClasses] = { 0 };
+   static ShapeBaseT2Nodes sNodes[MaxClasses];
+   static U32 sCount = 0;
+
+   for ( U32 i = 0; i < sCount; i++ )
+      if ( sName[i] == className || !dStrcmp( sName[i], className ) )
+         return &sNodes[i];
+
+   if ( sCount >= MaxClasses )
+      return NULL;
+
+   ShapeBaseT2Nodes &n = sNodes[sCount];
+   bool any = false;
+
+   n.damageLevel  = t2NodeOf( className, "damageLevel", &any );
+   n.damageState  = t2NodeOf( className, "damageState", &any );
+   n.damageDir    = t2NodeOf( className, "damageDir", &any );
+   n.fadeTime     = t2NodeOf( className, "fadeTime", &any );
+   n.shieldNormal = t2NodeOf( className, "shieldNormal", &any );
+   n.energyPercent = t2NodeOf( className, "energyPercent", &any );
+   n.stateValue1  = t2NodeOf( className, "stateValue1", &any );
+   n.stateValue2  = t2NodeOf( className, "stateValue2", &any );
+   n.mountObject  = t2NodeOf( className, "mountObject", &any );
+   n.mountNode    = t2NodeOf( className, "mountNode", &any );
+
+   n.blowApart    = t2NodeOf( className, "blowApart", &any );
+   n.cloaked      = t2NodeOf( className, "cloaked", &any );
+   n.isControlled = t2NodeOf( className, "isControlled", &any );
+   n.fading       = t2NodeOf( className, "fading", &any );
+   n.fadeOut      = t2NodeOf( className, "fadeOut", &any );
+   n.fadeVal      = t2NodeOf( className, "fadeVal", &any );
+   n.stateBMode   = t2NodeOf( className, "stateBMode", &any );
+
+   char field[64];
+   for ( U32 i = 0; i < ShapeBase::T2MaxSoundSlots; i++ )
+   {
+      dSprintf( field, sizeof( field ), "sound%d.profile", i );
+      n.sound[i] = t2NodeOf( className, field, &any );
+   }
+   for ( U32 i = 0; i < ShapeBase::T2MaxThreadSlots; i++ )
+   {
+      dSprintf( field, sizeof( field ), "thread%d.sequence", i );
+      n.threadSequence[i] = t2NodeOf( className, field, &any );
+      dSprintf( field, sizeof( field ), "thread%d.state", i );
+      n.threadState[i] = t2NodeOf( className, field, &any );
+      dSprintf( field, sizeof( field ), "thread%d.forward", i );
+      n.threadForward[i] = t2NodeOf( className, field, &any );
+      dSprintf( field, sizeof( field ), "thread%d.atEnd", i );
+      n.threadAtEnd[i] = t2NodeOf( className, field, &any );
+   }
+   for ( U32 i = 0; i < ShapeBase::T2MaxImageSlots; i++ )
+   {
+      dSprintf( field, sizeof( field ), "image%d.dataBlock", i );
+      n.imageDataBlock[i] = t2NodeOf( className, field, &any );
+      dSprintf( field, sizeof( field ), "image%d.skinTag", i );
+      n.imageSkinTag[i] = t2NodeOf( className, field, &any );
+      dSprintf( field, sizeof( field ), "image%d.skinName", i );
+      n.imageSkinName[i] = t2NodeOf( className, field, &any );
+      dSprintf( field, sizeof( field ), "image%d.fireCount", i );
+      n.imageFireCount[i] = t2NodeOf( className, field, &any );
+      dSprintf( field, sizeof( field ), "image%d.triggerDown", i );
+      n.imageTriggerDown[i] = t2NodeOf( className, field, &any );
+      dSprintf( field, sizeof( field ), "image%d.loaded", i );
+      n.imageLoaded[i] = t2NodeOf( className, field, &any );
+      dSprintf( field, sizeof( field ), "image%d.ammo", i );
+      n.imageAmmo[i] = t2NodeOf( className, field, &any );
+      dSprintf( field, sizeof( field ), "image%d.wet", i );
+      n.imageWet[i] = t2NodeOf( className, field, &any );
+      dSprintf( field, sizeof( field ), "image%d.target", i );
+      n.imageTarget[i] = t2NodeOf( className, field, &any );
+      dSprintf( field, sizeof( field ), "image%d.firing", i );
+      n.imageFiring[i] = t2NodeOf( className, field, &any );
+   }
+
+   n.named = any;
+   sName[sCount] = className;
+   sCount++;
+   return &n;
+}
+
+/// A fraction of the stated width, whichever way the layout types it.  The
+/// hand-written layouts read these as a raw field of n bits and the walked
+/// ones as a float of n, and both are the same bits over the same range.
+static bool takeT2Fraction( T2Fields &f, U32 bits, F32 &out )
+{
+   if ( f.takeFloat( bits, out ) )
+      return true;
+
+   U32 raw;
+   if ( !f.takeInt( bits, raw ) )
+      return false;
+
+   out = F32( raw ) / F32( ( 1 << bits ) - 1 );
+   return true;
+}
+
+/// readNormalVector(8), which the layouts carry two ways: as the two signed
+/// floats the binary reads, or as the seventeen bits they occupy.  Rebuilt
+/// here the way BitStream::readNormalVector does it, so a damage direction
+/// means the same thing whichever layout it arrived in.
+static bool takeT2Normal( T2Fields &f, Point3F &out )
+{
+   F32 phi, theta;
+
+   if ( f.at( T2Protocol::OpSignedFloat, 9 ) )
+   {
+      if ( !f.takeFloat( 9, phi ) || !f.takeFloat( 8, theta ) )
+         return false;
+   }
+   else
+   {
+      U32 word;
+      if ( !f.takeInt( 17, word ) )
+         return false;
+
+      // The nine bits of phi were written first, so they are the low ones.
+      const U32 phiBits = word & 0x1FF;
+      const U32 thetaBits = ( word >> 9 ) & 0xFF;
+      phi   = F32( phiBits ) * 2.0f / 511.0f - 1.0f;
+      theta = F32( thetaBits ) * 2.0f / 255.0f - 1.0f;
+   }
+
+   phi   *= M_PI_F;
+   theta *= M_PI_F / 2.0f;
+
+   out.x = mSin( phi ) * mCos( theta );
+   out.y = mCos( phi ) * mCos( theta );
+   out.z = mSin( theta );
+   return true;
+}
+
+/// The fields, in the order the body sends them.  Split out so that the flags
+/// can be taken after every one of them: a flag is readable only once the
+/// cursor has gone past it, and the cursor moves only when a field is taken.
+/// Returns the node map, or NULL if there is nothing more to do.
+
+const ShapeBaseT2Nodes *ShapeBase::_readT2Values( T2Reader& reader )
+{
+   // GameBase: the datablock this is built from, and the sensor target it is.
+   Parent::readT2Fields( reader );
+
+   const ShapeBaseT2Nodes *n = t2NodesFor( getClassName() );
+   if ( !n )
+      return NULL;
+
+   T2Fields f( reader );
+
+   // DamageMask.  Six bits of level, two of state and a packed normal, and
+   // those three widths are unique in this body -- so they are taken by shape
+   // and read the same for a walked layout as for a written one.
+   F32 level;
+   if ( takeT2Fraction( f, DamageLevelBits, level ) )
+   {
+      const DamageState was = mDamageState;
+
+      // The wire carries a fraction of this datablock's maximum, the way
+      // Torque's own unpackUpdate reads it.
+      if ( mDataBlock )
+         mDamage = mClampF( level * mDataBlock->maxDamage, 0.0f,
+                            mDataBlock->maxDamage );
+
+      U32 state;
+      if ( f.takeInt( DamageStateBits, state ) && state < NumDamageStates )
+         mDamageState = DamageState( state );
+
+      takeT2Normal( f, damageDir );
+
+      if ( was != Destroyed && mDamageState == Destroyed && isProperlyAdded() )
+         blowUp();
+
+      updateDamageLevel();
+      updateDamageState();
+   }
+
+   // Everything from here on is a run of same-shaped fields, so without names
+   // there is nothing safe left to take.
+
+   if ( !n->named )
+      return n;
+
+   // SoundMask: four slots, each sending the profile it is playing.  One pass
+   // in slot order, taking a slot only where the cursor is standing on it, so
+   // a run with holes files each value against the slot it came from.
+   for ( U32 i = 0; i < T2MaxSoundSlots; i++ )
+   {
+      U32 id;
+      if ( f.atNode( n->sound[i] ) && f.takeDataBlockId( id ) )
+         mT2Sound[i].profileId = S32( id );
+   }
+
+   // ThreadMask: four animation slots.
+   for ( U32 i = 0; i < T2MaxThreadSlots; i++ )
+   {
+      S32 sequence;
+      if ( !f.atNode( n->threadSequence[i] ) ||
+           !f.takeInt( T2ThreadSequenceBits, sequence ) )
+         continue;
+
+      mT2Thread[i].sequence = sequence;
+
+      S32 state;
+      if ( f.atNode( n->threadState[i] ) && f.takeInt( 2, state ) )
+         mT2Thread[i].state = state;
+
+      // Torque keeps four threads as well, so the engine's own animation
+      // handling can be given this one directly -- once there is a shape for
+      // it to run on.  A Tribes 2 ghost can be read before the datablock it
+      // names has arrived, which is a case the Torque path never has to face.
+      if ( i < U32( MaxScriptThreads ) && mShapeInstance )
+      {
+         Thread &st = mScriptThread[i];
+         if ( mT2Thread[i].state >= 0 )
+            st.state = U32( mT2Thread[i].state );
+         if ( st.sequence != sequence && st.state != Thread::Destroy )
+            setThreadSequence( i, sequence, false );
+      }
+   }
+
+   // ImageMask: eight mounted slots, four of which Torque can hold.
+   for ( U32 i = 0; i < T2MaxImageSlots; i++ )
+   {
+      T2ImageSlot &slot = mT2Image[i];
+      bool here = false;
+
+      U32 id;
+      if ( f.atNode( n->imageDataBlock[i] ) && f.takeDataBlockId( id ) )
+      {
+         slot.dataBlockId = S32( id );
+         here = true;
+      }
+
+      // The skin arrives either as a tag index or as a name, never both.
+      S32 tag;
+      char skin[256];
+      if ( f.atNode( n->imageSkinTag[i] ) && f.takeInt( 10, tag ) )
+      {
+         slot.skinTag = tag;
+         here = true;
+      }
+      else if ( f.atNode( n->imageSkinName[i] ) &&
+                f.takeString( skin, sizeof( skin ) ) )
+      {
+         slot.skinName = StringTable->insert( skin );
+         here = true;
+      }
+
+      U32 fired;
+      if ( f.atNode( n->imageFireCount[i] ) && f.takeInt( NumImageBits, fired ) )
+      {
+         slot.fireCount = fired;
+         here = true;
+      }
+
+      // Mounting the slot waits until the flags have been read, below: what
+      // Torque wants alongside the datablock is whether the image is loaded,
+      // has ammo and is firing, and those are flags.
+      slot.present = slot.present || here;
+   }
+
+   // The shield, cloak and invincible group.  The fade time and the two state
+   // values are all thirty-two bits and the energy percentage is five, which
+   // the thread sequences are too, so these go by node as well.
+   if ( f.atNode( n->fadeTime ) )
+      f.takeRawFloat( mT2FadeTime );
+
+   if ( f.atNode( n->shieldNormal ) )
+   {
+      takeT2Normal( f, mT2ShieldNormal );
+      if ( f.atNode( n->energyPercent ) )
+         takeT2Fraction( f, EnergyLevelBits, mT2EnergyPercent );
+   }
+
+   if ( f.atNode( n->stateValue1 ) )
+   {
+      f.takeInt( 32, mT2StateValue1 );
+      if ( f.atNode( n->stateValue2 ) )
+         f.takeInt( 32, mT2StateValue2 );
+   }
+
+   // MountedMask: the ghost we are mounted to and the node we sit on.
+   if ( f.atNode( n->mountObject ) )
+   {
+      S32 ghostIndex;
+      if ( f.takeInt( 10, ghostIndex ) )
+      {
+         mT2MountObject = ghostIndex;
+
+         if ( f.atNode( n->mountNode ) )
+            f.takeInt( 5, mT2MountNode );
+
+         // Mounted the way SceneObject::unpackUpdate mounts off a Torque wire:
+         // the object we are mounted to does the mounting.  A ghost that has
+         // not arrived yet leaves the index stored and the mount for the next
+         // body to carry; failing the packet over it would cost every other
+         // object in the same packet.
+         if ( NetConnection *con = NetConnection::getConnectionToServer() )
+         {
+            SceneObject *to =
+               dynamic_cast< SceneObject * >( con->resolveGhost( mT2MountObject ) );
+            if ( to && to != this && mMount.object != to )
+               to->mountObject( this, mT2MountNode >= 0 ? mT2MountNode : 0 );
+         }
+      }
+   }
+
+   return n;
+}
+
+// HH: Added for Tribes 2 compatibility.
+//
+// StaticShape's own section: an affine transform, a scale, and whether the
+// thing has power.  It lives here because four classes read exactly this --
+// MissionMarker, Turret, AIObjective and ScopeAlwaysShape -- and StaticShape,
+// which is where it belongs, has no reader of its own yet.  When it gets one
+// it should call this rather than repeat it.
+//
+void ShapeBase::readT2Fields( T2Reader& reader )
+{
+   const ShapeBaseT2Nodes *n = _readT2Values( reader );
+   if ( !n || !n->named )
+      return;
+
+   T2Fields f( reader );
+
+   // The booleans, every one of them after every field above.  Two thirds of
+   // this body is flags and none of them was readable until T2Reader began
+   // keeping the record: a turret body carries sixty-four of them.
+   //
+   // One thing the order rule does not cover, and it matters for the six
+   // classes whose layouts came from the walk: a flag is recorded when the
+   // cursor goes past it, so a flag behind a field this reader did not take is
+   // still missed, even asked for last.  Here that is safe because everything
+   // above takes every field a named layout offers, which leaves the cursor
+   // past the last of them.  A class that stops early does not get the flags
+   // behind where it stopped.
+   f.takeFlagNamed( n->blowApart, mT2BlowApart );
+   f.takeFlagNamed( n->isControlled, mT2IsControlled );
+   f.takeFlagNamed( n->stateBMode, mT2StateBMode );
+
+   // Cloaking and fading go to the engine's own members, which is what the
+   // render path reads: a cloaked player is drawn by mCloaked and a fading one
+   // by mFading and mFadeVal.
+   bool cloaked = false;
+   if ( f.takeFlagNamed( n->cloaked, cloaked ) && cloaked != mCloaked )
+      setCloakedState( cloaked );
+
+   if ( f.takeFlagNamed( n->fading, mFading ) )
+   {
+      if ( mFading )
+      {
+         f.takeFlagNamed( n->fadeOut, mFadeOut );
+         mFadeTime = mT2FadeTime;
+      }
+      else
+      {
+         // Not fading: the flag says whether it is visible, which is the one
+         // end of the fade or the other.
+         bool visible = true;
+         if ( f.takeFlagNamed( n->fadeVal, visible ) )
+            mFadeVal = visible ? 1.0f : 0.0f;
+      }
+   }
+
+   for ( U32 i = 0; i < T2MaxThreadSlots; i++ )
+   {
+      f.takeFlagNamed( n->threadForward[i], mT2Thread[i].forward );
+      if ( f.takeFlagNamed( n->threadAtEnd[i], mT2Thread[i].atEnd ) &&
+           i < U32( MaxScriptThreads ) )
+         mScriptThread[i].atEnd = mT2Thread[i].atEnd;
+   }
+
+   for ( U32 i = 0; i < T2MaxImageSlots; i++ )
+   {
+      T2ImageSlot &slot = mT2Image[i];
+
+      f.takeFlagNamed( n->imageTriggerDown[i], slot.triggerDown );
+      f.takeFlagNamed( n->imageLoaded[i], slot.loaded );
+      f.takeFlagNamed( n->imageAmmo[i], slot.ammo );
+      f.takeFlagNamed( n->imageWet[i], slot.wet );
+      f.takeFlagNamed( n->imageTarget[i], slot.target );
+      f.takeFlagNamed( n->imageFiring[i], slot.firing );
+
+      if ( !slot.present || i >= U32( MaxMountedImages ) )
+         continue;
+
+      // Mount it, which is what makes the thing appear in the world: setImage
+      // loads the image's shape, starts its threads and puts it on its mount
+      // node.  Now that the flags are readable it goes on with the state the
+      // server sent rather than with whatever the slot last held.
+      if ( slot.dataBlockId >= 0 && mDataBlock && mShapeInstance )
+      {
+         ShapeBaseImageData *data = NULL;
+         if ( Sim::findObject( SimObjectId( slot.dataBlockId ), data ) )
+         {
+            MountedImage &image = mMountedImageList[i];
+            NetStringHandle skinHandle = image.skinNameHandle;
+            if ( image.dataBlock != data )
+               setImage( i, data, skinHandle, slot.loaded, slot.ammo,
+                         slot.triggerDown, image.altTriggerDown, image.motion,
+                         image.genericTrigger[0], image.genericTrigger[1],
+                         image.genericTrigger[2], image.genericTrigger[3],
+                         slot.target );
+            else
+            {
+               setImageTriggerState( i, slot.triggerDown );
+               setImageAmmoState( i, slot.ammo );
+               setImageWetState( i, slot.wet );
+            }
+         }
+      }
+   }
+
+}
+
+// HH: What the reader above filed.
+//
+// damageLevel is not here, and the reason is the harness rather than the
+// reader: the body sends a fraction and ShapeBase scales it by the
+// datablock's maxDamage, so without a registered datablock -- which replaying
+// a body outside a connection has none of -- mDamage is never written at all.
+// Dumping it would compare a zero this reader deliberately did not set.
+void ShapeBase::dumpT2Members( T2Dump& d ) const
+{
+   Parent::dumpT2Members( d );
+
+   d.put( "damageState", S32( mDamageState ) );
+   d.put( "damageDir", damageDir );
+   d.put( "shieldNormal", mT2ShieldNormal );
+   d.put( "energyPercent", mT2EnergyPercent );
+   d.put( "stateValue1", mT2StateValue1 );
+   d.put( "stateValue2", mT2StateValue2 );
+   d.put( "blowApart", mT2BlowApart );
+   d.put( "isControlled", mT2IsControlled );
+   d.put( "cloaked", mCloaked );
+   d.put( "fading", mFading );
+   d.put( "fadeVal", mFadeVal != 0.0f );
+
+   // targetId and dataBlockId are not here.  The nearest member to the first
+   // is mT2MountObject, and both sit at -1 on every marker in a recorded
+   // mission -- so naming one as the other would read as an agreement forever
+   // while claiming something untrue about a mount.  An agreement that cannot
+   // fail is worse than a gap, because the gap is counted.
 }
 
 void ShapeBase::unpackUpdate(NetConnection *con, BitStream *stream)

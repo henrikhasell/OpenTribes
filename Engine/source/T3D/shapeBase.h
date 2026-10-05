@@ -76,6 +76,7 @@ class ProjectileData;
 class ExplosionData;
 struct DebrisData;
 class ShapeBase;
+class T2Fields;   // HH: Added for Tribes 2 compatibility.
 class SFXSource;
 class SFXTrack;
 class SFXProfile;
@@ -481,7 +482,53 @@ struct ShapeBaseImageData: public GameBaseData {
    static void initPersistFields();
    virtual void packData(BitStream* stream);
    virtual void unpackData(BitStream* stream);
-   
+   void readT2Fields(T2Reader& reader);   // HH: Added for Tribes 2 compatibility.
+
+   /// The thirty-one entry state machine at the tail of the body, read after
+   /// everything in front of it.  See the definition.
+   void _readT2States(class T2Fields& f,
+                      const struct ShapeBaseImageDataT2Nodes *nodes);
+
+   /// HH: Added for Tribes 2 compatibility.  What Tribes 2 sends for a
+   /// mounted image that Torque has no field for.
+   /// @{
+   S32     mT2ProjectileId;
+   S32     mT2MuzzleFlashId;
+   bool    mT2IsSeeker;
+   F32     mT2SeekerRadius;
+   F32     mT2MaxSeekAngle;
+   F32     mT2SeekerLockTime;
+   F32     mT2SeekerFreeTime;
+   F32     mT2MaxLockRange;
+   S32     mT2LightTime;
+   bool    mT2IsTargetLockRequired;
+   Point3F mT2ShellExitDir;
+   F32     mT2ShellExitVariance;
+   F32     mT2ShellVelocity;
+   S32     mT2CasingId;
+   bool    mT2AccuFire;
+
+   /// The thirty-one entry state machine, as far as Torque has no field for
+   /// it.  Its name, timeout, fire and eject flags, loaded and spin and
+   /// recoil states, emitter and the rest all go into the state arrays above,
+   /// because that machine is Torque's too and ShapeBase runs it; what is
+   /// here is what Tribes 2 sends in a form Torque does not keep.
+   ///
+   /// A transition is a one-based state index on the wire where Torque wants
+   /// the name of a state, so the indices are kept and turned into names once
+   /// every state has arrived -- a transition can point at a state later in
+   /// the list than the one carrying it.
+   /// @{
+   bool    mT2StateSent[MaxStates];
+   S32     mT2StateTransition[MaxStates][11];
+   S32     mT2StateSequence[MaxStates];     ///< a sequence index, not a name
+   S32     mT2StateSequenceVis[MaxStates];
+   bool    mT2StateFlashSequence[MaxStates];
+   S32     mT2StateEmitterNode[MaxStates];  ///< a node index, not a name
+   S32     mT2StateSoundId[MaxStates];      ///< an AudioProfile id
+   /// @}
+   /// @}
+
    void inspectPostApply();
 
    /// @}
@@ -585,6 +632,32 @@ public:
    U32 mCRC;
    bool computeCRC;
 
+   /// HH: Added for Tribes 2 compatibility.  What Tribes 2's ShapeBaseData
+   /// sends that Torque has no field for.
+   /// @{
+   S32               mT2SensorRadius;
+   ColorI            mT2SensorColor;
+   F32               mT2Heat;
+   StringTableEntry  mT2CmdCategory;
+   StringTableEntry  mT2CmdMiniIconName;
+   S32               mT2CmdIconId;
+   /// HH: Added for Tribes 2 compatibility.  Three booleans Tribes 2 sends
+   /// that this tree has no field for: whether a client may take this object
+   /// over, whether it may watch through it, and whether watching sees past
+   /// the object itself.  Unreadable until the datablock table carried names
+   /// for their nodes, a flag being reachable only by the node that read it.
+   bool              mT2CanControl;
+   bool              mT2CanObserve;
+   bool              mT2ObserveThroughObject;
+
+   /// Environment mapping.  ShapeBaseImageData has a field of this name and
+   /// ShapeBaseData does not, so it is kept here rather than written there.
+   bool              mT2Emap;
+
+   U32               mT2ShieldEffectLifetimeMS;
+   Point3F           mT2ShieldEffectScale;
+   /// @}
+
    S32 eyeNode;                         ///< Shape's eye node index
    S32 earNode;                         ///< Shape's ear node index
    S32 cameraNode;                      ///< Shape's camera node index
@@ -657,6 +730,7 @@ public:
    static void initPersistFields();
    virtual void packData(BitStream* stream);
    virtual void unpackData(BitStream* stream);
+   void readT2Fields(T2Reader& reader);   // HH: Added for Tribes 2 compatibility.
    /// @}
 
    /// @name Callbacks
@@ -698,6 +772,24 @@ public:
    enum PublicConstants {
       ThreadSequenceBits = 6,
       MaxSequenceIndex = (1 << ThreadSequenceBits) - 1,
+
+      /// HH: Added for Tribes 2 compatibility.
+      ///
+      /// Tribes 2 sends an animation thread's sequence in five bits, not the
+      /// six Torque uses, and this is a separate constant rather than a change
+      /// to the one above because that one is still Torque's own wire format at
+      /// packUpdate and unpackUpdate.
+      ///
+      /// Unanimous across the recovered tables: every one of the sixteen ghost
+      /// classes with a thread slot has thread0.sequence as a five-bit field.
+      /// Asking for six made the take fail on its width, and because the slot
+      /// loop skips a slot it cannot read rather than stopping, the cursor sat
+      /// on that node for the rest of the body -- so every field behind it was
+      /// lost: the other threads, all eight image slots, the shield normal, the
+      /// energy, the state values, the mount, and the transform and scale a
+      /// subclass reads after this returns.  A StaticShape therefore stood at
+      /// the origin while the body plainly carried a position.
+      T2ThreadSequenceBits = 5,
       EnergyLevelBits = 5,
       DamageLevelBits = 6,
       DamageStateBits = 2,
@@ -721,6 +813,48 @@ public:
       NumDamageStates,
       NumDamageStateBits = 2,   ///< Should be log2 of the number of states.
    };
+
+   /// HH: Added for Tribes 2 compatibility.
+   ///
+   /// What a Tribes 2 ShapeBase body carries, slot by slot.  Tribes 2 has
+   /// eight image slots where Torque has four, so the slots are kept here in
+   /// full and mounted into the engine's own list as far as it goes.
+   /// @{
+   enum
+   {
+      T2MaxImageSlots  = 8,
+      T2MaxSoundSlots  = 4,
+      T2MaxThreadSlots = 4,
+   };
+
+   struct T2SoundSlot
+   {
+      S32 profileId;                 ///< -1 when the slot sent nothing
+   };
+
+   struct T2ThreadSlot
+   {
+      S32  sequence;
+      S32  state;
+      bool forward;
+      bool atEnd;
+   };
+
+   struct T2ImageSlot
+   {
+      S32              dataBlockId;  ///< a ShapeBaseImageData id, or -1
+      S32              skinTag;      ///< the skin by tag, or -1
+      StringTableEntry skinName;     ///< or by name, where one was sent
+      U32              fireCount;
+      bool             present;      ///< the slot sent something this body
+      bool             triggerDown;
+      bool             loaded;
+      bool             ammo;
+      bool             wet;
+      bool             target;
+      bool             firing;       ///< sent on an initial body only
+   };
+   /// @}
 
 protected:
    ShapeBaseData*    mDataBlock;                ///< Datablock
@@ -989,6 +1123,33 @@ protected:
    TSThread *mDamageThread;
    TSThread *mHulkThread;
    VectorF damageDir;
+   /// @}
+
+   /// @name Tribes 2
+   /// HH: Added for Tribes 2 compatibility.  What the wire carries that the
+   /// engine has no field for, and the slots as sent.  The damage level, state
+   /// and direction go into mDamage, mDamageState and damageDir above instead,
+   /// so the engine's own damage handling acts on them.
+   /// @{
+   T2SoundSlot  mT2Sound[T2MaxSoundSlots];
+   T2ThreadSlot mT2Thread[T2MaxThreadSlots];
+   T2ImageSlot  mT2Image[T2MaxImageSlots];
+   F32          mT2FadeTime;
+   Point3F      mT2ShieldNormal;
+   F32          mT2EnergyPercent;
+   U32          mT2StateValue1;
+   U32          mT2StateValue2;
+   S32          mT2MountObject;      ///< the ghost we are mounted to, or -1
+   S32          mT2MountNode;
+
+   /// Which image slot this object is holding up, or -1 before a server has
+   /// said.  Not part of a body: SetObjectActiveImageEvent carries it, which
+   /// is how a client learns what another player has in his hands before the
+   /// slot's own fields arrive.
+   S32          mT2ActiveImage;
+   bool         mT2BlowApart;
+   bool         mT2IsControlled;     ///< a client somewhere is driving it
+   bool         mT2StateBMode;       ///< its energy pack is on
    /// @}
 
    /// @name Cloaking
@@ -1432,6 +1593,11 @@ public:
 
    /// @name Mounted Images
    /// @{
+
+   /// HH: Added for Tribes 2 compatibility.  Which image slot this object is
+   /// holding up, as SetObjectActiveImageEvent says so out of band.
+   void setT2ActiveImage( S32 imageSlot ) { mT2ActiveImage = imageSlot; }
+   S32  getT2ActiveImage() const { return mT2ActiveImage; }
 
    /// Mount an image (ShapeBaseImage) onto an image slot
    /// @param   image   ShapeBaseImage to mount
@@ -1895,6 +2061,53 @@ public:
    void unpackUpdate(NetConnection *conn, BitStream *stream);
    void writePacketData(GameConnection *conn, BitStream *stream);
    void readPacketData(GameConnection *conn, BitStream *stream);
+   void readT2PacketData( T2Reader &reader );   // HH: Added for Tribes 2 compatibility.
+
+   /// HH: Added for Tribes 2 compatibility.
+   ///
+   /// The affine transform and the scale that the mission_marker() layer in
+   /// Tools/t2/handlayout.py ends with, applied to this object.
+   ///
+   /// Here rather than in one of the classes because the layout says the two
+   /// share a layer: StaticShape's description is mission_marker() plus a
+   /// power flag, so MissionMarker and StaticShape read the same bits in the
+   /// same place and reading them twice is how the two come to disagree.
+   /// WayPoint, SpawnSphere and Turret are built from the same layer.
+   ///
+   /// Resolved by class name, since each layout numbers its own nodes.
+   /// Returns false when this class's layout names nothing -- a walked layout
+   /// has no names -- or when the body carried no position.
+   bool readT2Position( T2Fields &f );
+
+   /// HH: Added for Tribes 2 compatibility.
+   ///
+   /// The Tribes 2 ShapeBase body: damage, four sound slots, four animation
+   /// threads, eight image slots, the shield and cloak group and the mount.
+   /// Eleven classes read this before their own fields, so each of them gets
+   /// it by calling Parent::readT2Fields() first -- there is nothing to
+   /// reimplement, and a subclass that names its own layout's fields in
+   /// Tools/t2/handlayout.py gets the slots filed by slot rather than by
+   /// arrival.  See the definition for what that means.
+   void readT2Fields(T2Reader& reader);
+
+   /// HH: Added for Tribes 2 compatibility.
+   ///
+   /// What the above filed, for the value check.  The damage state, the
+   /// damage direction and the mount, which are what a recorded mission's
+   /// ghost-always markers carry.  The slot arrays are not here: a sound,
+   /// thread or image slot is identified by its slot number and the second
+   /// reader reports them under names of its own, so pairing them is a
+   /// separate claim and a wrong one would read as a fault in the reader.
+   void dumpT2Members(T2Dump& d) const;
+
+protected:
+   /// The field half of the above, so that the flags can be taken after every
+   /// field has been: a flag is readable only once the cursor has gone past
+   /// it.  Returns this layout's node map, or NULL when there is none.
+   const struct ShapeBaseT2Nodes *_readT2Values(T2Reader& reader);
+
+
+public:
 
    /// @}
 

@@ -67,6 +67,16 @@ public:
 
    bool windowFull();
    bool connectionEstablished();
+
+   /// HH: Added for Tribes 2 compatibility.
+   /// The sliding window's own counters, so a client that has gone silent can
+   /// be asked why rather than inferred about.  checkPacketSend stops sending
+   /// entirely once `mLastSendSeq - mHighestAckedSeq >= 30`, and a client that
+   /// stops sending is one the server times out and disconnects -- which is
+   /// what the join drop turned out to be.  Read-only and used by a probe.
+   U32 getLastSendSeq() const    { return mLastSendSeq; }
+   U32 getHighestAckedSeq() const { return mHighestAckedSeq; }
+   U32 getLastSeqRecvd() const   { return mLastSeqRecvd; }
    void setConnectSequence(U32 connectSeq) { mConnectSequence = connectSeq; }
 
    virtual void writeDemoStartBlock(ResizeBitStream *stream);

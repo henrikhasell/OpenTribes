@@ -21,6 +21,9 @@
 //-----------------------------------------------------------------------------
 
 #include "T3D/missionMarker.h"
+#include "T3D/gameBase/t2MemberDump.h"   // HH: Added for Tribes 2 compatibility.
+#include "T3D/gameBase/t2Fields.h"   // HH: Added for Tribes 2 compatibility.
+#include "T3D/gameBase/t2Layout.h"
 #include "console/consoleTypes.h"
 #include "core/color.h"
 #include "console/engineAPI.h"
@@ -164,6 +167,32 @@ U32 MissionMarker::packUpdate(NetConnection * con, U32 mask, BitStream * stream)
    return(retMask);
 }
 
+// HH: Added for Tribes 2 compatibility.
+//
+// MissionMarker's own section is the transform and the scale that the
+// mission_marker() layer in Tools/t2/handlayout.py ends with, and the reading
+// of it now lives on ShapeBase: StaticShape's description is this layer plus a
+// power flag, so the two read the same bits in the same place and reading them
+// twice is how they come to disagree.  WayPoint, SpawnSphere and Turret are
+// built from the same layer.
+//
+// Unlike ShapeBase's own layout, replacing this one was measurable rather than
+// a judgement: MissionMarker agrees with t2-demo-parser to the bit over nine
+// sessions, and still does.
+void MissionMarker::readT2Fields( T2Reader& reader )
+{
+   // ShapeBase's body: the datablock, the damage, the sounds, the animation
+   // threads, the image slots, the shield group and the mount.
+   Parent::readT2Fields( reader );
+
+   T2Fields f( reader );
+   readT2Position( f );
+}
+
+// MissionMarkerData adds no fields of its own: its layout in
+// t2DataBlockTables.h is byte-identical to ShapeBaseData's, so what reads one
+// reads the other and ShapeBaseData::readT2Fields is inherited unchanged.
+
 void MissionMarker::unpackUpdate(NetConnection * con, BitStream * stream)
 {
    Parent::unpackUpdate(con, stream);
@@ -288,6 +317,80 @@ void WayPoint::unpackUpdate(NetConnection * con, BitStream * stream)
       stream->read(&mTeam.mTeamId);
    if(stream->readFlag())
       setHidden(stream->readFlag());
+}
+
+// HH: Added for Tribes 2 compatibility.
+//
+// The three masks WayPoint adds to MissionMarker's, which are the reading
+// above field for field: this engine's WayPoint::unpackUpdate is already the
+// retail one, and BananaEngine's transcription and t2-demo-parser agree with
+// both on the same string, the same thirty-two bit team and the same hidden
+// flag in the same order.
+//
+// Its layout was the largest the walk produced -- 1,052 nodes where this
+// description takes 204 -- and almost none of it was WayPoint's: ShapeBase's
+// body and MissionMarker's position, inlined in place.  Built from
+// mission_marker() now, so everything above here is read by the class that
+// owns it and this adds only what is genuinely new.
+void WayPoint::readT2Fields( T2Reader& reader )
+{
+   // ShapeBase's body, then MissionMarker's transform and scale.
+   Parent::readT2Fields( reader );
+
+   // Resolved once per class rather than per packet: the lookup is a string
+   // search.  Only the hidden flag needs a node -- a flag is never a field the
+   // cursor stands on -- while the name is the only string left in the body
+   // and the team the only remaining word, so those two go by shape and
+   // survive a regeneration that moved them.
+   static U32 sHiddenNode = U32( T2Reader::NoNode );
+   static bool sResolved = false;
+   if ( !sResolved )
+   {
+      sHiddenNode = T2Layout::ghostNode( "WayPoint", "hidden" );
+      sResolved = true;
+   }
+
+   T2Fields f( reader );
+
+   char name[256];
+   if ( f.takeString( name, sizeof( name ) ) )
+      // HH: Interned case-sensitively, which the default is not.
+      //
+      // StringTable::insert's caseSens defaults to false, and that is not a
+      // lowercasing -- it is a case-insensitive *lookup* that returns whatever
+      // spelling got there first.  A waypoint named "Base" therefore came back
+      // as "base", because this mission's interiors intern a skinBase of
+      // "base" and they arrive first.  So the name a marker ends up with
+      // depended on an unrelated string in an earlier packet, and the HUD drew
+      // the loser.
+      //
+      // Found by the ghost value check and findable by nothing else here: the
+      // body is the right length, the string is the right length, and the only
+      // difference is a letter.  Every other reader that interns a string off
+      // the wire has the same hazard waiting on a collision -- shapeName,
+      // interiorFile, materialList, the flare textures -- and they are left
+      // alone because for a file name resolved through the ResManager hash the
+      // case-insensitive form may be load-bearing.  This one is a name shown
+      // to a player.
+      mName = StringTable->insert( name, true );
+
+   f.takeInt( 32, mTeam.mTeamId );
+
+   // After the fields, which is the rule: a flag is recorded only once the
+   // cursor has gone past it, and the cursor moves only when a field is taken.
+   bool hidden = false;
+   if ( f.takeFlag( sHiddenNode, hidden ) )
+      setHidden( hidden );
+}
+
+// HH: What the reader above filed.
+void WayPoint::dumpT2Members( T2Dump& d ) const
+{
+   Parent::dumpT2Members( d );
+
+   d.put( "name", mName );
+   d.put( "teamId", mTeam.mTeamId );
+   d.put( "hidden", isHidden() );
 }
 
 //-----------------------------------------------------------------------------
@@ -470,6 +573,56 @@ void SpawnSphere::unpackUpdate(NetConnection * con, BitStream * stream)
       stream->read(&mSpawnProperties);
       stream->read(&mSpawnScript);
    }
+}
+
+// HH: Added for Tribes 2 compatibility.
+//
+// Not the reading above, which is the one place in this file where the two
+// engines parted company: Torque 3D's spawn sphere sends an auto-spawn flag
+// and five strings naming what to build, where Tribes 2 sends the geometry of
+// the sphere itself -- a radius and the three weights that choose between
+// spawning on the sphere, indoors or outdoors.  WayPoint beside it did not
+// diverge; this one did, so the fields come from t2-demo-parser and
+// BananaEngine's transcription of the retail reader, which agree, rather than
+// from the function above.
+//
+// The four land in the members this engine still carries for them and marks
+// deprecated, which is what makes them worth filing: they are script-visible
+// persist fields, and a Tribes 2 mission's spawn geometry is read from script
+// rather than from the engine's own spawnObject().  Where the sphere stands
+// comes from MissionMarker's transform, read before this.
+//
+// SpawnSphere::unpackUpdate at 0x66af50.  Its layout was the last in the
+// protocol still on a raw walk: 1,051 nodes of which one mask was its own.
+void SpawnSphere::readT2Fields( T2Reader& reader )
+{
+   // ShapeBase's body, then MissionMarker's transform and scale.
+   Parent::readT2Fields( reader );
+
+   T2Fields f( reader );
+
+   // By shape, with no node needed: these four are the only fields left in the
+   // body by the time the parents are done, they are unconditional within
+   // their mask, and a body without that mask leaves the cursor at the end so
+   // the first take misses and the rest with it.  Shape also survives the
+   // tables being regenerated, which a node index does not.
+   if ( !f.takeRawFloat( mRadius ) )
+      return;
+
+   f.takeRawFloat( mSphereWeight );
+   f.takeRawFloat( mIndoorWeight );
+   f.takeRawFloat( mOutdoorWeight );
+}
+
+// HH: What the reader above filed.
+void SpawnSphere::dumpT2Members( T2Dump& d ) const
+{
+   Parent::dumpT2Members( d );
+
+   d.put( "radius", mRadius );
+   d.put( "sphereWeight", mSphereWeight );
+   d.put( "indoorWeight", mIndoorWeight );
+   d.put( "outdoorWeight", mOutdoorWeight );
 }
 
 void SpawnSphere::processTick( const Move *move )

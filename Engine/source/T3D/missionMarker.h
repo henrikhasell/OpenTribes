@@ -84,6 +84,13 @@ class MissionMarker : public ShapeBase
       U32  packUpdate  (NetConnection *conn, U32 mask, BitStream *stream);
       void unpackUpdate(NetConnection *conn,           BitStream *stream);
 
+      /// HH: Added for Tribes 2 compatibility.
+      ///
+      /// ShapeBase's whole body and then where the marker stands.  WayPoint
+      /// and SpawnSphere inherit this: both read exactly this much before
+      /// their own fields, so neither has to describe it again.
+      void readT2Fields(T2Reader& reader);
+
       DECLARE_CONOBJECT(MissionMarker);
       static void initPersistFields();
 };
@@ -129,6 +136,8 @@ class WayPoint : public MissionMarker
       // NetObject
       U32 packUpdate(NetConnection *conn, U32 mask, BitStream *stream);
       void unpackUpdate(NetConnection *conn, BitStream *stream);
+      void readT2Fields(T2Reader& reader);   // HH: Added for Tribes 2 compatibility.
+      void dumpT2Members(T2Dump& d) const;   // HH: Added for Tribes 2 compatibility.
 
       // field data
       StringTableEntry              mName;
@@ -164,6 +173,8 @@ class SpawnSphere : public MissionMarker
 
       U32  packUpdate  (NetConnection *conn, U32 mask, BitStream *stream);
       void unpackUpdate(NetConnection *conn,           BitStream *stream);
+      void readT2Fields(T2Reader& reader);   // HH: Added for Tribes 2 compatibility.
+      void dumpT2Members(T2Dump& d) const;   // HH: Added for Tribes 2 compatibility.
 
       // ProcessObject
       void advanceTime( F32 timeDelta );

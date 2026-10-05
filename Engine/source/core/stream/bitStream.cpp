@@ -144,7 +144,7 @@ class HuffmanProcessor
 
    static HuffmanProcessor g_huffProcessor;
 
-   bool readHuffBuffer(BitStream* pStream, char* out_pBuffer);
+   bool readHuffBuffer(BitStream* pStream, char* out_pBuffer, U32 maxLen);
    bool writeHuffBuffer(BitStream* pStream, const char* out_pBuffer, S32 maxLen);
 };
 
@@ -668,13 +668,32 @@ void BitStream::readString(char buf[256])
    {
       if(readFlag())
       {
+         // HH: Bounded.  Both the offset and the length behind it come off the
+         // wire, so this wrote stringBuffer[offset .. offset+len] with offset
+         // up to 255 and len up to 255 -- as much as 511 bytes into a 256-byte
+         // buffer, on the packet read path, with the span chosen by the sender.
+         //
+         // A well-formed Torque stream never gets there, because writeString
+         // only shares a prefix of the string it is about to send, so
+         // offset+len is that string's length.  Nothing checked it, though, and
+         // a read that has drifted by a bit produces an arbitrary offset and an
+         // arbitrary length from whatever bits follow.  GameConnection's own
+         // readPacket puts this buffer on the stack, so the result is a stack
+         // write past the end with wire data.
+         //
+         // Found from a core: a projectile's mDataBlock held the bytes
+         // "nts.2\0bo" -- the tail of a file name -- and the faulting
+         // instruction was the movss that reads muzzleVelocity through it.
          S32 offset = readInt(8);
-         HuffmanProcessor::g_huffProcessor.readHuffBuffer(this, stringBuffer + offset);
+         if(offset > 255)
+            offset = 255;
+         HuffmanProcessor::g_huffProcessor.readHuffBuffer(
+            this, stringBuffer + offset, 256 - offset);
          dStrcpy(buf, stringBuffer);
          return;
       }
    }
-   HuffmanProcessor::g_huffProcessor.readHuffBuffer(this, buf);
+   HuffmanProcessor::g_huffProcessor.readHuffBuffer(this, buf, 256);
    if(stringBuffer)
       dStrcpy(stringBuffer, buf);
 }
@@ -821,10 +840,20 @@ S16 HuffmanProcessor::determineIndex(HuffWrap& rWrap)
    }
 }
 
-bool HuffmanProcessor::readHuffBuffer(BitStream* pStream, char* out_pBuffer)
+// HH: maxLen added.  This wrote len+1 bytes with len straight off the wire and
+// no idea how much room it had; see BitStream::readString.  The bits are still
+// all consumed whatever maxLen is -- truncating the *stream* instead of the
+// buffer would desynchronise every reader behind this one, which is a worse
+// failure than a short string.
+bool HuffmanProcessor::readHuffBuffer(BitStream* pStream, char* out_pBuffer,
+                                      U32 maxLen)
 {
    if (m_tablesBuilt == false)
       buildTables();
+
+   if (maxLen == 0)
+      maxLen = 1;
+   const S32 room = S32(maxLen) - 1;
 
    if (pStream->readFlag()) {
       S32 len = pStream->readInt(8);
@@ -838,18 +867,30 @@ bool HuffmanProcessor::readHuffBuffer(BitStream* pStream, char* out_pBuffer)
                   index = m_huffNodes[index].index0;
                }
             } else {
-               out_pBuffer[i] = m_huffLeaves[-(index+1)].symbol;
+               if (i < room)
+                  out_pBuffer[i] = m_huffLeaves[-(index+1)].symbol;
                break;
             }
          }
       }
-      out_pBuffer[len] = '\0';
+      out_pBuffer[len < room ? len : room] = '\0';
       return true;
    } else {
       // Uncompressed string...
       U32 len = pStream->readInt(8);
-      pStream->read(len, out_pBuffer);
-      out_pBuffer[len] = '\0';
+      if (S32(len) <= room) {
+         pStream->read(len, out_pBuffer);
+         out_pBuffer[len] = '\0';
+      } else {
+         // Still read every byte, and keep what fits.
+         for (U32 i = 0; i < len; i++) {
+            U8 b = 0;
+            pStream->read(1, &b);
+            if (S32(i) < room)
+               out_pBuffer[i] = char(b);
+         }
+         out_pBuffer[room] = '\0';
+      }
       return true;
    }
 }
