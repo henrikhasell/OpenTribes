@@ -1,6 +1,4 @@
 builddir    := "build"
-config      := "release"
-game        := justfile_directory() / builddir / config / "game"
 shaders     := justfile_directory() / "My Projects/OpenTribes/game/shaders"
 gamedata    := env_var_or_default("TRIBES2_DIR", home_directory() + "/.wine/drive_c/Dynamix/Tribes2/GameData")
 telnet_port := "2324"
@@ -9,16 +7,16 @@ telnet_ro   := "ro"
 
 default: release
 
-debug:
-    cmake -S . -B {{builddir}}/debug -G Ninja -DCMAKE_BUILD_TYPE=Debug
-    cmake --build {{builddir}}/debug
+build config="release":
+    cmake -S . -B {{builddir}}/{{config}} -G Ninja -DCMAKE_BUILD_TYPE={{capitalize(config)}}
+    cmake --build {{builddir}}/{{config}}
 
-release:
-    cmake -S . -B {{builddir}}/release -G Ninja -DCMAKE_BUILD_TYPE=Release
-    cmake --build {{builddir}}/release
+debug: (build "debug")
 
-opentribes dir=gamedata telnet_port=telnet_port: release
-    cp "{{game}}/OpenTribes" "{{dir}}/OpenTribes"
+release: (build "release")
+
+opentribes config="debug" dir=gamedata telnet_port=telnet_port: (build config)
+    cp "{{justfile_directory() / builddir / config / "game"}}/OpenTribes" "{{dir}}/OpenTribes"
     ln -sfn "{{shaders}}" "{{dir}}/shaders"
     cd "{{dir}}" && ./OpenTribes -nologin -telnetParams {{telnet_port}} '{{telnet_rw}}' '{{telnet_ro}}' -mod Classic
 
