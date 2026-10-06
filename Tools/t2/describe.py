@@ -72,6 +72,15 @@ def int_(bits, name=None):
     return read('OpInt', bits, name)
 
 
+def datablock_id(name='dataBlockId'):
+    """The 11-bit id of the datablock this object is built from.
+
+    Typed as `OpDataBlockId` rather than a plain int so the engine can act on
+    it: the walked graphs use that op, and the reader keys the lookup on it.
+    """
+    return read('OpDataBlockId', 11, name)
+
+
 def string(name=None):
     """`readString` -- the Huffman reader, so its width is the string's."""
     return read('OpString', 0, name)
@@ -158,7 +167,7 @@ def names(name):
 
 # ------------------------------------------------------------- the descriptions
 GAME_BASE = [
-    opt([int_(11, 'dataBlockId')]),     # DataBlockMask
+    opt([datablock_id()]),              # DataBlockMask
     opt([opt([int_(9, 'targetId')])]),  # TargetMask: a target id, or none
 ]
 
