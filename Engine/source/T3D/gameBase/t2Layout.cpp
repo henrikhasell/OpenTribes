@@ -25,6 +25,9 @@ static char sShapeName[256] = { 0 };
 static U32 sDataBlockId = 0;
 // HH: Added for Tribes 2 compatibility.
 static char sFirstString[256] = { 0 };
+// HH: Added for Tribes 2 compatibility.
+static U32 sFirstRawU32 = 0;
+static bool sHaveFirstRawU32 = false;
 
 const char *lastShapeFile()
 {
@@ -41,6 +44,15 @@ U32 firstDataBlockId()
 const char *firstString()
 {
    return sFirstString[0] ? sFirstString : NULL;
+}
+
+// HH: Added for Tribes 2 compatibility.
+bool firstRawU32(U32 *out)
+{
+   if(!sHaveFirstRawU32)
+      return false;
+   *out = sFirstRawU32;
+   return true;
 }
 
 // HH: Added for Tribes 2 compatibility.
@@ -229,9 +241,19 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
          case OpRangedF32:
          case OpRangedU32:
          case OpColor:
-         case OpRaw:
             xferInt(stream, n.bits, write);
             break;
+
+         case OpRaw:
+         {
+            const U32 raw = xferInt(stream, n.bits, write);
+            if(n.bits == 32 && !sHaveFirstRawU32 && !write)
+            {
+               sHaveFirstRawU32 = true;
+               sFirstRawU32 = raw;
+            }
+            break;
+         }
 
          case OpPoint:
          {
@@ -342,6 +364,8 @@ static bool runGhost(BitStream *stream, const char *className,
 {
    sDataBlockId = 0;
    sFirstString[0] = 0;
+   sHaveFirstRawU32 = false;
+   sFirstRawU32 = 0;
    bool found = false;
    const bool ok = runNamed(stream, className, sT2GhostsRecovered,
                             ELEMENTS(sT2GhostsRecovered), &found, isInitial,

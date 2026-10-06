@@ -40,6 +40,8 @@ namespace T2Layout
 
    const char *firstString();
 
+   bool firstRawU32(U32 *out);
+
    /// A Tribes 2 resource name is a bare file name; Torque wants a path.
    String resourcePath(const char *name, const char *dir);
 }
