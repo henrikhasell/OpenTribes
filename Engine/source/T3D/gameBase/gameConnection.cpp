@@ -1045,15 +1045,20 @@ bool GameConnection::readDemoStartBlock(BitStream *stream)
    stream->read(&idx);
    if(idx != -1)
    {
-      GameBase *obj = dynamic_cast<GameBase*>(resolveGhost(idx));
-      if(!obj)
+      NetObject *ghost = (idx >= 0 && idx < S32(MaxGhostCount))
+         ? resolveGhost(idx) : NULL;
+      if(!ghost)
       {
          setLastError("Invalid demo. (control object is ghost %d, which the "
             "start block never created)", idx);
          return false;
       }
-      setControlObject(obj);
-      T2Layout::readPacketData(stream, obj->getClassName(),
+      // A ghost that would not register has no datablock and cannot be
+      // driven, but its packet data still has to be read.
+      GameBase *obj = dynamic_cast<GameBase*>(ghost);
+      if(obj && obj->isProperlyAdded())
+         setControlObject(obj);
+      T2Layout::readPacketData(stream, ghost->getClassName(),
          ghostClassNameT2, this);
    }
 

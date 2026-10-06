@@ -660,6 +660,17 @@ void NetConnection::setEstablished()
 
 void NetConnection::onRemove()
 {
+   // HH: Added for Tribes 2 compatibility.
+   // A demo ghost that could not register is not in the group, so the group's
+   // own teardown will not free it.
+   if(mLocalGhosts)
+      for(U32 i = 0; i < MaxGhostCount; i++)
+         if(mLocalGhosts[i] && !mLocalGhosts[i]->isProperlyAdded())
+         {
+            delete mLocalGhosts[i];
+            mLocalGhosts[i] = NULL;
+         }
+
    // delete any ghosts that may exist for this connection, but aren't added
    while(mGhostAlwaysSaveList.size())
    {
