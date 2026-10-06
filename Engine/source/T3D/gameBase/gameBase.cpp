@@ -22,6 +22,8 @@
 
 #include "platform/platform.h"
 #include "T3D/gameBase/gameBase.h"
+// HH: Added for Tribes 2 compatibility.
+#include "T3D/gameBase/t2Layout.h"
 #include "console/consoleTypes.h"
 #include "console/engineAPI.h"
 #include "console/consoleInternal.h"
@@ -435,6 +437,23 @@ F32 GameBase::getUpdatePriority(CameraScopeQuery *camInfo, U32 updateMask, S32 u
 }
 
 //----------------------------------------------------------------------------
+// HH: Added for Tribes 2 compatibility.
+bool GameBase::unpackUpdate(BitStream *stream, bool isInitial)
+{
+   if(!Parent::unpackUpdate(stream, isInitial))
+      return false;
+
+   const U32 id = T2Layout::lastDataBlockId();
+   if(!id || mDataBlock)
+      return true;
+
+   GameBaseData *data = NULL;
+   if(Sim::findObject(id, data) && data)
+      setDataBlock(data);
+
+   return true;
+}
+
 bool GameBase::setDataBlock(GameBaseData* dptr)
 {
    if (isGhost() || isProperlyAdded()) {

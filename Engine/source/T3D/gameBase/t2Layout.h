@@ -31,6 +31,8 @@ namespace T2Layout
                         GhostClassFn resolve = NULL, void *ctx = NULL);
 
    const char *lastShapeFile();
+
+   U32 lastDataBlockId();
 }
 
 #endif

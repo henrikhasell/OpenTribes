@@ -2,12 +2,13 @@
 #include "console/console.h"
 #include "console/consoleTypes.h"
 #include "sim/netObject.h"
+#include "T3D/gameBase/gameBase.h"
 #include "T3D/gameBase/stubsT2.h"
 
 #define IMPLEMENT_GHOST_T2( className )                                     \
-   class className : public NetObject                                       \
+   class className : public GameBase                                        \
    {                                                                        \
-      typedef NetObject Parent;                                             \
+      typedef GameBase Parent;                                              \
    public:                                                                  \
       DECLARE_CONOBJECT(className);                                         \
       bool unpackUpdate(BitStream *stream, bool isInitial)                \

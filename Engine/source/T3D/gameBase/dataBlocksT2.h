@@ -5,13 +5,16 @@
 #ifndef _SIMDATABLOCK_H_
 #include "console/simDatablock.h"
 #endif
+#ifndef _GAMEBASE_H_
+#include "T3D/gameBase/gameBase.h"
+#endif
 #ifndef _STUBST2_H_
 #include "T3D/gameBase/stubsT2.h"
 #endif
 
-class DataBlockT2 : public SimDataBlock
+class DataBlockT2 : public GameBaseData
 {
-   typedef SimDataBlock Parent;
+   typedef GameBaseData Parent;
 
 public:
    DataBlockT2();
