@@ -3556,7 +3556,7 @@ namespace T2Protocol
       { OpInt, 9, 205, -1 },
       { OpFlag, 1, 205, 206 },
       { OpFlag, 1, 205, 207 },
-      { OpInt, 11, 208, -1 },
+      { OpDataBlockId, 11, 208, -1 },
       { OpFlag, 1, 208, 209 },
    };
 
@@ -3657,7 +3657,7 @@ namespace T2Protocol
       { OpInt, 9, 23, -1 },
       { OpFlag, 1, 23, 24 },
       { OpFlag, 1, 23, 25 },
-      { OpInt, 11, 26, -1 },
+      { OpDataBlockId, 11, 26, -1 },
       { OpFlag, 1, 26, 27 },
    };
 
@@ -6411,7 +6411,7 @@ namespace T2Protocol
       { OpInt, 9, 183, -1 },
       { OpFlag, 1, 183, 184 },
       { OpFlag, 1, 183, 185 },
-      { OpInt, 11, 186, -1 },
+      { OpDataBlockId, 11, 186, -1 },
       { OpFlag, 1, 186, 187 },
    };
 

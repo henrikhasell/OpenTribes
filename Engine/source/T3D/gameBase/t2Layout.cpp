@@ -21,10 +21,18 @@ using namespace T2Protocol;
 static GhostClassFn sResolve = NULL;
 static void *sResolveCtx = NULL;
 static char sShapeName[256] = { 0 };
+// HH: Added for Tribes 2 compatibility.
+static U32 sDataBlockId = 0;
 
 const char *lastShapeFile()
 {
    return sShapeName[0] ? sShapeName : NULL;
+}
+
+// HH: Added for Tribes 2 compatibility.
+U32 lastDataBlockId()
+{
+   return sDataBlockId;
 }
 
 static void noteString(const char *str)
@@ -188,6 +196,10 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
             continue;
          }
 
+         case OpDataBlockId:
+            sDataBlockId = xferInt(stream, n.bits, write);
+            break;
+
          case OpInt:
          case OpFloat:
          case OpSignedFloat:
@@ -195,7 +207,6 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
          case OpRangedU32:
          case OpColor:
          case OpRaw:
-         case OpDataBlockId:
             xferInt(stream, n.bits, write);
             break;
 
@@ -301,6 +312,7 @@ static bool runDataBlock(BitStream *stream, U32 classId, bool write)
 static bool runGhost(BitStream *stream, const char *className,
                      bool isInitial, bool write)
 {
+   sDataBlockId = 0;
    bool found = false;
    const bool ok = runNamed(stream, className, sT2GhostsRecovered,
                             ELEMENTS(sT2GhostsRecovered), &found, isInitial,
