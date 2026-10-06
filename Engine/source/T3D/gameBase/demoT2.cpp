@@ -188,9 +188,5 @@ DefineEngineFunction( stopRecord, void, (),,
 {
 }
 
-DefineEngineFunction( isDemo, bool, (),,
-   "@brief Whether this is the shareware build, which retail answers no.\n\n"
-   "@ingroup Platform" )
-{
-   return false;
-}
+// isDemo is the shareware check, not a recording one, and Torque already has
+// it with retail's answer (version.cpp).
