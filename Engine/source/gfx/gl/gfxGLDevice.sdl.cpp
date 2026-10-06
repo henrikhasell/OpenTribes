@@ -117,6 +117,10 @@ void GFXGLDevice::init(const GFXVideoMode& mode, PlatformWindow* window)
 
 bool GFXGLDevice::beginSceneInternal()
 {
+   // HH: Modified for Tribes 2 compatibility.
+   // Only the Mac backend ever set this, so on SDL it stayed false: endScene
+   // asserted every frame and canCurrentlyRender never guarded a nested paint.
+   mCanCurrentlyRender = true;
    glGetError();
    return true;
 }
