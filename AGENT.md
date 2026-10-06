@@ -65,6 +65,52 @@ and `ro`; `just telnet` connects to it.
   with a `%local` or a loop regardless, because a `%local` typed at retail's
   console kills the game outright.
 
+## The script debugger
+
+Retail ships TGE's telnet script debugger -- breakpoints with conditions,
+stepping, a call stack and expression evaluation in a stopped frame. It is a
+second socket, separate from the console, and it is off until something turns
+it on. Our engine has the same debugger, so the same session works against
+both, which is what makes it a comparison and not just a probe.
+
+Why it earns its keep over the console: a script breakpoint stops the game
+wherever the **engine calls script**, which includes points inside a C++
+decode. `GameConnection::readDemoStartBlock` calls
+`demoUpdateDatablockProgress(count, total)` once per datablock, so a
+breakpoint there walks a demo's start block one body at a time; a desync
+localises to one datablock instead of to the whole block. Anything that can
+be reached mid-read this way is worth reaching that way.
+
+- Turn it on from the console: `dbgSetParameters(<port>, <pass>)`. Pick a port
+  that is not the console's. Ours takes a third argument retail's does not,
+  `waitForClient`, which holds the engine before it runs anything -- the only
+  way to breakpoint something that happens during startup.
+- Connect and send the password as the **first line** -- the shipped client
+  notes its own `onConnected` never fires and sends it immediately. The reply
+  is `PASS Connected.`, or `PASS WrongPassword.` and the socket closes.
+- Ask `FILELIST` before setting anything. `BRKSET` wants the file name the
+  engine knows, and any other spelling is `DBGERR No Such file!`.
+  `BREAKLIST <file>` answers which of its lines can carry a breakpoint at
+  all, which is the other half of getting one to fire.
+- `BRKSET <file> <line> <clear> <passct> <expr>` -- `clear` makes it one-shot,
+  `passct` skips that many hits and `expr` is a condition, so "stop on the
+  nine hundredth" needs no scripting. `BRKCLR <file> <line>` and `BRKCLRALL`
+  undo it.
+- A stop arrives as `BREAK <file> <line> <function>` followed by the rest of
+  the call stack, innermost first; `CONTINUE`, `STEPIN`, `STEPOVER` and
+  `STEPOUT` resume, and each resume answers `RUNNING`.
+- `EVAL <id> <frame> <expr>` answers `EVALOUT <id> <value>`; frame 0 is the
+  innermost. It evaluates in a real frame, so `%local`s work here -- which the
+  console cannot do without killing the game. `CEVAL <expr>` is the same
+  without an id.
+- **While stopped, the main loop is blocked**, so the console port answers
+  nothing at all: for the duration, the debugger socket is the only way in.
+  Console output is forwarded to it as `COUT <text>`, so nothing is lost.
+- Breakpoints are set on a script's own name and line, but retail runs `.dso`
+  compiled from scripts that may not be the `.cs` beside them. If a breakpoint
+  never fires, confirm with `BREAKLIST` before concluding the code did not
+  run.
+
 ## The wire
 
 - Tribes 2's protocol is the only network format this engine speaks. There
