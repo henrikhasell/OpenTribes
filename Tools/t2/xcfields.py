@@ -106,7 +106,10 @@ def scalar(leaf, want, base):
         return raw
     if op == 'OpFloat':
         return raw / float((1 << bits) - 1)
-    if op == 'OpRaw' and bits == 32 and isinstance(want, float):
+    if op == 'OpRaw' and bits == 32 and isinstance(want, (int, float)) \
+            and not isinstance(want, bool):
+        # Every raw 32-bit node a description names is a float; their JSON
+        # drops the point on a whole number, so the want's type cannot decide.
         return as_f32(raw)
     if op == 'OpPoint':
         if all(isinstance(c, float) for c in raw):
@@ -127,6 +130,16 @@ def close(a, b, tol=1e-3):
 def compare(prefix, want, ours, base, used, bad):
     """Walk their value, find ours under `prefix`, record what disagrees."""
     if isinstance(want, dict):
+        if set(want) == {'x', 'y', 'z', 'w'} and prefix + '.wNegative' in ours:
+            # They recover w from the other three; the stream carries only its
+            # sign, so the sign is the whole of what there is to compare.
+            used.add(prefix + '.wNegative')
+            if bool(ours[prefix + '.wNegative'][2]) != (want['w'] < 0):
+                bad.append((prefix + '.w sign', ours[prefix + '.wNegative'][2],
+                            want['w']))
+            for k in 'xyz':
+                compare('%s.%s' % (prefix, k), want[k], ours, base, used, bad)
+            return True
         if set(want) == {'x', 'y', 'z'} and prefix + '.phi' in ours:
             used.add(prefix + '.phi')
             used.add(prefix + '.theta')

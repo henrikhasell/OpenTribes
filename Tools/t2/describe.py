@@ -225,7 +225,16 @@ EMPTY_SQUARE_RUNS = count_loop(32, [int_(32, 'emptySquareRuns')],
 # What a field reads as when its flag is clear, which is a field of the body
 # as much as the bits are: the engine has to set it, and the second reader
 # reports it, so a comparison that skips it is not comparing the body.
+MARKER_DEFAULTS = {'targetId': -1}
+
+# Their name for a field we read under the transform it belongs to.
+MARKER_ALIASES = {'position.%s' % k: 'transform.position.%s' % k
+                  for k in 'xyz'}
+
 DEFAULTS = {
+    'MissionMarker': MARKER_DEFAULTS,
+    'SpawnSphere': MARKER_DEFAULTS,
+    'WayPoint': MARKER_DEFAULTS,
     'LinearProjectile': {'targetId': -1},
     'Item': dict({'targetId': -1, 'mountObject': -1},
                  **{'images[%d].dataBlockId' % i: 0 for i in range(8)}),
@@ -234,7 +243,14 @@ DEFAULTS = {
 # A field the second reader derives from another rather than reading.
 ALIASES = {
     'Item': {'energyPackOn': 'stateBMode'},
+    'MissionMarker': MARKER_ALIASES,
+    'SpawnSphere': MARKER_ALIASES,
+    'WayPoint': MARKER_ALIASES,
 }
+
+# MissionMarker::unpackUpdate and the two classes built on it.  ShapeBase's
+# body, then the transform and scale a marker carries of its own.
+MARKER = SHAPE_BASE + [opt(affine('transform') + point3f('scale'))]
 
 DESCRIPTIONS = {
     # TerrainBlock::unpackUpdate.  It extends SceneObject, not GameBase, so
@@ -272,6 +288,16 @@ DESCRIPTIONS = {
             branch(name='atRest', set_=[], clear=point3f('velocity')),
             flag('warp'),
         ]),
+    ],
+    'MissionMarker': MARKER,
+    'SpawnSphere': MARKER + [
+        opt([f32('radius'), f32('sphereWeight'), f32('indoorWeight'),
+             f32('outdoorWeight')]),
+    ],
+    'WayPoint': MARKER + [
+        opt([string('name')]),
+        opt([int_(32, 'teamId')]),
+        opt([flag('hidden')]),
     ],
     'LinearProjectile': GAME_BASE + [
         branch(
