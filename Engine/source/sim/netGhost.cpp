@@ -1305,12 +1305,13 @@ void NetConnection::ghostWriteStartBlock(ResizeBitStream *stream)
    }
 }
 
+// HH: Modified for Tribes 2 compatibility.
+// Tribes 2 creates, unpacks and registers one ghost at a time (0x00585220),
+// where Torque created every ghost before unpacking any.  A body may name a
+// ghost earlier in the block, and must not resolve one that has not arrived.
 void NetConnection::ghostReadStartBlock(BitStream *stream)
 {
    stream->read(&mGhostingSequence);
-
-   // read em back in.
-   // first, read in the index/class id, construct the object, and place it in mLocalGhosts[i]
 
    while(stream->readFlag())
    {
@@ -1325,25 +1326,15 @@ void NetConnection::ghostReadStartBlock(BitStream *stream)
       obj->mNetFlags = NetObject::IsGhost;
       obj->mNetIndex = index;
       mLocalGhosts[index] = obj;
-   }
 
-   // now, all the ghosts are in the mLocalGhosts, so we loop
-   // through all non-null mLocalGhosts, unpacking the objects
-   // as we go:
-
-   for(U32 i = 0; i < MaxGhostCount; i++)
-   {
-      if(mLocalGhosts[i])
+      obj->unpackUpdate(stream, true);
+      if(!obj->registerObject())
       {
-         mLocalGhosts[i]->unpackUpdate(stream, true);
-         if(!mLocalGhosts[i]->registerObject())
-         {
-            if(mErrorBuffer.isEmpty())
-               setLastError("Invalid packet. (failed to register ghost from demo block)");
-            return;
-         }
-         addObject(mLocalGhosts[i]);
+         if(mErrorBuffer.isEmpty())
+            setLastError("Invalid packet. (failed to register ghost from demo block)");
+         return;
       }
+      addObject(obj);
    }
    // MARKF - TODO - looks like we could have memory leaks here
    // if there are errors.
