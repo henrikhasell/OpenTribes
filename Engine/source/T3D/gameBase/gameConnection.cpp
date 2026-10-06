@@ -1053,11 +1053,16 @@ bool GameConnection::readDemoStartBlock(BitStream *stream)
             "start block never created)", idx);
          return false;
       }
-      // A ghost that would not register has no datablock and cannot be
-      // driven, but its packet data still has to be read.
+      // A ghost that would not register cannot be driven, but its packet
+      // data still has to be read.  Say so: a silent refusal leaves the
+      // render path to discover it.
       GameBase *obj = dynamic_cast<GameBase*>(ghost);
       if(obj && obj->isProperlyAdded())
          setControlObject(obj);
+      else
+         Con::warnf("Demo start block: the control object is ghost %d (%s), "
+            "which is not in the world, so nothing is driven.", idx,
+            ghost->getClassName());
       T2Layout::readPacketData(stream, ghost->getClassName(),
          ghostClassNameT2, this);
    }
