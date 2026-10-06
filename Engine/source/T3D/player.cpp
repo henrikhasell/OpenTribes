@@ -3214,6 +3214,12 @@ bool Player::setActionThread(const char* sequence,bool hold,bool wait,bool fsp)
 
 void Player::setActionThread(U32 action,bool forward,bool hold,bool wait,bool fsp, bool forceSet)
 {
+   // HH: Modified for Tribes 2 compatibility.
+   // Reached from unmount on the removal path, where no tick guard applies,
+   // and there is no thread to set without a shape instance.
+   if(!mShapeInstance)
+      return;
+
    if (!mDataBlock || (mActionAnimation.action == action && mActionAnimation.forward == forward && !forceSet))
       return;
 

@@ -882,6 +882,24 @@ bool ShapeBase::onAdd()
       return false;
    }
 
+   // HH: Modified for Tribes 2 compatibility.
+   // A datablock that named no shape leaves no instance, and the tick and
+   // animation paths dereference one without checking.  Leave the object in
+   // the world but out of the process list, and name the datablock: a silent
+   // guard would hide the datablock decode that is the real gap.
+   if( !mShapeInstance )
+   {
+      static SimObjectId sWarned = 0;
+      if( mDataBlock->getId() != sWarned )
+      {
+         sWarned = mDataBlock->getId();
+         Con::warnf( "ShapeBase::onAdd - datablock %i (%s) named no shape, so "
+            "%s cannot be ticked.", mDataBlock->getId(),
+            mDataBlock->getClassName(), getClassName() );
+      }
+      setProcessTick( false );
+   }
+
    // Resolve sounds that arrived in the initial update
    S32 i;
    for (i = 0; i < MaxSoundThreads; i++)
