@@ -443,7 +443,7 @@ bool GameBase::unpackUpdate(BitStream *stream, bool isInitial)
    if(!Parent::unpackUpdate(stream, isInitial))
       return false;
 
-   const U32 id = T2Layout::lastDataBlockId();
+   const U32 id = T2Layout::firstDataBlockId();
    if(!id || mDataBlock)
       return true;
 

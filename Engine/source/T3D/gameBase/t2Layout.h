@@ -32,7 +32,7 @@ namespace T2Layout
 
    const char *lastShapeFile();
 
-   U32 lastDataBlockId();
+   U32 firstDataBlockId();
 }
 
 #endif

@@ -30,7 +30,7 @@ const char *lastShapeFile()
 }
 
 // HH: Added for Tribes 2 compatibility.
-U32 lastDataBlockId()
+U32 firstDataBlockId()
 {
    return sDataBlockId;
 }
@@ -197,8 +197,14 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
          }
 
          case OpDataBlockId:
-            sDataBlockId = xferInt(stream, n.bits, write);
+         {
+            // The object's own id is the first of these in a body; the rest
+            // name a mounted image or an audio profile.
+            const U32 dbId = xferInt(stream, n.bits, write);
+            if(!sDataBlockId)
+               sDataBlockId = dbId;
             break;
+         }
 
          case OpInt:
          case OpFloat:
