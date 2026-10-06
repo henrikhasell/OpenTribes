@@ -1000,11 +1000,14 @@ void LightmapFeatGLSL::processPix(  Vector<ShaderComponent*> &componentList,
             statement = new GenOp( "texture2D(@, @) + vec4(@.rgb, 0.0)", lightMap, inTex, inColor );
       }
    }
-   else
-   {
+
+   // HH: Modified for Tribes 2 compatibility.
+   // Without Advanced Lighting there is no d_lightcolor, and the branch above
+   // left the statement null for assignColor to build "col *= " around.  The
+   // lightmap on its own is what the feature means either way.
+   if( !statement )
       statement = new GenOp( "texture2D(@, @)", lightMap, inTex );
-   }
-   
+
    // Assign to proper render target
    if( fd.features[MFT_LightbufferMRT] )
       output = new GenOp( "   @;\r\n", assignColor( statement, Material::None, NULL, ShaderFeature::RenderTarget1 ) );
