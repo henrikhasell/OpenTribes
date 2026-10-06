@@ -26,8 +26,8 @@ static U32 sDataBlockId = 0;
 // HH: Added for Tribes 2 compatibility.
 static char sFirstString[256] = { 0 };
 // HH: Added for Tribes 2 compatibility.
-static U32 sFirstRawU32 = 0;
-static bool sHaveFirstRawU32 = false;
+static U32 sFirstWord32 = 0;
+static bool sHaveFirstWord32 = false;
 
 const char *lastShapeFile()
 {
@@ -47,11 +47,11 @@ const char *firstString()
 }
 
 // HH: Added for Tribes 2 compatibility.
-bool firstRawU32(U32 *out)
+bool firstWord32(U32 *out)
 {
-   if(!sHaveFirstRawU32)
+   if(!sHaveFirstWord32)
       return false;
-   *out = sFirstRawU32;
+   *out = sFirstWord32;
    return true;
 }
 
@@ -235,7 +235,6 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
             break;
          }
 
-         case OpInt:
          case OpFloat:
          case OpSignedFloat:
          case OpRangedF32:
@@ -244,13 +243,16 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
             xferInt(stream, n.bits, write);
             break;
 
+         // A class that names a resource also sends its crc, as the body's
+         // first 32-bit word, and an int node carries one as readily as a raw.
+         case OpInt:
          case OpRaw:
          {
-            const U32 raw = xferInt(stream, n.bits, write);
-            if(n.bits == 32 && !sHaveFirstRawU32 && !write)
+            const U32 word = xferInt(stream, n.bits, write);
+            if(n.bits == 32 && !sHaveFirstWord32 && !write)
             {
-               sHaveFirstRawU32 = true;
-               sFirstRawU32 = raw;
+               sHaveFirstWord32 = true;
+               sFirstWord32 = word;
             }
             break;
          }
@@ -364,8 +366,8 @@ static bool runGhost(BitStream *stream, const char *className,
 {
    sDataBlockId = 0;
    sFirstString[0] = 0;
-   sHaveFirstRawU32 = false;
-   sFirstRawU32 = 0;
+   sHaveFirstWord32 = false;
+   sFirstWord32 = 0;
    bool found = false;
    const bool ok = runNamed(stream, className, sT2GhostsRecovered,
                             ELEMENTS(sT2GhostsRecovered), &found, isInitial,

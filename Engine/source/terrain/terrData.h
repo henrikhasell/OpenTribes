@@ -252,6 +252,9 @@ public:
    bool onAdd();
    void onRemove();
 
+   // HH: Added for Tribes 2 compatibility.
+   bool unpackUpdate(BitStream *stream, bool isInitial);
+
    void onEditorEnable();
    void onEditorDisable();
 

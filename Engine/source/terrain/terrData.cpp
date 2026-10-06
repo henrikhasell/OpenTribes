@@ -23,6 +23,8 @@
 #include "platform/platform.h"
 #include "terrain/terrData.h"
 
+#include "T3D/gameBase/t2Layout.h"
+
 #include "terrain/terrCollision.h"
 #include "terrain/terrCell.h"
 #include "terrain/terrRender.h"
@@ -854,6 +856,25 @@ void TerrainBlock::onEditorEnable()
 
 void TerrainBlock::onEditorDisable()
 {
+}
+
+// HH: Added for Tribes 2 compatibility.
+// A Tribes 2 terrain names its .ter in the body, where Torque's came from the
+// mission file, and onAdd invents a flat one of its own when the name is
+// empty rather than failing visibly.
+bool TerrainBlock::unpackUpdate(BitStream *stream, bool isInitial)
+{
+   if(!Parent::unpackUpdate(stream, isInitial))
+      return false;
+
+   if(const char *file = T2Layout::firstString())
+      mTerrFileName = T2Layout::resourcePath(file, "terrains/");
+
+   U32 crc;
+   if(T2Layout::firstWord32(&crc))
+      mCRC = crc;
+
+   return true;
 }
 
 bool TerrainBlock::onAdd()

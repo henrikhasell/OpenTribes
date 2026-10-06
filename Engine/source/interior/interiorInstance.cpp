@@ -270,7 +270,7 @@ bool InteriorInstance::unpackUpdate(BitStream *stream, bool isInitial)
    // The crc is the body's first 32-bit word, ahead of the file name, and
    // _loadInterior compares it with the local file's before it will load.
    U32 crc;
-   if(T2Layout::firstRawU32(&crc))
+   if(T2Layout::firstWord32(&crc))
       mCRC = crc;
 
    return true;
