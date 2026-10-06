@@ -6,6 +6,10 @@
 #include "platform/platform.h"
 #endif
 
+#ifndef _TORQUE_STRING_H_
+#include "core/util/str.h"
+#endif
+
 class BitStream;
 
 namespace T2Layout
@@ -33,6 +37,11 @@ namespace T2Layout
    const char *lastShapeFile();
 
    U32 firstDataBlockId();
+
+   const char *firstString();
+
+   /// A Tribes 2 shape name is a bare file name; Torque wants a path.
+   String shapePath(const char *name);
 }
 
 #endif

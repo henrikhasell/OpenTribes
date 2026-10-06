@@ -23,6 +23,8 @@
 #include "platform/platform.h"
 #include "T3D/tsStatic.h"
 
+#include "T3D/gameBase/t2Layout.h"
+
 #include "core/resourceManager.h"
 #include "core/stream/bitStream.h"
 #include "scene/sceneRenderState.h"
@@ -228,6 +230,20 @@ void TSStatic::inspectPostApply()
    }
 
    _updateShouldTick();
+}
+
+// HH: Added for Tribes 2 compatibility.
+// A Tribes 2 TSStatic names its shape in the body itself, where Torque's
+// came from a datablock, so onAdd has nothing to load without this.
+bool TSStatic::unpackUpdate(BitStream *stream, bool isInitial)
+{
+   if(!Parent::unpackUpdate(stream, isInitial))
+      return false;
+
+   if(const char *shape = T2Layout::firstString())
+      mShapeName = StringTable->insert(T2Layout::shapePath(shape).c_str());
+
+   return true;
 }
 
 bool TSStatic::onAdd()

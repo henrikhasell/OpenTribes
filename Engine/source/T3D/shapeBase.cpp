@@ -30,6 +30,7 @@
 #include "sfx/sfxDescription.h"
 #include "T3D/sfx/sfx3DWorld.h"
 #include "T3D/gameBase/gameConnection.h"
+#include "T3D/gameBase/t2Layout.h"
 #include "console/consoleTypes.h"
 #include "console/engineAPI.h"
 #include "core/stream/bitStream.h"
@@ -227,15 +228,6 @@ ShapeBaseData::~ShapeBaseData()
 
 }
 
-// HH: Added for Tribes 2 compatibility.
-static String shapePathT2(const char *name)
-{
-   String path(name);
-   if(path.find('/') != String::NPos || path.find('\\') != String::NPos)
-      return path;
-   return String("shapes/") + path;
-}
-
 bool ShapeBaseData::preload(bool server, String &errorStr)
 {
    if (!Parent::preload(server, errorStr))
@@ -275,7 +267,7 @@ bool ShapeBaseData::preload(bool server, String &errorStr)
 
       if( debrisShapeName && debrisShapeName[0] != '\0' && !bool(debrisShape) )
       {
-         debrisShape = ResourceManager::get().load(shapePathT2(debrisShapeName));
+         debrisShape = ResourceManager::get().load(T2Layout::shapePath(debrisShapeName));
          if( bool(debrisShape) == false )
          {
             errorStr = String::ToString("ShapeBaseData::load: Couldn't load shape \"%s\"", debrisShapeName);
@@ -297,7 +289,7 @@ bool ShapeBaseData::preload(bool server, String &errorStr)
       S32 i;
 
       // Resolve shapename
-      mShape = ResourceManager::get().load(shapePathT2(shapeName));
+      mShape = ResourceManager::get().load(T2Layout::shapePath(shapeName));
       if (bool(mShape) == false)
       {
          errorStr = String::ToString("ShapeBaseData: Couldn't load shape \"%s\"",shapeName);

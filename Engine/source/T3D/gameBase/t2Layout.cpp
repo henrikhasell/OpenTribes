@@ -23,6 +23,8 @@ static void *sResolveCtx = NULL;
 static char sShapeName[256] = { 0 };
 // HH: Added for Tribes 2 compatibility.
 static U32 sDataBlockId = 0;
+// HH: Added for Tribes 2 compatibility.
+static char sFirstString[256] = { 0 };
 
 const char *lastShapeFile()
 {
@@ -33,6 +35,21 @@ const char *lastShapeFile()
 U32 firstDataBlockId()
 {
    return sDataBlockId;
+}
+
+// HH: Added for Tribes 2 compatibility.
+const char *firstString()
+{
+   return sFirstString[0] ? sFirstString : NULL;
+}
+
+// HH: Added for Tribes 2 compatibility.
+String shapePath(const char *name)
+{
+   String path(name);
+   if(path.find('/') != String::NPos || path.find('\\') != String::NPos)
+      return path;
+   return String("shapes/") + path;
 }
 
 static void noteString(const char *str)
@@ -233,6 +250,11 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
             {
                stream->readString(buf);
                noteString(buf);
+               if(!sFirstString[0])
+               {
+                  dStrncpy(sFirstString, buf, sizeof(sFirstString) - 1);
+                  sFirstString[sizeof(sFirstString) - 1] = 0;
+               }
             }
             break;
 
@@ -319,6 +341,7 @@ static bool runGhost(BitStream *stream, const char *className,
                      bool isInitial, bool write)
 {
    sDataBlockId = 0;
+   sFirstString[0] = 0;
    bool found = false;
    const bool ok = runNamed(stream, className, sT2GhostsRecovered,
                             ELEMENTS(sT2GhostsRecovered), &found, isInitial,

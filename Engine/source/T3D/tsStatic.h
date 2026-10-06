@@ -112,6 +112,9 @@ protected:
    bool onAdd();
    void onRemove();
 
+   // HH: Added for Tribes 2 compatibility.
+   bool unpackUpdate(BitStream *stream, bool isInitial);
+
    // Collision
    void prepCollision();
    bool castRay(const Point3F &start, const Point3F &end, RayInfo* info);
