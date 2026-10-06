@@ -40,8 +40,8 @@ namespace T2Layout
 
    const char *firstString();
 
-   /// A Tribes 2 shape name is a bare file name; Torque wants a path.
-   String shapePath(const char *name);
+   /// A Tribes 2 resource name is a bare file name; Torque wants a path.
+   String resourcePath(const char *name, const char *dir);
 }
 
 #endif

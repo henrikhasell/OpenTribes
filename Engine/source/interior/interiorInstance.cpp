@@ -23,6 +23,8 @@
 #include "platform/platform.h"
 #include "interior/interiorInstance.h"
 
+#include "T3D/gameBase/t2Layout.h"
+
 #include "interior/interior.h"
 #include "console/consoleTypes.h"
 #include "scene/sceneManager.h"
@@ -252,6 +254,21 @@ void InteriorInstance::exportToCollada(bool bakeTransform)
 #endif
 
 //-----------------------------------------------------------------------------
+
+// HH: Added for Tribes 2 compatibility.
+// A Tribes 2 interior names its .dif in the body, and onAdd loads it before
+// anything else, so the name has to be in place by the time it runs.
+bool InteriorInstance::unpackUpdate(BitStream *stream, bool isInitial)
+{
+   if(!Parent::unpackUpdate(stream, isInitial))
+      return false;
+
+   if(const char *file = T2Layout::firstString())
+      mInteriorFileName =
+         StringTable->insert(T2Layout::resourcePath(file, "interiors/").c_str());
+
+   return true;
+}
 
 bool InteriorInstance::onAdd()
 {

@@ -241,7 +241,7 @@ bool TSStatic::unpackUpdate(BitStream *stream, bool isInitial)
       return false;
 
    if(const char *shape = T2Layout::firstString())
-      mShapeName = StringTable->insert(T2Layout::shapePath(shape).c_str());
+      mShapeName = StringTable->insert(T2Layout::resourcePath(shape, "shapes/").c_str());
 
    return true;
 }

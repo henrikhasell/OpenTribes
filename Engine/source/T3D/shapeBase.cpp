@@ -267,7 +267,7 @@ bool ShapeBaseData::preload(bool server, String &errorStr)
 
       if( debrisShapeName && debrisShapeName[0] != '\0' && !bool(debrisShape) )
       {
-         debrisShape = ResourceManager::get().load(T2Layout::shapePath(debrisShapeName));
+         debrisShape = ResourceManager::get().load(T2Layout::resourcePath(debrisShapeName, "shapes/"));
          if( bool(debrisShape) == false )
          {
             errorStr = String::ToString("ShapeBaseData::load: Couldn't load shape \"%s\"", debrisShapeName);
@@ -289,7 +289,7 @@ bool ShapeBaseData::preload(bool server, String &errorStr)
       S32 i;
 
       // Resolve shapename
-      mShape = ResourceManager::get().load(T2Layout::shapePath(shapeName));
+      mShape = ResourceManager::get().load(T2Layout::resourcePath(shapeName, "shapes/"));
       if (bool(mShape) == false)
       {
          errorStr = String::ToString("ShapeBaseData: Couldn't load shape \"%s\"",shapeName);

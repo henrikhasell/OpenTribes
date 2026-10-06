@@ -44,12 +44,12 @@ const char *firstString()
 }
 
 // HH: Added for Tribes 2 compatibility.
-String shapePath(const char *name)
+String resourcePath(const char *name, const char *dir)
 {
    String path(name);
    if(path.find('/') != String::NPos || path.find('\\') != String::NPos)
       return path;
-   return String("shapes/") + path;
+   return String(dir) + path;
 }
 
 static void noteString(const char *str)
