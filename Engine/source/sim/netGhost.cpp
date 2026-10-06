@@ -1331,14 +1331,17 @@ void NetConnection::ghostReadStartBlock(BitStream *stream)
 
       obj->unpackUpdate(stream, true);
 
-      // A ghost that will not register is a world the engine cannot build
-      // yet -- no class decodes a datablock id -- and not a stream fault:
-      // its body is read, so the run carries on and the block still consumes
-      // exactly.  The object stays nameable for a later body's layout.
+      // A ghost that will not register is read but absent, not a stream
+      // fault: the run carries on so the block still consumes exactly, and
+      // mLocalGhosts keeps it nameable by a later body's layout.
       if(obj->registerObject())
          addObject(obj);
       else
+      {
          unregistered++;
+         Con::warnf("Demo start block: ghost %d (%s) would not register.",
+            index, obj->getClassName());
+      }
    }
 
    if(unregistered)
