@@ -205,6 +205,7 @@ GameConnection::GameConnection()
 
    mMoveList->setConnection( this );
 
+   mDemoTickCount = 0;     // HH: Added for Tribes 2 compatibility.
    mDataBlockModifiedKey = 0;
    mMaxDataBlockModifiedKey = 0;
    mAuthInfo = NULL;
@@ -877,9 +878,23 @@ void GameConnection::handleRecordedBlock(U32 type, U32 size, void *data)
    switch(type)
    {
       case BlockTypeMove:
+         // HH: Modified for Tribes 2 compatibility.
+         // A move is a tick, and the ticks played are what retail reports as
+         // the playback time (0x005fb193).
+         mDemoTickCount++;
          mMoveList->pushMove(*((Move *) data));
          if(isRecording()) // put it back into the stream
             recordBlock(type, size, data);
+         break;
+
+      // HH: Added for Tribes 2 compatibility.
+      case BlockTypeCameraFov:
+         if(size >= sizeof(CameraFovBlock))
+         {
+            const CameraFovBlock *block = (const CameraFovBlock *) data;
+            mFirstPerson = block->firstPerson != 0;
+            mCameraFov = block->cameraFov;
+         }
          break;
 
       default:
