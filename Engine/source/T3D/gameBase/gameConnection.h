@@ -73,6 +73,7 @@ private:
 
 private:
    U32 mLastControlRequestTime;
+   U32 mDemoTickCount;     ///< HH: Added for Tribes 2 compatibility.
    S32 mDataBlockModifiedKey;
    S32 mMaxDataBlockModifiedKey;
 
@@ -110,6 +111,10 @@ public:
    /// Configuration
    enum Constants {
       BlockTypeMove = NetConnectionBlockTypeCount,
+      // HH: Added for Tribes 2 compatibility.
+      // Written once per received packet: the first-person flag and the camera
+      // field of view (0x005fb263).
+      BlockTypeCameraFov,
       GameConnectionBlockTypeCount,
       MaxConnectArgs = 16,
       DataBlocksDone = NumConnectionMessages,
@@ -340,6 +345,21 @@ public:
 
    void doneScopingScene();
    void demoPlaybackComplete();
+
+   // HH: Added for Tribes 2 compatibility.
+   /// A BlockTypeCameraFov record as retail lays it out: eight bytes, the
+   /// three after the flag being padding.
+   struct CameraFovBlock
+   {
+      U8 firstPerson;
+      U8 pad[3];
+      F32 cameraFov;
+   };
+
+   // HH: Added for Tribes 2 compatibility.
+   /// How far playback has got, in ms: the moves played at 32 ms each, which
+   /// is what retail reports (0x00588390).
+   U32 getDemoCurrentTime() const { return mDemoTickCount << 5; }
 
    void setMissionCRC(U32 crc)           { mMissionCRC = crc; }
    U32  getMissionCRC()           { return(mMissionCRC); }

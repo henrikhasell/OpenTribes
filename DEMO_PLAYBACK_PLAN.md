@@ -265,6 +265,27 @@ mid-playback.
 `$timeScale` at 0 freezing it and at 16 finishing in seconds;
 `demoPlaybackComplete` firing once.
 
+### What steps 1 to 4 corrected
+
+Measured while implementing them, against the same sixteen recordings:
+
+- **Block type 3 is not the clock.** It is eight bytes of
+  `[u8 first person][3 pad][f32 camera fov]`, read at 0x005fb263, which stores
+  the flag in a global and hands the fov to the setter at 0x005bb080. The fov
+  is 90.0 in every record of every recording and the flag is 0 or 1.
+  `getDemoCurrentTime` (0x00588390) returns `conn+0x8234 << 5`, and +0x8234 is
+  incremented once per **move** block (0x005fb193) — the time is the ticks
+  played times 32 ms, which is why 1,082 moves answer 34,624 against a header
+  that says 34,617.
+- **The start block's tail carries one control object, not two.** Torque reads
+  a camera-object index after it; retail writes none, and reading one is 32
+  bits the block does not have. `rec.py` had this right.
+- **Nine console functions were missing, not ten.** `isDemo` is Torque's own
+  (`version.cpp`), is the shareware check rather than a recording one, and
+  already answers what retail's 0x00429980 does — `xor al,al`.
+- **`getDemoVersionLength` answers `version TAB lengthMs`** and resolves its
+  file through the resource manager, so the mod path has to be mounted.
+
 ### 5. The world
 
 This is where playback stops being parsing. The start block creates every

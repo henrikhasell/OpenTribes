@@ -205,12 +205,11 @@ void MoveList::writeDemoStartBlock(ResizeBitStream *stream)
       mMoveVec[j].pack(stream);
 }
 
+// HH: Modified for Tribes 2 compatibility.
+// Tribes 2 keeps its move state in the connection, and reads it there; what is
+// left here is the pending move run (0x00601800).
 void MoveList::readDemoStartBlock(BitStream *stream)
 {
-   stream->read(&mLastMoveAck);
-   stream->read(&mLastClientMove);
-   stream->read(&mFirstMoveIndex);
-
    U32 size;
    Move mv;
    stream->read(&size);

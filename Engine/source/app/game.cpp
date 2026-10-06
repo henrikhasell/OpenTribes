@@ -250,6 +250,13 @@ bool clientProcess(U32 timeDelta)
    if(connection)
 	{
       connection->detectLag();
+
+      // HH: Added for Tribes 2 compatibility.
+      // Retail reports the playback clock once per client process (0x005c48e4),
+      // and the playback dialog reads its progress from it.
+      if(connection->isPlayingBack())
+         Con::executef("demoPlaybackUpdate",
+            avar("%d", connection->getDemoCurrentTime()));
 	}
 #else
    // Determine if we're lagging

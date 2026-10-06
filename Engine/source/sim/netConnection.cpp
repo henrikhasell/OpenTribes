@@ -33,6 +33,9 @@
 #include "console/consoleTypes.h"
 #include "sim/netInterface.h"
 #include "console/engineAPI.h"
+// HH: Added for Tribes 2 compatibility.
+#include "core/util/zip/zipSubStream.h"
+#include "T3D/gameBase/demoT2.h"
 #include <stdarg.h>
 
 
@@ -424,6 +427,9 @@ NetConnection::NetConnection()
    mMissionPathsSent = false;
    mDemoWriteStream = NULL;
    mDemoReadStream = NULL;
+   // HH: Added for Tribes 2 compatibility.
+   mDemoReadFileStream = NULL;
+   mDemoLengthMs = 0;
 
    mPingSendCount = 0;
    mPingRetryCount = DefaultPingRetryCount;
@@ -457,6 +463,9 @@ NetConnection::~NetConnection()
       delete mDemoWriteStream;
    if(mDemoReadStream)
       delete mDemoReadStream;
+   // HH: Added for Tribes 2 compatibility.
+   if(mDemoReadFileStream)
+      delete mDemoReadFileStream;
 }
 
 NetConnection::PacketNotify::PacketNotify()
@@ -651,6 +660,17 @@ void NetConnection::setEstablished()
 
 void NetConnection::onRemove()
 {
+   // HH: Added for Tribes 2 compatibility.
+   // A demo ghost that could not register is not in the group, so the group's
+   // own teardown will not free it.
+   if(mLocalGhosts)
+      for(U32 i = 0; i < MaxGhostCount; i++)
+         if(mLocalGhosts[i] && !mLocalGhosts[i]->isProperlyAdded())
+         {
+            delete mLocalGhosts[i];
+            mLocalGhosts[i] = NULL;
+         }
+
    // delete any ghosts that may exist for this connection, but aren't added
    while(mGhostAlwaysSaveList.size())
    {
@@ -956,7 +976,8 @@ bool NetConnection::readDemoStartBlock(BitStream* stream)
    gClientPathManager->readState(stream);
 #endif
 
-   mStringTable->readDemoStartBlock(stream);
+   // HH: Modified for Tribes 2 compatibility.
+   // The string table is read by replayDemoRecord, before this block.
    U32 pos;
    stream->read(&pos); // notify count
    for(U32 i = 0; i < pos; i++)
@@ -993,24 +1014,63 @@ bool NetConnection::startDemoRecord(const char *fileName)
    return true;
 }
 
+// HH: Modified for Tribes 2 compatibility.
+// Retail's container: a length-prefixed signature, the version word compared
+// for exact equality, the length in ms, then the start block raw and the block
+// log deflated (0x00588000).
 bool NetConnection::replayDemoRecord(const char *fileName)
 {
    Stream *fs;
    if((fs = FileStream::createAndOpen( fileName, Torque::FS::File::Read )) == NULL)
       return false;
 
-   mDemoReadStream = fs;
-   mDemoReadStream->read(&mProtocolVersion);
-   U32 size;
-   mDemoReadStream->read(&size);
+   mDemoReadFileStream = fs;
+
+   U32 version, size;
+   if(!DemoT2::readHeader(fs, &version, &mDemoLengthMs, &size)
+      || version != DemoT2::Version)
+   {
+      delete fs;
+      mDemoReadFileStream = NULL;
+      return false;
+   }
+   mProtocolVersion = version >> 16;
+
    U8 *block = new U8[size];
-   mDemoReadStream->read(size, block);
+   fs->read(size, block);
    BitStream bs(block, size);
 
+   // The connection's string table is read here, by replayDemoRecord itself
+   // (0x005898b0), and not from inside readDemoStartBlock where Torque has it.
+   if(!mStringTable)
+      setTranslatesStrings(true);
+   mStringTable->readDemoStartBlock(&bs);
+
    bool res = readDemoStartBlock(&bs);
+   U32 consumed = bs.getCurPos();
    delete[] block;
    if(!res)
+   {
+      delete fs;
+      mDemoReadFileStream = NULL;
       return false;
+   }
+
+   // startDemoRecord declares getPosition() + 1 bytes, so exact consumption is
+   // that arithmetic coming back out.
+   if((consumed + 7) / 8 + 1 == size)
+      Con::printf("Demo start block: %d bits, %d bytes declared -- exact",
+         consumed, size);
+   else
+      Con::errorf("Demo start block: %d bits of %d bytes declared -- off by %d",
+         consumed, size, S32((consumed + 7) / 8 + 1) - S32(size));
+
+   // Everything after the start block is raw deflate.  attachStream leaves the
+   // uncompressed size at 0, so the end of the log can only come from
+   // Z_STREAM_END.
+   ZipSubRStream *zip = new ZipSubRStream;
+   zip->attachStream(fs);
+   mDemoReadStream = zip;
 
    // prep for first block read
    // type/size stored in U16: [type:4][size:12]

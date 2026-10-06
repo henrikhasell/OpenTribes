@@ -576,6 +576,11 @@ protected:
 public:
    static NetConnection *getConnectionToServer() { return mServerConnection; }
 
+   // HH: Added for Tribes 2 compatibility.
+   // A demo connection is made by the engine rather than by a handshake, so
+   // it has to name itself the connection to the server (0x005865e0).
+   static void setConnectionToServer(NetConnection *conn) { mServerConnection = conn; }
+
    static NetConnection *getLocalClientConnection() { return mLocalClientConnection; }
    static void setLocalClientConnection(NetConnection *conn) { mLocalClientConnection = conn; }
 
@@ -1025,6 +1030,11 @@ public:
 private:
    Stream *mDemoWriteStream;
    Stream *mDemoReadStream;
+   // HH: Added for Tribes 2 compatibility.
+   // The block log is deflated, so the stream the records are read from is a
+   // filter over the file rather than the file itself.
+   Stream *mDemoReadFileStream;
+   U32 mDemoLengthMs;
    U32 mDemoNextBlockType;
    U32 mDemoNextBlockSize;
 
@@ -1052,6 +1062,8 @@ public:
       { return mDemoReadStream != NULL; }
 
    U32 getNextBlockType() { return mDemoNextBlockType; }
+   // HH: Added for Tribes 2 compatibility.
+   U32 getDemoLength() { return mDemoLengthMs; }
    void recordBlock(U32 type, U32 size, void *data);
    virtual void handleRecordedBlock(U32 type, U32 size, void *data);
    bool processNextBlock();

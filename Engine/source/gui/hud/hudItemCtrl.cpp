@@ -499,13 +499,10 @@ DefineEngineMethod(HudItemCtrl, getItemBitmap, const char *, (S32 index), ,
    return object->getSlotBitmap(index);
 }
 
+// HH: Added for Tribes 2 compatibility.
+// hud.cs spells this setBackGroundBitmap, which the console resolves to the
+// same name; a second binding for it is what a debug build asserts on.
 DefineEngineMethod(HudItemCtrl, setBackgroundBitmap, void, (const char *bitmap), ,
-   "@brief The plate drawn behind every slot.\n\n@ingroup GuiHud")
-{
-   object->setBackgroundBitmap(bitmap);
-}
-
-DefineEngineMethod(HudItemCtrl, setBackGroundBitmap, void, (const char *bitmap), ,
    "@brief The plate drawn behind every slot.\n\n@ingroup GuiHud")
 {
    object->setBackgroundBitmap(bitmap);

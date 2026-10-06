@@ -1305,15 +1305,18 @@ void NetConnection::ghostWriteStartBlock(ResizeBitStream *stream)
    }
 }
 
+// HH: Modified for Tribes 2 compatibility.
+// Tribes 2 creates, unpacks and registers one ghost at a time (0x00585220),
+// where Torque created every ghost before unpacking any.  A body may name a
+// ghost earlier in the block, and must not resolve one that has not arrived.
 void NetConnection::ghostReadStartBlock(BitStream *stream)
 {
    stream->read(&mGhostingSequence);
 
-   // read em back in.
-   // first, read in the index/class id, construct the object, and place it in mLocalGhosts[i]
-
+   U32 created = 0, unregistered = 0;
    while(stream->readFlag())
    {
+      created++;
       U32 index = stream->readInt(GhostIdBitSize);
       S32 tag = stream->readClassId(NetClassTypeObject, getNetClassGroup());
       NetObject *obj = (NetObject *) ConsoleObject::create(getNetClassGroup(), NetClassTypeObject, tag);
@@ -1325,26 +1328,22 @@ void NetConnection::ghostReadStartBlock(BitStream *stream)
       obj->mNetFlags = NetObject::IsGhost;
       obj->mNetIndex = index;
       mLocalGhosts[index] = obj;
+
+      obj->unpackUpdate(stream, true);
+
+      // A ghost that will not register is a world the engine cannot build
+      // yet -- no class decodes a datablock id -- and not a stream fault:
+      // its body is read, so the run carries on and the block still consumes
+      // exactly.  The object stays nameable for a later body's layout.
+      if(obj->registerObject())
+         addObject(obj);
+      else
+         unregistered++;
    }
 
-   // now, all the ghosts are in the mLocalGhosts, so we loop
-   // through all non-null mLocalGhosts, unpacking the objects
-   // as we go:
-
-   for(U32 i = 0; i < MaxGhostCount; i++)
-   {
-      if(mLocalGhosts[i])
-      {
-         mLocalGhosts[i]->unpackUpdate(stream, true);
-         if(!mLocalGhosts[i]->registerObject())
-         {
-            if(mErrorBuffer.isEmpty())
-               setLastError("Invalid packet. (failed to register ghost from demo block)");
-            return;
-         }
-         addObject(mLocalGhosts[i]);
-      }
-   }
+   if(unregistered)
+      Con::warnf("Demo start block: %d of %d ghosts would not register, so "
+         "they are read but not in the world.", unregistered, created);
    // MARKF - TODO - looks like we could have memory leaks here
    // if there are errors.
 }

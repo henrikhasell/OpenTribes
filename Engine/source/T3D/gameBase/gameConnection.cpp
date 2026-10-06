@@ -23,6 +23,7 @@
 #include "platform/platform.h"
 #include "T3D/gameBase/gameConnection.h"
 #include "T3D/gameBase/t2Layout.h"      // HH: Added for Tribes 2 compatibility.
+#include "T3D/gameBase/demoT2.h"        // HH: Added for Tribes 2 compatibility.
 
 #include "platform/profiler.h"
 #include "core/dnet.h"
@@ -204,6 +205,7 @@ GameConnection::GameConnection()
 
    mMoveList->setConnection( this );
 
+   mDemoTickCount = 0;     // HH: Added for Tribes 2 compatibility.
    mDataBlockModifiedKey = 0;
    mMaxDataBlockModifiedKey = 0;
    mAuthInfo = NULL;
@@ -876,10 +878,25 @@ void GameConnection::handleRecordedBlock(U32 type, U32 size, void *data)
    switch(type)
    {
       case BlockTypeMove:
+         // HH: Modified for Tribes 2 compatibility.
+         // A move is a tick, and the ticks played are what retail reports as
+         // the playback time (0x005fb193).
+         mDemoTickCount++;
          mMoveList->pushMove(*((Move *) data));
          if(isRecording()) // put it back into the stream
             recordBlock(type, size, data);
          break;
+
+      // HH: Added for Tribes 2 compatibility.
+      case BlockTypeCameraFov:
+         if(size >= sizeof(CameraFovBlock))
+         {
+            const CameraFovBlock *block = (const CameraFovBlock *) data;
+            mFirstPerson = block->firstPerson != 0;
+            mCameraFov = block->cameraFov;
+         }
+         break;
+
       default:
          Parent::handleRecordedBlock(type, size, data);
          break;
@@ -966,13 +983,28 @@ void GameConnection::writeDemoStartBlock(ResizeBitStream *stream)
    mLastControlRequestTime = Platform::getVirtualMilliseconds();
 }
 
+// HH: Modified for Tribes 2 compatibility.
+// Retail's order (0x005fb5c0): the datablock run is counted, the demo vars are
+// globals written by index, the target manager comes before the connection's
+// own block, and the tail is one control object and the mission name -- no
+// camera object word, and no mission file before the moves.
 bool GameConnection::readDemoStartBlock(BitStream *stream)
 {
+   U32 total;
+   stream->read(&total);
+
+   char count[16], of[16];
+   dSprintf(of, sizeof(of), "%d", total);
+   Con::executef("demoUpdateDatablockProgress", "0", of);
+
+   U32 read = 0;
    while(stream->readFlag())
    {
       SimDataBlockEvent evt;
       evt.unpack(this, stream);
       evt.process(this);
+      dSprintf(count, sizeof(count), "%d", ++read);
+      Con::executef("demoUpdateDatablockProgress", count, of);
    }
 
    while(mDataBlockLoadList.size())
@@ -986,52 +1018,59 @@ bool GameConnection::readDemoStartBlock(BitStream *stream)
    stream->read(&mCameraPos);
    stream->read(&mCameraSpeed);
 
-   char buf[256];
-   stream->readString(buf);
-   Con::setVariable("$Client::MissionFile",buf);
+   // Twenty more words of the connection's own: four at +0x83f8, +0x83fc,
+   // +0x8400 and +0x8434, then sixteen at +0x83b8, which is a Move's worth of
+   // bytes.  None of them is attributed to a member yet.
+   U32 word;
+   for(U32 i = 0; i < 20; i++)
+      stream->read(&word);
 
    mMoveList->readDemoStartBlock(stream);
 
-   // read in all the demo vars associated with this recording
-   // they are all tagged on to the object and start with the
-   // string "demo"
-
-   while(stream->readFlag())
+   // The demo vars are $DemoValue%d globals, written by index with no name on
+   // the wire; recordings.cs reads them back in this order.
+   for(U32 i = 0; stream->readFlag(); i++)
    {
-      StringTableEntry slotName = StringTable->insert("demo");
-      char array[256];
       char value[256];
-      stream->readString(array);
       stream->readString(value);
-      setDataField(slotName, array, value);
+      Con::setVariable(avar("$DemoValue%d", i), value);
    }
+
+   DemoT2::readTargetManagerState(stream);
+
    bool ret = Parent::readDemoStartBlock(stream);
+
    // grab the control object
    S32 idx;
    stream->read(&idx);
-
-   GameBase * obj = 0;
    if(idx != -1)
    {
-      obj = dynamic_cast<GameBase*>(resolveGhost(idx));
-      setControlObject(obj);
-      // HH: Modified for Tribes 2 compatibility.
-      T2Layout::readPacketData(stream, obj->getClassName(),
+      NetObject *ghost = (idx >= 0 && idx < S32(MaxGhostCount))
+         ? resolveGhost(idx) : NULL;
+      if(!ghost)
+      {
+         setLastError("Invalid demo. (control object is ghost %d, which the "
+            "start block never created)", idx);
+         return false;
+      }
+      // A ghost that would not register has no datablock and cannot be
+      // driven, but its packet data still has to be read.
+      GameBase *obj = dynamic_cast<GameBase*>(ghost);
+      if(obj && obj->isProperlyAdded())
+         setControlObject(obj);
+      T2Layout::readPacketData(stream, ghost->getClassName(),
          ghostClassNameT2, this);
    }
 
-   // Get the camera object, and read it in if it's different
-   S32 idx2;
-   stream->read(&idx2);
-   obj = 0;
-   if(idx2 != -1 && idx2 != idx)
-   {
-      obj = dynamic_cast<GameBase*>(resolveGhost(idx2));
-      setCameraObject(obj);
-      // HH: Modified for Tribes 2 compatibility.
-      T2Layout::readPacketData(stream, obj->getClassName(),
-         ghostClassNameT2, this);
-   }
+   char missionName[256];
+   stream->readString(missionName);
+   Con::setVariable("$MissionName", missionName);
+
+   stream->read(&word);                         // +0x8368
+
+   DemoT2::readProcessListState(stream);
+   DemoT2::readProcessListState(stream);
+
    return ret;
 }
 
