@@ -311,7 +311,7 @@ DESCRIPTIONS = {
                     clear=[             # live projectile
                         point('position'), normal(14, 'direction'),
                         int_(9, 'currTick'),
-                        opt([int_(11, 'sourceObject'), int_(3, 'sourceSlot'),
+                        opt([int_(10, 'sourceObject'), int_(3, 'sourceSlot'),
                              opt([int_(8, 'excessVel')]
                                  + normal(7, 'excessDir'))]),
                         opt([int_(10, 'vehicleObject')]),

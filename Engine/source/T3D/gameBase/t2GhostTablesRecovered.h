@@ -3642,7 +3642,7 @@ namespace T2Protocol
       { OpInt, 8, 8, -1 },
       { OpFlag, 1, 6, 9 },
       { OpInt, 3, 10, -1 },
-      { OpInt, 11, 11, -1 },
+      { OpInt, 10, 11, -1 },
       { OpFlag, 1, 6, 12 },
       { OpInt, 9, 13, -1 },
       { OpSignedFloat, 14, 14, -1 },
