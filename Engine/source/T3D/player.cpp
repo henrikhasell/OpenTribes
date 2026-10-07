@@ -3215,8 +3215,7 @@ bool Player::setActionThread(const char* sequence,bool hold,bool wait,bool fsp)
 void Player::setActionThread(U32 action,bool forward,bool hold,bool wait,bool fsp, bool forceSet)
 {
    // HH: Modified for Tribes 2 compatibility.
-   if(!mShapeInstance)
-      return;
+   AssertFatal(mShapeInstance, "Player::setActionThread - the player has no shape");
 
    if (!mDataBlock || (mActionAnimation.action == action && mActionAnimation.forward == forward && !forceSet))
       return;

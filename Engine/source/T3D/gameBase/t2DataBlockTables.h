@@ -1,4 +1,3 @@
-// HH: Added for Tribes 2 compatibility.
 #ifndef _T2DATABLOCKTABLES_H_
 #define _T2DATABLOCKTABLES_H_
 
@@ -1847,7 +1846,6 @@ namespace T2Protocol
       { OpLoop, 0, 17, 19 },
       { OpFlag, 1, 20, 21 },
       { OpEndBody, 0, -1, -1 },
-      // HH: Modified for Tribes 2 compatibility.
       { OpDataBlockId, 11, 20, -1 },
       { OpReadBr, 32, 6, -1 },
       { OpFlag, 1, 17, 24 },

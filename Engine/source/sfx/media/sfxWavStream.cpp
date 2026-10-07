@@ -163,9 +163,6 @@ bool SFXWavStream::_readHeader()
          {
             mStream->read(sizeof(WAVFmtExHdr), &fmtExHdr);
             // HH: Modified for Tribes 2 compatibility.
-            // The fields above were read too, so only counting the extension
-            // left the cursor sixteen bytes short of the chunk's end and the
-            // next header was read from the middle of a chunk.
             chunkRemaining -= sizeof(WAVFmtHdr) + sizeof(WAVFmtExHdr);
          }
       }
@@ -185,9 +182,7 @@ bool SFXWavStream::_readHeader()
          else
          {
             // HH: Modified for Tribes 2 compatibility.
-            // 0x0011 is IMA ADPCM and 0x0055 is MP3.  Neither decodes here,
-            // and carrying on left mDataStart unset while the loop walked off
-            // the end of the file.
+            // TODO: decode IMA ADPCM (0x0011) and MP3 (0x0055).
             static U16 sWarnedFormat = 0;
             if( fmtHdr.format != sWarnedFormat )
             {
@@ -225,9 +220,6 @@ bool SFXWavStream::_readHeader()
          chunkRemaining = 0;
       }
 
-      // HH: Modified for Tribes 2 compatibility.
-      // Both sizes are unsigned, so a chunk reaching the end of the file used
-      // to wrap this past zero and the loop read garbage as a chunk header.
       const U32 consumed = ((chunkHdr.size+1)&~1)+8;
       if (fileHdr.size <= consumed)
          break;

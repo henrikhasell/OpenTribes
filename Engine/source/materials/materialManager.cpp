@@ -457,9 +457,6 @@ ConsoleFunction( reInitMaterials, void, 1, 1,
    MATMGR->flushAndReInitInstances();
 }
 
-// HH: Modified for Tribes 2 compatibility.
-// addMaterialMapping is bound in materialPropertyMap.cpp.
-
 ConsoleFunction( getMaterialMapping, const char*, 2, 2, "(string texName)\n"
    "@brief Returns the name of the material mapped to this texture.\n\n"
    "If no materials are found, an empty string is returned.\n\n"

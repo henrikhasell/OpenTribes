@@ -524,19 +524,6 @@ bool ParticleEmitterData::preload(bool server, String &errorStr)
    
    if( !server )
    {
-      // HH: Modified for Tribes 2 compatibility.
-      // onAdd rejects an emitter with no particles, but a datablock off the
-      // wire is preloaded before it is registered, so that check has not run
-      // yet and allocPrimBuffer would assert instead.
-      if( particleDataBlocks.empty() )
-      {
-         errorStr = dataBlockIds.empty()
-            ? String( "Particle emitter named no particle at all" )
-            : String::ToString( "Particle emitter named %d particles, none of "
-                                "which resolved", dataBlockIds.size() );
-         return false;
-      }
-
       allocPrimBuffer();
    }
 

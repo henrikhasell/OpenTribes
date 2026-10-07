@@ -117,7 +117,6 @@ void GFXGLDevice::init(const GFXVideoMode& mode, PlatformWindow* window)
 
 bool GFXGLDevice::beginSceneInternal()
 {
-   // HH: Modified for Tribes 2 compatibility.
    mCanCurrentlyRender = true;
    glGetError();
    return true;

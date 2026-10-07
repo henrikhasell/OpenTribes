@@ -222,9 +222,6 @@ S32 BitStream::readClassId(U32 classType, U32 classGroup)
    S32 ret = readInt(AbstractClassRep::NetClassBitSize[classGroup][classType]);
 
    // HH: Modified for Tribes 2 compatibility.
-   // The width comes from the recovered table, so an out-of-range id is a
-   // cursor in the wrong place, not an unported class.  Say what was read and
-   // where, because the caller's graceful path hides both.
    AssertFatal(ret < AbstractClassRep::NetClassCount[classGroup][classType],
       avar("BitStream::readClassId - read %d of type %d, but only %d classes "
          "exist; %d bits ending at bit %d", ret, classType,
