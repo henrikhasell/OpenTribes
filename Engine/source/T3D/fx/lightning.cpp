@@ -239,7 +239,9 @@ LightningData::LightningData()
 {
    strikeSound = NULL;
 
-   dMemset( strikeTextureNames, 0, sizeof( strikeTextureNames ) );
+   // HH: Modified for Tribes 2 compatibility.
+   for( U32 i = 0; i < MaxTextures; i++ )
+      strikeTextureNames[ i ] = StringTable->EmptyString();
    dMemset( strikeTextures, 0, sizeof( strikeTextures ) );
    dMemset( thunderSounds, 0, sizeof( thunderSounds ) );
 }

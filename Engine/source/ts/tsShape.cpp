@@ -1018,6 +1018,17 @@ void TSShape::assembleShape()
 
       tsalloc.checkGuard();
    }
+   else if (smReadVersion>21)
+   {
+      // HH: Modified for Tribes 2 compatibility.
+      // A version 22 or 23 sequence still declares a ground frame count that
+      // no array backs, and getGround indexes the array by it unchecked.
+      for (i=0;i<sequences.size();i++)
+      {
+         sequences[i].firstGroundFrame = 0;
+         sequences[i].numGroundFrames = 0;
+      }
+   }
 
    // object states
    ptr32 = tsalloc.copyToShape32(numObjectStates*3);

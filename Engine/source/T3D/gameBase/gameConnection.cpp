@@ -1595,16 +1595,6 @@ void GameConnection::preloadNextDataBlock(bool hadNewFiles)
       }
       mFilesWereDownloaded = hadNewFiles;
 
-      // HH: Modified for Tribes 2 compatibility.
-      // A datablock a Tribes 2 server sent has no field set, its body having
-      // been taken off the wire by the recovered layout.  Preloading one acts
-      // on defaults and walks off the end of whatever it reads from them.
-      if(!isLocalConnection())
-      {
-         mDataBlockLoadList.pop_front();
-         continue;
-      }
-
       if(!object->preload(false, mErrorBuffer))
       {
          // HH: Modified for Tribes 2 compatibility.

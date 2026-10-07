@@ -882,22 +882,6 @@ bool ShapeBase::onAdd()
       return false;
    }
 
-   // HH: Modified for Tribes 2 compatibility.
-   // HH: TODO once the datablock decode is complete, see whether this guard
-   // is still needed.
-   if( !mShapeInstance )
-   {
-      static SimObjectId sWarned = 0;
-      if( mDataBlock->getId() != sWarned )
-      {
-         sWarned = mDataBlock->getId();
-         Con::warnf( "ShapeBase::onAdd - datablock %i (%s) named no shape, so "
-            "%s cannot be ticked.", mDataBlock->getId(),
-            mDataBlock->getClassName(), getClassName() );
-      }
-      setProcessTick( false );
-   }
-
    // Resolve sounds that arrived in the initial update
    S32 i;
    for (i = 0; i < MaxSoundThreads; i++)

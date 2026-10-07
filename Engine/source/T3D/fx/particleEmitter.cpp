@@ -524,6 +524,13 @@ bool ParticleEmitterData::preload(bool server, String &errorStr)
    
    if( !server )
    {
+      // HH: Modified for Tribes 2 compatibility.
+      if( particleDataBlocks.empty() )
+      {
+         errorStr = String::ToString( "Particle emitter %s names no particle", getName() );
+         return false;
+      }
+
       allocPrimBuffer();
    }
 
