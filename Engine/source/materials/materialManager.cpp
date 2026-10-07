@@ -457,16 +457,8 @@ ConsoleFunction( reInitMaterials, void, 1, 1,
    MATMGR->flushAndReInitInstances();
 }
 
-ConsoleFunction( addMaterialMapping, void, 3, 3, "(string texName, string matName)\n"
-   "@brief Maps the given texture to the given material.\n\n"
-   "Generates a console warning before overwriting.\n\n"
-   "Material maps are used by terrain and interiors for triggering "
-   "effects when an object moves onto a terrain "
-   "block or interior surface using the associated texture.\n\n"
-   "@ingroup Materials")
-{
-   MATMGR->mapMaterial(argv[1],argv[2]);
-}
+// HH: Modified for Tribes 2 compatibility.
+// addMaterialMapping is bound in materialPropertyMap.cpp.
 
 ConsoleFunction( getMaterialMapping, const char*, 2, 2, "(string texName)\n"
    "@brief Returns the name of the material mapped to this texture.\n\n"
