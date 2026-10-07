@@ -1847,7 +1847,8 @@ namespace T2Protocol
       { OpLoop, 0, 17, 19 },
       { OpFlag, 1, 20, 21 },
       { OpEndBody, 0, -1, -1 },
-      { OpReadBr, 11, 4, -1 },
+      // HH: Modified for Tribes 2 compatibility.
+      { OpDataBlockId, 11, 20, -1 },
       { OpReadBr, 32, 6, -1 },
       { OpFlag, 1, 17, 24 },
       { OpReadBr, 11, 8, -1 },

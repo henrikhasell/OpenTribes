@@ -36,6 +36,7 @@
 #include "T3D/gameBase/dataBlocksT2.h"
 #include "T3D/gameBase/t2Layout.h"
 #include "T3D/shapeBase.h"
+#include "T3D/fx/particleEmitter.h"
 
 #define DebugChecksum 0xF00DBAAD
 
@@ -209,6 +210,13 @@ void SimDataBlockEvent::unpack(NetConnection *cptr, BitStream *bstream)
          {
             if( ShapeBaseData *sb = dynamic_cast< ShapeBaseData * >( mObj ) )
                sb->shapeName = StringTable->insert( shape );
+         }
+
+         // HH: Added for Tribes 2 compatibility.
+         if( ParticleEmitterData *pe = dynamic_cast< ParticleEmitterData * >( mObj ) )
+         {
+            pe->dataBlockIds = T2Layout::lastDataBlockIds();
+            pe->particleString = NULL;
          }
       }
       else

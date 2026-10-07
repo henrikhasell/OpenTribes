@@ -22,6 +22,7 @@ static GhostClassFn sResolve = NULL;
 static void *sResolveCtx = NULL;
 static char sShapeName[256] = { 0 };
 static U32 sDataBlockId = 0;
+static Vector<U32> sDataBlockIds(__FILE__, __LINE__);
 static char sFirstString[256] = { 0 };
 static U32 sFirstWord32 = 0;
 static bool sHaveFirstWord32 = false;
@@ -34,6 +35,11 @@ const char *lastShapeFile()
 U32 firstDataBlockId()
 {
    return sDataBlockId;
+}
+
+const Vector<U32> &lastDataBlockIds()
+{
+   return sDataBlockIds;
 }
 
 const char *firstString()
@@ -223,6 +229,8 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
             const U32 dbId = xferInt(stream, n.bits, write);
             if(!sDataBlockId)
                sDataBlockId = dbId;
+            if(!write)
+               sDataBlockIds.push_back(dbId);
             break;
          }
 
@@ -337,6 +345,7 @@ static bool runDataBlock(BitStream *stream, U32 classId, bool write)
       "The datablock layouts are not one per net class id!");
 
    sShapeName[0] = 0;
+   sDataBlockIds.clear();
    if(classId >= ELEMENTS(sT2DataBlocks))
    {
       char id[32];

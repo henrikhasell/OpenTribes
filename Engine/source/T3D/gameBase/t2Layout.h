@@ -38,6 +38,9 @@ namespace T2Layout
 
    U32 firstDataBlockId();
 
+   /// Every datablock id the last body named, in the order it named them.
+   const Vector<U32> &lastDataBlockIds();
+
    const char *firstString();
 
    bool firstWord32(U32 *out);
