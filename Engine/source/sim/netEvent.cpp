@@ -398,6 +398,11 @@ bool NetConnection::postNetEvent(NetEvent *theEvent)
 {
    if(!mSendingEvents)
    {
+      // HH: Modified for Tribes 2 compatibility.
+      // A fresh event arrives at refcount 0 and only the path below takes a
+      // reference, so dropping one here decremented past zero.  Take one and
+      // let go of it, which destroys the event exactly as intended.
+      theEvent->incRef();
       theEvent->decRef();
       return false;
    }
