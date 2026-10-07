@@ -883,10 +883,8 @@ bool ShapeBase::onAdd()
    }
 
    // HH: Modified for Tribes 2 compatibility.
-   // A datablock that named no shape leaves no instance, and the tick and
-   // animation paths dereference one without checking.  Leave the object in
-   // the world but out of the process list, and name the datablock: a silent
-   // guard would hide the datablock decode that is the real gap.
+   // HH: TODO once the datablock decode is complete, see whether this guard
+   // is still needed.
    if( !mShapeInstance )
    {
       static SimObjectId sWarned = 0;

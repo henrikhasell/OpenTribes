@@ -859,9 +859,6 @@ void TerrainBlock::onEditorDisable()
 }
 
 // HH: Added for Tribes 2 compatibility.
-// A Tribes 2 terrain names its .ter in the body, where Torque's came from the
-// mission file, and onAdd invents a flat one of its own when the name is
-// empty rather than failing visibly.
 bool TerrainBlock::unpackUpdate(BitStream *stream, bool isInitial)
 {
    if(!Parent::unpackUpdate(stream, isInitial))

@@ -222,7 +222,6 @@ class InteriorInstance : public SceneZoneSpace
 
       virtual bool onAdd();
 
-      // HH: Added for Tribes 2 compatibility.
       bool unpackUpdate(BitStream *stream, bool isInitial);
       virtual void onRemove();
       virtual void inspectPostApply();

@@ -233,8 +233,6 @@ void TSStatic::inspectPostApply()
 }
 
 // HH: Added for Tribes 2 compatibility.
-// A Tribes 2 TSStatic names its shape in the body itself, where Torque's
-// came from a datablock, so onAdd has nothing to load without this.
 bool TSStatic::unpackUpdate(BitStream *stream, bool isInitial)
 {
    if(!Parent::unpackUpdate(stream, isInitial))

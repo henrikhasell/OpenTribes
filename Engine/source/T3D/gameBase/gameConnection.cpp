@@ -1053,9 +1053,8 @@ bool GameConnection::readDemoStartBlock(BitStream *stream)
             "start block never created)", idx);
          return false;
       }
-      // A ghost that would not register cannot be driven, but its packet
-      // data still has to be read.  Say so: a silent refusal leaves the
-      // render path to discover it.
+      // HH: TODO once the recording protocol is complete, see whether the
+      // else branch is still needed.
       GameBase *obj = dynamic_cast<GameBase*>(ghost);
       if(obj && obj->isProperlyAdded())
          setControlObject(obj);

@@ -1331,9 +1331,8 @@ void NetConnection::ghostReadStartBlock(BitStream *stream)
 
       obj->unpackUpdate(stream, true);
 
-      // A ghost that will not register is read but absent, not a stream
-      // fault: the run carries on so the block still consumes exactly, and
-      // mLocalGhosts keeps it nameable by a later body's layout.
+      // HH: TODO once the recording protocol is complete, see whether the
+      // else branch and the unregistered count are still needed.
       if(obj->registerObject())
          addObject(obj);
       else

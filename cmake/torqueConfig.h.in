@@ -33,8 +33,6 @@
 #  ifndef TORQUE_NET_STATS
 #     define TORQUE_NET_STATS
 #  endif
-// Enables AssertFatal and AssertWarn.  Without it a debug build checks no
-// more than a release one does.
 #  define TORQUE_ENABLE_ASSERTS
 #endif
 

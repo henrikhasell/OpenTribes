@@ -121,10 +121,7 @@ bool PlatformAssert::process(Type         assertType,
       dSprintf(buffer, 2048, "%s(%ld) : %s", filename, lineNumber, typeName[assertType] );
 
       // HH: Modified for Tribes 2 compatibility.
-      // A dialog waits for a click, so an assert under a driving script is a
-      // hang that keeps the telnet port and answers nothing.  With this set,
-      // say which assert on stderr and stop.
-      if( getenv( "TORQUE_NO_ASSERT_DIALOG" ) )
+      if( !getenv( "TORQUE_ASSERT_DIALOG" ) )
       {
          dPrintf( "\n%s : %s\n", buffer, message );
          Platform::forceShutdown(1);

@@ -256,8 +256,6 @@ void InteriorInstance::exportToCollada(bool bakeTransform)
 //-----------------------------------------------------------------------------
 
 // HH: Added for Tribes 2 compatibility.
-// A Tribes 2 interior names its .dif in the body, and onAdd loads it before
-// anything else, so the name has to be in place by the time it runs.
 bool InteriorInstance::unpackUpdate(BitStream *stream, bool isInitial)
 {
    if(!Parent::unpackUpdate(stream, isInitial))
@@ -267,8 +265,6 @@ bool InteriorInstance::unpackUpdate(BitStream *stream, bool isInitial)
       mInteriorFileName =
          StringTable->insert(T2Layout::resourcePath(file, "interiors/").c_str());
 
-   // The crc is the body's first 32-bit word, ahead of the file name, and
-   // _loadInterior compares it with the local file's before it will load.
    U32 crc;
    if(T2Layout::firstWord32(&crc))
       mCRC = crc;

@@ -21,11 +21,8 @@ using namespace T2Protocol;
 static GhostClassFn sResolve = NULL;
 static void *sResolveCtx = NULL;
 static char sShapeName[256] = { 0 };
-// HH: Added for Tribes 2 compatibility.
 static U32 sDataBlockId = 0;
-// HH: Added for Tribes 2 compatibility.
 static char sFirstString[256] = { 0 };
-// HH: Added for Tribes 2 compatibility.
 static U32 sFirstWord32 = 0;
 static bool sHaveFirstWord32 = false;
 
@@ -34,19 +31,16 @@ const char *lastShapeFile()
    return sShapeName[0] ? sShapeName : NULL;
 }
 
-// HH: Added for Tribes 2 compatibility.
 U32 firstDataBlockId()
 {
    return sDataBlockId;
 }
 
-// HH: Added for Tribes 2 compatibility.
 const char *firstString()
 {
    return sFirstString[0] ? sFirstString : NULL;
 }
 
-// HH: Added for Tribes 2 compatibility.
 bool firstWord32(U32 *out)
 {
    if(!sHaveFirstWord32)
@@ -55,7 +49,6 @@ bool firstWord32(U32 *out)
    return true;
 }
 
-// HH: Added for Tribes 2 compatibility.
 String resourcePath(const char *name, const char *dir)
 {
    String path(name);
@@ -227,8 +220,6 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
 
          case OpDataBlockId:
          {
-            // The object's own id is the first of these in a body; the rest
-            // name a mounted image or an audio profile.
             const U32 dbId = xferInt(stream, n.bits, write);
             if(!sDataBlockId)
                sDataBlockId = dbId;
@@ -243,8 +234,6 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
             xferInt(stream, n.bits, write);
             break;
 
-         // A class that names a resource also sends its crc, as the body's
-         // first 32-bit word, and an int node carries one as readily as a raw.
          case OpInt:
          case OpRaw:
          {
