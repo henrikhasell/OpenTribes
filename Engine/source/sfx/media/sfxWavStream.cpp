@@ -162,7 +162,11 @@ bool SFXWavStream::_readHeader()
          else
          {
             mStream->read(sizeof(WAVFmtExHdr), &fmtExHdr);
-            chunkRemaining -= sizeof(WAVFmtExHdr);
+            // HH: Modified for Tribes 2 compatibility.
+            // The fields above were read too, so only counting the extension
+            // left the cursor sixteen bytes short of the chunk's end and the
+            // next header was read from the middle of a chunk.
+            chunkRemaining -= sizeof(WAVFmtHdr) + sizeof(WAVFmtExHdr);
          }
       }
 
@@ -178,13 +182,20 @@ bool SFXWavStream::_readHeader()
             chunkRemaining -= chunkHdr.size;
             mSamples = chunkHdr.size / mFormat.getBytesPerSample();
          }
-         else if (fmtHdr.format==0x0011)
+         else
          {
-            //IMA ADPCM
-         }
-         else if (fmtHdr.format==0x0055)
-         {
-            //MP3 WAVE
+            // HH: Modified for Tribes 2 compatibility.
+            // 0x0011 is IMA ADPCM and 0x0055 is MP3.  Neither decodes here,
+            // and carrying on left mDataStart unset while the loop walked off
+            // the end of the file.
+            static U16 sWarnedFormat = 0;
+            if( fmtHdr.format != sWarnedFormat )
+            {
+               sWarnedFormat = fmtHdr.format;
+               Con::errorf( "SFXWavStream: wave format 0x%04x is not decoded, "
+                  "so these sounds are silent.", fmtHdr.format );
+            }
+            return false;
          }
       }
 
@@ -214,11 +225,17 @@ bool SFXWavStream::_readHeader()
          chunkRemaining = 0;
       }
 
-      fileHdr.size-=(((chunkHdr.size+1)&~1)+8);
+      // HH: Modified for Tribes 2 compatibility.
+      // Both sizes are unsigned, so a chunk reaching the end of the file used
+      // to wrap this past zero and the loop read garbage as a chunk header.
+      const U32 consumed = ((chunkHdr.size+1)&~1)+8;
+      if (fileHdr.size <= consumed)
+         break;
+      fileHdr.size -= consumed;
 
       // read next chunk header...
-      mStream->read(4, &chunkHdr.id[0]);
-      mStream->read(&chunkHdr.size);
+      if (!mStream->read(4, &chunkHdr.id[0]) || !mStream->read(&chunkHdr.size))
+         break;
       // unread chunk data rounded up to nearest WORD
       chunkRemaining = chunkHdr.size + (chunkHdr.size&1);
    }
