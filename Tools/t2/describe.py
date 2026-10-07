@@ -299,6 +299,63 @@ DESCRIPTIONS = {
         opt([int_(32, 'teamId')]),
         opt([flag('hidden')]),
     ],
+    # GrenadeProjectile::unpackUpdate.  EnergyProjectile and FlareProjectile
+    # resolve through the same vtable, so they share this body.
+    'GrenadeProjectile': GAME_BASE + [
+        branch(
+            set_=[                      # InitialUpdateMask
+                point3f('position'), point3f('velocity'),
+                int_(12, 'currTick'), flag('quickSplash'),
+                opt(point3f('explodePoint') + point3f('explodeNormal')),
+                opt([int_(11, 'sourceObject'), int_(3, 'sourceSlot')]),
+                opt([int_(11, 'vehicleObject')]),
+            ],
+            clear=[
+                opt(point3f('position') + point3f('velocity')),      # BounceMask
+                opt(point3f('explodePoint')                         # ExplosionMask
+                    + point3f('explodeNormal')),
+            ]),
+    ],
+    # BombProjectile::unpackUpdate (0x00636050).
+    'BombProjectile': GAME_BASE + [
+        branch(
+            set_=[                      # the full state
+                point3f('position'), point3f('velocity'),
+                int_(12, 'currTick'),
+                flag('resetFlag'),
+                opt(point3f('explodePoint') + point3f('explodeNormal')),
+                opt([int_(11, 'sourceObject'), int_(3, 'sourceSlot')]),
+                opt([int_(11, 'vehicleObject')]),
+            ],
+            clear=[
+                opt(point3f('position') + point3f('velocity')),
+                opt(point3f('endPoint') + point3f('endNormal')),
+            ]),
+    ],
+    # SeekerProjectile::unpackUpdate (0x0063c010).  A target is a direction, a
+    # ghost or nothing at all, and the mask decides which.
+    'SeekerProjectile': GAME_BASE + [
+        branch(
+            set_=[                      # the full state
+                point3f('position'), point3f('velocity'),
+                point3f('orientation'),
+                opt([int_(11, 'sourceObject'), int_(3, 'sourceSlot')]),
+                opt([branch(set_=[int_(11, 'targetGhost')],
+                            clear=point3f('targetDirection'))]),
+                flag('timeoutReset'),
+            ],
+            clear=[
+                branch(
+                    set_=[              # a detonation
+                        point3f('explodePosition'),
+                        point3f('explodeNormal'),
+                    ],
+                    clear=point3f('position') + point3f('velocity') + [
+                        opt([branch(set_=[int_(11, 'targetGhost')],
+                                    clear=point3f('targetDirection'))]),
+                    ]),
+            ]),
+    ],
     'LinearProjectile': GAME_BASE + [
         branch(
             set_=[                      # InitialUpdateMask
@@ -323,6 +380,24 @@ DESCRIPTIONS = {
             ]),
     ],
 }
+
+
+# Classes whose bodies retail reads through another class's vtable, so the
+# description is the same one.  Recovered from the binary by t2-demo-parser,
+# which binds each of these to the same unpackUpdate.
+SHARED_WITH = {
+    'TracerProjectile': 'LinearProjectile',
+    'LinearFlareProjectile': 'LinearProjectile',
+    'EnergyProjectile': 'GrenadeProjectile',
+    'FlareProjectile': 'GrenadeProjectile',
+}
+
+for _alias, _of in SHARED_WITH.items():
+    DESCRIPTIONS[_alias] = DESCRIPTIONS[_of]
+    if _of in DEFAULTS:
+        DEFAULTS[_alias] = DEFAULTS[_of]
+    if _of in ALIASES:
+        ALIASES[_alias] = ALIASES[_of]
 
 
 def layout(name):
