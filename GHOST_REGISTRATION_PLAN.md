@@ -118,7 +118,18 @@ complete playback rather than a segfault, so that "does it play to the end" and
 ## Proofs
 
 - Per class, our count matches retail's for the same recording, or the
-  difference is named and explained.
+  difference is named and explained. **Met for `demo004.rec` on 2026-10-07:**
+  15 of 15 classes and 107 of 107 ghosts agree across the file, retail and
+  ours, and retail reads the 1,508 datablocks the header declares.
+
+  Retail will not answer this by being inspected after the fact: it plays the
+  whole recording and tears the world down, so `ServerConnection` is absent
+  once `demoPlaybackComplete` has fired. Set `$timeScale = 0`, then send the
+  tally in the same breath as `playDemo` -- the start block is decoded inside
+  that call, so the next command runs with the world up and no packets
+  played. `Tools/t2/probe/demo.cs` is the script; it counts the decode by
+  overriding `demoUpdateDatablockProgress`, which retail calls from inside
+  `readDemoStartBlock`, so nothing depends on a frame being drawn.
 - `demo004.rec` plays to end of file: `demoPlaybackComplete` fires exactly
   once, and `getDemoCurrentTime` reaches the header's 34,617 ms.
 - All sixteen recordings still consume their start block exactly — the
