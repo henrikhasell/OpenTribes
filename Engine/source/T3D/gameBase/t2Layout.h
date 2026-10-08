@@ -45,6 +45,12 @@ namespace T2Layout
 
    bool firstWord32(U32 *out);
 
+   /// Every string the last ghost body read, in the order it read them.
+   const Vector<String> &lastStrings();
+
+   /// Every 32-bit word the last ghost body read, in the order it read them.
+   const Vector<U32> &lastWords();
+
    /// A Tribes 2 resource name is a bare file name; Torque wants a path.
    String resourcePath(const char *name, const char *dir);
 }

@@ -26,6 +26,8 @@ static Vector<U32> sDataBlockIds(__FILE__, __LINE__);
 static char sFirstString[256] = { 0 };
 static U32 sFirstWord32 = 0;
 static bool sHaveFirstWord32 = false;
+static Vector<String> sStrings(__FILE__, __LINE__);
+static Vector<U32> sWords(__FILE__, __LINE__);
 
 const char *lastShapeFile()
 {
@@ -53,6 +55,16 @@ bool firstWord32(U32 *out)
       return false;
    *out = sFirstWord32;
    return true;
+}
+
+const Vector<String> &lastStrings()
+{
+   return sStrings;
+}
+
+const Vector<U32> &lastWords()
+{
+   return sWords;
 }
 
 String resourcePath(const char *name, const char *dir)
@@ -246,10 +258,14 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
          case OpRaw:
          {
             const U32 word = xferInt(stream, n.bits, write);
-            if(n.bits == 32 && !sHaveFirstWord32 && !write)
+            if(n.bits == 32 && !write)
             {
-               sHaveFirstWord32 = true;
-               sFirstWord32 = word;
+               if(!sHaveFirstWord32)
+               {
+                  sHaveFirstWord32 = true;
+                  sFirstWord32 = word;
+               }
+               sWords.push_back(word);
             }
             break;
          }
@@ -271,6 +287,7 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
             {
                stream->readString(buf);
                noteString(buf);
+               sStrings.push_back(String(buf));
                if(!sFirstString[0])
                {
                   dStrncpy(sFirstString, buf, sizeof(sFirstString) - 1);
@@ -366,6 +383,8 @@ static bool runGhost(BitStream *stream, const char *className,
    sFirstString[0] = 0;
    sHaveFirstWord32 = false;
    sFirstWord32 = 0;
+   sStrings.clear();
+   sWords.clear();
    bool found = false;
    const bool ok = runNamed(stream, className, sT2GhostsRecovered,
                             ELEMENTS(sT2GhostsRecovered), &found, isInitial,
