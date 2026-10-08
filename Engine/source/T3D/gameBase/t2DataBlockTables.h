@@ -1840,7 +1840,7 @@ namespace T2Protocol
       { OpReadBr, 10, 0, -1 },
       { OpInt, 10, 14, -1 },
       { OpFlag, 1, 15, 15 },
-      { OpFlag, 1, 16, 22 },
+      { OpFlag, 1, 16, 16 },
       { OpReadBr, 32, 2, 0 },
       { OpEnd, 0, -1, -1 },
       { OpLoop, 0, 17, 19 },
