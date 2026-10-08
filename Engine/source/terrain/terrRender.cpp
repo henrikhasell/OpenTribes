@@ -142,6 +142,40 @@ void TerrainBlock::_updateLayerTexture()
 
    mLayerTex.unlock();
    //mLayerTex->dumpToDisk( "png", "./layerTex.png" );
+
+   // HH: Added for Tribes 2 compatibility.
+   // The id map above lets two materials meet only where their indices are
+   // neighbours, which is not how Tribes 2 draws a terrain: every material
+   // has a weight everywhere. Those weights go up as they are, four to a
+   // texture, and the shader samples its own channel instead of guessing one
+   // from the ids around it.
+   const U32 layers = mFile->mMaterials.size();
+   mLayerAlphaTex.setSize( mFile->hasLayerAlpha() ? ( layers + 3 ) / 4 : 0 );
+
+   for ( U32 plane = 0; plane < mLayerAlphaTex.size(); plane++ )
+   {
+      GFXTexHandle &tex = mLayerAlphaTex[ plane ];
+      if (  tex.isNull() ||
+            tex.getWidth() != layerSize ||
+            tex.getHeight() != layerSize )
+         tex.set( layerSize, layerSize, GFXFormatR8G8B8A8, &TerrainLayerTexProfile, "" );
+
+      GFXLockedRect *alphaLock = tex.lock();
+
+      for ( U32 i=0; i < pixelCount; i++ )
+      {
+         for ( U32 channel = 0; channel < 4; channel++ )
+         {
+            const U32 layer = plane * 4 + channel;
+            alphaLock->bits[ channel ] = layer < layers
+               ? mFile->getLayerAlpha( layer, i ) : 0;
+         }
+
+         alphaLock->bits += 4;
+      }
+
+      tex.unlock();
+   }
 }
 
 bool TerrainBlock::_initBaseShader()

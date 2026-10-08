@@ -367,6 +367,16 @@ bool TerrainCellMaterial::_createPass( Vector<MaterialInfo*> *materials,
                mat->getDetailMap().isEmpty() )
             continue;         
 
+         // HH: Modified for Tribes 2 compatibility.
+         // One alpha texture holds four materials, and a pass binds one, so
+         // a pass takes its materials from a single plane. The rest go to
+         // the next pass, which the loop below already makes.
+         if (  !mTerrain->mLayerAlphaTex.empty() &&
+               !pass->materials.empty() &&
+               ( (*materials)[i]->layerId >> 2 ) !=
+                  ( pass->materials.first()->layerId >> 2 ) )
+            break;
+
          S32 featureIndex = pass->materials.size();
 
          features.addFeature( MFT_TerrainDetailMap, featureIndex );
@@ -524,7 +534,14 @@ bool TerrainCellMaterial::_createPass( Vector<MaterialInfo*> *materials,
       desc.samplers[pass->baseTexMapConst->getSamplerRegister()] = GFXSamplerStateDesc::getWrapLinear();
 
    if ( pass->layerTexConst->isValid() )
-      desc.samplers[pass->layerTexConst->getSamplerRegister()] = GFXSamplerStateDesc::getClampPoint();
+   {
+      // HH: Modified for Tribes 2 compatibility.
+      // An id can only be read point sampled; an alpha is a weight and wants
+      // the hardware's filtering, which is where its resolution comes from.
+      desc.samplers[pass->layerTexConst->getSamplerRegister()] =
+         mTerrain->mLayerAlphaTex.empty() ? GFXSamplerStateDesc::getClampPoint()
+                                          : GFXSamplerStateDesc::getClampLinear();
+   }
 
    if ( pass->lightInfoBufferConst->isValid() )
       desc.samplers[pass->lightInfoBufferConst->getSamplerRegister()] = GFXSamplerStateDesc::getClampPoint();
@@ -652,7 +669,11 @@ void TerrainCellMaterial::_updateMaterialConsts( Pass *pass )
       if ( !mIsZero( distance ) )
          detailScaleAndFade.w = 1.0f / distance;
 
-      Point3F detailIdStrengthParallax( matInfo->layerId,
+      // HH: Modified for Tribes 2 compatibility.
+      const F32 layerId = mTerrain->mLayerAlphaTex.empty()
+         ? F32( matInfo->layerId ) : F32( matInfo->layerId & 3 );
+
+      Point3F detailIdStrengthParallax( layerId,
                                         matInfo->mat->getDetailStrength(),
                                         matInfo->mat->getParallaxScale() );
 
@@ -680,7 +701,18 @@ bool TerrainCellMaterial::setupPass(   const SceneRenderState *state,
       GFX->setTexture( pass.baseTexMapConst->getSamplerRegister(), mTerrain->mBaseTex.getPointer() );
 
    if ( pass.layerTexConst->isValid() )
-      GFX->setTexture( pass.layerTexConst->getSamplerRegister(), mTerrain->mLayerTex.getPointer() );
+   {
+      // HH: Modified for Tribes 2 compatibility.
+      GFXTextureObject *layerTex = mTerrain->mLayerTex.getPointer();
+      if ( !mTerrain->mLayerAlphaTex.empty() && !pass.materials.empty() )
+      {
+         const U32 plane = pass.materials.first()->layerId >> 2;
+         if ( plane < mTerrain->mLayerAlphaTex.size() )
+            layerTex = mTerrain->mLayerAlphaTex[ plane ].getPointer();
+      }
+
+      GFX->setTexture( pass.layerTexConst->getSamplerRegister(), layerTex );
+   }
 
    if ( pass.lightMapTexConst->isValid() )
       GFX->setTexture( pass.lightMapTexConst->getSamplerRegister(), mTerrain->getLightMapTex() );
@@ -711,7 +743,12 @@ bool TerrainCellMaterial::setupPass(   const SceneRenderState *state,
          GFX->setTexture( matInfo->normalTexConst->getSamplerRegister(), matInfo->normalTex );
    }
 
-   pass.consts->setSafe( pass.layerSizeConst, (F32)mTerrain->mLayerTex.getWidth() );
+   // HH: Modified for Tribes 2 compatibility.
+   // A negative size is what tells calcBlend the sample it was given is four
+   // alphas rather than four ids; nothing else reads it in that path.
+   pass.consts->setSafe( pass.layerSizeConst,
+      mTerrain->mLayerAlphaTex.empty() ? (F32)mTerrain->mLayerTex.getWidth()
+                                       : -(F32)mTerrain->mLayerTex.getWidth() );
 
    if ( pass.oneOverTerrainSize->isValid() )
    {

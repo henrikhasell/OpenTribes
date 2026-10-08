@@ -913,19 +913,29 @@ bool TerrainBlock::onAdd()
    setFile( terr );
 
    // HH: Added for Tribes 2 compatibility.
-   // A Tribes 2 terrain states one detail texture for the whole block rather
-   // than one per material, and its base textures tile once per square, which
-   // is the granularity TGE's blender samples them at. Set both through the
-   // fields script would, since the material keeps them to itself.
-   if ( mDetailTexture.isNotEmpty() )
+   // Tribes 2 draws a terrain square as its materials' own textures, summed
+   // by their alphas and tiled once per square; the mission's one detail
+   // texture multiplies over the top of that. Torque reaches the same place
+   // through a detail layer per material, so each material's own texture goes
+   // in that slot -- a material with no detail map is not admitted to a pass
+   // at all, and the base texture alone is four texels to a square.
+   if ( terr->hasLayerAlpha() )
    {
       for ( U32 i = 0; i < terr->mMaterials.size(); i++ )
       {
          TerrainMaterial *mat = terr->mMaterials[ i ];
-         if ( mat->getDetailMap().isEmpty() )
-            mat->setDataField( StringTable->insert( "detailMap" ), NULL,
-                               mDetailTexture );
+         StringTableEntry field = StringTable->insert( "detailMap" );
 
+         if ( mat->getDetailMap().isEmpty() )
+            mat->setDataField( field, NULL, mat->getDiffuseMap() );
+
+         // One repeat per square, and far enough out to cover the view a
+         // Tribes 2 mission asks for (`visibleDistance` is 1200 in the
+         // missions, against a Torque default of fifty).
+         mat->setDataField( StringTable->insert( "detailSize" ), NULL,
+                            String::ToString( mSquareSize ) );
+         mat->setDataField( StringTable->insert( "detailDistance" ), NULL,
+                            String::ToString( getWorldBlockSize() * 0.5f ) );
          mat->setDataField( StringTable->insert( "diffuseSize" ), NULL,
                             String::ToString( mSquareSize ) );
       }
@@ -974,7 +984,14 @@ bool TerrainBlock::onAdd()
       // A blended base texture is composited straight into mBaseTex, so
       // there is no cache file to date against the terrain or to load.
       if ( terr->hasLayerAlpha() )
+      {
+         // A blended base texture is the distance cache, and Torque's default
+         // of 1024 over a 2048 metre block is four texels to a square -- too
+         // few for a material's texture to survive the reduction. One metre
+         // to a texel costs 16 MB and resolves eight.
+         mBaseTexSize = getMax( mBaseTexSize, 2048U );
          _updateBaseTexture( false );
+      }
       else
       {
          // If the cached base texture is older that the terrain file or

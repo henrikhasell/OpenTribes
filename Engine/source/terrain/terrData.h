@@ -107,6 +107,11 @@ protected:
    /// 
    GFXTexHandle mLayerTex;
 
+   // HH: Added for Tribes 2 compatibility.
+   /// Four materials' alpha to a texture, for a terrain whose file carries
+   /// an alpha map per material rather than one index per sample.
+   Vector<GFXTexHandle> mLayerAlphaTex;
+
    /// The shader used to generate the base texture map.
    GFXShaderRef mBaseShader;
 
