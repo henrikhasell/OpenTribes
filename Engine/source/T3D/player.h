@@ -617,6 +617,8 @@ protected:
    virtual void unmount();
    /// @}
 
+   void onT2BodyRead( const T2Layout::Body &body ) override;
+
    void setPosition(const Point3F& pos,const Point3F& viewRot);
    void setRenderPosition(const Point3F& pos,const Point3F& viewRot,F32 dt=-1);
    void _findContact( SceneObject **contactObject, VectorF *contactNormal, Vector<SceneObject*> *outOverlapObjects );
