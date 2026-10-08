@@ -883,6 +883,18 @@ bool TerrainBlock::unpackUpdate(BitStream *stream, bool isInitial)
    if(words.size() > 1 && words[1] > 0 && words[1] <= 64)
       mSquareSize = F32(words[1]);
 
+   // TribesNext's IFC22 patch appends this terrain's eight material names to
+   // a server-to-client update once the negotiated protocol is past 51 -- the
+   // server this port is tested against offers 52. A recording carries 51 and
+   // none of it, which is why the recovered layout has no room for it: the
+   // bits are read here or every event behind this one in the packet is lost.
+   NetConnection *conn = NetConnection::getConnectionToServer();
+   if(conn && conn->getProtocolVersion() > 51 && stream->readFlag())
+   {
+      char names[256];
+      stream->readString(names);
+   }
+
    return true;
 }
 
