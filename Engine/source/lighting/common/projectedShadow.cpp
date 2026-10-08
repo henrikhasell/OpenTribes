@@ -92,8 +92,8 @@ ProjectedShadow::ProjectedShadow( SceneObject *object )
    mLastObjectPosition.set( object->getRenderPosition() );
    mLastObjectScale.set( object->getScale() );
 
-   CustomMaterial *customMat = NULL;
-   Sim::findObject( "BL_ProjectedShadowMaterial", customMat );
+   CustomMaterial *customMat = dynamic_cast< CustomMaterial* >(
+      MATMGR->getMaterialDefinitionByName( "BL_ProjectedShadowMaterial" ) );
    if ( customMat )
    {
       mDecalData->material = customMat;

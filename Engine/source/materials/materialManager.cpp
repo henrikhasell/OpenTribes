@@ -25,6 +25,9 @@
 
 #include "materials/matInstance.h"
 #include "materials/materialFeatureTypes.h"
+#include "materials/customMaterialDefinition.h"
+#include "materials/shaderData.h"
+#include "gfx/sim/gfxStateBlockData.h"
 #include "lighting/lightManager.h"
 #include "core/util/safeDelete.h"
 #include "shaderGen/shaderGen.h"
@@ -147,6 +150,108 @@ Material * MaterialManager::allocateAndRegister(const String &objectName, const 
    return newMat;
 }
 
+static void setField( SimObject *obj, const char *field, const char *value,
+                      const char *array = NULL )
+{
+   obj->setDataField( StringTable->insert( field ), array, value );
+}
+
+template< class T >
+static T *registerDefault( T *obj, const char *name )
+{
+   if( !obj->registerObject( name ) )
+   {
+      delete obj;
+      return NULL;
+   }
+
+   Sim::getRootGroup()->addObject( obj );
+   return obj;
+}
+
+// HH: Added for Tribes 2: Compatibility. Torque Game Engine defines these
+// in scripts. We need to define it in code.
+static CustomMaterial *createProjectedShadowMaterial()
+{
+   GFXSamplerStateData *sampler;
+   if( !Sim::findObject( "SamplerClampLinear", sampler ) )
+   {
+      sampler = new GFXSamplerStateData;
+      setField( sampler, "textureColorOp", "GFXTOPModulate" );
+      setField( sampler, "addressModeU", "GFXAddressClamp" );
+      setField( sampler, "addressModeV", "GFXAddressClamp" );
+      setField( sampler, "addressModeW", "GFXAddressClamp" );
+      setField( sampler, "magFilter", "GFXTextureFilterLinear" );
+      setField( sampler, "minFilter", "GFXTextureFilterLinear" );
+      setField( sampler, "mipFilter", "GFXTextureFilterLinear" );
+      if( !registerDefault( sampler, "SamplerClampLinear" ) )
+         return NULL;
+   }
+
+   GFXStateBlockData *state = new GFXStateBlockData;
+   setField( state, "blendDefined", "1" );
+   setField( state, "blendEnable", "1" );
+   setField( state, "blendSrc", "GFXBlendDestColor" );
+   setField( state, "blendDest", "GFXBlendZero" );
+   setField( state, "zDefined", "1" );
+   setField( state, "zEnable", "1" );
+   setField( state, "zWriteEnable", "0" );
+   setField( state, "samplersDefined", "1" );
+   setField( state, "samplerStates", "SamplerClampLinear", "0" );
+   setField( state, "vertexColorEnable", "1" );
+   if( !registerDefault( state, "BL_ProjectedShadowSBData" ) )
+      return NULL;
+
+   ShaderData *shader = new ShaderData;
+   setField( shader, "DXVertexShaderFile", "shaders/common/projectedShadowV.hlsl" );
+   setField( shader, "DXPixelShaderFile", "shaders/common/projectedShadowP.hlsl" );
+   setField( shader, "OGLVertexShaderFile", "shaders/common/gl/projectedShadowV.glsl" );
+   setField( shader, "OGLPixelShaderFile", "shaders/common/gl/projectedShadowP.glsl" );
+   setField( shader, "samplerNames", "$inputTex", "0" );
+   setField( shader, "pixVersion", "2.0" );
+   if( !registerDefault( shader, "BL_ProjectedShadowShaderData" ) )
+      return NULL;
+
+   CustomMaterial *mat = new CustomMaterial;
+   mat->setDataField( StringTable->insert( "sampler" ), "inputTex", "$miscbuff" );
+   setField( mat, "shader", "BL_ProjectedShadowShaderData" );
+   setField( mat, "stateBlock", "BL_ProjectedShadowSBData" );
+   setField( mat, "version", "2.0" );
+   setField( mat, "forwardLit", "1" );
+   return registerDefault( mat, "BL_ProjectedShadowMaterial" );
+}
+
+Material *MaterialManager::_createDefaultMaterial( const String &matName )
+{
+   if( matName.equal( "WarningMaterial", String::NoCase ) )
+   {
+      Material *mat = allocateAndRegister( matName );
+      if( mat )
+      {
+         mat->mDiffuse[ 0 ].set( 1.0f, 0.0f, 1.0f, 1.0f );
+         mat->mEmissive[ 0 ] = true;
+      }
+      return mat;
+   }
+
+   if( matName.equal( "AL_DefaultShadowMaterial", String::NoCase ) )
+   {
+      Material *mat = allocateAndRegister( matName );
+      if( mat )
+      {
+         mat->mDiffuse[ 0 ].set( 1.0f, 1.0f, 1.0f, 1.0f );
+
+         mat->mDoubleSided = true;
+      }
+      return mat;
+   }
+
+   if( matName.equal( "BL_ProjectedShadowMaterial", String::NoCase ) )
+      return createProjectedShadowMaterial();
+
+   return NULL;
+}
+
 Material * MaterialManager::getMaterialDefinitionByName(const String &matName)
 {
    // Get the material
@@ -154,6 +259,14 @@ Material * MaterialManager::getMaterialDefinitionByName(const String &matName)
 
    if(!Sim::findObject(matName, foundMat))
    {
+      if( Material *mat = _createDefaultMaterial( matName ) )
+      {
+         // TODO: this should never trigger -- a material should always be found.
+         Con::warnf( "MaterialManager: No material '%s' was defined in "
+                     "script; using a default one.", matName.c_str() );
+         return mat;
+      }
+
       Con::errorf("MaterialManager: Unable to find material '%s'", matName.c_str());
       return NULL;
    }
@@ -192,7 +305,7 @@ BaseMatInstance* MaterialManager::createMatInstance(  const String &matName,
 
 BaseMatInstance  * MaterialManager::createWarningMatInstance()
 {
-   Material *warnMat = static_cast<Material*>(Sim::findObject("WarningMaterial"));
+   Material *warnMat = getMaterialDefinitionByName( "WarningMaterial" );
 
    BaseMatInstance   *warnMatInstance = NULL;
 
