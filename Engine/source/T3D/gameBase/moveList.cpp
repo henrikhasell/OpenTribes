@@ -205,6 +205,17 @@ void MoveList::writeDemoStartBlock(ResizeBitStream *stream)
       mMoveVec[j].pack(stream);
 }
 
+// HH: Added for Tribes 2 compatibility.
+// The three indices Torque writes beside the pending moves; Tribes 2 keeps
+// them in the connection (+0x83f8, +0x83fc, +0x8400) and reads them there,
+// several fields ahead of the moves they index.
+void MoveList::readDemoMoveState(BitStream *stream)
+{
+   stream->read(&mLastMoveAck);
+   stream->read(&mLastClientMove);
+   stream->read(&mFirstMoveIndex);
+}
+
 // HH: Modified for Tribes 2 compatibility.
 // Tribes 2 keeps its move state in the connection, and reads it there; what is
 // left here is the pending move run (0x00601800).

@@ -64,6 +64,8 @@ public:
 
    virtual void writeDemoStartBlock( ResizeBitStream *stream );
    virtual void readDemoStartBlock( BitStream *stream );
+   // HH: Added for Tribes 2 compatibility.
+   void readDemoMoveState( BitStream *stream );
    /// @}
 
    virtual void advanceMove() = 0;
