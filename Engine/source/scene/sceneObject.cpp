@@ -375,6 +375,19 @@ void SceneObject::setGlobalBounds()
 
 //-----------------------------------------------------------------------------
 
+void SceneObject::onT2BodyRead( const T2Layout::Body &body )
+{
+   if( !body.hasPosition )
+      return;
+
+   // A Tribes 2 body that carries a heading carries only that: there is no
+   // pitch or roll on the wire for an object placed this way.
+   MatrixF mat( body.hasYaw ? MatrixF( EulerF( 0.0f, 0.0f, body.yaw ) )
+                            : getTransform() );
+   mat.setPosition( body.position );
+   setTransform( mat );
+}
+
 void SceneObject::setTransform( const MatrixF& mat )
 {
    // This test is a bit expensive so turn it off in release.   

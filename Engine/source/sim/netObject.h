@@ -29,6 +29,9 @@
 #ifndef _MMATH_H_
 #include "math/mMath.h"
 #endif
+#ifndef _T2LAYOUT_H_
+#include "T3D/gameBase/t2Layout.h"
+#endif
 
 
 //-----------------------------------------------------------------------------
@@ -362,6 +365,8 @@ public:
    /// @returns False if the body could not be read, which kills the
    ///          connection -- the stream cursor is no longer trustworthy.
    virtual bool unpackUpdate(BitStream *stream, bool isInitial);
+
+   virtual void onT2BodyRead(const T2Layout::Body &body) {}
 
    /// Queries the object about information used to determine scope.
    ///

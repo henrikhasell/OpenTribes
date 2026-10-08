@@ -329,7 +329,11 @@ U32 NetObject::packUpdate(NetConnection *conn, U32 mask, BitStream *stream,
 
 bool NetObject::unpackUpdate(BitStream *stream, bool isInitial)
 {
-   return T2Layout::readGhost(stream, getClassName(), isInitial);
+   if(!T2Layout::readGhost(stream, getClassName(), isInitial))
+      return false;
+
+   onT2BodyRead(T2Layout::lastBody());
+   return true;
 }
 
 void NetObject::onCameraScopeQuery(NetConnection *cr, CameraScopeQuery* /*camInfo*/)

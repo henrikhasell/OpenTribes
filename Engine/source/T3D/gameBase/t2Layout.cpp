@@ -15,6 +15,7 @@ namespace T2Layout
 #include "T3D/gameBase/t2EventTablesRecovered.h"
 #include "T3D/gameBase/t2PacketDataTables.h"
 #include "T3D/gameBase/t2PacketDataTablesRecovered.h"
+#include "T3D/gameBase/t2GhostFields.h"
 
 using namespace T2Protocol;
 
@@ -28,6 +29,19 @@ static U32 sFirstWord32 = 0;
 static bool sHaveFirstWord32 = false;
 static Vector<String> sStrings(__FILE__, __LINE__);
 static Vector<U32> sWords(__FILE__, __LINE__);
+static Body sBody = { false, Point3F(0.0f, 0.0f, 0.0f), false, 0.0f };
+
+/// The nodes of the body being read that carry a transform, resolved from
+/// sT2GhostFields. -1 is "this class says nothing about it".
+static S16 sPositionNode = -1;
+static S16 sYawNode = -1;
+static const char *sFieldsFor = NULL;
+static const void *sFieldsLayout = NULL;
+
+const Body &lastBody()
+{
+   return sBody;
+}
 
 const char *lastShapeFile()
 {
@@ -267,6 +281,11 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
                }
                sWords.push_back(word);
             }
+            if(!write && at == sYawNode && layout == sFieldsLayout && n.bits)
+            {
+               sBody.hasYaw = true;
+               sBody.yaw = (F32)word / (F32)((1 << n.bits) - 1) * M_2PI_F;
+            }
             break;
          }
 
@@ -276,7 +295,14 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
             if(write)
                stream->writeCompressedPoint(p, 0.01f);
             else
+            {
                stream->readCompressedPoint(&p, 0.01f);
+               if(at == sPositionNode && layout == sFieldsLayout)
+               {
+                  sBody.hasPosition = true;
+                  sBody.position = p;
+               }
+            }
             break;
          }
 
@@ -310,28 +336,34 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
    return at < 0;
 }
 
+static const T2DataBlockLayout *findNamed(const char *name,
+                                          const T2DataBlockLayout *table,
+                                          U32 count)
+{
+   if(!name)
+      return NULL;
+
+   for(U32 i = 0; i < count; i++)
+      if(!dStrcmp(table[i].name, name))
+         return &table[i];
+
+   return NULL;
+}
+
 static bool runNamed(BitStream *stream, const char *name,
                      const T2DataBlockLayout *table, U32 count,
                      bool *found = NULL, bool isInitial = false,
                      bool write = false)
 {
-   if(!name)
+   const T2DataBlockLayout *layout = findNamed(name, table, count);
+   if(!layout)
       return false;
 
-   for(U32 i = 0; i < count; i++)
-   {
-      if(dStrcmp(table[i].name, name))
-         continue;
+   if(found)
+      *found = true;
 
-      if(found)
-         *found = true;
-
-      U32 slots[8] = { 0, 0, 0, 0, 0, 0, 0, 0 };
-      return runGraph(stream, &table[i], table[i].root, slots, 0,
-                      isInitial, write);
-   }
-
-   return false;
+   U32 slots[8] = { 0, 0, 0, 0, 0, 0, 0, 0 };
+   return runGraph(stream, layout, layout->root, slots, 0, isInitial, write);
 }
 
 #define ELEMENTS( a ) ( sizeof( a ) / sizeof( ( a )[ 0 ] ) )
@@ -376,6 +408,55 @@ static bool runDataBlock(BitStream *stream, U32 classId, bool write)
    return runGraph(stream, layout, layout->root, slots, 0, false, write);
 }
 
+static void resolveGhostFields(const char *className)
+{
+   if(className == sFieldsFor)
+      return;
+
+   sFieldsFor = className;
+   sPositionNode = -1;
+   sYawNode = -1;
+   sFieldsLayout = NULL;
+
+   const T2DataBlockLayout *layout =
+      findNamed(className, sT2GhostsRecovered, ELEMENTS(sT2GhostsRecovered));
+   if(!layout)
+      return;
+
+   sFieldsLayout = layout;
+
+   for(U32 i = 0; i < ELEMENTS(sT2GhostFields); i++)
+   {
+      const T2GhostFieldRow &row = sT2GhostFields[i];
+      if(dStrcmp(row.cls, className))
+         continue;
+
+      if(row.node < 0 || U32(row.node) >= layout->count)
+      {
+         Con::errorf("T2 field: %s node %d is past the end of its layout -- "
+                     "the transform of this class is not being read.",
+                     className, row.node);
+         continue;
+      }
+
+      const T2DataNode &n = layout->nodes[row.node];
+      if(n.op != row.op || n.bits != row.bits)
+      {
+         Con::errorf("T2 field: %s node %d is op %d of %d bits, not the op %d "
+                     "of %d bits it was named against -- the layout moved "
+                     "under the field, so the transform of this class is not "
+                     "being read.", className, row.node, n.op, n.bits,
+                     row.op, row.bits);
+         continue;
+      }
+
+      if(row.field == T2FieldPosition)
+         sPositionNode = row.node;
+      else if(row.field == T2FieldYaw)
+         sYawNode = row.node;
+   }
+}
+
 static bool runGhost(BitStream *stream, const char *className,
                      bool isInitial, bool write)
 {
@@ -385,6 +466,9 @@ static bool runGhost(BitStream *stream, const char *className,
    sFirstWord32 = 0;
    sStrings.clear();
    sWords.clear();
+   sBody.hasPosition = false;
+   sBody.hasYaw = false;
+   resolveGhostFields(className);
    bool found = false;
    const bool ok = runNamed(stream, className, sT2GhostsRecovered,
                             ELEMENTS(sT2GhostsRecovered), &found, isInitial,

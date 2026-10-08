@@ -10,10 +10,24 @@
 #include "core/util/str.h"
 #endif
 
+#ifndef _MPOINT3_H_
+#include "math/mPoint3.h"
+#endif
+
 class BitStream;
 
 namespace T2Layout
 {
+   struct Body
+   {
+      bool    hasPosition;
+      Point3F position;
+      bool    hasYaw;
+      F32     yaw;                  ///< radians
+   };
+
+   const Body &lastBody();
+
    bool readDataBlock(BitStream *stream, U32 classId);
 
    bool readGhost(BitStream *stream, const char *className,
