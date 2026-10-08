@@ -36,6 +36,22 @@ namespace T2Layout
 
    const Body &lastBody();
 
+   enum T2DataBlockField
+   {
+      T2DbJetForce,
+      T2DbUnderwaterJetForce,
+      T2DbUnderwaterVertJetFactor,
+      T2DbJetEnergyDrain,
+      T2DbUnderwaterJetEnergyDrain,
+      T2DbMinJetEnergy,
+      T2DbMaxJetForwardSpeed,
+      T2DbMaxJetHorizontalPercentage,
+
+      T2DbFieldCount
+   };
+
+   bool lastDataBlockField(U32 field, F32 *out);
+
    bool readDataBlock(BitStream *stream, U32 classId);
 
    bool readGhost(BitStream *stream, const char *className,

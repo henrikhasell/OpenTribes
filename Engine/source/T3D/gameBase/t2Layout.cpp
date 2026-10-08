@@ -18,6 +18,7 @@ namespace T2Layout
 #include "T3D/gameBase/t2PacketDataTables.h"
 #include "T3D/gameBase/t2PacketDataTablesRecovered.h"
 #include "T3D/gameBase/t2GhostFields.h"
+#include "T3D/gameBase/t2DataBlockFields.h"
 
 using namespace T2Protocol;
 
@@ -37,6 +38,13 @@ static const T2GhostFieldRow *sRows[16] = { NULL };
 static U32 sRowCount = 0;
 static const char *sFieldsFor = NULL;
 
+static const T2DataBlockFieldRow *sDbRows[16] = { NULL };
+static U32 sDbRowCount = 0;
+static S32 sDbRowsFor = -1;
+static const void *sDbLayout = NULL;
+static F32 sDbValues[T2DbFieldCount] = { 0.0f };
+static bool sDbHas[T2DbFieldCount] = { false };
+
 static S32 sTransformAt = -1;
 static S32 sAffineAt = -1;
 static S32 sScaleAt = -1;
@@ -46,6 +54,14 @@ static const void *sFieldsLayout = NULL;
 const Body &lastBody()
 {
    return sBody;
+}
+
+bool lastDataBlockField(U32 field, F32 *out)
+{
+   if(field >= T2DbFieldCount || !sDbHas[field])
+      return false;
+   *out = sDbValues[field];
+   return true;
 }
 
 const char *lastShapeFile()
@@ -144,6 +160,19 @@ static const T2GhostFieldRow *fieldAt(const T2DataBlockLayout *layout, S32 at)
    for(U32 i = 0; i < sRowCount; i++)
       if(sRows[i]->node == at)
          return sRows[i];
+
+   return NULL;
+}
+
+static const T2DataBlockFieldRow *dbFieldAt(const T2DataBlockLayout *layout,
+                                            S32 at)
+{
+   if(!sDbRowCount || layout != sDbLayout)
+      return NULL;
+
+   for(U32 i = 0; i < sDbRowCount; i++)
+      if(sDbRows[i]->node == at)
+         return sDbRows[i];
 
    return NULL;
 }
@@ -318,6 +347,15 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
                }
                sWords.push_back(word);
             }
+            if(!write && n.bits == 32)
+            {
+               const T2DataBlockFieldRow *dbRow = dbFieldAt(layout, at);
+               if(dbRow)
+               {
+                  dMemcpy(&sDbValues[dbRow->field], &word, sizeof(F32));
+                  sDbHas[dbRow->field] = true;
+               }
+            }
             if(row && row->field == T2FieldYaw && n.bits)
             {
                sBody.hasYaw = true;
@@ -426,6 +464,52 @@ static void warnUnimplemented(const char *kind, const char *name, bool write)
                what, write ? "body we are writing" : "packet");
 }
 
+static void resolveDataBlockFields(U32 classId, const T2DataBlockLayout *layout)
+{
+   if(S32(classId) == sDbRowsFor)
+      return;
+
+   sDbRowsFor = S32(classId);
+   sDbRowCount = 0;
+   sDbLayout = layout;
+
+   for(U32 i = 0; i < ELEMENTS(sT2DataBlockFields); i++)
+   {
+      const T2DataBlockFieldRow &row = sT2DataBlockFields[i];
+      if(dStrcmp(row.cls, layout->name))
+         continue;
+
+      if(row.node < 0 || U32(row.node) >= layout->count)
+      {
+         Con::errorf("T2 datablock field: %s node %d is past the end of its "
+                     "layout -- this class is acting on its defaults.",
+                     layout->name, row.node);
+         continue;
+      }
+
+      const T2DataNode &n = layout->nodes[row.node];
+      if(n.op != row.op || n.bits != row.bits)
+      {
+         Con::errorf("T2 datablock field: %s node %d is op %d of %d bits, not "
+                     "the op %d of %d bits it was named against -- the layout "
+                     "moved under the field, so this class is acting on its "
+                     "defaults.", layout->name, row.node, n.op, n.bits,
+                     row.op, row.bits);
+         continue;
+      }
+
+      if(sDbRowCount >= ELEMENTS(sDbRows))
+      {
+         Con::errorf("T2 datablock field: %s names more fields than there is "
+                     "room for; node %d is being ignored.", layout->name,
+                     row.node);
+         continue;
+      }
+
+      sDbRows[sDbRowCount++] = &row;
+   }
+}
+
 static bool runDataBlock(BitStream *stream, U32 classId, bool write)
 {
    AssertFatal(ELEMENTS(sT2DataBlocks) == NetClassTable::DataBlockCount,
@@ -442,6 +526,10 @@ static bool runDataBlock(BitStream *stream, U32 classId, bool write)
    }
 
    const T2DataBlockLayout *layout = &sT2DataBlocks[classId];
+   resolveDataBlockFields(classId, layout);
+   for(U32 i = 0; i < T2DbFieldCount; i++)
+      sDbHas[i] = false;
+
    U32 slots[8] = { 0, 0, 0, 0, 0, 0, 0, 0 };
    return runGraph(stream, layout, layout->root, slots, 0, false, write);
 }

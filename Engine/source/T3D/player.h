@@ -155,6 +155,18 @@ struct PlayerData: public ShapeBaseData {
    F32 jetMinJumpSpeed;
    F32 jetMaxJumpSpeed;
    F32 jetJumpSurfaceAngle;   ///< Angle vertical degrees
+
+   /// @name Jetting, Tribes 2's
+   /// @{
+   F32 jetForce;                      ///< Thrust while the trigger is held
+   F32 underwaterJetForce;            ///< Thrust in a liquid
+   F32 underwaterVertJetFactor;       ///< What a liquid leaves of the lift
+   F32 jetEnergyDrain;                ///< Energy a tick of thrust costs
+   F32 underwaterJetEnergyDrain;
+   F32 minJetEnergy;                  ///< Energy needed to hold the trigger
+   F32 maxJetForwardSpeed;            ///< Speed at which thrust stops helping
+   F32 maxJetHorizontalPercentage;    ///< Most of the pack a move may steal
+   /// @}
    /// @}
 
    /// @name Hitboxes
@@ -340,6 +352,7 @@ struct PlayerData: public ShapeBaseData {
    DECLARE_CONOBJECT(PlayerData);
    PlayerData();
    bool preload(bool server, String &errorStr);
+   bool unpackData(BitStream *stream, U32 classId) override;
    void getGroundInfo(TSShapeInstance*,TSThread*,ActionAnimation*);
    bool isTableSequence(S32 seq);
    bool isJumpAction(U32 action);
