@@ -158,21 +158,22 @@ TerrainMaterial* TerrainMaterial::findOrCreate( const char *nameOrPath )
    t2Path.setPath( "textures/terrain" );
    t2Path.setFileName( name );
 
-   if ( !GBitmap::sFindFiles( t2Path, NULL ) )
+   // Keep the extension the search found: anything that reads the map back
+   // has to build a Path from it, and that reads a dot as one.
+   Vector<Torque::Path> found;
+   if ( !GBitmap::sFindFiles( t2Path, &found ) )
    {
       t2Path.setFileName( "Default" );
-      if ( !GBitmap::sFindFiles( t2Path, NULL ) )
-         t2Path = Torque::Path();
-      else
+      if ( GBitmap::sFindFiles( t2Path, &found ) )
          Con::warnf( "TerrainMaterial: no texture for '%s'; using the "
                      "terrain default.", nameOrPath );
    }
 
-   if ( t2Path.getFileName().isNotEmpty() )
+   if ( found.size() )
    {
       mat = new TerrainMaterial();
       mat->setInternalName( nameOrPath );
-      mat->mDiffuseMap = t2Path.getFullPath();
+      mat->mDiffuseMap = found.first().getFullPath();
       mat->registerObject();
       Sim::getRootGroup()->addObject( mat );
       return mat;

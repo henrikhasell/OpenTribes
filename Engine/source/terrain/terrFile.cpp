@@ -544,10 +544,24 @@ void TerrainFile::_loadLegacy(  FileStream &stream )
          }
       }
 
-      // Set the layer index.   
+      // Set the layer index.
       mLayerMap[i] = getMin( layer, layerCount );
    }
-   
+
+   // HH: Added for Tribes 2 compatibility.
+   // The index map above is one material per sample, which is all the
+   // version 7 format keeps. Tribes 2 blends its terrain from these alpha
+   // maps -- several materials at one sample, each with its own weight -- so
+   // they are kept rather than thrown away with the temporaries.
+   mLayerAlpha.setSize( materials.size() * sampleCount );
+   dMemset( mLayerAlpha.address(), 0, mLayerAlpha.memSize() );
+   for ( U32 k=0; k < materials.size(); k++ )
+   {
+      if ( materialAlphaMap[k] )
+         dMemcpy( mLayerAlpha.address() + k * sampleCount,
+                  materialAlphaMap[k], sampleCount );
+   }
+
    // Cleanup.
    for ( U32 i=0; i < MaterialGroups; i++ )
       delete [] materialAlphaMap[i];

@@ -206,6 +206,11 @@ protected:
    /// 
    void _updateBaseTexture( bool writeToCache );
 
+   // HH: Added for Tribes 2 compatibility.
+   /// Composite the base texture from the file's alpha maps, the way Tribes 2
+   /// blends a terrain. False if it has no textures to blend.
+   bool _updateBaseTextureBlended();
+
    void _updateLayerTexture();
 
    void _updateBounds();

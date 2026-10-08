@@ -970,14 +970,22 @@ bool TerrainBlock::onAdd()
       _updateMaterials();
       _updateLayerTexture();
 
-      // If the cached base texture is older that the terrain file or
-      // it doesn't exist then generate and cache it.
-      String baseCachePath = _getBaseTexCacheFileName();
-      if ( Platform::compareModifiedTimes( baseCachePath, mTerrFileName ) < 0 )
-         _updateBaseTexture( true );
+      // HH: Modified for Tribes 2 compatibility.
+      // A blended base texture is composited straight into mBaseTex, so
+      // there is no cache file to date against the terrain or to load.
+      if ( terr->hasLayerAlpha() )
+         _updateBaseTexture( false );
+      else
+      {
+         // If the cached base texture is older that the terrain file or
+         // it doesn't exist then generate and cache it.
+         String baseCachePath = _getBaseTexCacheFileName();
+         if ( Platform::compareModifiedTimes( baseCachePath, mTerrFileName ) < 0 )
+            _updateBaseTexture( true );
 
-      // The base texture should have been cached by now... so load it.
-      mBaseTex.set( baseCachePath, &GFXDefaultStaticDiffuseProfile, "TerrainBlock::mBaseTex" );
+         // The base texture should have been cached by now... so load it.
+         mBaseTex.set( baseCachePath, &GFXDefaultStaticDiffuseProfile, "TerrainBlock::mBaseTex" );
+      }
 
       GFXTextureManager::addEventDelegate( this, &TerrainBlock::_onTextureEvent );
       MATMGR->getFlushSignal().notify( this, &TerrainBlock::_onFlushMaterials );

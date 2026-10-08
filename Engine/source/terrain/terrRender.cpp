@@ -174,8 +174,164 @@ bool TerrainBlock::_initBaseShader()
    return true;
 }
 
+// HH: Added for Tribes 2 compatibility.
+// Tribes 2 composites its terrain on the CPU: `terrData.cc` hands eight alpha
+// maps to `Blender` (0x005b3e80, five mip levels) and that sums the source
+// textures weighted by them. Torque bakes the same sum on the GPU, a quad per
+// material blended by src alpha, but takes the weight from the layer index
+// map -- one material per sample -- so two materials only ever meet where
+// their indices are neighbours. With the alpha maps the file came with, the
+// sum is the one Tribes 2 draws, and doing it here needs neither the
+// script-defined blend shader nor a render target.
+bool TerrainBlock::_updateBaseTextureBlended()
+{
+   PROFILE_SCOPE( TerrainBlock_UpdateBaseTextureBlended );
+
+   const U32 layers = mFile->mMaterials.size();
+   if ( !layers )
+      return false;
+
+   const U32 maxTextureSize = GFX->getCardProfiler()->queryProfile( "maxTextureSize", 1024 );
+   const U32 size = getMin( maxTextureSize, getNextPow2( mBaseTexSize ) );
+   const U32 terrSize = mFile->mSize;
+   const F32 blockSize = getWorldBlockSize();
+
+   // A material's texture covers diffuseSize metres, so it repeats this often
+   // over the block and lands on this few texels each time. Reduce each
+   // source to that, by the box filter the mip levels Tribes 2's blender
+   // keeps would have given it -- sampling the full texture at this stride
+   // leaves the terrain stippled with whatever texels the stride happens to
+   // land on.
+   Vector< Vector<ColorI> > sources;
+   Vector<U32> sourceDim;
+   sources.setSize( layers );
+   sourceDim.setSize( layers );
+   U32 haveSources = 0;
+
+   for ( U32 i=0; i < layers; i++ )
+   {
+      sourceDim[i] = 0;
+
+      Resource<GBitmap> bitmap =
+         GBitmap::load( Torque::Path( mFile->mMaterials[i]->getDiffuseMap() ) );
+      if ( !bitmap )
+         continue;
+
+      F32 repeats = 1.0f;
+      const F32 diffuseSize = mFile->mMaterials[i]->getDiffuseSize();
+      if ( !mIsZero( diffuseSize ) )
+         repeats = blockSize / diffuseSize;
+
+      // How many texels of the base texture one repeat of this material
+      // lands on. Under eight there is no tile left to see -- what reaches
+      // the screen is whichever texels the stride fell on -- so take the
+      // bottom of the mip chain, the material's average colour, and let the
+      // detail map carry the near field as it does in Tribes 2.
+      const U32 perRepeat = U32( F32( size ) / getMax( 1.0f, repeats ) );
+      const U32 dim = perRepeat < 8 ? 1
+         : getMin( getNextPow2( perRepeat ), bitmap->getWidth() );
+
+      const U32 srcW = bitmap->getWidth();
+      const U32 srcH = bitmap->getHeight();
+      const U32 stepX = getMax( U32( 1 ), srcW / dim );
+      const U32 stepY = getMax( U32( 1 ), srcH / dim );
+
+      sources[i].setSize( dim * dim );
+      for ( U32 y=0; y < dim; y++ )
+      {
+         for ( U32 x=0; x < dim; x++ )
+         {
+            U32 red = 0, green = 0, blue = 0, taken = 0;
+            for ( U32 sy = y * stepY; sy < ( y + 1 ) * stepY && sy < srcH; sy++ )
+            {
+               for ( U32 sx = x * stepX; sx < ( x + 1 ) * stepX && sx < srcW; sx++ )
+               {
+                  ColorI texel;
+                  bitmap->getColor( sx, sy, texel );
+                  red += texel.red;
+                  green += texel.green;
+                  blue += texel.blue;
+                  taken++;
+               }
+            }
+
+            if ( !taken )
+               taken = 1;
+            sources[i][ x + y * dim ].set( red / taken, green / taken, blue / taken, 255 );
+         }
+      }
+
+      sourceDim[i] = dim;
+      haveSources++;
+   }
+
+   if ( !haveSources )
+   {
+      Con::errorf( "TerrainBlock: none of the %d terrain textures loaded; "
+                   "the base texture is left unblended.", layers );
+      return false;
+   }
+
+   GBitmap bitmap( size, size, false, GFXFormatR8G8B8A8 );
+
+   for ( U32 y=0; y < size; y++ )
+   {
+      const U32 sampleY = ( y * terrSize ) / size;
+
+      for ( U32 x=0; x < size; x++ )
+      {
+         const U32 sampleX = ( x * terrSize ) / size;
+         const U32 sample = sampleX + sampleY * terrSize;
+
+         U32 red = 0, green = 0, blue = 0, weight = 0;
+
+         for ( U32 i=0; i < layers; i++ )
+         {
+            const U32 alpha = mFile->getLayerAlpha( i, sample );
+            if ( !alpha || !sourceDim[i] )
+               continue;
+
+            const U32 dim = sourceDim[i];
+            const ColorI &texel = sources[i][ ( x % dim ) + ( y % dim ) * dim ];
+
+            red += texel.red * alpha;
+            green += texel.green * alpha;
+            blue += texel.blue * alpha;
+            weight += alpha;
+         }
+
+         ColorI out( 0, 0, 0, 255 );
+         if ( weight )
+            out.set( red / weight, green / weight, blue / weight, 255 );
+         bitmap.setColor( x, y, out );
+      }
+   }
+
+   bitmap.extrudeMipLevels();
+   mBaseTex.set( &bitmap, &GFXDefaultStaticDiffuseProfile, false,
+                 "TerrainBlock::mBaseTex" );
+
+   if ( Con::getBoolVariable( "$pref::Terrain::dumpBaseTexture", false ) )
+   {
+      FileStream fs;
+      const String path = _getBaseTexCacheFileName() + ".png";
+      if ( fs.open( path, Torque::FS::File::Write ) )
+      {
+         bitmap.writeBitmap( "png", fs );
+         fs.close();
+         Con::printf( "TerrainBlock: wrote %s", path.c_str() );
+      }
+   }
+
+   return true;
+}
+
 void TerrainBlock::_updateBaseTexture( bool writeToCache )
 {
+   // HH: Modified for Tribes 2 compatibility.
+   if ( mFile->hasLayerAlpha() && _updateBaseTextureBlended() )
+      return;
+
    if ( !mBaseShader && !_initBaseShader() )
       return;
 
