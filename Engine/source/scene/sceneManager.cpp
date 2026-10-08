@@ -30,6 +30,14 @@
 #include "scene/zones/sceneZoneSpace.h"
 #include "lighting/lightManager.h"
 #include "renderInstance/renderPassManager.h"
+#include "renderInstance/renderGlowMgr.h"
+#include "renderInstance/renderImposterMgr.h"
+#include "renderInstance/renderMeshMgr.h"
+#include "renderInstance/renderObjectMgr.h"
+#include "renderInstance/renderOcclusionMgr.h"
+#include "renderInstance/renderParticleMgr.h"
+#include "renderInstance/renderTerrainMgr.h"
+#include "renderInstance/renderTranslucentMgr.h"
 #include "gfx/gfxDevice.h"
 #include "gfx/gfxDrawUtil.h"
 #include "gfx/gfxDebugEvent.h"
@@ -619,11 +627,68 @@ bool SceneManager::_setLightManager( LightManager* lm )
 
 //-----------------------------------------------------------------------------
 
+static void addDefaultBin( RenderPassManager *rpm, RenderBinManager *bin,
+                           F32 order )
+{
+   bin->setRenderOrder( order );
+   bin->setProcessAddOrder( order );
+
+   if( bin->registerObject() )
+      rpm->addManager( bin );
+   else
+      delete bin;
+}
+
+static RenderPassManager *createDefaultRenderPass()
+{
+   RenderPassManager *rpm = new RenderPassManager;
+   if( !rpm->registerObject( "DiffuseRenderPassManager" ) )
+   {
+      delete rpm;
+      return NULL;
+   }
+
+   addDefaultBin( rpm, new RenderObjectMgr( RenderPassManager::RIT_Sky,
+      0.1f, 0.1f ), 0.1f );
+   addDefaultBin( rpm, new RenderObjectMgr( RenderPassManager::RIT_Begin,
+      0.2f, 0.2f ), 0.2f );
+   addDefaultBin( rpm, new RenderMeshMgr( RenderPassManager::RIT_Interior,
+      0.3f, 0.3f ), 0.3f );
+   addDefaultBin( rpm, new RenderTerrainMgr, 0.4f );
+   addDefaultBin( rpm, new RenderMeshMgr( RenderPassManager::RIT_Mesh,
+      0.5f, 0.5f ), 0.5f );
+   addDefaultBin( rpm, new RenderImposterMgr, 0.56f );
+   addDefaultBin( rpm, new RenderObjectMgr( RenderPassManager::RIT_Object,
+      0.6f, 0.6f ), 0.6f );
+   addDefaultBin( rpm, new RenderObjectMgr( RenderPassManager::RIT_Shadow,
+      0.7f, 0.7f ), 0.7f );
+   addDefaultBin( rpm, new RenderMeshMgr( RenderPassManager::RIT_Decal,
+      0.8f, 0.8f ), 0.8f );
+   addDefaultBin( rpm, new RenderOcclusionMgr( RenderPassManager::RIT_Occluder,
+      0.9f, 0.9f ), 0.9f );
+   addDefaultBin( rpm, new RenderObjectMgr(
+      RenderPassManager::RIT_ObjectTranslucent, 1.0f, 1.0f ), 1.0f );
+   addDefaultBin( rpm, new RenderObjectMgr( RenderPassManager::RIT_Water,
+      1.2f, 1.2f ), 1.2f );
+   addDefaultBin( rpm, new RenderObjectMgr( RenderPassManager::RIT_Foliage,
+      1.3f, 1.3f ), 1.3f );
+   addDefaultBin( rpm, new RenderParticleMgr, 1.35f );
+   addDefaultBin( rpm, new RenderTranslucentMgr, 1.4f );
+   addDefaultBin( rpm, new RenderGlowMgr, 1.5f );
+   addDefaultBin( rpm, new RenderObjectMgr( RenderPassManager::RIT_Editor,
+      1.6f, 1.6f ), 1.6f );
+
+   Con::warnf( "No DiffuseRenderPassManager was set up in script; rendering "
+               "through a default pass of %d bins.", rpm->getManagerCount() );
+   return rpm;
+}
+
 RenderPassManager* SceneManager::getDefaultRenderPass() const
 {
    if( !mDefaultRenderPass )
    {
-      Sim::findObject( "DiffuseRenderPassManager", mDefaultRenderPass );
+      if( !Sim::findObject( "DiffuseRenderPassManager", mDefaultRenderPass ) )
+         mDefaultRenderPass = createDefaultRenderPass();
       AssertISV( mDefaultRenderPass, "SceneManager::_setDefaultRenderPass - No DiffuseRenderPassManager defined!  Must be set up in script!" );
    }
 
