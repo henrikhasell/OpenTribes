@@ -859,17 +859,29 @@ void TerrainBlock::onEditorDisable()
 }
 
 // HH: Added for Tribes 2 compatibility.
+// The body carries everything a mission's TerrainBlock states: the CRC, the
+// detail texture, the terrain file, the square size and the empty square run,
+// in that order (`Whiteout.mis` states the same five).
 bool TerrainBlock::unpackUpdate(BitStream *stream, bool isInitial)
 {
    if(!Parent::unpackUpdate(stream, isInitial))
       return false;
 
-   if(const char *file = T2Layout::firstString())
-      mTerrFileName = T2Layout::resourcePath(file, "terrains/");
+   const Vector<String> &strings = T2Layout::lastStrings();
+   if(strings.size() > 0)
+      mTerrFileName = T2Layout::resourcePath(strings[0], "terrains/");
+   if(strings.size() > 1)
+      mDetailTexture = strings[1];
 
-   U32 crc;
-   if(T2Layout::firstWord32(&crc))
-      mCRC = crc;
+   const Vector<U32> &words = T2Layout::lastWords();
+   if(words.size() > 0)
+      mCRC = words[0];
+
+   // Tribes 2's squares are eight metres, where a Torque terrain's are one,
+   // so a terrain built on the default is an eighth of the world the rest of
+   // the mission is placed in.
+   if(words.size() > 1 && words[1] > 0 && words[1] <= 64)
+      mSquareSize = F32(words[1]);
 
    return true;
 }
@@ -899,6 +911,25 @@ bool TerrainBlock::onAdd()
    }
 
    setFile( terr );
+
+   // HH: Added for Tribes 2 compatibility.
+   // A Tribes 2 terrain states one detail texture for the whole block rather
+   // than one per material, and its base textures tile once per square, which
+   // is the granularity TGE's blender samples them at. Set both through the
+   // fields script would, since the material keeps them to itself.
+   if ( mDetailTexture.isNotEmpty() )
+   {
+      for ( U32 i = 0; i < terr->mMaterials.size(); i++ )
+      {
+         TerrainMaterial *mat = terr->mMaterials[ i ];
+         if ( mat->getDetailMap().isEmpty() )
+            mat->setDataField( StringTable->insert( "detailMap" ), NULL,
+                               mDetailTexture );
+
+         mat->setDataField( StringTable->insert( "diffuseSize" ), NULL,
+                            String::ToString( mSquareSize ) );
+      }
+   }
 
    if ( terr->mNeedsResaving )
    {
@@ -1100,9 +1131,13 @@ void TerrainBlock::initPersistFields()
 {
    addGroup( "Media" );
       
-      addProtectedField( "terrainFile", TypeStringFilename, Offset( mTerrFileName, TerrainBlock ), 
+      addProtectedField( "terrainFile", TypeStringFilename, Offset( mTerrFileName, TerrainBlock ),
          &TerrainBlock::_setTerrainFile, &defaultProtectedGetFn,
          "The source terrain data file." );
+
+      // HH: Added for Tribes 2 compatibility.
+      addField( "detailTexture", TypeStringFilename, Offset( mDetailTexture, TerrainBlock ),
+         "The one detail texture a Tribes 2 mission gives its whole terrain." );
 
    endGroup( "Media" );
 

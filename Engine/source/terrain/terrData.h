@@ -93,7 +93,11 @@ protected:
 
    ///
    FileName mTerrFileName;
-   
+
+   // HH: Added for Tribes 2 compatibility.
+   /// The one detail texture a Tribes 2 mission gives its whole terrain.
+   FileName mDetailTexture;
+
    /// The maximum detail distance found in the material list.
    F32 mMaxDetailDistance;
 

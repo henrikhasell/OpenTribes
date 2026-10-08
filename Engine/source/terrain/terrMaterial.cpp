@@ -143,6 +143,41 @@ TerrainMaterial* TerrainMaterial::findOrCreate( const char *nameOrPath )
       return mat;
    }
 
+   // HH: Added for Tribes 2 compatibility.
+   // A Tribes 2 terrain names a material, not a file: retail resolves it by
+   // formula (0x00794ac4, "textures/terrain/%s.png") with a leading "terrain."
+   // dropped, and falls back on textures/terrain/Default.
+   String name( nameOrPath );
+   if ( name.startsWith( "terrain." ) )
+      name = name.substr( 8 );
+
+   // The name's own dots are part of it -- setFileName keeps them where
+   // constructing a Path from the joined string would read the last one as an
+   // extension and look for `LushWorld.png`.
+   Torque::Path t2Path;
+   t2Path.setPath( "textures/terrain" );
+   t2Path.setFileName( name );
+
+   if ( !GBitmap::sFindFiles( t2Path, NULL ) )
+   {
+      t2Path.setFileName( "Default" );
+      if ( !GBitmap::sFindFiles( t2Path, NULL ) )
+         t2Path = Torque::Path();
+      else
+         Con::warnf( "TerrainMaterial: no texture for '%s'; using the "
+                     "terrain default.", nameOrPath );
+   }
+
+   if ( t2Path.getFileName().isNotEmpty() )
+   {
+      mat = new TerrainMaterial();
+      mat->setInternalName( nameOrPath );
+      mat->mDiffuseMap = t2Path.getFullPath();
+      mat->registerObject();
+      Sim::getRootGroup()->addObject( mat );
+      return mat;
+   }
+
    // Ok... return a debug material then.
    mat = dynamic_cast<TerrainMaterial*>( set->findObjectByInternalName( StringTable->insert( "warning_material" ) ) );
    if ( !mat )
