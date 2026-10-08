@@ -5,6 +5,8 @@
 #include "console/console.h"
 #include "console/netClassTable.h"
 #include "math/mPoint3.h"
+#include "math/mQuat.h"
+#include "math/mMathFn.h"
 #include "T3D/gameBase/t2Layout.h"
 
 namespace T2Layout
@@ -29,13 +31,16 @@ static U32 sFirstWord32 = 0;
 static bool sHaveFirstWord32 = false;
 static Vector<String> sStrings(__FILE__, __LINE__);
 static Vector<U32> sWords(__FILE__, __LINE__);
-static Body sBody = { false, Point3F(0.0f, 0.0f, 0.0f), false, 0.0f };
+static Body sBody;
 
-/// The nodes of the body being read that carry a transform, resolved from
-/// sT2GhostFields. -1 is "this class says nothing about it".
-static S16 sPositionNode = -1;
-static S16 sYawNode = -1;
+static const T2GhostFieldRow *sRows[16] = { NULL };
+static U32 sRowCount = 0;
 static const char *sFieldsFor = NULL;
+
+static S32 sTransformAt = -1;
+static S32 sAffineAt = -1;
+static S32 sScaleAt = -1;
+static bool sQuatNegative = false;
 static const void *sFieldsLayout = NULL;
 
 const Body &lastBody()
@@ -131,6 +136,18 @@ static bool xferFlag(BitStream *stream, bool write)
    return stream->readFlag();
 }
 
+static const T2GhostFieldRow *fieldAt(const T2DataBlockLayout *layout, S32 at)
+{
+   if(!sRowCount || layout != sFieldsLayout)
+      return NULL;
+
+   for(U32 i = 0; i < sRowCount; i++)
+      if(sRows[i]->node == at)
+         return sRows[i];
+
+   return NULL;
+}
+
 static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
                      S32 at, U32 *slots, U32 depth, bool isInitial,
                      bool write)
@@ -161,8 +178,17 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
             return true;
 
          case OpFlag:
-            at = xferFlag(stream, write) ? n.b : n.a;
+         {
+            const bool set = xferFlag(stream, write);
+            if(!write)
+            {
+               const T2GhostFieldRow *row = fieldAt(layout, at);
+               if(row && row->field == T2FieldQuatSign)
+                  sQuatNegative = set;
+            }
+            at = set ? n.b : n.a;
             continue;
+         }
 
          case OpInitial:
             at = isInitial ? n.b : n.a;
@@ -271,6 +297,17 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
          case OpInt:
          case OpRaw:
          {
+            const T2GhostFieldRow *row = write ? NULL : fieldAt(layout, at);
+
+            if(row)
+               switch(row->field)
+               {
+                  case T2FieldTransform: sTransformAt = sWords.size(); break;
+                  case T2FieldAffine:    sAffineAt    = sWords.size(); break;
+                  case T2FieldScale:     sScaleAt     = sWords.size(); break;
+                  default:                                             break;
+               }
+
             const U32 word = xferInt(stream, n.bits, write);
             if(n.bits == 32 && !write)
             {
@@ -281,7 +318,7 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
                }
                sWords.push_back(word);
             }
-            if(!write && at == sYawNode && layout == sFieldsLayout && n.bits)
+            if(row && row->field == T2FieldYaw && n.bits)
             {
                sBody.hasYaw = true;
                sBody.yaw = (F32)word / (F32)((1 << n.bits) - 1) * M_2PI_F;
@@ -297,7 +334,8 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
             else
             {
                stream->readCompressedPoint(&p, 0.01f);
-               if(at == sPositionNode && layout == sFieldsLayout)
+               const T2GhostFieldRow *row = fieldAt(layout, at);
+               if(row && row->field == T2FieldPosition)
                {
                   sBody.hasPosition = true;
                   sBody.position = p;
@@ -408,14 +446,30 @@ static bool runDataBlock(BitStream *stream, U32 classId, bool write)
    return runGraph(stream, layout, layout->root, slots, 0, false, write);
 }
 
+static bool isRawRun(const T2DataBlockLayout *layout, S32 at, U32 words)
+{
+   for(U32 i = 0; i < words; i++)
+   {
+      if(at < 0 || U32(at) >= layout->count)
+         return false;
+
+      const T2DataNode &n = layout->nodes[at];
+      if(n.op != OpRaw || n.bits != 32)
+         return false;
+
+      at = n.a;
+   }
+
+   return true;
+}
+
 static void resolveGhostFields(const char *className)
 {
    if(className == sFieldsFor)
       return;
 
    sFieldsFor = className;
-   sPositionNode = -1;
-   sYawNode = -1;
+   sRowCount = 0;
    sFieldsLayout = NULL;
 
    const T2DataBlockLayout *layout =
@@ -450,10 +504,68 @@ static void resolveGhostFields(const char *className)
          continue;
       }
 
-      if(row.field == T2FieldPosition)
-         sPositionNode = row.node;
-      else if(row.field == T2FieldYaw)
-         sYawNode = row.node;
+      const U32 words = t2FieldWords(row.field);
+      if(words && !isRawRun(layout, row.node, words))
+      {
+         Con::errorf("T2 field: %s node %d does not start %d words of float "
+                     "-- the layout moved under the field, so the transform "
+                     "of this class is not being read.", className, row.node,
+                     words);
+         continue;
+      }
+
+      if(sRowCount >= ELEMENTS(sRows))
+      {
+         Con::errorf("T2 field: %s names more fields than there is room for; "
+                     "node %d is being ignored.", className, row.node);
+         continue;
+      }
+
+      sRows[sRowCount++] = &row;
+   }
+}
+
+static F32 wordFloat(U32 at)
+{
+   F32 f;
+   dMemcpy(&f, &sWords[at], sizeof(f));
+   return f;
+}
+
+static void assembleBody()
+{
+   if(sTransformAt >= 0 && sWords.size() >= U32(sTransformAt) + 16)
+   {
+      F32 *m = sBody.rotation;
+      for(U32 i = 0; i < 16; i++)
+         m[i] = wordFloat(sTransformAt + i);
+
+      sBody.hasRotation = true;
+      sBody.position = sBody.rotation.getPosition();
+      sBody.hasPosition = true;
+   }
+   else if(sAffineAt >= 0 && sWords.size() >= U32(sAffineAt) + 6)
+   {
+      QuatF q;
+      q.x = wordFloat(sAffineAt + 3);
+      q.y = wordFloat(sAffineAt + 4);
+      q.z = wordFloat(sAffineAt + 5);
+      q.w = mSqrt(1.0f - getMin(q.x * q.x + q.y * q.y + q.z * q.z, 1.0f));
+      if(sQuatNegative)
+         q.w = -q.w;
+
+      q.setMatrix(&sBody.rotation);
+      sBody.hasRotation = true;
+      sBody.position.set(wordFloat(sAffineAt), wordFloat(sAffineAt + 1),
+                         wordFloat(sAffineAt + 2));
+      sBody.hasPosition = true;
+   }
+
+   if(sScaleAt >= 0 && sWords.size() >= U32(sScaleAt) + 3)
+   {
+      sBody.scale.set(wordFloat(sScaleAt), wordFloat(sScaleAt + 1),
+                      wordFloat(sScaleAt + 2));
+      sBody.hasScale = true;
    }
 }
 
@@ -468,6 +580,12 @@ static bool runGhost(BitStream *stream, const char *className,
    sWords.clear();
    sBody.hasPosition = false;
    sBody.hasYaw = false;
+   sBody.hasRotation = false;
+   sBody.hasScale = false;
+   sTransformAt = -1;
+   sAffineAt = -1;
+   sScaleAt = -1;
+   sQuatNegative = false;
    resolveGhostFields(className);
    bool found = false;
    const bool ok = runNamed(stream, className, sT2GhostsRecovered,
@@ -475,6 +593,8 @@ static bool runGhost(BitStream *stream, const char *className,
                             write);
    if(!found)
       warnUnimplemented("ghost", className, write);
+   if(ok && !write)
+      assembleBody();
    return ok;
 }
 

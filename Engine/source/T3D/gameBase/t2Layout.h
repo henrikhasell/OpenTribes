@@ -14,6 +14,10 @@
 #include "math/mPoint3.h"
 #endif
 
+#ifndef _MMATRIX_H_
+#include "math/mMatrix.h"
+#endif
+
 class BitStream;
 
 namespace T2Layout
@@ -24,6 +28,10 @@ namespace T2Layout
       Point3F position;
       bool    hasYaw;
       F32     yaw;                  ///< radians
+      bool    hasRotation;
+      MatrixF rotation;             ///< the whole orientation, where the body
+      bool    hasScale;
+      Point3F scale;
    };
 
    const Body &lastBody();
