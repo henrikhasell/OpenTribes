@@ -563,7 +563,31 @@ RenderPassManager* ProjectedShadow::_getRenderPass()
       SimObject* renderPass = NULL;
 
       if ( !Sim::findObject( "BL_ProjectedShadowRPM", renderPass ) )
-         Con::errorf( "ProjectedShadow::init() - 'BL_ProjectedShadowRPM' not initialized" );
+      {
+         RenderPassManager *pass = new RenderPassManager;
+         if ( pass->registerObject( "BL_ProjectedShadowRPM" ) )
+         {
+            RenderMeshMgr *bin = new RenderMeshMgr;
+            if ( bin->registerObject() )
+            {
+               pass->addManager( bin );
+               Sim::getRootGroup()->addObject( bin );
+            }
+            else
+               delete bin;
+
+            Sim::getRootGroup()->addObject( pass );
+            smRenderPass = pass;
+
+            Con::warnf( "ProjectedShadow: no BL_ProjectedShadowRPM was set up "
+                        "in script; using a default one." );
+         }
+         else
+         {
+            delete pass;
+            Con::errorf( "ProjectedShadow::init() - 'BL_ProjectedShadowRPM' not initialized" );
+         }
+      }
       else
          smRenderPass = dynamic_cast<RenderPassManager*>(renderPass);
    }
