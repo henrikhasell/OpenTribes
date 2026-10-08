@@ -144,8 +144,6 @@ public:
    }
    void process(NetConnection *ps)
    {
-      Con::executef("onGhostAlwaysObjectReceived");
-
       // HH: Modified so that the loading bar moves as the objects arrive.
       if(Con::isFunction("ghostAlwaysObjectReceived"))
          Con::executef("ghostAlwaysObjectReceived");
@@ -909,7 +907,6 @@ void NetConnection::handleConnectionMessage(U32 message, U32 sequence, U32 ghost
       case ReadyForNormalGhosts:
          if(sequence != mGhostingSequence)
             return;
-         Con::executef(this, "onGhostAlwaysObjectsReceived");
          Con::printf("Ghost Always objects received.");
          mGhosting = true;
          for(i = 0; i < mGhostFreeIndex; i++)
@@ -940,7 +937,6 @@ void NetConnection::handleConnectionMessage(U32 message, U32 sequence, U32 ghost
          // HH: Modified for Tribes 2 compatibility.
          // Tribes 2's own script names this one without the prefix.
          Con::executef("ghostAlwaysStarted", Con::getIntArg(ghostCount));
-         Con::executef("onGhostAlwaysStarted", Con::getIntArg(ghostCount));
          break;
       case SendNextDownloadRequest:
          sendNextFileDownloadRequest();
@@ -1001,7 +997,8 @@ void NetConnection::activateGhosting()
         // Get a pointer to the local client.
         NetConnection* pClient = NetConnection::getConnectionToServer();
 
-        Con::executef("onGhostAlwaysStarted", Con::getIntArg(mGhostZeroUpdateIndex));
+        // HH: Modified for Tribes 2 compatibility.
+        Con::executef("ghostAlwaysStarted", Con::getIntArg(mGhostZeroUpdateIndex));
 
         // Set up a buffer for the object send.
         U8 iBuffer[4096];
@@ -1048,9 +1045,6 @@ void NetConnection::activateGhosting()
                 // Otherwise, create a new dummy netobject.
                 pObject = new NetObject;
             }
-
-            // Execute the appropriate console callback.
-            Con::executef("onGhostAlwaysObjectReceived");
 
             // HH: Modified so that the loading bar moves as the objects arrive.
             if(Con::isFunction("ghostAlwaysObjectReceived"))
