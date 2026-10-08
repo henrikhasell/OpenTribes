@@ -17,21 +17,26 @@ namespace T2Protocol
       { OpRaw, 5, 8, -1 },
    };
 
-   /// SimTargetAudioEvent: 7 nodes from 26 explored, 1 call(s) stepped over
    static const T2DataNode sT2ErNodes_SimTargetAudioEvent[] =
    {
       { OpInt, 9, 1, -1 },
-      { OpInt, 10, 2, -1 },
-      { OpFlag, 1, 3, 6 },
-      { OpFlag, 1, 4, 4 },
-      { OpFlag, 1, 5, 5 },
+      { OpInt, 12, 2, -1 },
+      { OpInt, 10, 3, -1 },
+      { OpFlag, 1, 5, 4 },
+      { OpPoint, 0, 5, -1 },
+      { OpFlag, 1, 6, 6 },
       { OpEnd, 0, -1, -1 },
-      { OpInt, 11, 3, -1 },
    };
 
-   /// TargetToEvent: 1 nodes from 2 explored, exact
    static const T2DataNode sT2ErNodes_TargetToEvent[] =
    {
+      { OpFlag, 1, 2, 1 },
+      { OpInt, 9, 2, -1 },
+      { OpFlag, 1, 6, 3 },
+      { OpInt, 32, 4, -1 },
+      { OpInt, 32, 5, -1 },
+      { OpInt, 32, 6, -1 },
+      { OpFlag, 1, 7, 7 },
       { OpEnd, 0, -1, -1 },
    };
 
@@ -39,6 +44,6 @@ namespace T2Protocol
    {
       { "SensorGroupColorEvent", sT2ErNodes_SensorGroupColorEvent, 10, NULL, 9 },
       { "SimTargetAudioEvent", sT2ErNodes_SimTargetAudioEvent, 7, NULL, 0 },
-      { "TargetToEvent", sT2ErNodes_TargetToEvent, 1, NULL, 0 },
+      { "TargetToEvent", sT2ErNodes_TargetToEvent, 8, NULL, 0 },
    };
 }
