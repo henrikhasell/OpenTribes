@@ -566,16 +566,7 @@ void TerrainBlock::_renderBlock( SceneRenderState *state )
       mLayerTexDirty = false;
    }   
 
-   static Vector<TerrCell*> renderCells;
-   renderCells.clear();
-
-   mCell->cullCells( state,
-                     objCamPos,
-                     &renderCells );
-
    RenderPassManager *renderPass = state->getRenderPass();
-
-   MatrixF *riObjectToWorldXfm = renderPass->allocUniqueXform( getRenderTransform() );
 
    const bool isColorDrawPass = state->isDiffusePass() || state->isReflectPass();
 
@@ -588,6 +579,55 @@ void TerrainBlock::_renderBlock( SceneRenderState *state )
    if ( isColorDrawPass )
       lm = LIGHTMGR;
 
+   // HH: Modified for Tribes 2 compatibility.
+   // A Tribes 2 terrain repeats forever, so the block is drawn once for every
+   // copy of it the view reaches -- the same cells, the same buffers and the
+   // same base texture, at an offset transform. This is TGE's own rule
+   // (terrRender.cc:1772) for the range, and its cap keeps a far view from
+   // asking for hundreds.
+   S32 xStart = 0, xEnd = 1, yStart = 0, yEnd = 1;
+   const F32 blockSize = getWorldBlockSize();
+
+   if ( mTile && blockSize > 0.0f )
+   {
+      const F32 far = state->getFarPlane();
+      xStart = (S32)mFloor( ( objCamPos.x - far ) / blockSize );
+      xEnd   = (S32)mCeil ( ( objCamPos.x + far ) / blockSize );
+      yStart = (S32)mFloor( ( objCamPos.y - far ) / blockSize );
+      yEnd   = (S32)mCeil ( ( objCamPos.y + far ) / blockSize );
+
+      const S32 maxRepeats = 4;
+      xStart = getMax( xStart, -maxRepeats );
+      xEnd   = getMin( xEnd,    maxRepeats + 1 );
+      yStart = getMax( yStart, -maxRepeats );
+      yEnd   = getMin( yEnd,    maxRepeats + 1 );
+   }
+
+   static Vector<TerrCell*> renderCells;
+
+   for ( S32 by = yStart; by < yEnd; by++ )
+   for ( S32 bx = xStart; bx < xEnd; bx++ )
+   {
+      const bool isOwnBlock = ( bx == 0 && by == 0 );
+
+      const Point3F objOffset( bx * blockSize, by * blockSize, 0.0f );
+      Point3F worldOffset( objOffset );
+      getRenderTransform().mulV( worldOffset );
+
+      MatrixF repeatXfm( getRenderTransform() );
+      repeatXfm.setPosition( repeatXfm.getPosition() + worldOffset );
+
+      renderCells.clear();
+      mCell->cullCells( state,
+                        objCamPos - objOffset,
+                        &renderCells,
+                        isOwnBlock ? NULL : &repeatXfm );
+
+      if ( renderCells.empty() )
+         continue;
+
+      MatrixF *riObjectToWorldXfm = renderPass->allocUniqueXform( repeatXfm );
+
    for ( U32 i=0; i < renderCells.size(); i++ )
    {
       TerrCell *cell = renderCells[i];
@@ -599,7 +639,7 @@ void TerrainBlock::_renderBlock( SceneRenderState *state )
       if ( lm )
       {
          SphereF bounds = cell->getSphereBounds();
-         getRenderTransform().mulP( bounds.center );
+         repeatXfm.mulP( bounds.center );
 
          LightQuery query;
          query.init( bounds );
@@ -633,7 +673,7 @@ void TerrainBlock::_renderBlock( SceneRenderState *state )
       {         
          const SphereF &bounds = cell->getSphereBounds();         
 
-         F32 sqDist = ( bounds.center - objCamPos ).lenSquared();         
+         F32 sqDist = ( bounds.center - ( objCamPos - objOffset ) ).lenSquared();         
 
          F32 radiusSq = mSquared( ( mMaxDetailDistance + bounds.radius ) * smDetailScale );
 
@@ -653,6 +693,11 @@ void TerrainBlock::_renderBlock( SceneRenderState *state )
       // Submit it for rendering.
       renderPass->addInst( inst );
    }
+   }
+
+   if ( Con::getBoolVariable( "$pref::Terrain::traceTiles", false ) )
+      Con::errorf( "HHTILE x %d..%d y %d..%d, %d cells in the last repeat",
+         xStart, xEnd, yStart, yEnd, renderCells.size() );
 
    // Trigger the debug rendering.
    if (  state->isDiffusePass() && 

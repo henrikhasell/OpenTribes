@@ -154,6 +154,11 @@ protected:
 
    F32 mSquareSize;
 
+   // HH: Added for Tribes 2 compatibility.
+   /// Whether the block repeats forever in x and y, which is what a Tribes 2
+   /// terrain does and what the heightfield's own wrapping already assumes.
+   bool mTile;
+
    PhysicsBody *mPhysicsRep;
 
    U32 mScreenError;
@@ -407,6 +412,9 @@ public:
    bool save(const char* filename);
 
    F32 getSquareSize() const { return mSquareSize; }
+
+   // HH: Added for Tribes 2 compatibility.
+   bool isTiled() const { return mTile; }
 
    /// Returns the dimensions of the terrain in world space.
    F32 getWorldBlockSize() const { return mSquareSize * (F32)mFile->mSize; }

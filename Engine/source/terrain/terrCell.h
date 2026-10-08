@@ -180,9 +180,13 @@ public:
    ///
    void updateZoning( const SceneZoneSpaceManager *zoneManager );
 
+   // HH: Modified for Tribes 2 compatibility.
+   /// @param repeatXfm The transform of this repeat of a tiled terrain, or
+   ///   NULL for the block's own, whose bounds are already built.
    void cullCells( const SceneRenderState *state,
                    const Point3F &objLodPos,
-                   Vector<TerrCell*> *outCells );
+                   Vector<TerrCell*> *outCells,
+                   const MatrixF *repeatXfm = NULL );
 
    const Box3F& getBounds() const { return mBounds; }
 

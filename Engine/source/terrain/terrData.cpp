@@ -178,6 +178,7 @@ ConsoleFunction(getTerrainUnderWorldPoint, S32, 2, 4, "(Point3F x/y/z) Gets the 
 
 TerrainBlock::TerrainBlock()
  : mSquareSize( 1.0f ),
+   mTile( false ),
    mCastShadows( true ),
    mScreenError( 16 ),   
    mDetailsDirty( false ),
@@ -335,6 +336,17 @@ void TerrainBlock::_updateBounds()
    mBounds.maxExtents.set( getWorldBlockSize(), getWorldBlockSize(), 0.0f );
    getMinMaxHeight( &mBounds.minExtents.z, &mBounds.maxExtents.z );
 
+   // HH: Modified for Tribes 2 compatibility.
+   // One block's worth of box would have the scene cull a terrain that
+   // reaches everywhere, and would answer no to every container query taken
+   // outside it -- which is where most of a tiled terrain is.
+   if ( mTile )
+   {
+      setGlobalBounds();
+      resetWorldBox();
+      return;
+   }
+
    // Set our mObjBox to be equal to mBounds
    if (  mObjBox.maxExtents != mBounds.maxExtents || 
 	      mObjBox.minExtents != mBounds.minExtents )
@@ -465,16 +477,21 @@ bool TerrainBlock::getHeight( const Point2F &pos, F32 *height ) const
    F32 invSquareSize = 1.0f / mSquareSize;
    F32 xp = pos.x * invSquareSize;
    F32 yp = pos.y * invSquareSize;
-   S32 x = S32(xp);
-   S32 y = S32(yp);
+   // HH: Modified for Tribes 2 compatibility.
+   // Floor, not truncate: a square west or south of the block is at a
+   // negative coordinate, and truncation folds -0.5 onto the same square as
+   // 0.5. The guard below rejects those outright where the terrain does not
+   // tile, which is why this never mattered before.
+   S32 x = (S32)mFloor(xp);
+   S32 y = (S32)mFloor(yp);
    xp -= (F32)x;
    yp -= (F32)y;
 
    const U32 blockMask = mFile->mSize - 1;
 
-   if ( x & ~blockMask || y & ~blockMask )
+   if ( !mTile && ( x & ~blockMask || y & ~blockMask ) )
       return false;
-   
+
    x &= blockMask;
    y &= blockMask;
    
@@ -608,16 +625,17 @@ bool TerrainBlock::getNormalAndHeight( const Point2F &pos, Point3F *normal, F32 
    F32 invSquareSize = 1.0f / mSquareSize;
    F32 xp = pos.x * invSquareSize;
    F32 yp = pos.y * invSquareSize;
-   S32 x = S32(xp);
-   S32 y = S32(yp);
+   // HH: Modified for Tribes 2 compatibility.
+   S32 x = (S32)mFloor(xp);
+   S32 y = (S32)mFloor(yp);
    xp -= (F32)x;
    yp -= (F32)y;
 
    const U32 blockMask = mFile->mSize - 1;
 
-   if ( x & ~blockMask || y & ~blockMask )
+   if ( !mTile && ( x & ~blockMask || y & ~blockMask ) )
       return false;
-   
+
    x &= blockMask;
    y &= blockMask;
    
@@ -925,6 +943,14 @@ bool TerrainBlock::onAdd()
    setFile( terr );
 
    // HH: Added for Tribes 2 compatibility.
+   // A Tribes 2 terrain has no edge: the block repeats forever, which is what
+   // the heightfield's own wrapping and the collision walks already assume.
+   // Torque's own format records a tile flag per block; a pre-version-7 file
+   // predates that, and Tribes 2 dropped even the field.
+   if ( terr->hasLayerAlpha() )
+      mTile = true;
+
+   // HH: Added for Tribes 2 compatibility.
    // Tribes 2 draws a terrain square as its materials' own textures, summed
    // by their alphas and tiled once per square; the mission's one detail
    // texture multiplies over the top of that. Torque reaches the same place
@@ -1186,6 +1212,12 @@ void TerrainBlock::initPersistFields()
       addProtectedField( "squareSize", TypeF32, Offset( mSquareSize, TerrainBlock ),
          &TerrainBlock::_setSquareSize, &defaultProtectedGetFn,
          "Indicates the spacing between points on the XY plane on the terrain." );
+
+      // HH: Added for Tribes 2 compatibility.
+      addField( "tile", TypeBool, Offset( mTile, TerrainBlock ),
+         "Whether the block repeats forever in x and y, the way a Tribes 2 "
+         "terrain does. This class's own documentation still shows the field; "
+         "only the implementation went." );
 
       addProtectedField( "baseTexSize", TypeS32, Offset( mBaseTexSize, TerrainBlock ),
          &TerrainBlock::_setBaseTexSize, &defaultProtectedGetFn,

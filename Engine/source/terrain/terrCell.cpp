@@ -953,7 +953,8 @@ void TerrCell::updateZoning( const SceneZoneSpaceManager *zoneManager )
 
 void TerrCell::cullCells(  const SceneRenderState *state,
                            const Point3F &objLodPos,
-                           Vector<TerrCell*> *outCells  )
+                           Vector<TerrCell*> *outCells,
+                           const MatrixF *repeatXfm )
 {
    // If we have a VB and no children then just add 
    // ourselves to the results and return.
@@ -981,7 +982,19 @@ void TerrCell::cullCells(  const SceneRenderState *state,
       if( !mIsInteriorOnly && !visibleInside )
       {         
          U32 outdoorZone = SceneZoneSpaceManager::RootZoneId;
-         visibleOutside = !state->getCullingState().isCulled( cell->mOBB, &outdoorZone, 1 );
+
+         // HH: Modified for Tribes 2 compatibility.
+         // mOBB is where this cell sits in the block's own copy; a repeat of
+         // a tiled terrain is the same cell somewhere else, so it is tested
+         // against a box built on that repeat's transform.
+         if ( repeatXfm )
+         {
+            OrientedBox3F repeatOBB;
+            repeatOBB.set( *repeatXfm, cell->mBounds );
+            visibleOutside = !state->getCullingState().isCulled( repeatOBB, &outdoorZone, 1 );
+         }
+         else
+            visibleOutside = !state->getCullingState().isCulled( cell->mOBB, &outdoorZone, 1 );
       }
 
       // Skip cell if neither visible indoors nor outdoors.
@@ -1001,7 +1014,7 @@ void TerrCell::cullCells(  const SceneRenderState *state,
             outCells->push_back( cell );       
       }
       else      
-         cell->cullCells( state, objLodPos, outCells );
+         cell->cullCells( state, objLodPos, outCells, repeatXfm );
    }
 }
 
