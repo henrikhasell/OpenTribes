@@ -533,19 +533,20 @@ bool TerrainBlock::getNormal( const Point2F &pos, Point3F *normal, bool normaliz
    F32 invSquareSize = 1.0f / mSquareSize;
    F32 xp = pos.x * invSquareSize;
    F32 yp = pos.y * invSquareSize;
-   S32 x = S32(xp);
-   S32 y = S32(yp);
+   // HH: Modified for Tribes 2 compatibility. See getHeight above.
+   S32 x = (S32)mFloor(xp);
+   S32 y = (S32)mFloor(yp);
    xp -= (F32)x;
    yp -= (F32)y;
-   
+
    const U32 blockMask = mFile->mSize - 1;
 
-   if ( x & ~blockMask || y & ~blockMask )
+   if ( !mTile && ( x & ~blockMask || y & ~blockMask ) )
       return false;
-   
+
    x &= blockMask;
    y &= blockMask;
-   
+
    const TerrainSquare *sq = mFile->findSquare( 0, x, y );
    if ( skipEmpty && sq->flags & TerrainSquare::Empty )
       return false;
@@ -590,17 +591,18 @@ bool TerrainBlock::getSmoothNormal( const Point2F &pos,
    F32 invSquareSize = 1.0f / mSquareSize;
    F32 xp = pos.x * invSquareSize;
    F32 yp = pos.y * invSquareSize;
-   S32 x = S32(xp);
-   S32 y = S32(yp);
-   
+   // HH: Modified for Tribes 2 compatibility. See getHeight above.
+   S32 x = (S32)mFloor(xp);
+   S32 y = (S32)mFloor(yp);
+
    const U32 blockMask = mFile->mSize - 1;
 
-   if ( x & ~blockMask || y & ~blockMask )
+   if ( !mTile && ( x & ~blockMask || y & ~blockMask ) )
       return false;
-   
+
    x &= blockMask;
    y &= blockMask;
-   
+
    const TerrainSquare *sq = mFile->findSquare( 0, x, y );
    if ( skipEmpty && sq->flags & TerrainSquare::Empty )
       return false;
@@ -696,18 +698,19 @@ bool TerrainBlock::getNormalHeightMaterial(  const Point2F &pos,
    F32 invSquareSize = 1.0f / mSquareSize;
    F32 xp = pos.x * invSquareSize;
    F32 yp = pos.y * invSquareSize;
-   S32 x = S32(xp);
-   S32 y = S32(yp);
-   S32 xm = S32(mFloor( xp + 0.5f ));   
-   S32 ym = S32(mFloor( yp + 0.5f ));   
+   // HH: Modified for Tribes 2 compatibility. See getHeight above.
+   S32 x = (S32)mFloor(xp);
+   S32 y = (S32)mFloor(yp);
+   S32 xm = S32(mFloor( xp + 0.5f ));
+   S32 ym = S32(mFloor( yp + 0.5f ));
    xp -= (F32)x;
    yp -= (F32)y;
 
    const U32 blockMask = mFile->mSize - 1;
 
-   if ( x & ~blockMask || y & ~blockMask )
+   if ( !mTile && ( x & ~blockMask || y & ~blockMask ) )
       return false;
-   
+
    x &= blockMask;
    y &= blockMask;
    
@@ -947,8 +950,16 @@ bool TerrainBlock::onAdd()
    // the heightfield's own wrapping and the collision walks already assume.
    // Torque's own format records a tile flag per block; a pre-version-7 file
    // predates that, and Tribes 2 dropped even the field.
+   // It is also centred on the origin, and no transform comes over the wire
+   // to say so: the engine places the block from the square size alone, so a
+   // ghost has to do the same arithmetic the server did.
    if ( terr->hasLayerAlpha() )
+   {
       mTile = true;
+
+      const F32 half = -mSquareSize * (F32)( getBlockSize() >> 1 );
+      setPosition( Point3F( half, half, 0.0f ) );
+   }
 
    // HH: Added for Tribes 2 compatibility.
    // Tribes 2 draws a terrain square as its materials' own textures, summed
