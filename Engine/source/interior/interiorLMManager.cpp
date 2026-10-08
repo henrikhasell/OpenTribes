@@ -54,6 +54,7 @@ void InteriorLMManager::addInterior(LM_HANDLE & interiorHandle, U32 numLightmaps
    mInteriors.last()->mInterior = interior;
    mInteriors.last()->mHandlePtr = &interiorHandle;
    mInteriors.last()->mNumLightmaps = numLightmaps;
+   mInteriors.last()->mBaseReloadFailed = false;
 
    // create base instance
    addInstance(interiorHandle, mInteriors.last()->mBaseInstanceHandle, 0);
@@ -320,6 +321,21 @@ GFXTexHandle &InteriorLMManager::getHandle(LM_HANDLE interiorHandle, LM_HANDLE i
    // valid? if not, then get base lightmap handle
    if(!mInteriors[interiorHandle]->mInstances[instanceHandle]->mLightmapHandles[index])
    {
+      InteriorLMInfo * interiorInfo = mInteriors[interiorHandle];
+
+      if(!interiorInfo->mInstances[0]->mLightmapHandles[index] &&
+         !interiorInfo->mBaseReloadFailed && instanceHandle)
+      {
+         if(!loadBaseLightmaps(interiorHandle, instanceHandle))
+         {
+            interiorInfo->mBaseReloadFailed = true;
+            // TODO: make this an assert again; it stands in for one only
+            // while the lighting code is incomplete, and should never trigger.
+            Con::errorf("InteriorLMManager: could not reload the base "
+               "lightmaps of interior %d; it renders unlit.", interiorHandle);
+         }
+      }
+
       AssertFatal(mInteriors[interiorHandle]->mInstances[0]->mLightmapHandles[index], "InteriorLMManager::getHandle: invalid base texture handle");
       return(mInteriors[interiorHandle]->mInstances[0]->mLightmapHandles[index]);
    }
