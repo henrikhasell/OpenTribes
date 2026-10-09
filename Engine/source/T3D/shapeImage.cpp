@@ -34,6 +34,7 @@
 #include "T3D/fx/particleEmitter.h"
 #include "T3D/projectile.h"
 #include "T3D/gameBase/gameConnection.h"
+#include "T3D/gameBase/t2Layout.h"
 #include "math/mathIO.h"
 #include "T3D/debris.h"
 #include "math/mathUtils.h"
@@ -450,7 +451,7 @@ bool ShapeBaseImageData::preload(bool server, String &errorStr)
 
       if (name && name[0]) {
          // Resolve shapename
-         shape[i] = ResourceManager::get().load(name);
+         shape[i] = ResourceManager::get().load(T2Layout::resourcePath(name, "shapes/"));
          if (!bool(shape[i])) {
             errorStr = String::ToString("Unable to load shape: %s", name);
             return false;

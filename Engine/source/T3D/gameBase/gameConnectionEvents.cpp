@@ -210,6 +210,8 @@ void SimDataBlockEvent::unpack(NetConnection *cptr, BitStream *bstream)
          {
             if( ShapeBaseData *sb = dynamic_cast< ShapeBaseData * >( mObj ) )
                sb->shapeName = StringTable->insert( shape );
+            else if( ShapeBaseImageData *si = dynamic_cast< ShapeBaseImageData * >( mObj ) )
+               si->shapeName = StringTable->insert( shape );
          }
 
          // HH: Added for Tribes 2 compatibility.
