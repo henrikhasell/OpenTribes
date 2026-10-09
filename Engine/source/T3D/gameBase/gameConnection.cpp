@@ -410,7 +410,8 @@ void GameConnection::onDisconnect(const char *reason)
 {
    if(isConnectionToServer())
    {
-      Con::printf("Connection with server lost.");
+      Con::printf("Connection with server lost: %s",
+         reason && reason[0] ? reason : "no reason given");
       onConnectionDropped_callback(reason);
       ::onConnectionToServerLost_callback(reason);
       mMoveList->init();
