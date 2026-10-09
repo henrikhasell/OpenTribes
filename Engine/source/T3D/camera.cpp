@@ -867,32 +867,6 @@ void Camera::writePacketData(GameConnection *connection, BitStream *bstream)
       if (writeMode == OrbitPointMode)
          bstream->writeCompressedPoint(writePos);
    }
-   else if(writeMode == TrackObjectMode)
-   {
-      bstream->writeInt(gIndex, NetConnection::GhostIdBitSize);
-   }
-
-   if(bstream->writeFlag(mNewtonMode))
-   {
-      bstream->write(mVelocity.x);
-      bstream->write(mVelocity.y);
-      bstream->write(mVelocity.z);
-   }
-   if(bstream->writeFlag(mNewtonRotation))
-   {
-      bstream->write(mAngularVelocity.x);
-      bstream->write(mAngularVelocity.y);
-      bstream->write(mAngularVelocity.z);
-   }
-
-   bstream->writeFlag(mValidEditOrbitPoint);
-   if(writeMode == EditOrbitMode)
-   {
-      bstream->write(mEditOrbitPoint.x);
-      bstream->write(mEditOrbitPoint.y);
-      bstream->write(mEditOrbitPoint.z);
-      bstream->write(mCurrentEditOrbitDist);
-   }
 }
 
 //----------------------------------------------------------------------------
@@ -924,11 +898,6 @@ void Camera::readPacketData(GameConnection *connection, BitStream *bstream)
       if (mMode == OrbitPointMode)
          bstream->readCompressedPoint(&mPosition);
    }
-   else if (mMode == TrackObjectMode)
-   {
-      S32 gIndex = bstream->readInt(NetConnection::GhostIdBitSize);
-      obj = static_cast<GameBase*>(connection->resolveGhost(gIndex));
-   }
 
    if (obj != (GameBase*)mOrbitObject)
    {
@@ -944,31 +913,6 @@ void Camera::readPacketData(GameConnection *connection, BitStream *bstream)
          processAfter(mOrbitObject);
          deleteNotify(mOrbitObject);
       }
-   }
-
-   mNewtonMode = bstream->readFlag();
-   if(mNewtonMode)
-   {
-      bstream->read(&mVelocity.x);
-      bstream->read(&mVelocity.y);
-      bstream->read(&mVelocity.z);
-   }
-
-   mNewtonRotation = bstream->readFlag();
-   if(mNewtonRotation)
-   {
-      bstream->read(&mAngularVelocity.x);
-      bstream->read(&mAngularVelocity.y);
-      bstream->read(&mAngularVelocity.z);
-   }
-
-   mValidEditOrbitPoint = bstream->readFlag();
-   if(mMode == EditOrbitMode)
-   {
-      bstream->read(&mEditOrbitPoint.x);
-      bstream->read(&mEditOrbitPoint.y);
-      bstream->read(&mEditOrbitPoint.z);
-      bstream->read(&mCurrentEditOrbitDist);
    }
 
    _setPosition(pos,rot);

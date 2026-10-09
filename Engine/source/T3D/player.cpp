@@ -2196,6 +2196,9 @@ void Player::allowAllPoses()
    mAllowCrouching = true;
    mAllowProne = true;
    mAllowSwimming = true;
+
+   mT2ControlFlagA = false;
+   mT2ControlFlagB = false;
 }
 
 void Player::updateMove(const Move* move)
@@ -5638,16 +5641,6 @@ void Player::writePacketData(GameConnection *connection, BitStream *stream)
       stream->write(mVelocity.y);
       stream->write(mVelocity.z);
       stream->writeInt(mJumpSurfaceLastContact > 15 ? 15 : mJumpSurfaceLastContact, 4);
-
-      if (stream->writeFlag(!mAllowSprinting || !mAllowCrouching || !mAllowProne || !mAllowJumping || !mAllowJetJumping || !mAllowSwimming))
-      {
-         stream->writeFlag(mAllowJumping);
-         stream->writeFlag(mAllowJetJumping);
-         stream->writeFlag(mAllowSprinting);
-         stream->writeFlag(mAllowCrouching);
-         stream->writeFlag(mAllowProne);
-         stream->writeFlag(mAllowSwimming);
-      }
    }
    stream->write(mHead.x);
    stream->write(mHead.z);
@@ -5662,6 +5655,9 @@ void Player::writePacketData(GameConnection *connection, BitStream *stream)
    }
    else
       stream->writeFlag(false);
+
+   stream->writeFlag(mT2ControlFlagA);
+   stream->writeFlag(mT2ControlFlagB);
 }
 
 
@@ -5689,25 +5685,6 @@ void Player::readPacketData(GameConnection *connection, BitStream *stream)
       stream->setCompressionPoint(pos);
       delta.pos = pos;
       mJumpSurfaceLastContact = stream->readInt(4);
-
-      if (stream->readFlag())
-      {
-         mAllowJumping = stream->readFlag();
-         mAllowJetJumping = stream->readFlag();
-         mAllowSprinting = stream->readFlag();
-         mAllowCrouching = stream->readFlag();
-         mAllowProne = stream->readFlag();
-         mAllowSwimming = stream->readFlag();
-      }
-      else
-      {
-         mAllowJumping = true;
-         mAllowJetJumping = true;
-         mAllowSprinting = true;
-         mAllowCrouching = true;
-         mAllowProne = true;
-         mAllowSwimming = true;
-      }
    }
    else
       pos = delta.pos;
@@ -5723,10 +5700,14 @@ void Player::readPacketData(GameConnection *connection, BitStream *stream)
       S32 gIndex = stream->readInt(NetConnection::GhostIdBitSize);
       ShapeBase* obj = static_cast<ShapeBase*>(connection->resolveGhost(gIndex));
       setControlObject(obj);
-      obj->readPacketData(connection, stream);
+      if (obj)
+         obj->readPacketData(connection, stream);
    }
    else
       setControlObject(0);
+
+   mT2ControlFlagA = stream->readFlag();
+   mT2ControlFlagB = stream->readFlag();
 }
 
 

@@ -1206,7 +1206,7 @@ void GameConnection::readPacket(BitStream *bstream)
       }
 
       if ( bstream->readFlag() ) // gIndex != -1
-      {         
+      {
          if ( bstream->readFlag() ) // mMoveList->isMismatch() || mControlForceMismatch
          {
             // the control object is dirty...so we get an update:
@@ -1233,16 +1233,7 @@ void GameConnection::readPacket(BitStream *bstream)
 #ifdef TORQUE_NET_STATS
             U32 beginSize = bstream->getBitPosition();
 #endif
-            // HH: Modified for Tribes 2 compatibility. Control data is laid
-            // out Tribes 2's way on every connection, loopback included --
-            // there is no second, Torque-native format to pick.
-            if(!T2Layout::readPacketData(bstream, obj->getClassName(),
-                  ghostClassNameT2, this))
-            {
-               Con::warnf("Dropped a packet carrying %s control data, which "
-                          "we have no layout for.", obj->getClassName());
-               return;
-            }
+            obj->readPacketData(this, bstream);
 #ifdef TORQUE_NET_STATS
             obj->getClassRep()->updateNetStatReadData(bstream->getBitPosition() - beginSize);
 #endif
@@ -1428,9 +1419,7 @@ void GameConnection::writePacket(BitStream *bstream, PacketNotify *note)
 #ifdef TORQUE_NET_STATS
             U32 beginSize = bstream->getBitPosition();
 #endif
-            // HH: Modified for Tribes 2 compatibility.
-            T2Layout::writePacketData(bstream, mControlObject->getClassName(),
-               ghostClassNameT2, this);
+            mControlObject->writePacketData(this, bstream);
 #ifdef TORQUE_NET_STATS
             mControlObject->getClassRep()->updateNetStatWriteData(bstream->getBitPosition() - beginSize);
 #endif
