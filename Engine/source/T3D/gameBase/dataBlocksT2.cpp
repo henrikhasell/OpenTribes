@@ -5,6 +5,8 @@
 #include "console/consoleTypes.h"
 #include "console/simDatablock.h"
 #include "T3D/gameBase/dataBlocksT2.h"
+#include "T3D/gameBase/t2Layout.h"
+#include "core/resourceManager.h"
 
 IMPLEMENT_CONOBJECT(DataBlockT2);
 
@@ -13,6 +15,20 @@ ConsoleDocClass( DataBlockT2,
 
 DataBlockT2::DataBlockT2()
 {
+   shapeName = StringTable->EmptyString();
+}
+
+bool DataBlockT2::preload(bool server, String &errorStr)
+{
+   if(!Parent::preload(server, errorStr))
+      return false;
+
+   if(namesGameBaseShape() && shapeName && shapeName[0])
+   {
+      mShape = ResourceManager::get().load(T2Layout::resourcePath(shapeName, "shapes/"));
+   }
+
+   return true;
 }
 
 IMPLEMENT_DATABLOCK_T2( TSShapeConstructorT2 );
@@ -43,5 +59,5 @@ IMPLEMENT_DATABLOCK_T2( StationFXPersonalData );
 IMPLEMENT_DATABLOCK_T2( StationFXVehicleData );
 IMPLEMENT_DATABLOCK_T2( TargetProjectileData );
 IMPLEMENT_DATABLOCK_T2( TracerProjectileData );
-IMPLEMENT_DATABLOCK_T2( TurretData );
+IMPLEMENT_DATABLOCK_T2_SHAPE( TurretData, true );
 IMPLEMENT_DATABLOCK_T2( TurretImageData );

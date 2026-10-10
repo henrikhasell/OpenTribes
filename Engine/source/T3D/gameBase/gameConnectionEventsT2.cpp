@@ -9,8 +9,12 @@
 #include "T3D/gameBase/gameConnection.h"
 #include "T3D/gameBase/t2Layout.h"
 #include "T3D/shapeBase.h"
+#include "T3D/player.h"
 #include "core/crc.h"
 #include "core/stream/fileStream.h"
+#include "ts/tsShape.h"
+#include "ts/tsMaterialList.h"
+#include "T3D/gameBase/dataBlocksT2.h"
 
 
 //----------------------------------------------------------------------------
@@ -304,16 +308,18 @@ public:
       mWhole = stream->readFlag();
    }
 
-   /// HH: Added for Tribes 2 compatibility.
-   /// Tribes 2 answers this by walking its datablocks and, for each
-   /// ShapeBaseData whose shape is loaded, checksumming that shape file with
-   /// the seed the challenge carried and adding the file's size to a running
-   /// total -- CRCChallengeEvent::process at 0x006a2cc0 in Tribes2.exe, which
-   /// reaches the work through the resource manager at 0x00440580. The first
-   /// word it answers with is the chained checksum, not the seed, and the
-   /// second is the total; the seed is carried forward from file to file, and
-   /// the walk stops at the first datablock that has no shape loaded unless
-   /// the challenge asked for the whole set.
+   static bool sum(const char *path, U32 &crc, U32 &total)
+   {
+      FileStream *file = FileStream::createAndOpen(path, Torque::FS::File::Read);
+      if(!file)
+         return false;
+
+      crc = CRC::calculateCRCStream(file, crc);
+      total += file->getStreamSize();
+      delete file;
+      return true;
+   }
+
    void process(NetConnection *conn)
    {
       U32 crc = mSeed;
@@ -321,27 +327,39 @@ public:
 
       for(U32 id = DataBlockObjectIdFirst; id <= DataBlockObjectIdLast; id++)
       {
-         ShapeBaseData *data;
-         if(!Sim::findObject(id, data))
+         StringTableEntry   name  = NULL;
+         const TSShape     *shape = NULL;
+
+         if(ShapeBaseData *data = dynamic_cast<ShapeBaseData *>(Sim::findObject(id)))
+         {
+            name  = data->shapeName;
+            shape = data->mShape;
+         }
+         else if(DataBlockT2 *stub = dynamic_cast<DataBlockT2 *>(Sim::findObject(id)))
+         {
+            name  = stub->shapeName;
+            shape = stub->mShape;
+         }
+
+         if(!shape)
             continue;
-         if(!data->shapeName || !data->shapeName[0])
-            break;
 
-         FileStream *file = FileStream::createAndOpen(
-            T2Layout::resourcePath(data->shapeName, "shapes/"),
-            Torque::FS::File::Read);
-         if(!file)
-            break;
+         if(!sum(T2Layout::resourcePath(name, "shapes/"), crc, total))
+            continue;
 
-         crc = CRC::calculateCRCStream(file, crc);
-         total += file->getStreamSize();
-         delete file;
+         if(!mWhole || dynamic_cast<PlayerData *>(Sim::findObject(id)))
+            continue;
 
-         if(!mWhole)
-            break;
+         const TSMaterialList *materials = shape->materialList;
+         for(U32 i = 0; materials && i < materials->size(); i++)
+         {
+            const String &texture = materials->getMaterialName(i);
+            if(!sum(T2Layout::resourcePath(texture + ".png", "textures/"), crc, total))
+               sum(T2Layout::resourcePath(texture + ".bm8", "textures/"), crc, total);
+         }
       }
 
-      conn->postNetEvent(new CRCChallengeResponseEvent(crc, total, mLength));
+      conn->postNetEvent(new CRCChallengeResponseEvent(crc + total, total, mLength));
    }
 
    DECLARE_CONOBJECT(CRCChallengeEvent);
