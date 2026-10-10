@@ -101,6 +101,11 @@ F32 HudBarBaseCtrl::barValue()
    return mValue;
 }
 
+ColorI HudBarBaseCtrl::barColor()
+{
+   return mFillColor;
+}
+
 F32 HudBarBaseCtrl::pulse() const
 {
    if(mPulseRate <= 0.f || !mWarning)
@@ -113,6 +118,8 @@ F32 HudBarBaseCtrl::pulse() const
    return 1.f - mFabs(phase * 2.f - 1.f);
 }
 
+/// HudBarBaseCtrl::onRender at 0x00500ed0 draws the fill and returns: no frame,
+/// no art and no children, whatever the .gui sets.
 void HudBarBaseCtrl::onRender(Point2I offset, const RectI &updateRect)
 {
       // Retail draws nothing at all without an object (0x00500efc).
@@ -121,55 +128,22 @@ void HudBarBaseCtrl::onRender(Point2I offset, const RectI &updateRect)
 
    const F32 value = barValue();
 
-   GFXDrawUtil *draw = GFX->getDrawUtil();
-   const RectI bounds(offset, getExtent());
+      // What fills is the sub region, which Tribes 2 leaves the clip rect to cut
+      // back to the control.
+   S32 width = S32(F32(mSubRegion.extent.x) * value);
+   if(width == 1)
+      width = 2;      // 0x00500f7d: the first sliver of a gauge is visible
 
-   // How much of the bar is filled.  A vertical one fills from the bottom,
-   // because that is the direction a gauge reads.
-   const S32 across = S32(F32(getExtent().x) * value);
-   const S32 up     = S32(F32(getExtent().y) * value);
+   RectI filled(offset + mSubRegion.point, Point2I(width, mSubRegion.extent.y));
+   if(filled.extent.x <= 0 || filled.extent.y <= 0)
+      return;
+   if(!filled.intersect(RectI(offset, getExtent())))
+      return;
 
-   const RectI filled = mVerticalFill
-      ? RectI(bounds.point.x, bounds.point.y + getExtent().y - up, getExtent().x, up)
-      : RectI(bounds.point, Point2I(across, getExtent().y));
+   ColorI colour = barColor();
+   colour.alpha = U8(255.f * mClampF(mOpacity, 0.f, 1.f) * pulse());
 
-   ColorF colour = mFillColor;
-   colour.alpha *= pulse();
-
-   if(filled.extent.x > 0 && filled.extent.y > 0)
-   {
-      if(mTexture)
-      {
-         // With art, the fill is how much of the art is shown rather than a
-         // rectangle over it: subRegion says which part of the bitmap is the
-         // bar, and the fill is a fraction of that.
-         RectI source = mSubRegion.extent.x > 0 ? mSubRegion
-                      : RectI(0, 0, mTexture->getBitmapWidth(), mTexture->getBitmapHeight());
-
-         if(mVerticalFill)
-         {
-            const S32 h = S32(F32(source.extent.y) * value);
-            source.point.y += source.extent.y - h;
-            source.extent.y = h;
-         }
-         else
-            source.extent.x = S32(F32(source.extent.x) * value);
-
-         if(source.extent.x > 0 && source.extent.y > 0)
-         {
-            draw->setBitmapModulation(faded(colour));
-            draw->drawBitmapStretchSR(mTexture, filled, source, flipFlags());
-            draw->clearBitmapModulation();
-         }
-      }
-      else
-         draw->drawRectFill(filled, faded(colour));
-   }
-
-   if(mFrameColor.alpha > 0.f)
-      draw->drawRect(bounds, faded(mFrameColor));
-
-   renderChildControls(offset, updateRect);
+   GFX->getDrawUtil()->drawRectFill(filled, colour);
 }
 
 //-----------------------------------------------------------------------------
@@ -210,6 +184,16 @@ F32 HudDamage::barValue()
    const F32 health = mClampF(1.f - object->getDamageValue(), 0.f, 1.f);
    mWarning = health <= sDamageWarning;
    return health;
+}
+
+/// Retail picks the colour off the health at 0x00501580.
+ColorI HudDamage::barColor()
+{
+   const F32 health = barValue();
+   if(health >= 0.6f)
+      return Parent::barColor();
+
+   return health > sDamageWarning ? ColorI(255, 178, 0) : ColorI(255, 0, 0);
 }
 
 //-----------------------------------------------------------------------------

@@ -12,19 +12,9 @@ class ShapeBase;
 /// @file
 /// The gauges down the left of a Tribes 2 screen.
 ///
-/// Energy, damage and heat are one control with three names: the same fill,
-/// the same pulse when the number they watch passes a line, the same option to
-/// run up rather than across.  What differs is which number they watch, and
-/// each of them goes and reads it: nothing in Tribes 2's shipped scripts ever
-/// sets one of these bars.  Retail asks the control for its value once per
-/// render, through a virtual of the bar's own (vtable +0x110, called at
-/// 0x00500f26), and each subclass answers from the connection's control
-/// object -- or, where that object is the observer camera, from the player or
-/// vehicle the camera is watching.
-///
-/// `value`, `pulseThreshold` and `verticalFill` are read by nothing in retail
-/// but the base class's own answer, which is what the two net-traffic bars in
-/// PlayGui.gui use; they are kept because the .gui files set them.
+/// Energy, damage and heat are one control with three names, which retail asks
+/// for its value once per render through a virtual of its own (vtable +0x110,
+/// called at 0x00500f26).
 
 class HudBarBaseCtrl : public HudCtrl
 {
@@ -62,6 +52,8 @@ public:
 
    virtual F32 barValue();
 
+   virtual ColorI barColor();
+
    void setValue(F32 value);
 
    void setScriptValue(const char *value);
@@ -87,6 +79,7 @@ public:
    DECLARE_CONOBJECT(HudDamage);
 
    F32 barValue();
+   ColorI barColor();
 };
 
 /// Heat has one field of its own: the level at which it starts warning.
