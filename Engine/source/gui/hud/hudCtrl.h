@@ -49,7 +49,6 @@ protected:
    /// The flip flags as the draw utility wants them.
    GFXBitmapFlip flipFlags() const;
 
-   /// Where the art goes inside the control, honouring autoCenter.
    RectI artRect(const Point2I &offset, const Point2I &size) const;
 
    /// `colour` faded by this control's opacity, in either convention.
@@ -63,6 +62,8 @@ public:
    static void initPersistFields();
 
    bool onWake();
+
+   void onPreRender();
 
    void setBitmap(const char *name);
    GFXTexHandle getTexture() const { return mTexture; }

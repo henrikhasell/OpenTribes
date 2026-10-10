@@ -68,12 +68,37 @@ void HudCtrl::setBitmap(const char *name)
    mTexture.set(mBitmapName, &GFXDefaultGUIProfile,
                 avar("%s() - mTexture (line %d)", __FUNCTION__, __LINE__));
 
-   // autoResize means the control is the size of what it shows, which is how
-   // the HUD's icons get their extent -- the layout gives them none.
-   if(mAutoResize && mTexture)
-      resize(getPosition(), Point2I(mTexture->getBitmapWidth(), mTexture->getBitmapHeight()));
-
    setUpdate();
+}
+
+/// Tribes 2 does this once a frame (0x004fce50): autoResize takes the size of
+/// the art, and autoCenter centres the control in its parent.
+void HudCtrl::onPreRender()
+{
+   Parent::onPreRender();
+
+   GuiControl *parent = getParent();
+   if(!parent)
+      return;
+
+   if(mAutoResize && mTexture)
+   {
+      const Point2I size(mTexture->getBitmapWidth(), mTexture->getBitmapHeight());
+      if(size != getExtent())
+         resize(getPosition(), size);
+   }
+
+   if(mAutoCenter)
+   {
+         // Both halves rounded towards zero (0x004fcef4).
+      const Point2I outer = parent->getExtent();
+      const Point2I inner = getExtent();
+      const Point2I centred(outer.x / 2 - (inner.x + 1) / 2,
+                            outer.y / 2 - (inner.y + 1) / 2);
+
+      if(centred != getPosition())
+         resize(centred, inner);
+   }
 }
 
 GFXBitmapFlip HudCtrl::flipFlags() const
@@ -89,12 +114,9 @@ GFXBitmapFlip HudCtrl::flipFlags() const
 
 RectI HudCtrl::artRect(const Point2I &offset, const Point2I &size) const
 {
-   if(!mAutoCenter)
-      return RectI(offset, size);
-
-   return RectI(offset.x + (getExtent().x - size.x) / 2,
-                offset.y + (getExtent().y - size.y) / 2,
-                size.x, size.y);
+      // Retail's dglDrawBitmap puts the art at the control's corner at its own
+      // size.
+   return RectI(offset, size);
 }
 
 ColorI HudCtrl::faded(const ColorF &colour) const
@@ -214,9 +236,7 @@ void HudPulsingBitmap::onRender(Point2I offset, const RectI &updateRect)
 //-----------------------------------------------------------------------------
 HudCrosshair::HudCrosshair()
 {
-   // A reticle is centred on where it is aimed, never on the top-left corner
-   // of a box.
-   mAutoCenter = true;
+      // PlayGui sets autoCenter here, overriding retail's default of false.
 }
 
 //-----------------------------------------------------------------------------
