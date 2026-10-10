@@ -60,10 +60,10 @@ void HudCompass::initPersistFields()
 void HudCompass::onRender(Point2I offset, const RectI &updateRect)
 {
    GFXDrawUtil *draw = GFX->getDrawUtil();
-   const RectI bounds(offset, getExtent());
 
-   draw->drawRectFill(bounds, faded(mFillColor));
-
+   // No panel behind it: HudCompass::onRender at 0x00502870 draws the
+   // headings and the mark and nothing else, and the .gui's fillColor of
+   // "0.25 0.25 0.25 0.25" was a grey box over the dial underneath.
    F32 yaw;
    if(!cameraYaw(yaw))
       return;

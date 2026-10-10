@@ -111,24 +111,33 @@ ColorI HudCtrl::faded(const ColorI &colour) const
    return c;
 }
 
+/// HudCtrl::onRender at 0x004fcf50 draws the art where there is one, and
+/// otherwise the fill and frame at 0x004fc8a0.
 void HudCtrl::onRender(Point2I offset, const RectI &updateRect)
 {
    GFXDrawUtil *draw = GFX->getDrawUtil();
-   const RectI bounds(offset, getExtent());
-
-   const ColorI fill = faded(mFillColor);
-   if(fill.alpha)
-      draw->drawRectFill(bounds, fill);
+   const U8 alpha = U8(mClampF(mOpacity, 0.f, 1.f) * 255.f);
 
    if(mTexture)
    {
-      draw->setBitmapModulation(ColorI(255, 255, 255,
-                                       U8(mClampF(mOpacity, 0.f, 1.f) * 255.f)));
+      draw->setBitmapModulation(ColorI(255, 255, 255, alpha));
       draw->drawBitmapStretch(mTexture,
                               artRect(offset, Point2I(mTexture->getBitmapWidth(),
                                                       mTexture->getBitmapHeight())),
                               flipFlags());
       draw->clearBitmapModulation();
+   }
+   else
+   {
+      const RectI bounds(offset, getExtent());
+
+      ColorI fill = mFillColor;
+      fill.alpha = alpha;
+      draw->drawRectFill(bounds, fill);
+
+      ColorI frame = mFrameColor;
+      frame.alpha = alpha;
+      draw->drawRect(bounds, frame);
    }
 
    renderChildControls(offset, updateRect);
