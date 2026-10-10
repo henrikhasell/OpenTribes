@@ -566,6 +566,21 @@ protected:
    void setDirty(U32 dirty);
    void clearDirty(U32 dirty);
 
+   // HH: Added for Tribes 2 compatibility.
+   //
+   /// Which frame of its own run each of the shape's ifl materials is
+   /// showing, or -1 for one that has none to show.
+   Vector<S32> mIflFrame;
+
+   /// Hand an ifl material's slot back a material instance of its own.
+   void releaseIflMaterials();
+
+   /// Point each ifl material's slot at the frame it is showing.
+   void bindIflMaterials();
+
+   /// Move every ifl material on to the frame the clock says.
+   void animateIfls();
+
 //-------------------------------------------------------------------------------------
 // collision interface routines
 //-------------------------------------------------------------------------------------
