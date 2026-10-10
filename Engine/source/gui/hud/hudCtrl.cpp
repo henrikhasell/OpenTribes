@@ -261,24 +261,37 @@ void HudClock::setTime(S32 seconds)
    setUpdate();
 }
 
+/// HudClock::onRender at 0x004fe8a0 draws the time and nothing else.
 void HudClock::onRender(Point2I offset, const RectI &updateRect)
 {
-   Parent::onRender(offset, updateRect);
-
    if(mTime < 0 || !mProfile || !mProfile->mFont)
       return;
 
    // Script sets the clock once and lets it run, so what is on it now is what
-   // it was set to less however long ago that was.
+         // Retail keeps counting past zero and shows the overtime; this stops.
    const S32 elapsed = S32((Platform::getVirtualMilliseconds() - mSetAt) / 1000);
    const S32 left = getMax(mTime - elapsed, 0);
 
    char buf[32];
-   dSprintf(buf, sizeof(buf), "%d:%02d", left / 60, left % 60);
+   dSprintf(buf, sizeof(buf), "%02d:%02d", left / 60, left % 60);
+
+   GFont *font = mProfile->mFont;
+   const S32 width = S32(font->getStrWidth((const UTF8*)buf));
+   const S32 height = S32(font->getHeight()) - 2;
+
+   Point2I at(mSubRegion.point.x + (mSubRegion.extent.x - width) / 2,
+              mSubRegion.point.y + (mSubRegion.extent.y - height) / 2);
+   if(at.x < 0)
+      at.x = mSubRegion.point.x;
+   if(at.y < 0)
+      at.y = mSubRegion.point.y;
+
+   ColorI colour = mProfile->mFontColor;
+   colour.alpha = U8(255.f * mClampF(mOpacity, 0.f, 1.f));
 
    GFXDrawUtil *draw = GFX->getDrawUtil();
-   draw->setBitmapModulation(faded(mFrameColor));
-   renderJustifiedText(offset, getExtent(), buf);
+   draw->setBitmapModulation(colour);
+   draw->drawText(font, offset + at, buf);
    draw->clearBitmapModulation();
 }
 
