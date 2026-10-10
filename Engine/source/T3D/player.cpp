@@ -435,7 +435,7 @@ bool PlayerData::unpackData(BitStream *stream, U32 classId)
    if (!Parent::unpackData(stream, classId))
       return false;
 
-   static const struct { U32 field; F32 PlayerData::*member; } sJetFields[] =
+   static const struct { U32 field; F32 PlayerData::*member; } sFields[] =
    {
       { T2Layout::T2DbJetForce,                 &PlayerData::jetForce                 },
       { T2Layout::T2DbUnderwaterJetForce,       &PlayerData::underwaterJetForce       },
@@ -446,13 +446,14 @@ bool PlayerData::unpackData(BitStream *stream, U32 classId)
       { T2Layout::T2DbMaxJetForwardSpeed,       &PlayerData::maxJetForwardSpeed       },
       { T2Layout::T2DbMaxJetHorizontalPercentage,
         &PlayerData::maxJetHorizontalPercentage },
+      { T2Layout::T2DbCameraMaxDist,            &PlayerData::cameraMaxDist            },
    };
 
-   for (U32 i = 0; i < sizeof(sJetFields) / sizeof(sJetFields[0]); i++)
+   for (U32 i = 0; i < sizeof(sFields) / sizeof(sFields[0]); i++)
    {
       F32 value;
-      if (T2Layout::lastDataBlockField(sJetFields[i].field, &value))
-         this->*sJetFields[i].member = value;
+      if (T2Layout::lastDataBlockField(sFields[i].field, &value))
+         this->*sFields[i].member = value;
    }
 
    if (Con::getBoolVariable("$pref::Net::traceDataBlockFields", false))

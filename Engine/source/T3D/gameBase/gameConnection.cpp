@@ -245,10 +245,6 @@ GameConnection::GameConnection()
    mBlackOutTimeMS = 0;
    mBlackOutStartTimeMS = 0;
    mFadeToBlack = false;
-
-   // first person
-   mFirstPerson = true;
-   mUpdateFirstPerson = false;
 }
 
 GameConnection::~GameConnection()
@@ -649,11 +645,13 @@ void GameConnection::setCameraObject(GameBase *obj)
    }
 }
 
+static bool sFirstPerson = true;
+
 GameBase* GameConnection::getCameraObject()
 {
    // If there is no camera object, or if we're first person, return
    // the control object.
-   if( !mControlObject.isNull() && (mCameraObject.isNull() || mFirstPerson))
+   if( !mControlObject.isNull() && (mCameraObject.isNull() || sFirstPerson))
       return mControlObject;
    return mCameraObject;
 }
@@ -678,7 +676,7 @@ bool GameConnection::getControlCameraTransform(F32 dt, MatrixF* mat)
 
    if (dt) 
    {
-      if (mFirstPerson || obj->onlyFirstPerson()) 
+      if (sFirstPerson || obj->onlyFirstPerson())
       {
          if (mCameraPos > 0)
             if ((mCameraPos -= mCameraSpeed * dt) <= 0)
@@ -692,7 +690,7 @@ bool GameConnection::getControlCameraTransform(F32 dt, MatrixF* mat)
       }
    }
 
-   if (!sChaseQueueSize || mFirstPerson || obj->onlyFirstPerson())
+   if (!sChaseQueueSize || sFirstPerson || obj->onlyFirstPerson())
       obj->getCameraTransform(&mCameraPos,mat);
    else 
    {
@@ -810,8 +808,7 @@ bool GameConnection::isControlObjectRotDampedCamera()
 
 void GameConnection::setFirstPerson(bool firstPerson)
 {
-   mFirstPerson = firstPerson;
-   mUpdateFirstPerson = true;
+   sFirstPerson = firstPerson;
 }
 
 
@@ -893,7 +890,7 @@ void GameConnection::handleRecordedBlock(U32 type, U32 size, void *data)
          if(size >= sizeof(CameraFovBlock))
          {
             const CameraFovBlock *block = (const CameraFovBlock *) data;
-            mFirstPerson = block->firstPerson != 0;
+            sFirstPerson = block->firstPerson != 0;
             mCameraFov = block->cameraFov;
          }
          break;
@@ -920,7 +917,7 @@ void GameConnection::writeDemoStartBlock(ResizeBitStream *stream)
       }
    }
    stream->writeFlag(false);
-   stream->write(mFirstPerson);
+   stream->write(sFirstPerson);
    stream->write(mCameraPos);
    stream->write(mCameraSpeed);
 
@@ -1015,7 +1012,7 @@ bool GameConnection::readDemoStartBlock(BitStream *stream)
          return false;
    }
 
-   stream->read(&mFirstPerson);
+   stream->read(&sFirstPerson);
    stream->read(&mCameraPos);
    stream->read(&mCameraSpeed);
 
@@ -2132,6 +2129,14 @@ DefineEngineMethod( GameConnection, delete, void, (const char* reason), (""),
 //--------------------------------------------------------------------------
 void GameConnection::consoleInit()
 {
+   Con::addVariable("firstPerson", TypeBool, &sFirstPerson,
+      "@brief Whether the control object is viewed from its own eyes.\n\n"
+
+      "Tribes 2's scripts toggle this to change the camera, and read it to "
+      "decide what of the HUD to show.\n\n"
+
+      "@ingroup Networking\n");
+
    Con::addVariable("$pref::Net::LagThreshold", TypeS32, &mLagThresholdMS,
       "@brief How long between received packets before the client is considered as lagging (in ms).\n\n"
 

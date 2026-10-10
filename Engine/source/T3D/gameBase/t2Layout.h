@@ -48,6 +48,7 @@ namespace T2Layout
       T2DbMinJetEnergy,
       T2DbMaxJetForwardSpeed,
       T2DbMaxJetHorizontalPercentage,
+      T2DbCameraMaxDist,
 
       T2DbFieldCount
    };
