@@ -49,6 +49,7 @@ static S32 sTransformAt = -1;
 static S32 sAffineAt = -1;
 static S32 sScaleAt = -1;
 static bool sQuatNegative = false;
+static F32 sSpeed = 0.0f;
 static const void *sFieldsLayout = NULL;
 
 const Body &lastBody()
@@ -141,6 +142,21 @@ static U32 xferInt(BitStream *stream, U32 bits, bool write)
    return stream->readInt(bits);
 }
 
+static F32 signedFloatOf(U32 word, U32 bits)
+{
+   const U32 mask = (1 << bits) - 1;
+   return (F32)(word & mask) * 2.0f / (F32)mask - 1.0f;
+}
+
+static Point3F normalVector(U32 word, U32 bits)
+{
+   const F32 phi   = signedFloatOf(word, bits + 1) * M_PI_F;
+   const F32 theta = signedFloatOf(word >> (bits + 1), bits) * M_HALFPI_F;
+
+   return Point3F(mSin(phi) * mCos(theta), mCos(phi) * mCos(theta),
+                  mSin(theta));
+}
+
 static bool xferFlag(BitStream *stream, bool write)
 {
    if(write)
@@ -214,6 +230,11 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
                const T2GhostFieldRow *row = fieldAt(layout, at);
                if(row && row->field == T2FieldQuatSign)
                   sQuatNegative = set;
+               if(row && row->field == T2FieldVelocityHere)
+               {
+                  sBody.hasVelocity = true;
+                  sBody.velocity.set(0.0f, 0.0f, 0.0f);
+               }
             }
             at = set ? n.b : n.a;
             continue;
@@ -361,6 +382,10 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
                sBody.hasYaw = true;
                sBody.yaw = (F32)word / (F32)((1 << n.bits) - 1) * M_2PI_F;
             }
+            if(row && row->field == T2FieldSpeed)
+               sSpeed = (F32)word / 32.0f;
+            if(row && row->field == T2FieldDirection)
+               sBody.velocity = normalVector(word, 10) * sSpeed;
             break;
          }
 
@@ -517,6 +542,7 @@ static bool runDataBlock(BitStream *stream, U32 classId, bool write)
 
    sShapeName[0] = 0;
    sDataBlockIds.clear();
+   sStrings.clear();
    if(classId >= ELEMENTS(sT2DataBlocks))
    {
       char id[32];
@@ -670,10 +696,12 @@ static bool runGhost(BitStream *stream, const char *className,
    sBody.hasYaw = false;
    sBody.hasRotation = false;
    sBody.hasScale = false;
+   sBody.hasVelocity = false;
    sTransformAt = -1;
    sAffineAt = -1;
    sScaleAt = -1;
    sQuatNegative = false;
+   sSpeed = 0.0f;
    resolveGhostFields(className);
    bool found = false;
    const bool ok = runNamed(stream, className, sT2GhostsRecovered,

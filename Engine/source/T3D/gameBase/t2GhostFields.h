@@ -7,6 +7,9 @@ namespace T2Protocol
    {
       T2FieldPosition,              ///< a compressed point, world space
       T2FieldYaw,                   ///< readFloat(bits) turns of heading
+      T2FieldVelocityHere,          ///< the flag a velocity follows, clear
+      T2FieldSpeed,                 ///< readInt(bits) thirty-seconds of a
+      T2FieldDirection,             ///< readNormalVector(10), both of its
       T2FieldTransform,             ///< the first of a MatrixF's 16 floats
       T2FieldAffine,                ///< the first of a position and a quat's
       T2FieldQuatSign,              ///< the flag that negates a quat's w
@@ -35,8 +38,11 @@ namespace T2Protocol
 
    static const T2GhostFieldRow sT2GhostFields[] =
    {
-      { "Player", 25, OpPoint, 0, T2FieldPosition },
-      { "Player", 19, OpRaw,   7, T2FieldYaw      },
+      { "Player", 25, OpPoint, 0,  T2FieldPosition     },
+      { "Player", 24, OpFlag,  1,  T2FieldVelocityHere },
+      { "Player", 23, OpRaw,   13, T2FieldSpeed        },
+      { "Player", 22, OpRaw,   21, T2FieldDirection    },
+      { "Player", 19, OpRaw,   7,  T2FieldYaw          },
 
       { "InteriorInstance",      11, OpRaw, 32, T2FieldTransform },
       { "InteriorInstance",      27, OpRaw, 32, T2FieldScale     },

@@ -4976,6 +4976,9 @@ void Player::onT2BodyRead(const T2Layout::Body &body)
 
    mPredictionCount = sMaxPredictionTicks;
 
+   if (body.hasVelocity)
+      mVelocity = body.velocity;
+
    setPosition(body.position, rot);
 }
 
