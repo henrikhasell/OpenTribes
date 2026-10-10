@@ -8,6 +8,9 @@
 #include "sim/netConnection.h"
 #include "T3D/gameBase/gameConnection.h"
 #include "T3D/gameBase/t2Layout.h"
+#include "T3D/shapeBase.h"
+#include "core/crc.h"
+#include "core/stream/fileStream.h"
 
 
 //----------------------------------------------------------------------------
@@ -301,9 +304,44 @@ public:
       mWhole = stream->readFlag();
    }
 
+   /// HH: Added for Tribes 2 compatibility.
+   /// Tribes 2 answers this by walking its datablocks and, for each
+   /// ShapeBaseData whose shape is loaded, checksumming that shape file with
+   /// the seed the challenge carried and adding the file's size to a running
+   /// total -- CRCChallengeEvent::process at 0x006a2cc0 in Tribes2.exe, which
+   /// reaches the work through the resource manager at 0x00440580. The first
+   /// word it answers with is the chained checksum, not the seed, and the
+   /// second is the total; the seed is carried forward from file to file, and
+   /// the walk stops at the first datablock that has no shape loaded unless
+   /// the challenge asked for the whole set.
    void process(NetConnection *conn)
    {
-      conn->postNetEvent(new CRCChallengeResponseEvent(mSeed, 0, mLength));
+      U32 crc = mSeed;
+      U32 total = 0;
+
+      for(U32 id = DataBlockObjectIdFirst; id <= DataBlockObjectIdLast; id++)
+      {
+         ShapeBaseData *data;
+         if(!Sim::findObject(id, data))
+            continue;
+         if(!data->shapeName || !data->shapeName[0])
+            break;
+
+         FileStream *file = FileStream::createAndOpen(
+            T2Layout::resourcePath(data->shapeName, "shapes/"),
+            Torque::FS::File::Read);
+         if(!file)
+            break;
+
+         crc = CRC::calculateCRCStream(file, crc);
+         total += file->getStreamSize();
+         delete file;
+
+         if(!mWhole)
+            break;
+      }
+
+      conn->postNetEvent(new CRCChallengeResponseEvent(crc, total, mLength));
    }
 
    DECLARE_CONOBJECT(CRCChallengeEvent);
