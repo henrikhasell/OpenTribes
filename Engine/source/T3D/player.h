@@ -166,6 +166,8 @@ struct PlayerData: public ShapeBaseData {
    F32 minJetEnergy;                  ///< Energy needed to hold the trigger
    F32 maxJetForwardSpeed;            ///< Speed at which thrust stops helping
    F32 maxJetHorizontalPercentage;    ///< Most of the pack a move may steal
+   F32 heatIncreasePerSec;            ///< Heat a second of thrust adds
+   F32 heatDecayPerSec;               ///< Heat a second off the trigger loses
    /// @}
    /// @}
 

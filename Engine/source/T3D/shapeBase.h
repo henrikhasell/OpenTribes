@@ -905,6 +905,9 @@ protected:
    F32 mEnergy;                     ///< Current enery level.
    F32 mRechargeRate;               ///< Energy recharge rate (in units/tick).
 
+   // HH: Added for Tribes 2 compatibility.
+   F32 mHeat;                       ///< Heat signature, 0 to 1 (this+0x7b4).
+
    F32 mMass;                       ///< Mass.
    F32 mOneOverMass;                ///< Inverse of mass.
                                     /// @note This is used to optimize certain physics calculations.
@@ -1319,6 +1322,17 @@ public:
 
    /// Returns the recharge rate
    F32  getRechargeRate() { return mRechargeRate; }
+
+   // HH: Added for Tribes 2 compatibility.
+   /// Tribes 2 raises and lowers this in each simulation of its own
+   /// (ShapeBase::getHeat 0x005eba10, setHeat 0x005eba40).
+   F32  getHeat() const { return mHeat; }
+   void setHeat(F32 heat) { mHeat = mClampF(heat, 0.f, 1.f); }
+
+   /// Take the damage a Tribes 2 ghost body carried, where it carried one.
+   void readT2Damage(const T2Layout::Body &body);
+
+   void onT2BodyRead(const T2Layout::Body &body) override;
 
    /// @}
 

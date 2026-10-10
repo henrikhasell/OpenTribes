@@ -23,6 +23,11 @@ namespace T2Protocol
       { "PlayerData", 51, OpRaw, 32, T2DbMaxJetForwardSpeed         },
       { "PlayerData", 52, OpRaw, 32, T2DbMaxJetHorizontalPercentage },
 
+   // PlayerData::packData (0x005cf935) writes eleven bare floats here, which is
+   // the layout's only run of eleven, at nodes 135 to 145.
+      { "PlayerData", 135, OpRaw, 32, T2DbHeatDecayPerSec    },
+      { "PlayerData", 136, OpRaw, 32, T2DbHeatIncreasePerSec },
+
       { "PlayerData", 269, OpRaw, 32, T2DbCameraMaxDist },
    };
 }

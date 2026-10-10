@@ -382,6 +382,12 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
                sBody.hasYaw = true;
                sBody.yaw = (F32)word / (F32)((1 << n.bits) - 1) * M_2PI_F;
             }
+            if(row && row->field == T2FieldDamage && n.bits)
+            {
+               // readFloat(n) again: the share of the object's maxDamage.
+               sBody.hasDamage = true;
+               sBody.damage = (F32)word / (F32)((1 << n.bits) - 1);
+            }
             if(row && row->field == T2FieldSpeed)
                sSpeed = (F32)word / 32.0f;
             if(row && row->field == T2FieldDirection)
@@ -697,6 +703,7 @@ static bool runGhost(BitStream *stream, const char *className,
    sBody.hasRotation = false;
    sBody.hasScale = false;
    sBody.hasVelocity = false;
+   sBody.hasDamage = false;
    sTransformAt = -1;
    sAffineAt = -1;
    sScaleAt = -1;

@@ -14,6 +14,8 @@ namespace T2Protocol
       T2FieldAffine,                ///< the first of a position and a quat's
       T2FieldQuatSign,              ///< the flag that negates a quat's w
       T2FieldScale,                 ///< the first of a Point3F's three floats
+      T2FieldDamage,                ///< readFloat(bits) of the object's
+                                    ///< maxDamage
    };
 
    inline U32 t2FieldWords(U32 field)
@@ -43,6 +45,14 @@ namespace T2Protocol
       { "Player", 23, OpRaw,   13, T2FieldSpeed        },
       { "Player", 22, OpRaw,   21, T2FieldDirection    },
       { "Player", 19, OpRaw,   7,  T2FieldYaw          },
+
+   // ShapeBase::unpackUpdate reads the damage at 0x005ef194 as readFloat(6) of
+   // the datablock's maxDamage, followed by two bits of state.
+      { "Player",         223, OpRaw, 6, T2FieldDamage },
+      { "Vehicle",        214, OpRaw, 6, T2FieldDamage },
+      { "FlyingVehicle",  217, OpRaw, 6, T2FieldDamage },
+      { "HoverVehicle",   215, OpRaw, 6, T2FieldDamage },
+      { "WheeledVehicle", 234, OpRaw, 6, T2FieldDamage },
 
       { "InteriorInstance",      11, OpRaw, 32, T2FieldTransform },
       { "InteriorInstance",      27, OpRaw, 32, T2FieldScale     },

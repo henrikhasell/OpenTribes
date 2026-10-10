@@ -6,14 +6,25 @@
 #include "gui/hud/hudCtrl.h"
 #endif
 
+class Camera;
+class ShapeBase;
+
 /// @file
 /// The gauges down the left of a Tribes 2 screen.
 ///
 /// Energy, damage and heat are one control with three names: the same fill,
-/// the same pulse when the value crosses a threshold, the same option to run
-/// up rather than across.  What differs is which number they watch, and that
-/// is script's business -- the server tells the client, the client calls
-/// setValue, the bar draws it.
+/// the same pulse when the number they watch passes a line, the same option to
+/// run up rather than across.  What differs is which number they watch, and
+/// each of them goes and reads it: nothing in Tribes 2's shipped scripts ever
+/// sets one of these bars.  Retail asks the control for its value once per
+/// render, through a virtual of the bar's own (vtable +0x110, called at
+/// 0x00500f26), and each subclass answers from the connection's control
+/// object -- or, where that object is the observer camera, from the player or
+/// vehicle the camera is watching.
+///
+/// `value`, `pulseThreshold` and `verticalFill` are read by nothing in retail
+/// but the base class's own answer, which is what the two net-traffic bars in
+/// PlayGui.gui use; they are kept because the .gui files set them.
 
 class HudBarBaseCtrl : public HudCtrl
 {
@@ -27,13 +38,21 @@ protected:
    bool mVerticalFill;
    bool mDisplayMounted;
 
+      /// Retail decides this inside barValue (0x00501959 for damage,
+      /// 0x00501b7d for heat).
+   bool mWarning;
+
    RectI mSubRegion;
 
    /// How bright the bar should be drawn this instant.
    ///
-   /// One below the threshold, and a wave between nothing and one above it --
-   /// which is what makes an energy bar flash when it is nearly empty.
    F32 pulse() const;
+
+   static ShapeBase *controlObject();
+
+   static ShapeBase *watchedObject(Camera *camera);
+
+   static ShapeBase *mountedObject(ShapeBase *object);
 
 public:
    HudBarBaseCtrl();
@@ -41,8 +60,9 @@ public:
    DECLARE_CONOBJECT(HudBarBaseCtrl);
    static void initPersistFields();
 
+   virtual F32 barValue();
+
    void setValue(F32 value);
-   F32 getValue() const { return mValue; }
 
    void setScriptValue(const char *value);
    const char *getScriptValue();
@@ -51,13 +71,13 @@ public:
 };
 
 //-----------------------------------------------------------------------------
-/// The three the layouts name.  Nothing separates them but the name, which the
-/// .gui files need to exist.
 class HudEnergy : public HudBarBaseCtrl
 {
    typedef HudBarBaseCtrl Parent;
 public:
    DECLARE_CONOBJECT(HudEnergy);
+
+   F32 barValue();
 };
 
 class HudDamage : public HudBarBaseCtrl
@@ -65,6 +85,8 @@ class HudDamage : public HudBarBaseCtrl
    typedef HudBarBaseCtrl Parent;
 public:
    DECLARE_CONOBJECT(HudDamage);
+
+   F32 barValue();
 };
 
 /// Heat has one field of its own: the level at which it starts warning.
@@ -79,6 +101,8 @@ public:
 
    DECLARE_CONOBJECT(HudHeat);
    static void initPersistFields();
+
+   F32 barValue();
 };
 
 //-----------------------------------------------------------------------------
