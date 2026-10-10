@@ -163,6 +163,71 @@ void SimDataBlockEvent::pack(NetConnection *conn, BitStream *bstream)
    }
 }
 
+// HH: Added for Tribes 2 compatibility.
+/// No sequence name is on the wire: retail's client finds one by looking the
+/// state's own name up in the shape.
+static void readT2ImageStates( ShapeBaseImageData *image )
+{
+   const Vector< T2Layout::ImageState > &states = T2Layout::lastImageStates();
+
+   U32 count = states.size();
+   if( count > ShapeBaseImageData::MaxStates )
+   {
+      Con::warnf( "T2 image: a datablock carries %d states and this engine "
+                  "has room for %d; the rest are being dropped.", count,
+                  ShapeBaseImageData::MaxStates );
+      count = ShapeBaseImageData::MaxStates;
+   }
+
+   for( U32 i = 0; i < count; i++ )
+   {
+      const T2Layout::ImageState &state = states[i];
+      if( state.name.isEmpty() )
+         continue;
+
+      image->stateName[i] = StringTable->insert( state.name.c_str() );
+      image->stateSequence[i] = image->stateName[i];
+      image->stateTimeoutValue[i] = state.hasTimeout ? state.timeout : 0.0f;
+      image->stateWaitForTimeout[i] = state.waitForTimeout;
+      image->stateFire[i] = state.fire;
+      image->stateEjectShell[i] = state.ejectShell;
+      image->stateLoaded[i] =
+         ( ShapeBaseImageData::StateData::LoadedState ) state.loaded;
+      image->stateSpin[i] =
+         ( ShapeBaseImageData::StateData::SpinState ) state.spin;
+      image->stateRecoil[i] =
+         ( ShapeBaseImageData::StateData::RecoilState ) state.recoil;
+   }
+
+   // The ways out are states by number on the wire and states by name here,
+   // so they wait until every state this image has is named.
+   for( U32 i = 0; i < count; i++ )
+   {
+      const T2Layout::ImageState &state = states[i];
+
+      const char *to[ T2Layout::ImageState::TransitionCount ];
+      for( U32 t = 0; t < T2Layout::ImageState::TransitionCount; t++ )
+      {
+         const S32 which = state.transition[t];
+         to[t] = which >= 0 && U32(which) < count ? image->stateName[which]
+                                                  : NULL;
+      }
+
+      typedef T2Layout::ImageState S;
+      image->stateTransitionNotLoaded[i]   = to[ S::NotLoaded ];
+      image->stateTransitionLoaded[i]      = to[ S::Loaded ];
+      image->stateTransitionNoAmmo[i]      = to[ S::NoAmmo ];
+      image->stateTransitionAmmo[i]        = to[ S::Ammo ];
+      image->stateTransitionNoTarget[i]    = to[ S::NoTarget ];
+      image->stateTransitionTarget[i]      = to[ S::Target ];
+      image->stateTransitionNotWet[i]      = to[ S::NotWet ];
+      image->stateTransitionWet[i]         = to[ S::Wet ];
+      image->stateTransitionTriggerUp[i]   = to[ S::TriggerUp ];
+      image->stateTransitionTriggerDown[i] = to[ S::TriggerDown ];
+      image->stateTransitionTimeout[i]     = to[ S::Timeout ];
+   }
+}
+
 void SimDataBlockEvent::unpack(NetConnection *cptr, BitStream *bstream)
 {
    if(bstream->readFlag())
@@ -233,6 +298,11 @@ void SimDataBlockEvent::unpack(NetConnection *cptr, BitStream *bstream)
                               SceneObject::NumMountPoints );
             }
          }
+
+               // HH: Added for Tribes 2 compatibility.
+               // The body carries an image's states and nothing was reading them.
+         if( ShapeBaseImageData *si = dynamic_cast< ShapeBaseImageData * >( mObj ) )
+            readT2ImageStates( si );
 
          // HH: Added for Tribes 2 compatibility.
          if( ParticleEmitterData *pe = dynamic_cast< ParticleEmitterData * >( mObj ) )

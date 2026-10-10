@@ -1579,12 +1579,23 @@ void ShapeBase::readT2Images(const T2Layout::Body &body)
       setImage(i, data, skin, slot.loaded, slot.ammo, slot.triggerDown,
                false, false, false, false, false, false, slot.target);
 
-            // setImageTriggerState is a no-op on a ghost, so the trigger goes on the
-            // slot.
+
       setImageLoadedState(i, slot.loaded);
       setImageAmmoState(i, slot.ammo);
       setImageWetState(i, slot.wet);
       setImageTargetState(i, slot.target);
+
+            // setImageTriggerState gives up on a ghost, so the trigger goes on the
+            // slot.
+      mMountedImageList[i].triggerDown = slot.triggerDown;
+
+            // A client waits for this count to go up; firing is the server's to
+            // decide.
+      if (slot.fireCount != mMountedImageList[i].fireCount)
+      {
+         mMountedImageList[i].fireCount = slot.fireCount;
+         setImageState(i, U32(data->fireState), true);
+      }
    }
 }
 

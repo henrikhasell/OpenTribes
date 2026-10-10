@@ -85,6 +85,39 @@ namespace T2Layout
       T2DbFieldCount
    };
 
+   /// How many states a Tribes 2 image datablock can carry, which is what a
+   /// way out of one is wide enough to name.
+   enum { MaxImageStates = 32 };
+
+      /// No sequence name is on the wire: retail's client finds one by looking the
+      /// state's own name up in the shape.
+   struct ImageState
+   {
+      /// The ways out of a state, in the order the body carries them, which
+      /// is Torque's own: each pair is the false arm and then the true one.
+      enum
+      {
+         NotLoaded, Loaded, NoAmmo, Ammo, NoTarget, Target, NotWet, Wet,
+         TriggerUp, TriggerDown, Timeout,
+
+         TransitionCount
+      };
+
+      String name;
+      S32    transition[TransitionCount]; ///< a state, or -1 for no way out
+      bool   hasTimeout;
+      F32    timeout;
+      bool   waitForTimeout;
+      bool   fire;
+      bool   ejectShell;
+      U32    loaded;             ///< ShapeBaseImageData::StateData::LoadedState
+      U32    spin;               ///< ...::SpinState
+      U32    recoil;             ///< ...::RecoilState
+   };
+
+   /// The states the last datablock read, in the order it read them.
+   const Vector<ImageState> &lastImageStates();
+
    bool lastDataBlockField(U32 field, F32 *out);
 
    /// The same read as the bits it arrived as, for a field Tribes 2 writes
