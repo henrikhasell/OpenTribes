@@ -1568,6 +1568,7 @@ void ShapeBase::readT2Images(const T2Layout::Body &body)
          skin = NetStringHandle(slot.skinName.c_str());
 
       if (trace)
+      {
          Con::printf("T2 image: %s %d slot %d db %d skin %s%s loaded %d ammo "
                      "%d trigger %d wet %d target %d fire %d",
                      getClassName(), getId(), i,
@@ -1575,6 +1576,15 @@ void ShapeBase::readT2Images(const T2Layout::Body &body)
                      slot.hasSkinName ? slot.skinName.c_str() : "",
                      slot.hasSkinTag ? " (tag)" : "", slot.loaded, slot.ammo,
                      slot.triggerDown, slot.wet, slot.target, slot.fireCount);
+
+         const S32 fs = data->fireState;
+         Con::printf("T2 image: %s animated %d flash %d ambient %d spin %d "
+                     "fireState %d seq %d vis %d", data->shapeName,
+                     data->isAnimated[0], data->hasFlash[0],
+                     data->ambientSequence[0], data->spinSequence[0], fs,
+                     fs >= 0 ? data->state[fs].sequence[0] : -1,
+                     fs >= 0 ? data->state[fs].sequenceVis[0] : -1);
+      }
 
       setImage(i, data, skin, slot.loaded, slot.ammo, slot.triggerDown,
                false, false, false, false, false, false, slot.target);

@@ -421,6 +421,7 @@ enum T2StatePart
    T2StateWaitForTimeout,
    T2StateFire,
    T2StateEjectShell,
+   T2StateDirection,
    T2StateLoaded,
    T2StateSpin,
    T2StateRecoil,
@@ -493,9 +494,8 @@ static bool matchImageState(const T2DataBlockLayout *layout, S32 top,
    parts[T2StateTimeout] = S16(hasTimeout->b);
    at = hasTimeout->a;
 
-   // Six flags the body keeps the value of rather than branching on. The
-   // last three of them are the same in every image the game ships, so
-   // nothing here has anything to check them against and nothing reads them.
+      // Six flags the body keeps the value of; two are the same in all 211 states
+      // the game's 45 images carry.
    S16 flag[6];
    for(U32 i = 0; i < 6; i++)
    {
@@ -508,6 +508,7 @@ static bool matchImageState(const T2DataBlockLayout *layout, S32 top,
    parts[T2StateWaitForTimeout] = flag[0];
    parts[T2StateFire]           = flag[1];
    parts[T2StateEjectShell]     = flag[2];
+   parts[T2StateDirection]      = flag[5];
 
    // An energy drain, carried the way the timeout is.
    const T2DataNode *hasDrain = nodeAt(layout, at);
@@ -686,6 +687,7 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
                      case T2StateWaitForTimeout: s.waitForTimeout = set; break;
                      case T2StateFire:           s.fire           = set; break;
                      case T2StateEjectShell:     s.ejectShell     = set; break;
+                     case T2StateDirection:      s.direction      = set; break;
                      default:                                            break;
                   }
                }
@@ -1105,6 +1107,7 @@ static bool runDataBlock(BitStream *stream, U32 classId, bool write)
       s.waitForTimeout = false;
       s.fire = false;
       s.ejectShell = false;
+      s.direction = false;
       s.loaded = 0;
       s.spin = 0;
       s.recoil = 0;

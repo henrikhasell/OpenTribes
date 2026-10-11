@@ -190,7 +190,15 @@ static void readT2ImageStates( ShapeBaseImageData *image )
       image->stateTimeoutValue[i] = state.hasTimeout ? state.timeout : 0.0f;
       image->stateWaitForTimeout[i] = state.waitForTimeout;
       image->stateFire[i] = state.fire;
+
+            // The repair gun's Deactivate is the only state in the game that clears
+            // this.
+      image->stateDirection[i] = state.direction;
+
+            // The chaingun's Fire is the only state in the game that sets this, and
+            // retail has it ejecting a shell and carrying a flash sequence alike.
       image->stateEjectShell[i] = state.ejectShell;
+      image->stateSequenceRandomFlash[i] = state.ejectShell;
       image->stateLoaded[i] =
          ( ShapeBaseImageData::StateData::LoadedState ) state.loaded;
       image->stateSpin[i] =
@@ -373,6 +381,11 @@ void SimDataBlockEvent::process(NetConnection *cptr)
          
          if( mObj->registerObject(id) )
          {
+                  // HH: Added for Tribes 2 compatibility.
+                  // onAdd clears every sequence index, so preload has to run after it.
+            if( dynamic_cast< ShapeBaseImageData * >( mObj ) )
+               mObj->preload( false, NetConnection::getErrorBuffer() );
+
             cptr->addObject( mObj );
             mObj = NULL;
          }

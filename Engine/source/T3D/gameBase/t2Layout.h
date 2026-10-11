@@ -109,7 +109,10 @@ namespace T2Layout
       F32    timeout;
       bool   waitForTimeout;
       bool   fire;
+         /// Of the 211 states of the game's 45 images only the chaingun's Fire sets
+         /// this, and retail has it ejecting a shell and carrying a flash alike.
       bool   ejectShell;
+      bool   direction;          ///< play the sequence forwards
       U32    loaded;             ///< ShapeBaseImageData::StateData::LoadedState
       U32    spin;               ///< ...::SpinState
       U32    recoil;             ///< ...::RecoilState
