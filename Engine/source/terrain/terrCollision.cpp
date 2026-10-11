@@ -361,6 +361,20 @@ void TerrainBlock::buildConvex(const Box3F& box,Convex* convex)
    S32 xEnd   = (S32)mCeil ( osBox.maxExtents.x / mSquareSize );
    S32 yStart = (S32)mFloor( osBox.minExtents.y / mSquareSize );
    S32 yEnd   = (S32)mCeil ( osBox.maxExtents.y / mSquareSize );
+
+   // HH: Added for Tribes 2 compatibility.
+   // A tiled block is solid everywhere it is drawn, so the walk keeps the
+   // square it was asked about and wraps the lookup; only a block with an
+   // edge has its range cut back to the heightfield.
+   if ( !mTile )
+   {
+      const S32 blockSize = (S32)mFile->mSize;
+      xStart = getMax( 0, xStart );
+      xEnd   = getMin( blockSize, xEnd );
+      yStart = getMax( 0, yStart );
+      yEnd   = getMin( blockSize, yEnd );
+   }
+
    S32 xExt = xEnd - xStart;
    if (xExt > MaxExtent)
       xExt = MaxExtent;
@@ -381,12 +395,9 @@ void TerrainBlock::buildConvex(const Box3F& box,Convex* convex)
 
          const TerrainSquare *sq = mFile->findSquare( 0, xi, yi );
 
-         if ( x != xi || y != yi )
-            continue;
-
          // holes only in the primary terrain block
          if (  ( ( sq->flags & TerrainSquare::Empty ) && x == xi && y == yi ) ||
-               sq->minHeight > heightMax || 
+               sq->minHeight > heightMax ||
                sq->maxHeight < heightMin )
             continue;
 
@@ -505,8 +516,18 @@ bool TerrainBlock::buildPolyList(PolyListContext, AbstractPolyList* polyList, co
    S32 xEnd   = (S32)mCeil ( osBox.maxExtents.x / mSquareSize );
    S32 yStart = (S32)mFloor( osBox.minExtents.y / mSquareSize );
    S32 yEnd   = (S32)mCeil ( osBox.maxExtents.y / mSquareSize );
-   if ( xStart < 0 )
-      xStart = 0;
+
+   // HH: Added for Tribes 2 compatibility.
+   // As in buildConvex: a tiled block has no edge to clamp against.
+   if ( !mTile )
+   {
+      const S32 blockSize = (S32)mFile->mSize;
+      xStart = getMax( 0, xStart );
+      xEnd   = getMin( blockSize, xEnd );
+      yStart = getMax( 0, yStart );
+      yEnd   = getMin( blockSize, yEnd );
+   }
+
    S32 xExt = xEnd - xStart;
    if ( xExt > MaxExtent )
       xExt = MaxExtent;
@@ -536,12 +557,9 @@ bool TerrainBlock::buildPolyList(PolyListContext, AbstractPolyList* polyList, co
          S32 xi = x & BlockMask;
          const TerrainSquare *sq = mFile->findSquare( 0, xi, yi );
 
-         if ( x != xi || y != yi )
-            continue;
-
          // holes only in the primary terrain block
-         if (  ( ( sq->flags & TerrainSquare::Empty ) && x == xi && y == yi ) || 
-               sq->minHeight > heightMax || 
+         if (  ( ( sq->flags & TerrainSquare::Empty ) && x == xi && y == yi ) ||
+               sq->minHeight > heightMax ||
                sq->maxHeight < heightMin )
             continue;
 
@@ -778,7 +796,10 @@ bool TerrainBlock::castRayBlock( const Point3F &pStart,
    stack[0].blockPos = aBlockPos;
    stack[0].level = aLevel;
    
-   if( !aBlockPos.isZero() )
+   // HH: Modified for Tribes 2 compatibility.
+   // The ray walk steps block by block, and a tiled block answers for every
+   // one of them rather than only the heightfield's own.
+   if( !aBlockPos.isZero() && !mTile )
       return false;
 
    while(stackSize--)

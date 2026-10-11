@@ -433,6 +433,17 @@ void TerrCell::_updateVertexBuffer()
 
    U32 vbcounter = 0;
 
+   // HH: Added for Tribes 2 compatibility.
+   // A terrain with an edge clamps, so its geometry does not read across the
+   // height map and raise a wall at the far side. A terrain that repeats has
+   // to do the opposite: the sample wraps, so a block's far edge carries the
+   // heights its neighbour starts from, and the position is left alone, or
+   // every block falls one square short of the size it repeats at and the
+   // seams open.
+   const bool tiled = mTerrain->isTiled();
+   const U32 blockMask = blockSize - 1;
+   Point2I rawPt;
+
    TerrVertex *vert = mVertexBuffer.lock();
 
    Point2I gridPt;
@@ -449,12 +460,16 @@ void TerrCell::_updateVertexBuffer()
          // We clamp here to keep the geometry from reading across
          // one side of the height map to the other causing walls
          // around the edges of the terrain.
-         gridPt.x = mClamp( mPoint.x + x * stepSize, 0, blockSize - 1 );
-         gridPt.y = mClamp( mPoint.y + y * stepSize, 0, blockSize - 1 );
+         rawPt.set( mPoint.x + x * stepSize, mPoint.y + y * stepSize );
+         if ( tiled )
+            gridPt.set( rawPt.x & blockMask, rawPt.y & blockMask );
+         else
+            gridPt.set( mClamp( rawPt.x, 0, blockSize - 1 ),
+                        mClamp( rawPt.y, 0, blockSize - 1 ) );
 
          // Setup this point.
-         point.x = (F32)gridPt.x * squareSize;
-         point.y = (F32)gridPt.y * squareSize;
+         point.x = (F32)( tiled ? rawPt.x : gridPt.x ) * squareSize;
+         point.y = (F32)( tiled ? rawPt.y : gridPt.y ) * squareSize;
          height = fixedToFloat( file->getHeight( gridPt.x, gridPt.y ) );
          vert->point.x = point.x;
          vert->point.y = point.y;
@@ -487,11 +502,15 @@ void TerrCell::_updateVertexBuffer()
    // Top edge skirt
    for ( U32 i = 0; i < smVBStride; i++ )
    {      
-      gridPt.x = mClamp( mPoint.x + i * stepSize, 0, blockSize - 1 );
-      gridPt.y = mClamp( mPoint.y, 0, blockSize - 1 );
+      rawPt.set( mPoint.x + i * stepSize, mPoint.y );
+      if ( tiled )
+         gridPt.set( rawPt.x & blockMask, rawPt.y & blockMask );
+      else
+         gridPt.set( mClamp( rawPt.x, 0, blockSize - 1 ),
+                     mClamp( rawPt.y, 0, blockSize - 1 ) );
       
-      point.x = (F32)gridPt.x * squareSize;
-      point.y = (F32)gridPt.y * squareSize;
+      point.x = (F32)( tiled ? rawPt.x : gridPt.x ) * squareSize;
+      point.y = (F32)( tiled ? rawPt.y : gridPt.y ) * squareSize;
       height = fixedToFloat( file->getHeight( gridPt.x, gridPt.y ) );
       vert->point.x = point.x;
       vert->point.y = point.y;
@@ -511,11 +530,15 @@ void TerrCell::_updateVertexBuffer()
    // Bottom edge skirt
    for ( U32 i = 0; i < smVBStride; i++ )
    {      
-      gridPt.x = mClamp( mPoint.x + i * stepSize, 0, blockSize - 1 );
-      gridPt.y = mClamp( mPoint.y + smMinCellSize * stepSize, 0, blockSize - 1 );
+      rawPt.set( mPoint.x + i * stepSize, mPoint.y + smMinCellSize * stepSize );
+      if ( tiled )
+         gridPt.set( rawPt.x & blockMask, rawPt.y & blockMask );
+      else
+         gridPt.set( mClamp( rawPt.x, 0, blockSize - 1 ),
+                     mClamp( rawPt.y, 0, blockSize - 1 ) );
 
-      point.x = (F32)gridPt.x * squareSize;
-      point.y = (F32)gridPt.y * squareSize;
+      point.x = (F32)( tiled ? rawPt.x : gridPt.x ) * squareSize;
+      point.y = (F32)( tiled ? rawPt.y : gridPt.y ) * squareSize;
       height = fixedToFloat( file->getHeight( gridPt.x, gridPt.y ) );
       vert->point.x = point.x;
       vert->point.y = point.y;
@@ -535,11 +558,15 @@ void TerrCell::_updateVertexBuffer()
    // Left edge skirt
    for ( U32 i = 0; i < smVBStride; i++ )
    {      
-      gridPt.x = mClamp( mPoint.x, 0, blockSize - 1 );
-      gridPt.y = mClamp( mPoint.y + i * stepSize, 0, blockSize - 1 );
+      rawPt.set( mPoint.x, mPoint.y + i * stepSize );
+      if ( tiled )
+         gridPt.set( rawPt.x & blockMask, rawPt.y & blockMask );
+      else
+         gridPt.set( mClamp( rawPt.x, 0, blockSize - 1 ),
+                     mClamp( rawPt.y, 0, blockSize - 1 ) );
 
-      point.x = (F32)gridPt.x * squareSize;
-      point.y = (F32)gridPt.y * squareSize;
+      point.x = (F32)( tiled ? rawPt.x : gridPt.x ) * squareSize;
+      point.y = (F32)( tiled ? rawPt.y : gridPt.y ) * squareSize;
       height = fixedToFloat( file->getHeight( gridPt.x, gridPt.y ) );
       vert->point.x = point.x;
       vert->point.y = point.y;
@@ -559,11 +586,15 @@ void TerrCell::_updateVertexBuffer()
    // Right edge skirt
    for ( U32 i = 0; i < smVBStride; i++ )
    {      
-      gridPt.x = mClamp( mPoint.x + smMinCellSize * stepSize, 0, blockSize - 1 );
-      gridPt.y = mClamp( mPoint.y + i * stepSize, 0, blockSize - 1 );
+      rawPt.set( mPoint.x + smMinCellSize * stepSize, mPoint.y + i * stepSize );
+      if ( tiled )
+         gridPt.set( rawPt.x & blockMask, rawPt.y & blockMask );
+      else
+         gridPt.set( mClamp( rawPt.x, 0, blockSize - 1 ),
+                     mClamp( rawPt.y, 0, blockSize - 1 ) );
 
-      point.x = (F32)gridPt.x * squareSize;
-      point.y = (F32)gridPt.y * squareSize;
+      point.x = (F32)( tiled ? rawPt.x : gridPt.x ) * squareSize;
+      point.y = (F32)( tiled ? rawPt.y : gridPt.y ) * squareSize;
       height = fixedToFloat( file->getHeight( gridPt.x, gridPt.y ) );
       vert->point.x = point.x;
       vert->point.y = point.y;
@@ -953,7 +984,8 @@ void TerrCell::updateZoning( const SceneZoneSpaceManager *zoneManager )
 
 void TerrCell::cullCells(  const SceneRenderState *state,
                            const Point3F &objLodPos,
-                           Vector<TerrCell*> *outCells  )
+                           Vector<TerrCell*> *outCells,
+                           const MatrixF *repeatXfm )
 {
    // If we have a VB and no children then just add 
    // ourselves to the results and return.
@@ -981,7 +1013,19 @@ void TerrCell::cullCells(  const SceneRenderState *state,
       if( !mIsInteriorOnly && !visibleInside )
       {         
          U32 outdoorZone = SceneZoneSpaceManager::RootZoneId;
-         visibleOutside = !state->getCullingState().isCulled( cell->mOBB, &outdoorZone, 1 );
+
+         // HH: Modified for Tribes 2 compatibility.
+         // mOBB is where this cell sits in the block's own copy; a repeat of
+         // a tiled terrain is the same cell somewhere else, so it is tested
+         // against a box built on that repeat's transform.
+         if ( repeatXfm )
+         {
+            OrientedBox3F repeatOBB;
+            repeatOBB.set( *repeatXfm, cell->mBounds );
+            visibleOutside = !state->getCullingState().isCulled( repeatOBB, &outdoorZone, 1 );
+         }
+         else
+            visibleOutside = !state->getCullingState().isCulled( cell->mOBB, &outdoorZone, 1 );
       }
 
       // Skip cell if neither visible indoors nor outdoors.
@@ -1001,7 +1045,7 @@ void TerrCell::cullCells(  const SceneRenderState *state,
             outCells->push_back( cell );       
       }
       else      
-         cell->cullCells( state, objLodPos, outCells );
+         cell->cullCells( state, objLodPos, outCells, repeatXfm );
    }
 }
 
