@@ -111,6 +111,9 @@ class TSMesh
    F32 mRadius;
    F32 mVisibility;
    bool mDynamic;
+   // HH: Added for Tribes 2 compatibility.
+   S32 mFrame;
+   S32 mMatFrame;
 
    const GFXVertexFormat *mVertexFormat;
 
@@ -296,6 +299,26 @@ class TSMesh
    /// @{
    void setFade( F32 fade ) { mVisibility = fade; }
    void clearFade() { setFade( 1.0f ); }
+
+   // HH: Added for Tribes 2 compatibility.
+   /// Which vertex frame and which material frame to draw.
+   void setFrames( S32 frame, S32 matFrame );
+
+   /// How many pairings of a vertex frame with a material frame the mesh
+   /// holds -- one unless the shape animates either.
+   S32 getFrameCount() const { return getMax( numFrames, 1 ) *
+                                      getMax( numMatFrames, 1 ); }
+
+   /// Which of them setFrames() last chose.
+   S32 getFrameIndex() const { return mFrame * getMax( numMatFrames, 1 ) +
+                                      mMatFrame; }
+
+   /// Whether every pairing's indices still fit the 16 bit index buffer.
+   bool indicesFitFrames() const
+   {
+      return mNumVerts && getFrameCount() * vertsPerFrame <= 0x10000 &&
+             (dsize_t)( getFrameCount() * vertsPerFrame ) == mNumVerts;
+   }
    /// @}
 
    /// @name Collision Methods

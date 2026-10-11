@@ -859,6 +859,10 @@ void TSShapeInstance::MeshObjectInstance::render(  S32 objectDetail,
 
    mesh->setFade( visible * alpha );
 
+   // HH: Added for Tribes 2 compatibility.
+   // The blaster's sight is a cycle of material frames and stood still.
+   mesh->setFrames( frame, matFrame );
+
    // Pass a hint to the mesh that time has advanced and that the
    // skin is dirty and needs to be updated.  This should result
    // in the skin only updating once per frame in most cases.
