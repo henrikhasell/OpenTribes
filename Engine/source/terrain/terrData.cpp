@@ -859,17 +859,41 @@ void TerrainBlock::onEditorDisable()
 }
 
 // HH: Added for Tribes 2 compatibility.
+// The body carries everything a mission's TerrainBlock states: the CRC, the
+// detail texture, the terrain file, the square size and the empty square run,
+// in that order (`Whiteout.mis` states the same five).
 bool TerrainBlock::unpackUpdate(BitStream *stream, bool isInitial)
 {
    if(!Parent::unpackUpdate(stream, isInitial))
       return false;
 
-   if(const char *file = T2Layout::firstString())
-      mTerrFileName = T2Layout::resourcePath(file, "terrains/");
+   const Vector<String> &strings = T2Layout::lastStrings();
+   if(strings.size() > 0)
+      mTerrFileName = T2Layout::resourcePath(strings[0], "terrains/");
+   if(strings.size() > 1)
+      mDetailTexture = strings[1];
 
-   U32 crc;
-   if(T2Layout::firstWord32(&crc))
-      mCRC = crc;
+   const Vector<U32> &words = T2Layout::lastWords();
+   if(words.size() > 0)
+      mCRC = words[0];
+
+   // Tribes 2's squares are eight metres, where a Torque terrain's are one,
+   // so a terrain built on the default is an eighth of the world the rest of
+   // the mission is placed in.
+   if(words.size() > 1 && words[1] > 0 && words[1] <= 64)
+      mSquareSize = F32(words[1]);
+
+   // TribesNext's IFC22 patch appends this terrain's eight material names to
+   // a server-to-client update once the negotiated protocol is past 51 -- the
+   // server this port is tested against offers 52. A recording carries 51 and
+   // none of it, which is why the recovered layout has no room for it: the
+   // bits are read here or every event behind this one in the packet is lost.
+   NetConnection *conn = NetConnection::getConnectionToServer();
+   if(conn && conn->getProtocolVersion() > 51 && stream->readFlag())
+   {
+      char names[256];
+      stream->readString(names);
+   }
 
    return true;
 }
@@ -899,6 +923,35 @@ bool TerrainBlock::onAdd()
    }
 
    setFile( terr );
+
+   // HH: Added for Tribes 2 compatibility.
+   // Tribes 2 draws a terrain square as its materials' own textures, summed
+   // by their alphas and tiled once per square; the mission's one detail
+   // texture multiplies over the top of that. Torque reaches the same place
+   // through a detail layer per material, so each material's own texture goes
+   // in that slot -- a material with no detail map is not admitted to a pass
+   // at all, and the base texture alone is four texels to a square.
+   if ( terr->hasLayerAlpha() )
+   {
+      for ( U32 i = 0; i < terr->mMaterials.size(); i++ )
+      {
+         TerrainMaterial *mat = terr->mMaterials[ i ];
+         StringTableEntry field = StringTable->insert( "detailMap" );
+
+         if ( mat->getDetailMap().isEmpty() )
+            mat->setDataField( field, NULL, mat->getDiffuseMap() );
+
+         // One repeat per square, and far enough out to cover the view a
+         // Tribes 2 mission asks for (`visibleDistance` is 1200 in the
+         // missions, against a Torque default of fifty).
+         mat->setDataField( StringTable->insert( "detailSize" ), NULL,
+                            String::ToString( mSquareSize ) );
+         mat->setDataField( StringTable->insert( "detailDistance" ), NULL,
+                            String::ToString( getWorldBlockSize() * 0.5f ) );
+         mat->setDataField( StringTable->insert( "diffuseSize" ), NULL,
+                            String::ToString( mSquareSize ) );
+      }
+   }
 
    if ( terr->mNeedsResaving )
    {
@@ -939,14 +992,29 @@ bool TerrainBlock::onAdd()
       _updateMaterials();
       _updateLayerTexture();
 
-      // If the cached base texture is older that the terrain file or
-      // it doesn't exist then generate and cache it.
-      String baseCachePath = _getBaseTexCacheFileName();
-      if ( Platform::compareModifiedTimes( baseCachePath, mTerrFileName ) < 0 )
-         _updateBaseTexture( true );
+      // HH: Modified for Tribes 2 compatibility.
+      // A blended base texture is composited straight into mBaseTex, so
+      // there is no cache file to date against the terrain or to load.
+      if ( terr->hasLayerAlpha() )
+      {
+         // A blended base texture is the distance cache, and Torque's default
+         // of 1024 over a 2048 metre block is four texels to a square -- too
+         // few for a material's texture to survive the reduction. One metre
+         // to a texel costs 16 MB and resolves eight.
+         mBaseTexSize = getMax( mBaseTexSize, 2048U );
+         _updateBaseTexture( false );
+      }
+      else
+      {
+         // If the cached base texture is older that the terrain file or
+         // it doesn't exist then generate and cache it.
+         String baseCachePath = _getBaseTexCacheFileName();
+         if ( Platform::compareModifiedTimes( baseCachePath, mTerrFileName ) < 0 )
+            _updateBaseTexture( true );
 
-      // The base texture should have been cached by now... so load it.
-      mBaseTex.set( baseCachePath, &GFXDefaultStaticDiffuseProfile, "TerrainBlock::mBaseTex" );
+         // The base texture should have been cached by now... so load it.
+         mBaseTex.set( baseCachePath, &GFXDefaultStaticDiffuseProfile, "TerrainBlock::mBaseTex" );
+      }
 
       GFXTextureManager::addEventDelegate( this, &TerrainBlock::_onTextureEvent );
       MATMGR->getFlushSignal().notify( this, &TerrainBlock::_onFlushMaterials );
@@ -1100,9 +1168,13 @@ void TerrainBlock::initPersistFields()
 {
    addGroup( "Media" );
       
-      addProtectedField( "terrainFile", TypeStringFilename, Offset( mTerrFileName, TerrainBlock ), 
+      addProtectedField( "terrainFile", TypeStringFilename, Offset( mTerrFileName, TerrainBlock ),
          &TerrainBlock::_setTerrainFile, &defaultProtectedGetFn,
          "The source terrain data file." );
+
+      // HH: Added for Tribes 2 compatibility.
+      addField( "detailTexture", TypeStringFilename, Offset( mDetailTexture, TerrainBlock ),
+         "The one detail texture a Tribes 2 mission gives its whole terrain." );
 
    endGroup( "Media" );
 

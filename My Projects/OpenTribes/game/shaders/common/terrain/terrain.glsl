@@ -23,6 +23,14 @@
 
 float calcBlend( float texId, vec2 layerCoord, float layerSize, vec4 layerSample )
 {
+   // HH: Modified for Tribes 2 compatibility.
+   // A negative size says the sample is four materials' alpha rather than
+   // four layer ids, and texId is which of the four this layer is. Tribes 2
+   // weights every material everywhere, so there is nothing to infer from
+   // the ids around a texel.
+   if ( layerSize < 0.0 )
+      return layerSample[int(texId)] / 255.0;
+
    // This is here to disable the blend if none of 
    // the neighbors equal the current id.
    //

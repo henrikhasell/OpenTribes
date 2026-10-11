@@ -78,6 +78,12 @@ protected:
    /// The materials used to render the terrain.
    Vector<TerrainMaterial*> mMaterials;
 
+   // HH: Added for Tribes 2 compatibility.
+   /// One alpha map per material, as a pre-version-7 file carries them:
+   /// mMaterials.size() planes of mSize * mSize. Empty for a file that has
+   /// only the layer index map.
+   Vector<U8> mLayerAlpha;
+
    /// The dimensions of the layer and height maps.
    U32 mSize;
 
@@ -184,6 +190,18 @@ public:
 
    /// Returns the constant heightmap vector.
    const Vector<U16>& getHeightMap() const { return mHeightMap; }
+
+   // HH: Added for Tribes 2 compatibility.
+   /// Whether the file came with an alpha map per material, which is what
+   /// Tribes 2 blends its terrain from.
+   bool hasLayerAlpha() const { return mLayerAlpha.size() != 0; }
+
+   /// How much of a material is at a sample, 0 to 255.
+   U8 getLayerAlpha( U32 layer, U32 index ) const
+   {
+      const U32 at = layer * mSize * mSize + index;
+      return at < mLayerAlpha.size() ? mLayerAlpha[ at ] : 0;
+   }
 
    /// Sets a new heightmap state.
    void setHeightMap( const Vector<U16> &heightmap, bool updateCollision );

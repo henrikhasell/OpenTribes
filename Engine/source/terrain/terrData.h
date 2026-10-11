@@ -93,7 +93,11 @@ protected:
 
    ///
    FileName mTerrFileName;
-   
+
+   // HH: Added for Tribes 2 compatibility.
+   /// The one detail texture a Tribes 2 mission gives its whole terrain.
+   FileName mDetailTexture;
+
    /// The maximum detail distance found in the material list.
    F32 mMaxDetailDistance;
 
@@ -102,6 +106,11 @@ protected:
 
    /// 
    GFXTexHandle mLayerTex;
+
+   // HH: Added for Tribes 2 compatibility.
+   /// Four materials' alpha to a texture, for a terrain whose file carries
+   /// an alpha map per material rather than one index per sample.
+   Vector<GFXTexHandle> mLayerAlphaTex;
 
    /// The shader used to generate the base texture map.
    GFXShaderRef mBaseShader;
@@ -201,6 +210,11 @@ protected:
 
    /// 
    void _updateBaseTexture( bool writeToCache );
+
+   // HH: Added for Tribes 2 compatibility.
+   /// Composite the base texture from the file's alpha maps, the way Tribes 2
+   /// blends a terrain. False if it has no textures to blend.
+   bool _updateBaseTextureBlended();
 
    void _updateLayerTexture();
 
