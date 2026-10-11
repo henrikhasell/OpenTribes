@@ -130,6 +130,8 @@ protected:
    /// @see LightManager::smActivateSignal
    void _onLMActivate( const char *lm, bool activate );
 
+   Material *_createDefaultMaterial( const String &matName );
+
    bool _handleGFXEvent(GFXDevice::GFXDeviceEventType event);
 
    SimSet* mMaterialSet;

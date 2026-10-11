@@ -194,16 +194,15 @@ void StdClientProcessList::onTickObject( ProcessObject *obj )
    // Each object is either advanced a single tick, or if it's
    // being controlled by a client, ticked once for each pending move.
    Move* movePtr;
-   U32 numMoves;
+   U32 m, numMoves;
    GameConnection* con = obj->getControllingClient();
    if  ( con && con->getControlObject() == obj )
    {
       con->mMoveList->getMoves( &movePtr, &numMoves );
-      if ( numMoves )
-      {
-         // Note: should only have a single move at this point
-         AssertFatal(numMoves==1,"ClientProccessList::onTickObject: more than one move in queue");
 
+      for ( m = 0; m < numMoves && bool(safePtr) &&
+            obj->getControllingClient() == con; m++, movePtr++ )
+      {
          #ifdef TORQUE_DEBUG_NET_MOVES
          U32 sum = Move::ChecksumMask & obj->getPacketDataChecksum(obj->getControllingClient());
          #endif
@@ -223,8 +222,9 @@ void StdClientProcessList::onTickObject( ProcessObject *obj )
                movePtr->checksum,sum,movePtr->yaw,movePtr->y,movePtr->z);
             #endif
          }
-         con->mMoveList->clearMoves( 1 );
       }
+
+      con->mMoveList->clearMoves( m );
    }
    else if ( obj->isTicking() )
       obj->processTick( 0 );

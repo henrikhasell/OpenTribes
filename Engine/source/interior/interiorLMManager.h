@@ -54,6 +54,7 @@ class InteriorLMManager
          U32                        mNumLightmaps;
          LM_HANDLE                  mBaseInstanceHandle;
          Vector<InstanceLMInfo*>    mInstances;
+         bool                       mBaseReloadFailed;
       };
 
       Vector<InteriorLMInfo*>       mInteriors;
