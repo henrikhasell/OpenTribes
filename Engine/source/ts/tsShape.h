@@ -153,6 +153,8 @@ class TSShape
       TSIntegerSet visMatters;          ///< Set of objects
       TSIntegerSet frameMatters;        ///< Set of objects
       TSIntegerSet matFrameMatters;     ///< Set of objects
+      // HH: Added for Tribes 2 compatibility.
+      TSIntegerSet iflMatters;          ///< Set of ifl materials
       /// @}
 
       S32 priority;
@@ -427,6 +429,9 @@ class TSShape
 
    /// Which frame an ifl material is showing this many seconds in.
    S32 getIflFrame(const IflMaterial &ifl, F32 time) const;
+
+   /// How long one pass through an ifl material's frames lasts.
+   F32 getIflDuration(const IflMaterial &ifl) const;
 
    void setupBillboardDetails( const String &cachePath );
 
