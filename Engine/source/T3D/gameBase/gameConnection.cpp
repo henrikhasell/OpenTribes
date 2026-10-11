@@ -1018,11 +1018,13 @@ bool GameConnection::readDemoStartBlock(BitStream *stream)
    stream->read(&mCameraPos);
    stream->read(&mCameraSpeed);
 
-   // Twenty more words of the connection's own: four at +0x83f8, +0x83fc,
-   // +0x8400 and +0x8434, then sixteen at +0x83b8, which is a Move's worth of
-   // bytes.  None of them is attributed to a member yet.
+   // Twenty more words of the connection's own: the move list's three indices
+   // at +0x83f8, +0x83fc and +0x8400, one more at +0x8434, then sixteen at
+   // +0x83b8, which is a Move's worth of bytes.
+   mMoveList->readDemoMoveState(stream);
+
    U32 word;
-   for(U32 i = 0; i < 20; i++)
+   for(U32 i = 0; i < 17; i++)
       stream->read(&word);
 
    mMoveList->readDemoStartBlock(stream);
