@@ -353,6 +353,8 @@ PlayerData::PlayerData()
    minJetEnergy = 0;
    maxJetForwardSpeed = 0;
    maxJetHorizontalPercentage = 0;
+   heatIncreasePerSec = 0;
+   heatDecayPerSec = 0;
 
    horizMaxSpeed = 80.0f;
    horizResistSpeed = 38.0f;
@@ -446,6 +448,8 @@ bool PlayerData::unpackData(BitStream *stream, U32 classId)
       { T2Layout::T2DbMaxJetForwardSpeed,       &PlayerData::maxJetForwardSpeed       },
       { T2Layout::T2DbMaxJetHorizontalPercentage,
         &PlayerData::maxJetHorizontalPercentage },
+      { T2Layout::T2DbHeatDecayPerSec,          &PlayerData::heatDecayPerSec          },
+      { T2Layout::T2DbHeatIncreasePerSec,       &PlayerData::heatIncreasePerSec       },
       { T2Layout::T2DbCameraMaxDist,            &PlayerData::cameraMaxDist            },
    };
 
@@ -458,9 +462,10 @@ bool PlayerData::unpackData(BitStream *stream, U32 classId)
 
    if (Con::getBoolVariable("$pref::Net::traceDataBlockFields", false))
       Con::printf("T2 PlayerData %d: jetForce %.4f drain %.4f minEnergy %.4f "
-                  "maxFwd %.4f maxHoriz %.4f", getId(), jetForce,
-                  jetEnergyDrain, minJetEnergy, maxJetForwardSpeed,
-                  maxJetHorizontalPercentage);
+                  "maxFwd %.4f maxHoriz %.4f heatUp %.4f heatDown %.4f",
+                  getId(), jetForce, jetEnergyDrain, minJetEnergy,
+                  maxJetForwardSpeed, maxJetHorizontalPercentage,
+                  heatIncreasePerSec, heatDecayPerSec);
 
    return true;
 }
@@ -813,6 +818,12 @@ void PlayerData::initPersistFields()
       addField( "maxJetHorizontalPercentage", TypeF32, Offset(maxJetHorizontalPercentage, PlayerData),
          "@brief Most of the pack a move may take for horizontal thrust.\n\n"
          "@see maxJetForwardSpeed\n" );
+      addField( "heatIncreasePerSec", TypeF32, Offset(heatIncreasePerSec, PlayerData),
+         "@brief Heat a second of thrust adds to the player's signature.\n\n"
+         "@see heatDecayPerSec\n" );
+      addField( "heatDecayPerSec", TypeF32, Offset(heatDecayPerSec, PlayerData),
+         "@brief Heat a second off the trigger takes back off it.\n\n"
+         "@see heatIncreasePerSec\n" );
 
       addField( "horizMaxSpeed", TypeF32, Offset(horizMaxSpeed, PlayerData),
          "@brief Maximum horizontal speed.\n\n"
@@ -2622,6 +2633,13 @@ void Player::updateMove(const Move* move)
          acc += jet * (TickSec / getMass());
       }
    }
+
+      // Tribes 2 raises heat in updateMove (0x005d3ce9) and lowers it in the tick
+      // behind it (0x005d21f0); nothing on the wire carries it.
+   if (mJetting)
+      setHeat(getHeat() + TickSec * mDataBlock->heatIncreasePerSec);
+   else if (getHeat() > 0.0f)
+      setHeat(getHeat() - TickSec * mDataBlock->heatDecayPerSec);
 
    // Acceleration from Jumping
    if (move->trigger[sJumpTrigger] && canJump())// !isMounted() &&
@@ -4963,6 +4981,8 @@ bool Player::displaceObject(const Point3F& displacement)
 
 void Player::onT2BodyRead(const T2Layout::Body &body)
 {
+   readT2Damage(body);
+
    if (!body.hasPosition)
       return;
 

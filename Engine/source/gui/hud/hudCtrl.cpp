@@ -68,12 +68,37 @@ void HudCtrl::setBitmap(const char *name)
    mTexture.set(mBitmapName, &GFXDefaultGUIProfile,
                 avar("%s() - mTexture (line %d)", __FUNCTION__, __LINE__));
 
-   // autoResize means the control is the size of what it shows, which is how
-   // the HUD's icons get their extent -- the layout gives them none.
-   if(mAutoResize && mTexture)
-      resize(getPosition(), Point2I(mTexture->getBitmapWidth(), mTexture->getBitmapHeight()));
-
    setUpdate();
+}
+
+/// Tribes 2 does this once a frame (0x004fce50): autoResize takes the size of
+/// the art, and autoCenter centres the control in its parent.
+void HudCtrl::onPreRender()
+{
+   Parent::onPreRender();
+
+   GuiControl *parent = getParent();
+   if(!parent)
+      return;
+
+   if(mAutoResize && mTexture)
+   {
+      const Point2I size(mTexture->getBitmapWidth(), mTexture->getBitmapHeight());
+      if(size != getExtent())
+         resize(getPosition(), size);
+   }
+
+   if(mAutoCenter)
+   {
+         // Both halves rounded towards zero (0x004fcef4).
+      const Point2I outer = parent->getExtent();
+      const Point2I inner = getExtent();
+      const Point2I centred(outer.x / 2 - (inner.x + 1) / 2,
+                            outer.y / 2 - (inner.y + 1) / 2);
+
+      if(centred != getPosition())
+         resize(centred, inner);
+   }
 }
 
 GFXBitmapFlip HudCtrl::flipFlags() const
@@ -89,12 +114,9 @@ GFXBitmapFlip HudCtrl::flipFlags() const
 
 RectI HudCtrl::artRect(const Point2I &offset, const Point2I &size) const
 {
-   if(!mAutoCenter)
-      return RectI(offset, size);
-
-   return RectI(offset.x + (getExtent().x - size.x) / 2,
-                offset.y + (getExtent().y - size.y) / 2,
-                size.x, size.y);
+      // Retail's dglDrawBitmap puts the art at the control's corner at its own
+      // size.
+   return RectI(offset, size);
 }
 
 ColorI HudCtrl::faded(const ColorF &colour) const
@@ -111,24 +133,33 @@ ColorI HudCtrl::faded(const ColorI &colour) const
    return c;
 }
 
+/// HudCtrl::onRender at 0x004fcf50 draws the art where there is one, and
+/// otherwise the fill and frame at 0x004fc8a0.
 void HudCtrl::onRender(Point2I offset, const RectI &updateRect)
 {
    GFXDrawUtil *draw = GFX->getDrawUtil();
-   const RectI bounds(offset, getExtent());
-
-   const ColorI fill = faded(mFillColor);
-   if(fill.alpha)
-      draw->drawRectFill(bounds, fill);
+   const U8 alpha = U8(mClampF(mOpacity, 0.f, 1.f) * 255.f);
 
    if(mTexture)
    {
-      draw->setBitmapModulation(ColorI(255, 255, 255,
-                                       U8(mClampF(mOpacity, 0.f, 1.f) * 255.f)));
+      draw->setBitmapModulation(ColorI(255, 255, 255, alpha));
       draw->drawBitmapStretch(mTexture,
                               artRect(offset, Point2I(mTexture->getBitmapWidth(),
                                                       mTexture->getBitmapHeight())),
                               flipFlags());
       draw->clearBitmapModulation();
+   }
+   else
+   {
+      const RectI bounds(offset, getExtent());
+
+      ColorI fill = mFillColor;
+      fill.alpha = alpha;
+      draw->drawRectFill(bounds, fill);
+
+      ColorI frame = mFrameColor;
+      frame.alpha = alpha;
+      draw->drawRect(bounds, frame);
    }
 
    renderChildControls(offset, updateRect);
@@ -205,9 +236,7 @@ void HudPulsingBitmap::onRender(Point2I offset, const RectI &updateRect)
 //-----------------------------------------------------------------------------
 HudCrosshair::HudCrosshair()
 {
-   // A reticle is centred on where it is aimed, never on the top-left corner
-   // of a box.
-   mAutoCenter = true;
+      // PlayGui sets autoCenter here, overriding retail's default of false.
 }
 
 //-----------------------------------------------------------------------------
@@ -232,24 +261,37 @@ void HudClock::setTime(S32 seconds)
    setUpdate();
 }
 
+/// HudClock::onRender at 0x004fe8a0 draws the time and nothing else.
 void HudClock::onRender(Point2I offset, const RectI &updateRect)
 {
-   Parent::onRender(offset, updateRect);
-
    if(mTime < 0 || !mProfile || !mProfile->mFont)
       return;
 
    // Script sets the clock once and lets it run, so what is on it now is what
-   // it was set to less however long ago that was.
+         // Retail keeps counting past zero and shows the overtime; this stops.
    const S32 elapsed = S32((Platform::getVirtualMilliseconds() - mSetAt) / 1000);
    const S32 left = getMax(mTime - elapsed, 0);
 
    char buf[32];
-   dSprintf(buf, sizeof(buf), "%d:%02d", left / 60, left % 60);
+   dSprintf(buf, sizeof(buf), "%02d:%02d", left / 60, left % 60);
+
+   GFont *font = mProfile->mFont;
+   const S32 width = S32(font->getStrWidth((const UTF8*)buf));
+   const S32 height = S32(font->getHeight()) - 2;
+
+   Point2I at(mSubRegion.point.x + (mSubRegion.extent.x - width) / 2,
+              mSubRegion.point.y + (mSubRegion.extent.y - height) / 2);
+   if(at.x < 0)
+      at.x = mSubRegion.point.x;
+   if(at.y < 0)
+      at.y = mSubRegion.point.y;
+
+   ColorI colour = mProfile->mFontColor;
+   colour.alpha = U8(255.f * mClampF(mOpacity, 0.f, 1.f));
 
    GFXDrawUtil *draw = GFX->getDrawUtil();
-   draw->setBitmapModulation(faded(mFrameColor));
-   renderJustifiedText(offset, getExtent(), buf);
+   draw->setBitmapModulation(colour);
+   draw->drawText(font, offset + at, buf);
    draw->clearBitmapModulation();
 }
 

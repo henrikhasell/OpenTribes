@@ -734,6 +734,7 @@ ShapeBase::ShapeBase()
    mShapeInstance( NULL ),
    mEnergy( 0.0f ),
    mRechargeRate( 0.0f ),
+   mHeat( 0.0f ),               // HH: Added for Tribes 2 compatibility.
    mDamage( 0.0f ),
    mRepairRate( 0.0f ),
    mRepairReserve( 0.0f ),
@@ -1500,6 +1501,20 @@ F32 ShapeBase::getDamageValue()
 {
    // Return a 0-1 damage value.
    return mDamage / mDataBlock->maxDamage;
+}
+
+// HH: Added for Tribes 2 compatibility.
+// A ghost body carries damage as readFloat(6) of the datablock's maxDamage.
+void ShapeBase::readT2Damage(const T2Layout::Body &body)
+{
+   if (body.hasDamage && mDataBlock && mDataBlock->maxDamage > 0.0f)
+      setDamageLevel(body.damage * mDataBlock->maxDamage);
+}
+
+void ShapeBase::onT2BodyRead(const T2Layout::Body &body)
+{
+   readT2Damage(body);
+   Parent::onT2BodyRead(body);
 }
 
 void ShapeBase::updateDamageLevel()
@@ -3986,6 +4001,26 @@ DefineEngineMethod( ShapeBase, getEnergyPercent, F32, (),,
    "@see setEnergyLevel()\n")
 {
    return object->getEnergyValue();
+}
+
+// HH: Added for Tribes 2 compatibility.
+// Both are Tribes 2's, at 0x005f1f60 and 0x005f1e50.
+DefineEngineMethod( ShapeBase, getHeat, F32, (),,
+   "@brief Get the object's heat signature, 0 to 1.\n\n"
+
+   "@see setHeat()\n")
+{
+   return object->getHeat();
+}
+
+DefineEngineMethod( ShapeBase, setHeat, void, ( F32 heat ),,
+   "@brief Set the object's heat signature, clamped to 0 through 1.\n\n"
+
+   "@param heat new heat signature\n"
+
+   "@see getHeat()\n")
+{
+   object->setHeat( heat );
 }
 
 DefineEngineMethod( ShapeBase, setDamageLevel, void, ( F32 level ),,

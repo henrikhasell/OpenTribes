@@ -34,6 +34,8 @@ namespace T2Layout
       Point3F scale;
       bool    hasVelocity;
       Point3F velocity;             ///< metres a second, world space
+      bool    hasDamage;
+      F32     damage;               ///< share of the object's maxDamage
    };
 
    const Body &lastBody();
@@ -48,6 +50,8 @@ namespace T2Layout
       T2DbMinJetEnergy,
       T2DbMaxJetForwardSpeed,
       T2DbMaxJetHorizontalPercentage,
+      T2DbHeatDecayPerSec,
+      T2DbHeatIncreasePerSec,
       T2DbCameraMaxDist,
 
       T2DbFieldCount

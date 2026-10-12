@@ -57,54 +57,66 @@ void HudCompass::initPersistFields()
    addField("textColor", TypeColorI, Offset(mTextColor, HudCompass));
 }
 
+/// The face of the dial, read off the table at 0x0077bea0: a float count, that
+/// many x,y pairs, repeated until a count of zero.
+struct CompassMark
+{
+   U32 count;
+   struct { F32 x, y; } points[12];
+};
+
+static const CompassMark sCompassFace[] =
+{
+   {  4, { {-2,-28}, {-2,-34}, {2,-28}, {2,-34} } },                       // N
+   {  4, { {28,2}, {28,-2}, {34,-2}, {34,2} } },                           // E
+   {  2, { {31,-2}, {31,2} } },                                            // its bar
+   {  5, { {-34,4}, {-28,2}, {-34,0}, {-28,-2}, {-34,-4} } },              // W
+   { 12, { {2,30}, {1,29}, {-1,29}, {-2,30}, {-2,31}, {-1,32},
+           {1,32}, {2,33}, {2,34}, {1,35}, {-1,35}, {-2,34} } },           // S
+   {  2, { {25,-24}, {29,-28} } },                                         // NE
+   {  2, { {25,24}, {29,28} } },                                           // SE
+   {  2, { {-24,24}, {-28,28} } },                                         // SW
+   {  2, { {-24,-24}, {-28,-28} } },                                       // NW
+};
+
+/// HudCompass::onRender at 0x00502870 rotates the marks about the middle of the
+/// control by where north is from here.
 void HudCompass::onRender(Point2I offset, const RectI &updateRect)
 {
-   GFXDrawUtil *draw = GFX->getDrawUtil();
-   const RectI bounds(offset, getExtent());
-
-   draw->drawRectFill(bounds, faded(mFillColor));
-
    F32 yaw;
    if(!cameraYaw(yaw))
       return;
 
-   // The strip shows a quarter turn either side of where the player is
-   // looking, so a heading slides across as they turn and the mark in the
-   // middle is what they are facing.
-   const F32 span = M_PI_F;
-   const F32 pixelsPerRadian = F32(getExtent().x) / span;
+   const F32 sine = mSin(-yaw);
+   const F32 cosine = mCos(-yaw);
 
-   static const char *sPoints[] = { "N", "E", "S", "W" };
+      // Retail adds a literal 40.5 and 38.5, the middle of the 81 by 77 control.
+   const F32 centreX = F32(offset.x) + F32(getExtent().x) / 2.f;
+   const F32 centreY = F32(offset.y) + F32(getExtent().y) / 2.f;
 
-   if(mProfile->mFont)
+   ColorI colour = mTextColor;
+   colour.alpha = 255;
+
+   GFXDrawUtil *draw = GFX->getDrawUtil();
+
+   for(U32 m = 0; m < sizeof(sCompassFace) / sizeof(sCompassFace[0]); m++)
    {
-      draw->setBitmapModulation(faded(mTextColor));
+      const CompassMark &mark = sCompassFace[m];
+      Point2I last(0, 0);
 
-      for(U32 i = 0; i < 4; i++)
+      for(U32 i = 0; i < mark.count; i++)
       {
-         // Where this point of the compass sits relative to the heading,
-         // wrapped into -pi..pi so it comes round rather than running off.
-         F32 delta = F32(i) * M_PI_F / 2.f - yaw;
-         while(delta >  M_PI_F) delta -= M_2PI_F;
-         while(delta < -M_PI_F) delta += M_2PI_F;
+         const F32 x = mark.points[i].x;
+         const F32 y = mark.points[i].y;
 
-         const S32 x = offset.x + getExtent().x / 2 + S32(delta * pixelsPerRadian);
-         const S32 w = mProfile->mFont->getStrWidth((const UTF8*)sPoints[i]);
+         const Point2I at(S32(centreX + cosine * x - sine * y),
+                          S32(centreY + cosine * y + sine * x));
 
-         if(x - w / 2 < offset.x || x + w / 2 > offset.x + getExtent().x)
-            continue;
-
-         draw->drawText(mProfile->mFont, Point2I(x - w / 2, offset.y), sPoints[i]);
+         if(i > 0)
+            draw->drawLine(last, at, colour);
+         last = at;
       }
-
-      draw->clearBitmapModulation();
    }
-
-   // The mark the headings slide under.
-   const S32 mid = offset.x + getExtent().x / 2;
-   draw->drawLine(mid, offset.y, mid, offset.y + getExtent().y, faded(mFrameColor));
-
-   renderChildControls(offset, updateRect);
 }
 
 //-----------------------------------------------------------------------------
