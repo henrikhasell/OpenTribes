@@ -271,13 +271,105 @@ void TSShapeInstance::initMaterialList( const FeatureSet *features )
    if ( !features )
       features = &MATMGR->getDefaultFeatures();
 
+   // HH: Added for Tribes 2 compatibility.
+   // An ifl slot shares a frame's instance, so the sharing is undone around the
+   // walk.
+   releaseIflMaterials();
+
    // Initialize the materials.
    mMaterialList->initMatInstances( *features, mShape->getVertexFormat() );
+
+   bindIflMaterials();
 
    // TODO: It would be good to go thru all the meshes and
    // pre-create all the active material hooks for shadows,
    // reflections, and instancing.  This would keep these
    // hiccups from happening at runtime.
+}
+
+// HH: Added for Tribes 2 compatibility.
+//
+/// Whether this instance is one of the ifl material's own frames.
+static bool isIflFrame( const TSMaterialList *list,
+                        const TSShape::IflMaterial &ifl,
+                        const BaseMatInstance *inst )
+{
+   for ( S32 i = 0; i < ifl.numFrames; i++ )
+      if ( list->getMaterialInst( ifl.firstFrame + i ) == inst )
+         return true;
+
+   return false;
+}
+
+void TSShapeInstance::releaseIflMaterials()
+{
+   const Vector<TSShape::IflMaterial> &ifls = mShape->iflMaterials;
+   if ( ifls.empty() || !mMaterialList )
+      return;
+
+   for ( S32 i = 0; i < ifls.size(); i++ )
+   {
+      const TSShape::IflMaterial &ifl = ifls[i];
+      if ( !ifl.numFrames || ifl.materialSlot < 0 ||
+           ifl.firstFrame + ifl.numFrames > (S32)mMaterialList->size() )
+         continue;
+
+
+      BaseMatInstance *own = mMaterialList->getMaterialInst( ifl.materialSlot );
+      if ( own && !isIflFrame( mMaterialList, ifl, own ) )
+         delete own;
+
+      mMaterialList->setMaterialInst( NULL, ifl.materialSlot );
+   }
+}
+
+void TSShapeInstance::bindIflMaterials()
+{
+   const Vector<TSShape::IflMaterial> &ifls = mShape->iflMaterials;
+   if ( ifls.empty() || !mMaterialList )
+      return;
+
+   mIflFrame.setSize( ifls.size() );
+
+   for ( S32 i = 0; i < ifls.size(); i++ )
+   {
+      const TSShape::IflMaterial &ifl = ifls[i];
+
+      mIflFrame[i] = -1;
+      if ( !ifl.numFrames || ifl.materialSlot < 0 ||
+           ifl.firstFrame + ifl.numFrames > (S32)mMaterialList->size() )
+         continue;
+
+      mIflFrame[i] = 0;
+      mMaterialList->setMaterialInst(
+         mMaterialList->getMaterialInst( ifl.firstFrame ), ifl.materialSlot );
+   }
+}
+
+void TSShapeInstance::animateIfls()
+{
+   const Vector<TSShape::IflMaterial> &ifls = mShape->iflMaterials;
+   if ( ifls.empty() || ifls.size() != mIflFrame.size() || !mMaterialList )
+      return;
+
+
+   const F32 now = (F32)Sim::getCurrentTime() / 1000.0f;
+
+   for ( S32 i = 0; i < ifls.size(); i++ )
+   {
+      if ( mIflFrame[i] < 0 )
+         continue;
+
+      const TSShape::IflMaterial &ifl = ifls[i];
+      const S32 frame = mShape->getIflFrame( ifl, now );
+      if ( frame == mIflFrame[i] )
+         continue;
+
+      mIflFrame[i] = frame;
+      mMaterialList->setMaterialInst(
+         mMaterialList->getMaterialInst( ifl.firstFrame + frame ),
+         ifl.materialSlot );
+   }
 }
 
 void TSShapeInstance::reSkin( String newBaseName, String oldBaseName )

@@ -840,6 +840,10 @@ void TSShapeInstance::animate(S32 dl)
       // nothing to do
       return;
 
+   // HH: Added for Tribes 2 compatibility.
+   // An ifl material has no thread to run on, so it is moved on here.
+   animateIfls();
+
    S32 ss = mShape->details[dl].subShapeNum;
 
    // this is a billboard detail...

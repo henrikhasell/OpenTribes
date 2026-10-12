@@ -257,6 +257,17 @@ class TSShape
       /// @}
    };
 
+   // HH: Added for Tribes 2 compatibility.
+   /// A material whose texture is a sequence of them, named by an .ifl file.
+   struct IflMaterial
+   {
+      S32 nameIndex;             ///< the .ifl's own name, an index into names
+      S32 materialSlot;          ///< the material list entry it drives
+      S32 firstFrame;            ///< its frames, appended to the material list
+      S32 firstFrameOffTimeIndex;///< its frames' end times, in iflFrameOffTimes
+      S32 numFrames;
+   };
+
    /// @name Collision Accelerators
    ///
    /// For speeding up buildpolylist and support calls.
@@ -285,6 +296,8 @@ class TSShape
    Vector<Detail> details;
    Vector<Quat16> defaultRotations;
    Vector<Point3F> defaultTranslations;
+   // HH: Added for Tribes 2 compatibility.
+   Vector<IflMaterial> iflMaterials;
 
    /// @}
 
@@ -327,6 +340,9 @@ class TSShape
    Vector<TSLastDetail*>            billboardDetails;
    Vector<ConvexHullAccelerator*>   detailCollisionAccelerators;
    Vector<String>                   names;
+   // HH: Added for Tribes 2 compatibility. Seconds from the start of an ifl
+   // material's run at which each of its frames gives way to the next.
+   Vector<F32>                      iflFrameOffTimes;
 
    /// @}
 
@@ -403,6 +419,14 @@ class TSShape
    void init();
    void initMaterialList();    ///< you can swap in a new material list, but call this if you do
    bool preloadMaterialList(const Torque::Path &path); ///< called to preload and validate the materials in the mat list
+
+   // HH: Added for Tribes 2 compatibility.
+   /// Read each .ifl the shape names, append its frames to the material list
+   /// and point the material it drives at the first of them.
+   void initIflMaterials();
+
+   /// Which frame an ifl material is showing this many seconds in.
+   S32 getIflFrame(const IflMaterial &ifl, F32 time) const;
 
    void setupBillboardDetails( const String &cachePath );
 

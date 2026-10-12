@@ -43,6 +43,7 @@ static U32 sDbRowCount = 0;
 static S32 sDbRowsFor = -1;
 static const void *sDbLayout = NULL;
 static F32 sDbValues[T2DbFieldCount] = { 0.0f };
+static U32 sDbWords[T2DbFieldCount] = { 0 };
 static bool sDbHas[T2DbFieldCount] = { false };
 
 static S32 sTransformAt = -1;
@@ -62,6 +63,14 @@ bool lastDataBlockField(U32 field, F32 *out)
    if(field >= T2DbFieldCount || !sDbHas[field])
       return false;
    *out = sDbValues[field];
+   return true;
+}
+
+bool lastDataBlockWord(U32 field, U32 *out)
+{
+   if(field >= T2DbFieldCount || !sDbHas[field])
+      return false;
+   *out = sDbWords[field];
    return true;
 }
 
@@ -193,6 +202,207 @@ static const T2DataBlockFieldRow *dbFieldAt(const T2DataBlockLayout *layout,
    return NULL;
 }
 
+/// The nodes of one image slot, in the order the walk reaches them.
+enum T2ImagePart
+{
+   T2ImageMask,                     ///< the flag that says the body carried
+                                    ///< this slot
+   T2ImageHasBlock,
+   T2ImageBlockId,
+   T2ImageHasSkin,
+   T2ImageSkinKind,
+   T2ImageSkinName,
+   T2ImageSkinTag,
+   T2ImageTrigger,
+   T2ImageLoaded,
+   T2ImageAmmo,
+   T2ImageWet,
+   T2ImageTarget,
+   T2ImageFireCount,
+   T2ImageInitial,
+   T2ImageExtra,                    ///< one more flag, on an initial body only
+
+   T2ImageParts
+};
+
+
+struct T2ImageMap
+{
+   const T2DataBlockLayout *layout;
+   U32                      slots;  ///< the longest run found, for the log
+   Vector<S16>              part;   ///< node -> slot * T2ImageParts + part,
+                                    ///< or -1
+};
+
+static Vector<T2ImageMap *> sImageMaps(__FILE__, __LINE__);
+static const T2ImageMap *sImages = NULL;
+
+static const T2DataNode *nodeAt(const T2DataBlockLayout *layout, S32 at)
+{
+   return at >= 0 && U32(at) < layout->count ? &layout->nodes[at] : NULL;
+}
+
+/// A flag the body keeps the value of but does not branch on: both arms of it
+/// go to the same place.
+static bool isBareFlag(const T2DataNode *n)
+{
+   return n && n->op == OpFlag && n->bits == 1 && n->a == n->b;
+}
+
+   /// An image slot is fifteen nodes of one particular shape, in the order two
+   /// independent readings of ShapeBase::unpackUpdate agree on.
+static bool matchImageSlot(const T2DataBlockLayout *layout, S32 top,
+                           S16 *parts)
+{
+   const T2DataNode *mask = nodeAt(layout, top);
+   if(!mask || mask->op != OpFlag || mask->bits != 1 || mask->a == mask->b)
+      return false;
+
+   /// Where a slot the body left out carries on, which is where the slot it
+   /// did carry has to end up as well.
+   const S32 after = mask->a;
+
+   const T2DataNode *hasBlock = nodeAt(layout, mask->b);
+   if(!hasBlock || hasBlock->op != OpFlag || hasBlock->bits != 1)
+      return false;
+
+   const T2DataNode *blockId = nodeAt(layout, hasBlock->b);
+   if(!blockId || blockId->op != OpDataBlockId || blockId->bits != 11 ||
+      blockId->a != hasBlock->a)
+      return false;
+
+   const T2DataNode *hasSkin = nodeAt(layout, hasBlock->a);
+   if(!hasSkin || hasSkin->op != OpFlag || hasSkin->bits != 1)
+      return false;
+
+   const T2DataNode *skinKind = nodeAt(layout, hasSkin->b);
+   if(!skinKind || skinKind->op != OpFlag || skinKind->bits != 1)
+      return false;
+
+   const T2DataNode *skinName = nodeAt(layout, skinKind->a);
+   if(!skinName || skinName->op != OpString || skinName->a != hasSkin->a)
+      return false;
+
+   const T2DataNode *skinTag = nodeAt(layout, skinKind->b);
+   if(!skinTag || skinTag->op != OpRaw || skinTag->bits != 10 ||
+      skinTag->a != hasSkin->a)
+      return false;
+
+   S32 flag[5];
+   S32 walk = hasSkin->a;
+   for(U32 i = 0; i < 5; i++)
+   {
+      const T2DataNode *n = nodeAt(layout, walk);
+      if(!isBareFlag(n))
+         return false;
+      flag[i] = walk;
+      walk = n->a;
+   }
+
+   const T2DataNode *fireCount = nodeAt(layout, walk);
+   if(!fireCount || fireCount->op != OpRaw || fireCount->bits != 3)
+      return false;
+   const S32 fireCountAt = walk;
+
+   const T2DataNode *initial = nodeAt(layout, fireCount->a);
+   if(!initial || initial->op != OpInitial || initial->a != after)
+      return false;
+
+   const T2DataNode *extra = nodeAt(layout, initial->b);
+   if(!isBareFlag(extra) || extra->a != after)
+      return false;
+
+   parts[T2ImageMask]      = S16(top);
+   parts[T2ImageHasBlock]  = S16(mask->b);
+   parts[T2ImageBlockId]   = S16(hasBlock->b);
+   parts[T2ImageHasSkin]   = S16(hasBlock->a);
+   parts[T2ImageSkinKind]  = S16(hasSkin->b);
+   parts[T2ImageSkinName]  = S16(skinKind->a);
+   parts[T2ImageSkinTag]   = S16(skinKind->b);
+   parts[T2ImageTrigger]   = S16(flag[0]);
+   parts[T2ImageLoaded]    = S16(flag[1]);
+   parts[T2ImageAmmo]      = S16(flag[2]);
+   parts[T2ImageWet]       = S16(flag[3]);
+   parts[T2ImageTarget]    = S16(flag[4]);
+   parts[T2ImageFireCount] = S16(fireCountAt);
+   parts[T2ImageInitial]   = S16(fireCount->a);
+   parts[T2ImageExtra]     = S16(initial->b);
+   return true;
+}
+
+   /// The slots run one into the next: a slot's unread arm is the next slot's
+   /// first node.
+static const T2ImageMap *resolveImages(const T2DataBlockLayout *layout)
+{
+   for(U32 i = 0; i < sImageMaps.size(); i++)
+      if(sImageMaps[i]->layout == layout)
+         return sImageMaps[i];
+
+   T2ImageMap *map = new T2ImageMap;
+   map->layout = layout;
+   map->slots = 0;
+   map->part.setSize(layout->count);
+   for(U32 i = 0; i < layout->count; i++)
+      map->part[i] = -1;
+
+   Vector<S16> parts(__FILE__, __LINE__);
+   parts.setSize(layout->count * T2ImageParts);
+
+   Vector<bool> isSlot(__FILE__, __LINE__);
+   isSlot.setSize(layout->count);
+   for(U32 i = 0; i < layout->count; i++)
+      isSlot[i] = matchImageSlot(layout, S32(i), &parts[i * T2ImageParts]);
+
+   for(U32 i = 0; i < layout->count; i++)
+   {
+      if(!isSlot[i])
+         continue;
+
+      // A run's first block is one no other block runs into.
+      bool head = true;
+      for(U32 j = 0; j < layout->count && head; j++)
+         if(isSlot[j] && layout->nodes[j].a == S32(i))
+            head = false;
+      if(!head)
+         continue;
+
+      U32 slot = 0;
+      for(S32 at = S32(i);
+          slot < MaxImages && at >= 0 && U32(at) < layout->count && isSlot[at];
+          at = layout->nodes[at].a, slot++)
+         for(U32 p = 0; p < T2ImageParts; p++)
+            map->part[parts[at * T2ImageParts + p]] =
+               S16(slot * T2ImageParts + p);
+
+      if(slot > map->slots)
+         map->slots = slot;
+   }
+
+   if(map->slots)
+      Con::printf("T2 layout: %s carries %d image slots", layout->name,
+                  map->slots);
+
+   sImageMaps.push_back(map);
+   return map;
+}
+
+/// Which slot and field this node is, where it is one of an image slot's.
+static bool imageAt(const T2DataBlockLayout *layout, S32 at, U32 *slot,
+                    U32 *part)
+{
+   if(!sImages || sImages->layout != layout || at < 0 ||
+      U32(at) >= sImages->part.size())
+      return false;
+
+   const S16 what = sImages->part[at];
+   if(what < 0)
+      return false;
+
+   *slot = U32(what) / T2ImageParts;
+   *part = U32(what) % T2ImageParts;
+   return true;
+}
+
 static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
                      S32 at, U32 *slots, U32 depth, bool isInitial,
                      bool write)
@@ -234,6 +444,22 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
                {
                   sBody.hasVelocity = true;
                   sBody.velocity.set(0.0f, 0.0f, 0.0f);
+               }
+
+               U32 slot, part;
+               if(imageAt(layout, at, &slot, &part))
+               {
+                  Body::Image &image = sBody.images[slot];
+                  switch(part)
+                  {
+                     case T2ImageMask:    image.present     = set; break;
+                     case T2ImageTrigger: image.triggerDown = set; break;
+                     case T2ImageLoaded:  image.loaded      = set; break;
+                     case T2ImageAmmo:    image.ammo        = set; break;
+                     case T2ImageWet:     image.wet         = set; break;
+                     case T2ImageTarget:  image.target      = set; break;
+                     default:                                      break;
+                  }
                }
             }
             at = set ? n.b : n.a;
@@ -329,8 +555,19 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
          case OpDataBlockId:
          {
             const U32 dbId = xferInt(stream, n.bits, write);
-            if(!sDataBlockId)
+            U32 slot, part;
+            const bool isImage = !write && imageAt(layout, at, &slot, &part) &&
+                                 part == T2ImageBlockId;
+
+               // An image slot names a ShapeBaseImageData, never the object's own
+               // datablock.
+            if(!sDataBlockId && !isImage)
                sDataBlockId = dbId;
+            if(isImage)
+            {
+               sBody.images[slot].hasDataBlock = true;
+               sBody.images[slot].dataBlockId = dbId;
+            }
             if(!write)
                sDataBlockIds.push_back(dbId);
             break;
@@ -374,6 +611,7 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
                if(dbRow)
                {
                   dMemcpy(&sDbValues[dbRow->field], &word, sizeof(F32));
+                  sDbWords[dbRow->field] = word;
                   sDbHas[dbRow->field] = true;
                }
             }
@@ -392,6 +630,21 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
                sSpeed = (F32)word / 32.0f;
             if(row && row->field == T2FieldDirection)
                sBody.velocity = normalVector(word, 10) * sSpeed;
+
+            if(!write)
+            {
+               U32 slot, part;
+               if(imageAt(layout, at, &slot, &part))
+               {
+                  if(part == T2ImageSkinTag)
+                  {
+                     sBody.images[slot].hasSkinTag = true;
+                     sBody.images[slot].skinTag = word;
+                  }
+                  else if(part == T2ImageFireCount)
+                     sBody.images[slot].fireCount = word;
+               }
+            }
             break;
          }
 
@@ -425,6 +678,14 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
                {
                   dStrncpy(sFirstString, buf, sizeof(sFirstString) - 1);
                   sFirstString[sizeof(sFirstString) - 1] = 0;
+               }
+
+               U32 slot, part;
+               if(imageAt(layout, at, &slot, &part) &&
+                  part == T2ImageSkinName)
+               {
+                  sBody.images[slot].hasSkinName = true;
+                  sBody.images[slot].skinName = buf;
                }
             }
             break;
@@ -591,6 +852,7 @@ static void resolveGhostFields(const char *className)
    sFieldsFor = className;
    sRowCount = 0;
    sFieldsLayout = NULL;
+   sImages = NULL;
 
    const T2DataBlockLayout *layout =
       findNamed(className, sT2GhostsRecovered, ELEMENTS(sT2GhostsRecovered));
@@ -598,6 +860,7 @@ static void resolveGhostFields(const char *className)
       return;
 
    sFieldsLayout = layout;
+   sImages = resolveImages(layout);
 
    for(U32 i = 0; i < ELEMENTS(sT2GhostFields); i++)
    {
@@ -704,6 +967,23 @@ static bool runGhost(BitStream *stream, const char *className,
    sBody.hasScale = false;
    sBody.hasVelocity = false;
    sBody.hasDamage = false;
+   for(U32 i = 0; i < MaxImages; i++)
+   {
+      Body::Image &image = sBody.images[i];
+      image.present = false;
+      image.hasDataBlock = false;
+      image.dataBlockId = 0;
+      image.hasSkinName = false;
+      image.skinName = String::EmptyString;
+      image.hasSkinTag = false;
+      image.skinTag = 0;
+      image.triggerDown = false;
+      image.loaded = false;
+      image.ammo = false;
+      image.wet = false;
+      image.target = false;
+      image.fireCount = 0;
+   }
    sTransformAt = -1;
    sAffineAt = -1;
    sScaleAt = -1;

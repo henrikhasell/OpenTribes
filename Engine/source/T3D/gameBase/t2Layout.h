@@ -22,6 +22,10 @@ class BitStream;
 
 namespace T2Layout
 {
+   /// Eight image slots, of which item.cs fills four: weapon, auxiliary,
+   /// backpack and flag.
+   enum { MaxImages = 8 };
+
    struct Body
    {
       bool    hasPosition;
@@ -36,6 +40,29 @@ namespace T2Layout
       Point3F velocity;             ///< metres a second, world space
       bool    hasDamage;
       F32     damage;               ///< share of the object's maxDamage
+
+      /// What a body said about one of its object's image slots -- the
+      /// weapon in the hand, the pack on the back.
+      struct Image
+      {
+         bool   present;            ///< the body carried this slot at all;
+                                    ///< the rest means nothing without it
+         bool   hasDataBlock;       ///< clear is an emptied slot, not an
+                                    ///< unchanged one
+         U32    dataBlockId;
+         bool   hasSkinName;
+         String skinName;
+         bool   hasSkinTag;
+         U32    skinTag;            ///< a net string id, which needs the
+                                    ///< connection's table to mean anything
+         bool   triggerDown;
+         bool   loaded;
+         bool   ammo;
+         bool   wet;
+         bool   target;
+         U32    fireCount;
+      };
+      Image   images[MaxImages];
    };
 
    const Body &lastBody();
@@ -53,11 +80,16 @@ namespace T2Layout
       T2DbHeatDecayPerSec,
       T2DbHeatIncreasePerSec,
       T2DbCameraMaxDist,
+      T2DbImageMountPoint,
 
       T2DbFieldCount
    };
 
    bool lastDataBlockField(U32 field, F32 *out);
+
+   /// The same read as the bits it arrived as, for a field Tribes 2 writes
+   /// as a whole word rather than a float.
+   bool lastDataBlockWord(U32 field, U32 *out);
 
    bool readDataBlock(BitStream *stream, U32 classId);
 

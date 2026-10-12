@@ -216,6 +216,24 @@ void SimDataBlockEvent::unpack(NetConnection *cptr, BitStream *bstream)
                db->shapeName = StringTable->insert( shape );
          }
 
+            // HH: Added for Tribes 2 compatibility.
+            // A weapon wants mount node 0 and a pack node 1.
+         U32 mountPoint;
+         if( ShapeBaseImageData *si = dynamic_cast< ShapeBaseImageData * >( mObj ) )
+         {
+            if( T2Layout::lastDataBlockWord( T2Layout::T2DbImageMountPoint,
+                                             &mountPoint ) )
+            {
+               if( mountPoint < SceneObject::NumMountPoints )
+                  si->mountPoint = mountPoint;
+               else
+                  Con::warnf( "T2 image: datablock %d reads mount point %u, "
+                              "which is past the %d this engine has -- it is "
+                              "being left at 0.", id, mountPoint,
+                              SceneObject::NumMountPoints );
+            }
+         }
+
          // HH: Added for Tribes 2 compatibility.
          if( ParticleEmitterData *pe = dynamic_cast< ParticleEmitterData * >( mObj ) )
          {

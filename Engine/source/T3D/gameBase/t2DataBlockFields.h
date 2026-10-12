@@ -29,6 +29,10 @@ namespace T2Protocol
       { "PlayerData", 136, OpRaw, 32, T2DbHeatIncreasePerSec },
 
       { "PlayerData", 269, OpRaw, 32, T2DbCameraMaxDist },
+
+   // ShapeBaseImageData::packData writes the mount point as a whole word, which
+   // is the layout's node 2.
+      { "ShapeBaseImageData", 2, OpRaw, 32, T2DbImageMountPoint },
    };
 }
 

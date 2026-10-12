@@ -1517,6 +1517,87 @@ void ShapeBase::onT2BodyRead(const T2Layout::Body &body)
    Parent::onT2BodyRead(body);
 }
 
+// HH: Added for Tribes 2 compatibility.
+// A ghost body is the only thing that says what is in an image slot.
+void ShapeBase::readT2Images(const T2Layout::Body &body)
+{
+
+   if (!mDataBlock)
+      return;
+
+   const bool trace = Con::getBoolVariable("$pref::Net::traceGhostImages",
+                                           false);
+
+      // Tribes 2 sends eight slots and fills four, which is what this engine has
+      // room for.
+   const U32 slots = getMin((U32)MaxMountedImages, (U32)T2Layout::MaxImages);
+   for (U32 i = 0; i < slots; i++)
+   {
+      const T2Layout::Body::Image &slot = body.images[i];
+      if (!slot.present)
+         continue;
+
+      ShapeBaseImageData *data = NULL;
+      if (slot.hasDataBlock)
+      {
+               // Every image datablock arrives before any ghost, so one that cannot be
+               // found is a decode fault.
+         if (!Sim::findObject(slot.dataBlockId, data) || !data)
+         {
+
+            static Vector<U32> told;
+            bool said = false;
+            for (U32 j = 0; j < told.size() && !said; j++)
+               said = told[j] == slot.dataBlockId;
+            if (!said)
+            {
+               told.push_back(slot.dataBlockId);
+               Con::warnf("T2 image: %s %d slot %d names datablock %d, which "
+                          "is not a ShapeBaseImageData -- the slot is being "
+                          "left as it was.", getClassName(), getId(), i,
+                          slot.dataBlockId);
+            }
+            continue;
+         }
+      }
+
+            // A skin arrives as a net string id or as the name; only the name can be
+            // acted on.
+      NetStringHandle skin = mMountedImageList[i].skinNameHandle;
+      if (slot.hasSkinName && slot.skinName.isNotEmpty())
+         skin = NetStringHandle(slot.skinName.c_str());
+
+      if (trace)
+         Con::printf("T2 image: %s %d slot %d db %d skin %s%s loaded %d ammo "
+                     "%d trigger %d wet %d target %d fire %d",
+                     getClassName(), getId(), i,
+                     slot.hasDataBlock ? slot.dataBlockId : 0,
+                     slot.hasSkinName ? slot.skinName.c_str() : "",
+                     slot.hasSkinTag ? " (tag)" : "", slot.loaded, slot.ammo,
+                     slot.triggerDown, slot.wet, slot.target, slot.fireCount);
+
+      setImage(i, data, skin, slot.loaded, slot.ammo, slot.triggerDown,
+               false, false, false, false, false, false, slot.target);
+
+            // setImageTriggerState is a no-op on a ghost, so the trigger goes on the
+            // slot.
+      setImageLoadedState(i, slot.loaded);
+      setImageAmmoState(i, slot.ammo);
+      setImageWetState(i, slot.wet);
+      setImageTargetState(i, slot.target);
+   }
+}
+
+bool ShapeBase::unpackUpdate(BitStream *stream, bool isInitial)
+{
+
+   if (!Parent::unpackUpdate(stream, isInitial))
+      return false;
+
+   readT2Images(T2Layout::lastBody());
+   return true;
+}
+
 void ShapeBase::updateDamageLevel()
 {
    if (mDamageThread) {

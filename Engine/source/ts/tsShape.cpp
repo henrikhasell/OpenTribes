@@ -546,6 +546,8 @@ void TSShape::init()
    }
 
    initVertexFeatures();
+   // HH: Added for Tribes 2 compatibility.
+   initIflMaterials();
    initMaterialList();
 }
 
@@ -707,6 +709,138 @@ bool TSShape::preloadMaterialList(const Torque::Path &path)
    if (materialList)
       materialList->setTextureLookupPath(path.getPath());
    return true;
+}
+
+// HH: Added for Tribes 2 compatibility.
+/// An .ifl's counts are at 3ds Max's scene rate, which is the rate every Torque
+/// that read these files used.
+static const F32 sIflFrameRate = 30.0f;
+
+/// Under "textures", with the separator Tribes 2's tools wrote turned round.
+static String iflPath(const char *name)
+{
+   String path(name);
+   path.replace('\\', '/');
+   if (!path.startsWith("textures/"))
+      path = String("textures/") + path;
+   return path;
+}
+
+/// An .ifl names its frames as bare file names beside itself.
+static String iflDir(const String &path)
+{
+   const String::SizeType at = path.find('/', 0, String::Right);
+   return at == String::NPos ? String::EmptyString : path.substr(0, at + 1);
+}
+
+/// A frame of an .ifl names a file; the material it becomes is that file
+/// without its extension, which is the shape of every other material name.
+static String iflFrameMaterial(const String &dir, const char *file)
+{
+   String name(file);
+   const String::SizeType dot = name.find('.', 0, String::Right);
+   if (dot != String::NPos)
+      name = name.substr(0, dot);
+   return dir + name;
+}
+
+void TSShape::initIflMaterials()
+{
+   if (iflMaterials.empty() || !materialList)
+      return;
+
+
+   if (!iflFrameOffTimes.empty())
+      return;
+
+   for (S32 i = 0; i < iflMaterials.size(); i++)
+   {
+      IflMaterial &ifl = iflMaterials[i];
+
+      ifl.firstFrame = materialList->size();
+      ifl.firstFrameOffTimeIndex = iflFrameOffTimes.size();
+      ifl.numFrames = 0;
+
+      if (ifl.nameIndex < 0 || ifl.nameIndex >= names.size() ||
+          ifl.materialSlot < 0 || ifl.materialSlot >= (S32)materialList->size())
+      {
+         Con::errorf("TSShape::initIflMaterials: an ifl material names "
+                     "name %d and slot %d, which this shape does not have.",
+                     ifl.nameIndex, ifl.materialSlot);
+         continue;
+      }
+
+      const String path = iflPath(names[ifl.nameIndex].c_str());
+      FileStream *stream = FileStream::createAndOpen(path, Torque::FS::File::Read);
+      if (!stream)
+      {
+         Con::errorf("TSShape::initIflMaterials: cannot open %s, so %s keeps "
+                     "the one frame its name is.", path.c_str(),
+                     materialList->getMaterialName(ifl.materialSlot).c_str());
+         continue;
+      }
+
+      const String dir = iflDir(path.substr(dStrlen("textures/")));
+      F32 offTime = 0.0f;
+      char line[256];
+      while (stream->getStatus() == Stream::Ok)
+      {
+         stream->readLine((U8 *)line, sizeof(line));
+         if (!line[0])
+            continue;
+
+         // "<file> <count>", and a count of none is a count of one.
+         char *count = dStrrchr(line, ' ');
+         S32 held = 1;
+         if (count)
+         {
+            held = dAtoi(count + 1);
+            *count = 0;
+         }
+         if (held < 1)
+            held = 1;
+
+         materialList->push_back(iflFrameMaterial(dir, line),
+                                 materialList->getFlags(ifl.materialSlot));
+         offTime += (F32)held / sIflFrameRate;
+         iflFrameOffTimes.push_back(offTime);
+         ifl.numFrames++;
+      }
+      delete stream;
+
+      if (!ifl.numFrames)
+      {
+         Con::errorf("TSShape::initIflMaterials: %s names no frames.",
+                     path.c_str());
+         continue;
+      }
+
+            // The slot's own name is whatever the exporter left there, often a texture
+            // that does not exist.
+      materialList->setMaterialName(ifl.materialSlot,
+                                    materialList->getMaterialName(ifl.firstFrame));
+   }
+}
+
+S32 TSShape::getIflFrame(const IflMaterial &ifl, F32 time) const
+{
+   if (ifl.numFrames < 2)
+      return 0;
+
+   const S32 last = ifl.firstFrameOffTimeIndex + ifl.numFrames - 1;
+   const F32 total = iflFrameOffTimes[last];
+   if (total <= 0.0f)
+      return 0;
+
+   F32 at = mFmod(time, total);
+   if (at < 0.0f)
+      at += total;
+
+   for (S32 i = 0; i < ifl.numFrames; i++)
+      if (at < iflFrameOffTimes[ifl.firstFrameOffTimeIndex + i])
+         return i;
+
+   return ifl.numFrames - 1;
 }
 
 bool TSShape::buildConvexHull(S32 dl) const
@@ -911,8 +1045,10 @@ void TSShape::assembleShape()
 
    tsalloc.checkGuard();
 
-   // DEPRECATED ifl materials
+   // HH: Modified for Tribes 2 compatibility.
+   // Tribes 2 still ships shapes with the ifl materials Torque calls deprecated.
    ptr32 = tsalloc.copyToShape32(numIflMaterials*5);
+   iflMaterials.set(ptr32,numIflMaterials);
 
    tsalloc.checkGuard();
 
@@ -1311,7 +1447,9 @@ void TSShape::disassembleShape()
    S32 numObjects = tsalloc.set32(objects.size());
    tsalloc.set32(0); // DEPRECATED decals
    S32 numSubShapes = tsalloc.set32(subShapeFirstNode.size());
-   tsalloc.set32(0); // DEPRECATED ifl materials
+   // HH: Modified for Tribes 2 compatibility.
+   // Read but not written: the frames are already appended at load.
+   tsalloc.set32(0); // ifl materials
    S32 numNodeRotations = tsalloc.set32(nodeRotations.size());
    S32 numNodeTranslations = tsalloc.set32(nodeTranslations.size());
    S32 numNodeUniformScales = tsalloc.set32(nodeUniformScales.size());

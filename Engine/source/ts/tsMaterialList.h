@@ -60,6 +60,10 @@ class TSMaterialList : public MaterialList
       NeverEnvMap        = BIT(6),
       NoMipMap           = BIT(7),
       MipMap_ZeroBorder  = BIT(8),
+      // HH: Added for Tribes 2 compatibility.
+      // Set on 62 of base/shapes.vl2's 945 materials, every one of which names
+      // an .ifl.
+      IflMaterial        = BIT(27),
       AuxiliaryMap       = BIT(27) | BIT(28) | BIT(29) | BIT(30) | BIT(31) // DEPRECATED
    };
 
@@ -92,6 +96,10 @@ class TSMaterialList : public MaterialList
 
 protected:
    virtual void mapMaterial( U32 index );
+
+   // HH: Added for Tribes 2 compatibility.
+   /// The material for a slot whose flags mean it cannot share one.
+   BaseMatInstance *createTSMatInstance( U32 index );
 };
 
 
