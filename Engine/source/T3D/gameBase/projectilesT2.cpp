@@ -35,7 +35,9 @@ public:
 
    ProjectileDataT2();
 
-   bool namesGameBaseShape() const { return true; }
+      /// A bullet is seen as the streak it leaves, which is what retail draws
+      /// of one, so the shape its datablock also names is never wanted.
+   bool namesGameBaseShape() const { return streakLength <= 0.0f; }
    bool unpackData(BitStream *stream, U32 classId);
 
    DECLARE_CONOBJECT(ProjectileDataT2);
@@ -109,6 +111,9 @@ class ProjectileT2 : public GameBase
 
    ProjectileDataT2 *mData;
    TSShapeInstance  *mShapeInstance;
+   TSThread         *mAmbientThread;
+   TSThread         *mFlightThread;  ///< Activate, and Maintain after it
+   S32               mMaintainSeq;
    GFXTexHandle      mTexture;
    GFXStateBlockRef  mBoltSB;
 
@@ -118,6 +123,8 @@ class ProjectileT2 : public GameBase
    F32     mAge;              ///< seconds since that body
    bool    mFlying;
 
+   TSThread *startThread(const char *name);
+   void headingMatrix(MatrixF *mat);
    void renderBolt(ObjectRenderInst *ri, SceneRenderState *state,
                    BaseMatInstance *overrideMat);
 
@@ -144,6 +151,9 @@ ConsoleDocClass( ProjectileT2,
 ProjectileT2::ProjectileT2()
    : mData(NULL),
      mShapeInstance(NULL),
+     mAmbientThread(NULL),
+     mFlightThread(NULL),
+     mMaintainSeq(-1),
      mStart(0.0f, 0.0f, 0.0f),
      mHeading(0.0f, 0.0f, 0.0f),
      mHeadingIsVelocity(false),
@@ -190,17 +200,42 @@ bool ProjectileT2::onNewDataBlock(GameBaseData *dptr, bool reload)
    delete mShapeInstance;
    mShapeInstance = NULL;
 
+   mAmbientThread = NULL;
+   mFlightThread = NULL;
+   mMaintainSeq = -1;
+
    if(bool(mData->mShape))
    {
       mShapeInstance = new TSShapeInstance(mData->mShape, isClientObject());
       mObjBox = mData->mShape->bounds;
       resetWorldBox();
+
+         // The spin of a disc is in the shape, not in the transform: it
+         // carries Ambient, Activate and Maintain, and a projectile that
+         // plays none of them is a frozen frame of itself.
+      mAmbientThread = startThread("ambient");
+      mMaintainSeq = mData->mShape->findSequence("maintain");
+      mFlightThread = startThread("activate");
+      if(!mFlightThread && mMaintainSeq >= 0)
+         mFlightThread = startThread("maintain");
    }
    else if(mData->texture.isNotEmpty())
       mTexture.set(String("textures/") + mData->texture,
                    &GFXDefaultStaticDiffuseProfile, "ProjectileT2");
 
    return true;
+}
+
+TSThread *ProjectileT2::startThread(const char *name)
+{
+   const S32 seq = mData->mShape->findSequence(name);
+   if(seq < 0)
+      return NULL;
+
+   TSThread *thread = mShapeInstance->addThread();
+   mShapeInstance->setTimeScale(thread, 1.0f);
+   mShapeInstance->setSequence(thread, seq, 0.0f);
+   return thread;
 }
 
 void ProjectileT2::onT2BodyRead(const T2Layout::Body &body)
@@ -249,13 +284,44 @@ void ProjectileT2::advanceTime(F32 dt)
 
    const F32 speed = mHeadingIsVelocity ? 1.0f : mData->velocity;
    MatrixF mat(true);
-   if(!mHeading.isZero())
-      MathUtils::getMatrixFromForwardVector(mHeading, &mat);
+   headingMatrix(&mat);
    mat.setPosition(mStart + mHeading * (speed * mAge));
    setTransform(mat);
 
-   if(mShapeInstance)
-      mShapeInstance->advanceTime(dt);
+   if(!mShapeInstance)
+      return;
+
+      // Activate runs once and hands over to Maintain, which is the one that
+      // keeps going for as long as the projectile is in the air.
+   if(mFlightThread && mMaintainSeq >= 0 &&
+      (S32)mShapeInstance->getSequence(mFlightThread) != mMaintainSeq &&
+      mShapeInstance->getTime(mFlightThread) + dt >
+         mShapeInstance->getDuration(mFlightThread))
+      mShapeInstance->setSequence(mFlightThread, mMaintainSeq, 0.0f);
+
+   mShapeInstance->advanceTime(dt);
+}
+
+/// A shape flies nose first along its own +Y, with the world's up for its
+/// roll: the trail of a disc runs down its -Y, and a roll taken from any
+/// perpendicular at all turns the disc over at random.
+void ProjectileT2::headingMatrix(MatrixF *mat)
+{
+   VectorF forward = mHeading;
+   if(forward.isZero())
+      return;
+   forward.normalize();
+
+   VectorF right = mCross(forward, Point3F(0.0f, 0.0f, 1.0f));
+   if(right.len() < 0.001f)
+      right = mCross(forward, Point3F(1.0f, 0.0f, 0.0f));
+   right.normalize();
+
+   const VectorF up = mCross(right, forward);
+
+   mat->setColumn(0, right);
+   mat->setColumn(1, forward);
+   mat->setColumn(2, up);
 }
 
 void ProjectileT2::prepRenderImage(SceneRenderState *state)
