@@ -31,6 +31,9 @@ public:
    F32    streakLength;    ///< the tracer a bullet is seen as, where it is
    F32    streakWidth;     ///< seen as one rather than drawn as a shape
    F32    boltSize;        ///< metres across, for a bolt that is neither
+   F32    elasticity;      ///< what a bounce keeps of its speed
+   F32    friction;        ///< what a bounce takes off along the surface
+   F32    gravityMod;      ///< a share of gravity, and zero for a bolt
    String texture;         ///< what to draw it with, where there is no shape
 
    ProjectileDataT2();
@@ -55,6 +58,9 @@ ProjectileDataT2::ProjectileDataT2()
      streakLength(0.0f),
      streakWidth(0.0f),
      boltSize(0.0f),
+     elasticity(0.0f),
+     friction(0.0f),
+     gravityMod(0.0f),
      texture(String::EmptyString)
 {
 }
@@ -76,6 +82,12 @@ bool ProjectileDataT2::unpackData(BitStream *stream, U32 classId)
       streakWidth = value;
    if(T2Layout::lastDataBlockField(T2Layout::T2DbCrossSize, &value))
       boltSize = value;
+   if(T2Layout::lastDataBlockField(T2Layout::T2DbElasticity, &value))
+      elasticity = value;
+   if(T2Layout::lastDataBlockField(T2Layout::T2DbFriction, &value))
+      friction = value;
+   if(T2Layout::lastDataBlockField(T2Layout::T2DbGravityMod, &value))
+      gravityMod = value;
 
       // Every one of these layouts names its shape first and its textures
       // after it, so a projectile with no shape is drawn with the second
@@ -118,12 +130,14 @@ class ProjectileT2 : public GameBase
    GFXStateBlockRef  mBoltSB;
 
    Point3F mStart;            ///< where the body put it
+   Point3F mPosition;         ///< where it has got to since
    VectorF mHeading;          ///< a unit vector, or a whole velocity where
    bool    mHeadingIsVelocity;///< the body carried one
    F32     mAge;              ///< seconds since that body
    bool    mFlying;
 
    TSThread *startThread(const char *name);
+   void step(F32 dt);
    void headingMatrix(MatrixF *mat);
    void renderBolt(ObjectRenderInst *ri, SceneRenderState *state,
                    BaseMatInstance *overrideMat);
@@ -155,6 +169,7 @@ ProjectileT2::ProjectileT2()
      mFlightThread(NULL),
      mMaintainSeq(-1),
      mStart(0.0f, 0.0f, 0.0f),
+     mPosition(0.0f, 0.0f, 0.0f),
      mHeading(0.0f, 0.0f, 0.0f),
      mHeadingIsVelocity(false),
      mAge(0.0f),
@@ -245,7 +260,7 @@ void ProjectileT2::onT2BodyRead(const T2Layout::Body &body)
    if(!body.hasPosition)
       return;
 
-   mStart = body.position;
+   mStart = mPosition = body.position;
    mAge = 0.0f;
 
    if(body.hasVelocity)
@@ -282,10 +297,18 @@ void ProjectileT2::advanceTime(F32 dt)
       return;
    }
 
-   const F32 speed = mHeadingIsVelocity ? 1.0f : mData->velocity;
+      // A projectile the body gave a whole velocity to is one the client is
+      // meant to fly itself, bounces and all; one given a direction holds the
+      // line its datablock's velocity puts it on, and the server says where
+      // it ended.
+   if(mHeadingIsVelocity)
+      step(dt);
+   else
+      mPosition = mStart + mHeading * (mData->velocity * mAge);
+
    MatrixF mat(true);
    headingMatrix(&mat);
-   mat.setPosition(mStart + mHeading * (speed * mAge));
+   mat.setPosition(mPosition);
    setTransform(mat);
 
    if(!mShapeInstance)
@@ -300,6 +323,45 @@ void ProjectileT2::advanceTime(F32 dt)
       mShapeInstance->setSequence(mFlightThread, mMaintainSeq, 0.0f);
 
    mShapeInstance->advanceTime(dt);
+}
+
+/// What a projectile collides with, which is Projectile's own two masks.
+static const U32 sProjectileCollisionMask =
+   TerrainObjectType | InteriorObjectType | StaticShapeObjectType |
+   PlayerObjectType | VehicleObjectType;
+
+/// One step of the flight of a grenade -- which a blaster bolt is underneath,
+/// at no gravity and very nearly all of its speed kept. The bounce is
+/// Projectile::simulate's, because that is the same bounce Tribes 2 hands its
+/// client the elasticity and friction for.
+void ProjectileT2::step(F32 dt)
+{
+   mHeading.z -= 9.81f * mData->gravityMod * dt;
+
+   const Point3F from = mPosition;
+   const Point3F to = from + mHeading * dt;
+
+   RayInfo info;
+   disableCollision();
+   const bool hit = getContainer()->castRay(from, to,
+                                            sProjectileCollisionMask, &info);
+   enableCollision();
+
+   if(!hit)
+   {
+      mPosition = to;
+      return;
+   }
+
+   const Point3F bounced =
+      mHeading - info.normal * (mDot(mHeading, info.normal) * 2.0f);
+   const Point3F tangent =
+      bounced - info.normal * mDot(bounced, info.normal);
+
+   mHeading = (bounced - tangent * mData->friction) * mData->elasticity;
+
+      // Off the surface, so the next step does not start inside it.
+   mPosition = info.point + info.normal * 0.05f;
 }
 
 /// A shape flies nose first along its own +Y, with the world's up for its

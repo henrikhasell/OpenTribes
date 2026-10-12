@@ -89,6 +89,9 @@ namespace T2Layout
       T2DbTracerLength,
       T2DbTracerWidth,
       T2DbCrossSize,
+      T2DbElasticity,
+      T2DbFriction,
+      T2DbGravityMod,
 
       T2DbFieldCount
    };

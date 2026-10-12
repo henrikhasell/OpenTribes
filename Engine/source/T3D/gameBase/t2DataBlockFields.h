@@ -52,9 +52,13 @@ namespace T2Protocol
       { "TracerProjectileData",      34, OpRaw, 32, T2DbTracerLength       },
       { "TracerProjectileData",      35, OpRaw, 32, T2DbTracerWidth        },
 
-   // EnergyProjectileData is a grenade underneath, so its speed is a muzzle
-   // velocity at node 25 and its bolt is the cross at node 33.
+   // EnergyProjectileData is a grenade underneath: its speed is a muzzle
+   // velocity at node 25, the three fields a bounce needs follow it, and its
+   // bolt is the cross at node 33.
       { "EnergyProjectileData",      25, OpRaw, 32, T2DbProjectileVelocity },
+      { "EnergyProjectileData",      26, OpRaw, 32, T2DbElasticity         },
+      { "EnergyProjectileData",      27, OpRaw, 32, T2DbFriction           },
+      { "EnergyProjectileData",      30, OpRaw, 32, T2DbGravityMod         },
       { "EnergyProjectileData",      31, OpRaw, 32, T2DbProjectileLifetime },
       { "EnergyProjectileData",      33, OpRaw, 32, T2DbCrossSize          },
    };
