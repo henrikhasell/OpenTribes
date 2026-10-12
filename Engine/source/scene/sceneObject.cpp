@@ -375,6 +375,22 @@ void SceneObject::setGlobalBounds()
 
 //-----------------------------------------------------------------------------
 
+void SceneObject::onT2BodyRead( const T2Layout::Body &body )
+{
+   if( body.hasScale )
+      setScale( body.scale );
+
+   if( !body.hasPosition )
+      return;
+
+   MatrixF mat( body.hasRotation
+                   ? body.rotation
+                   : ( body.hasYaw ? MatrixF( EulerF( 0.0f, 0.0f, body.yaw ) )
+                                   : getTransform() ) );
+   mat.setPosition( body.position );
+   setTransform( mat );
+}
+
 void SceneObject::setTransform( const MatrixF& mat )
 {
    // This test is a bit expensive so turn it off in release.   

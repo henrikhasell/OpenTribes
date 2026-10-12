@@ -10,10 +10,48 @@
 #include "core/util/str.h"
 #endif
 
+#ifndef _MPOINT3_H_
+#include "math/mPoint3.h"
+#endif
+
+#ifndef _MMATRIX_H_
+#include "math/mMatrix.h"
+#endif
+
 class BitStream;
 
 namespace T2Layout
 {
+   struct Body
+   {
+      bool    hasPosition;
+      Point3F position;
+      bool    hasYaw;
+      F32     yaw;                  ///< radians
+      bool    hasRotation;
+      MatrixF rotation;             ///< the whole orientation, where the body
+      bool    hasScale;
+      Point3F scale;
+   };
+
+   const Body &lastBody();
+
+   enum T2DataBlockField
+   {
+      T2DbJetForce,
+      T2DbUnderwaterJetForce,
+      T2DbUnderwaterVertJetFactor,
+      T2DbJetEnergyDrain,
+      T2DbUnderwaterJetEnergyDrain,
+      T2DbMinJetEnergy,
+      T2DbMaxJetForwardSpeed,
+      T2DbMaxJetHorizontalPercentage,
+
+      T2DbFieldCount
+   };
+
+   bool lastDataBlockField(U32 field, F32 *out);
+
    bool readDataBlock(BitStream *stream, U32 classId);
 
    bool readGhost(BitStream *stream, const char *className,

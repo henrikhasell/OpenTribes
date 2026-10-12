@@ -90,6 +90,8 @@ static S32 sImageTrigger0 = 0;
 static S32 sImageTrigger1 = 1;
 static S32 sJumpJetTrigger = 1;
 static S32 sVehicleDismountTrigger = 2;
+static S32 sJetTrigger = 3;
+static S32 sJetContactTicks = 9;
 
 // Client prediction
 static F32 sMinWarpTicks = 0.5f;       // Fraction of tick at which instant warp occurs
@@ -343,6 +345,15 @@ PlayerData::PlayerData()
    jetMinJumpSpeed = 20;
    jetMaxJumpSpeed = 100;
 
+   jetForce = 0;
+   underwaterJetForce = 0;
+   underwaterVertJetFactor = 1;
+   jetEnergyDrain = 0;
+   underwaterJetEnergyDrain = 0;
+   minJetEnergy = 0;
+   maxJetForwardSpeed = 0;
+   maxJetHorizontalPercentage = 0;
+
    horizMaxSpeed = 80.0f;
    horizResistSpeed = 38.0f;
    horizResistFactor = 1.0f;
@@ -417,6 +428,40 @@ PlayerData::PlayerData()
    physicsPlayerType = StringTable->insert("");
 
    dMemset( actionList, 0, sizeof(actionList) );
+}
+
+bool PlayerData::unpackData(BitStream *stream, U32 classId)
+{
+   if (!Parent::unpackData(stream, classId))
+      return false;
+
+   static const struct { U32 field; F32 PlayerData::*member; } sJetFields[] =
+   {
+      { T2Layout::T2DbJetForce,                 &PlayerData::jetForce                 },
+      { T2Layout::T2DbUnderwaterJetForce,       &PlayerData::underwaterJetForce       },
+      { T2Layout::T2DbUnderwaterVertJetFactor,  &PlayerData::underwaterVertJetFactor  },
+      { T2Layout::T2DbJetEnergyDrain,           &PlayerData::jetEnergyDrain           },
+      { T2Layout::T2DbUnderwaterJetEnergyDrain, &PlayerData::underwaterJetEnergyDrain },
+      { T2Layout::T2DbMinJetEnergy,             &PlayerData::minJetEnergy             },
+      { T2Layout::T2DbMaxJetForwardSpeed,       &PlayerData::maxJetForwardSpeed       },
+      { T2Layout::T2DbMaxJetHorizontalPercentage,
+        &PlayerData::maxJetHorizontalPercentage },
+   };
+
+   for (U32 i = 0; i < sizeof(sJetFields) / sizeof(sJetFields[0]); i++)
+   {
+      F32 value;
+      if (T2Layout::lastDataBlockField(sJetFields[i].field, &value))
+         this->*sJetFields[i].member = value;
+   }
+
+   if (Con::getBoolVariable("$pref::Net::traceDataBlockFields", false))
+      Con::printf("T2 PlayerData %d: jetForce %.4f drain %.4f minEnergy %.4f "
+                  "maxFwd %.4f maxHoriz %.4f", getId(), jetForce,
+                  jetEnergyDrain, minJetEnergy, maxJetForwardSpeed,
+                  maxJetHorizontalPercentage);
+
+   return true;
 }
 
 bool PlayerData::preload(bool server, String &errorStr)
@@ -732,6 +777,41 @@ void PlayerData::initPersistFields()
          "This field also sets the minimum speed for the onLateralImpact callback "
          "to be invoked.\n"
          "@see ShapeBaseData::onLateralImpact()\n");
+
+      addField( "jetForce", TypeF32, Offset(jetForce, PlayerData),
+         "@brief Thrust of the jet pack, for as long as the jet trigger is "
+         "held.\n\n"
+         "Applied along the player's up vector, less whatever the move "
+         "steals for horizontal thrust. A datablock that leaves this at zero "
+         "has no jetpack.\n"
+         "@see maxJetHorizontalPercentage\n" );
+      addField( "underwaterJetForce", TypeF32, Offset(underwaterJetForce, PlayerData),
+         "@brief Thrust of the jet pack in a liquid.\n\n"
+         "@see underwaterVertJetFactor\n" );
+      addField( "underwaterVertJetFactor", TypeF32, Offset(underwaterVertJetFactor, PlayerData),
+         "@brief What a liquid leaves of the pack's lift.\n\n"
+         "The vertical thrust is scaled by this and by jetForce over "
+         "underwaterJetForce, so a factor equal to the ratio of the two "
+         "forces lifts exactly as well under water as above it.\n"
+         "@see underwaterJetForce\n" );
+      addField( "jetEnergyDrain", TypeF32, Offset(jetEnergyDrain, PlayerData),
+         "@brief Energy a tick of thrust costs.\n\n"
+         "@see minJetEnergy\n" );
+      addField( "underwaterJetEnergyDrain", TypeF32, Offset(underwaterJetEnergyDrain, PlayerData),
+         "@brief Energy a tick of thrust costs in a liquid.\n\n"
+         "@see jetEnergyDrain\n" );
+      addField( "minJetEnergy", TypeF32, Offset(minJetEnergy, PlayerData),
+         "@brief Energy the player must have to hold the jet trigger.\n\n"
+         "@see jetEnergyDrain\n" );
+      addField( "maxJetForwardSpeed", TypeF32, Offset(maxJetForwardSpeed, PlayerData),
+         "@brief Speed along the move at which thrust stops going that way.\n\n"
+         "The share of the pack the move may steal falls off linearly with "
+         "the speed the player already has in that direction, and is nothing "
+         "at all at this speed.\n"
+         "@see maxJetHorizontalPercentage\n" );
+      addField( "maxJetHorizontalPercentage", TypeF32, Offset(maxJetHorizontalPercentage, PlayerData),
+         "@brief Most of the pack a move may take for horizontal thrust.\n\n"
+         "@see maxJetForwardSpeed\n" );
 
       addField( "horizMaxSpeed", TypeF32, Offset(horizMaxSpeed, PlayerData),
          "@brief Maximum horizontal speed.\n\n"
@@ -2493,8 +2573,54 @@ void Player::updateMove(const Move* move)
    else
       mContactTimer++;   
 
+   if (mDataBlock->jetForce != 0.0f)
+   {
+      mJetting = mState == MoveState && mDamageState == Enabled &&
+                 mAllowJetJumping && move->trigger[sJetTrigger] &&
+                 mEnergy >= mDataBlock->minJetEnergy;
+
+      if (mJetting)
+      {
+         const bool underWater = mWaterCoverage >= 0.9f;
+
+         mEnergy -= underWater ? mDataBlock->underwaterJetEnergyDrain
+                               : mDataBlock->jetEnergyDrain;
+
+         const F32 force = underWater ? mDataBlock->underwaterJetForce
+                                      : mDataBlock->jetForce;
+
+         VectorF jet(0.0f, 0.0f, force);
+
+         const F32 moveLen = moveVec.len();
+         if (moveLen > 0.0f && mContactTimer >= U32(sJetContactTicks))
+         {
+            const VectorF moveDir = moveVec / moveLen;
+
+            F32 horizontal = 1.0f;
+            const F32 speed = mDot(mVelocity, moveDir);
+            if (speed > 0.0f)
+               horizontal = speed <= mDataBlock->maxJetForwardSpeed
+                               ? 1.0f - speed / mDataBlock->maxJetForwardSpeed
+                               : 0.0f;
+            if (horizontal > mDataBlock->maxJetHorizontalPercentage)
+               horizontal = mDataBlock->maxJetHorizontalPercentage;
+
+            VectorF up;
+            zRot.getColumn(2, &up);
+            jet = up * ((1.0f - horizontal) * force) +
+                  moveDir * (horizontal * force);
+         }
+
+         if (mBuoyancy != 0.0f && mWaterCoverage > 0.25f)
+            jet.z *= (mDataBlock->jetForce / mDataBlock->underwaterJetForce) *
+                     mDataBlock->underwaterVertJetFactor;
+
+         acc += jet * (TickSec / getMass());
+      }
+   }
+
    // Acceleration from Jumping
-   if (move->trigger[sJumpTrigger] && canJump())// !isMounted() && 
+   if (move->trigger[sJumpTrigger] && canJump())// !isMounted() &&
    {
       // Scale the jump impulse base on maxJumpSpeed
       F32 zSpeedScale = mVelocity.z;
@@ -2595,7 +2721,7 @@ void Player::updateMove(const Move* move)
          mEnergy -= mDataBlock->jetJumpEnergyDrain;
       }
    }
-   else
+   else if (mDataBlock->jetForce == 0.0f)
    {
       mJetting = false;
    }
@@ -4831,6 +4957,25 @@ bool Player::displaceObject(const Point3F& displacement)
 
 //----------------------------------------------------------------------------
 
+void Player::onT2BodyRead(const T2Layout::Body &body)
+{
+   if (!body.hasPosition)
+      return;
+
+   const Point3F rot(0.0f, 0.0f, body.hasYaw ? body.yaw : mRot.z);
+
+   delta.pos = body.position;
+   delta.rot = rot;
+   delta.posVec.set(0.0f, 0.0f, 0.0f);
+   delta.rotVec.set(0.0f, 0.0f, 0.0f);
+   delta.warpTicks = 0;
+   delta.dt = 0.0f;
+
+   mPredictionCount = sMaxPredictionTicks;
+
+   setPosition(body.position, rot);
+}
+
 void Player::setPosition(const Point3F& pos,const Point3F& rot)
 {
    MatrixF mat;
@@ -5964,8 +6109,14 @@ void Player::consoleInit()
 	   "@ingroup GameObjects\n");
 
    // Move triggers
-   Con::addVariable("$player::jumpTrigger", TypeS32, &sJumpTrigger, 
+   Con::addVariable("$player::jumpTrigger", TypeS32, &sJumpTrigger,
       "@brief The move trigger index used for player jumping.\n\n"
+	   "@ingroup GameObjects\n");
+   Con::addVariable("$player::jetTrigger", TypeS32, &sJetTrigger,
+      "@brief The move trigger index used for the jet pack.\n\n"
+	   "@ingroup GameObjects\n");
+   Con::addVariable("$player::jetContactTicks", TypeS32, &sJetContactTicks,
+      "@brief Ticks off a surface before the jet pack will thrust sideways.\n\n"
 	   "@ingroup GameObjects\n");
    Con::addVariable("$player::crouchTrigger", TypeS32, &sCrouchTrigger, 
       "@brief The move trigger index used for player crouching.\n\n"

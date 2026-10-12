@@ -490,6 +490,8 @@ class SceneObject : public NetObject, private SceneContainer::Link, public Proce
       /// @param   mat   New transform matrix
       virtual void setTransform( const MatrixF &mat );
 
+      void onT2BodyRead( const T2Layout::Body &body ) override;
+
       /// Sets the scale for the object
       /// @param   scale   Scaling values
       virtual void setScale( const VectorF &scale );
