@@ -213,6 +213,10 @@ void TSMesh::innerRender( TSMaterialList *materials, const TSRenderState &rdata,
    // NOTICE: SFXBB is removed and refraction is disabled!
    //coreRI->backBuffTex = GFX->getSfxBackBuffer();
 
+   // HH: Added for Tribes 2 compatibility.
+   // One run of primitives per pairing of a vertex frame with a material frame.
+   const S32 run = indicesFitFrames() ? getFrameIndex() * primitives.size() : 0;
+
    for ( S32 i = 0; i < primitives.size(); i++ )
    {
       const TSDrawPrimitive &draw = primitives[i];
@@ -242,7 +246,7 @@ void TSMesh::innerRender( TSMaterialList *materials, const TSRenderState &rdata,
 #ifndef TORQUE_OS_MAC
 
       // Get the instancing material if this mesh qualifies.
-      if ( meshType != SkinMeshType && pb->mPrimitiveArray[i].numVertices < smMaxInstancingVerts )
+      if ( meshType != SkinMeshType && pb->mPrimitiveArray[run + i].numVertices < smMaxInstancingVerts )
          matInst = InstancingMaterialHook::getInstancingMat( matInst );
 
 #endif
@@ -263,7 +267,7 @@ void TSMesh::innerRender( TSMaterialList *materials, const TSRenderState &rdata,
 
       ri->matInst = matInst;
       ri->defaultKey = matInst->getStateHint();
-      ri->primBuffIndex = i;
+      ri->primBuffIndex = run + i;
 
       // Translucent materials need the translucent type.
       if ( matInst->getMaterial()->isTranslucent() )
@@ -274,6 +278,13 @@ void TSMesh::innerRender( TSMaterialList *materials, const TSRenderState &rdata,
 
       renderPass->addInst( ri );
    }
+}
+
+// HH: Added for Tribes 2 compatibility.
+void TSMesh::setFrames( S32 frame, S32 matFrame )
+{
+   mFrame = mClamp( frame, 0, getMax( numFrames, 1 ) - 1 );
+   mMatFrame = mClamp( matFrame, 0, getMax( numMatFrames, 1 ) - 1 );
 }
 
 const Point3F * TSMesh::getNormals( S32 firstVert )
@@ -1135,6 +1146,8 @@ TSMesh::TSMesh() : meshType( StandardMeshType )
 
    mDynamic = false;
    mVisibility = 1.0f;
+   mFrame = 0;
+   mMatFrame = 0;
    mHasTVert2 = false;
    mHasColor = false;
 
@@ -2336,7 +2349,13 @@ void TSMesh::_createVBIB( TSVertexBufferHandle &vb, GFXPrimitiveBufferHandle &pb
    }
 #endif
 
-   const bool primsChanged = ( pb.isValid() && pb->mIndexCount != indices.size() );
+   // HH: Modified for Tribes 2 compatibility.
+   // An OpenGL device takes no base vertex, so the indices are written once per
+   // pairing, shifted onto its own vertices.
+   const U32 combinations = indicesFitFrames() ? getFrameCount() : 1;
+   const U32 indexCount = indices.size() * combinations;
+
+   const bool primsChanged = ( pb.isValid() && pb->mIndexCount != indexCount );
    if( primsChanged || pb.isNull() )
    {
       // go through and create PrimitiveInfo array
@@ -2344,6 +2363,7 @@ void TSMesh::_createVBIB( TSVertexBufferHandle &vb, GFXPrimitiveBufferHandle &pb
       GFXPrimitive pInfo;
 
       U32 primitivesSize = primitives.size();
+      for ( U32 c = 0; c < combinations; c++ )
       for ( U32 i = 0; i < primitivesSize; i++ )
       {
          const TSDrawPrimitive & draw = primitives[i];
@@ -2355,7 +2375,7 @@ void TSMesh::_createVBIB( TSVertexBufferHandle &vb, GFXPrimitiveBufferHandle &pb
          case GFXTriangleList:
             pInfo.type = drawType;
             pInfo.numPrimitives = draw.numElements / 3;
-            pInfo.startIndex = draw.start;
+            pInfo.startIndex = c * indices.size() + draw.start;
             // Use the first index to determine which 16-bit address space we are operating in
             pInfo.startVertex = indices[draw.start] & 0xFFFF0000;
             pInfo.minIndex = pInfo.startVertex;
@@ -2366,7 +2386,7 @@ void TSMesh::_createVBIB( TSVertexBufferHandle &vb, GFXPrimitiveBufferHandle &pb
          case GFXTriangleFan:
             pInfo.type = drawType;
             pInfo.numPrimitives = draw.numElements - 2;
-            pInfo.startIndex = draw.start;
+            pInfo.startIndex = c * indices.size() + draw.start;
             // Use the first index to determine which 16-bit address space we are operating in
             pInfo.startVertex = indices[draw.start] & 0xFFFF0000;
             pInfo.minIndex = pInfo.startVertex;
@@ -2380,13 +2400,18 @@ void TSMesh::_createVBIB( TSVertexBufferHandle &vb, GFXPrimitiveBufferHandle &pb
          piArray.push_back( pInfo );
       }
 
-      pb.set( GFX, indices.size(), piArray.size(), GFXBufferTypeStatic );
+      pb.set( GFX, indexCount, piArray.size(), GFXBufferTypeStatic );
 
       U16 *ibIndices = NULL;
       GFXPrimitive *piInput = NULL;
       pb.lock( &ibIndices, &piInput );
 
-      dCopyArray( ibIndices, indices.address(), indices.size() );
+      for ( U32 c = 0; c < combinations; c++ )
+      {
+         const U32 shift = c * vertsPerFrame;
+         for ( U32 i = 0; i < indices.size(); i++ )
+            ibIndices[c * indices.size() + i] = (U16)( indices[i] + shift );
+      }
       dMemcpy( piInput, piArray.address(), piArray.size() * sizeof(GFXPrimitive) );
 
       pb.unlock();
@@ -3011,6 +3036,15 @@ void TSMesh::_convertToAlignedMeshData( TSMeshVertexArray &vertexData, const Vec
    mHasTVert2 = !tverts2.empty();
    AssertFatal(!mHasTVert2 || tverts2.size() == _verts.size(), "Vector of tvert2 elements should be the same size as other vectors");
 
+   // HH: Modified for Tribes 2 compatibility.
+   // Stock Torque walks both arrays by one index, which leaves every vertex past
+   // the first frame with no texture coordinate.
+   const S32 combinations = getFrameCount();
+   const bool framed = combinations > 1 && vertsPerFrame > 0 &&
+                       _verts.size() == vertsPerFrame * getMax( numFrames, 1 );
+   if( framed )
+      mNumVerts = combinations * vertsPerFrame;
+
    // Create the proper array type
    void *aligned_mem = dMalloc_aligned(mVertSize * mNumVerts, 16);
    AssertFatal(aligned_mem, "Aligned malloc failed! Debug!");
@@ -3020,17 +3054,26 @@ void TSMesh::_convertToAlignedMeshData( TSMeshVertexArray &vertexData, const Vec
 
    for(U32 i = 0; i < mNumVerts; i++)
    {
-      __TSMeshVertexBase &v = vertexData[i];
-      v.vert(_verts[i]);
-      v.normal(_norms[i]);
-      v.tangent(tangents[i]);
+      U32 vi = i, ti = i;
+      if( framed )
+      {
+         const S32 slot = i / vertsPerFrame;
+         const S32 at = i % vertsPerFrame;
+         vi = ( slot / getMax( numMatFrames, 1 ) ) * vertsPerFrame + at;
+         ti = ( slot % getMax( numMatFrames, 1 ) ) * vertsPerFrame + at;
+      }
 
-      if(i < tverts.size())
-         v.tvert(tverts[i]);
-      if(mHasTVert2 && i < tverts2.size())
-         v.tvert2(tverts2[i]);
-      if(mHasColor && i < colors.size())
-         v.color(colors[i]);
+      __TSMeshVertexBase &v = vertexData[i];
+      v.vert(_verts[vi]);
+      v.normal(_norms[vi]);
+      v.tangent(tangents[vi]);
+
+      if(ti < tverts.size())
+         v.tvert(tverts[ti]);
+      if(mHasTVert2 && ti < tverts2.size())
+         v.tvert2(tverts2[ti]);
+      if(mHasColor && vi < colors.size())
+         v.color(colors[vi]);
    }
 
    // Now that the data is in the aligned struct, free the Vector memory

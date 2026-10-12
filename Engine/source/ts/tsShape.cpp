@@ -822,13 +822,20 @@ void TSShape::initIflMaterials()
    }
 }
 
+F32 TSShape::getIflDuration(const IflMaterial &ifl) const
+{
+   if (ifl.numFrames < 2)
+      return 0.0f;
+
+   return iflFrameOffTimes[ifl.firstFrameOffTimeIndex + ifl.numFrames - 1];
+}
+
 S32 TSShape::getIflFrame(const IflMaterial &ifl, F32 time) const
 {
    if (ifl.numFrames < 2)
       return 0;
 
-   const S32 last = ifl.firstFrameOffTimeIndex + ifl.numFrames - 1;
-   const F32 total = iflFrameOffTimes[last];
+   const F32 total = getIflDuration(ifl);
    if (total <= 0.0f)
       return 0;
 

@@ -133,11 +133,32 @@ static void noteString(const char *str)
    }
 }
 
+// HH: Added for Tribes 2 compatibility.
+/// Say what every node of a body read, for the class named in
+/// $pref::Net::traceLayout.
+static bool sTrace = false;
+static U32 sTraceBody = 0;
+
+static void traced(S32 at, U32 op, U32 bits, const char *value)
+{
+   if(sTrace)
+      Con::printf("T2 trace %d: node %d op %d bits %d = %s", sTraceBody, at,
+                  op, bits, value);
+}
+
+static void traced(S32 at, U32 op, U32 bits, U32 value)
+{
+   char buf[32];
+   dSprintf(buf, sizeof(buf), "%u", value);
+   traced(at, op, bits, buf);
+}
+
 /// Reading takes a node's value off the wire; writing puts a default one on
 /// it at the same width. Every branch below therefore asks for its value
 /// through one of these two and then treats it the same way, so the writer
 /// cannot drift away from the reader's idea of how wide a node is.
-static U32 xferInt(BitStream *stream, U32 bits, bool write)
+static U32 xferInt(BitStream *stream, U32 bits, bool write, S32 at = -1,
+                   U32 op = 0)
 {
    if(!bits)
       return 0;
@@ -148,7 +169,9 @@ static U32 xferInt(BitStream *stream, U32 bits, bool write)
       return 0;
    }
 
-   return stream->readInt(bits);
+   const U32 value = stream->readInt(bits);
+   traced(at, op, bits, value);
+   return value;
 }
 
 static F32 signedFloatOf(U32 word, U32 bits)
@@ -166,7 +189,7 @@ static Point3F normalVector(U32 word, U32 bits)
                   mSin(theta));
 }
 
-static bool xferFlag(BitStream *stream, bool write)
+static bool xferFlag(BitStream *stream, bool write, S32 at = -1)
 {
    if(write)
    {
@@ -174,7 +197,9 @@ static bool xferFlag(BitStream *stream, bool write)
       return false;
    }
 
-   return stream->readFlag();
+   const bool set = stream->readFlag();
+   traced(at, OpFlag, 1, U32(set));
+   return set;
 }
 
 static const T2GhostFieldRow *fieldAt(const T2DataBlockLayout *layout, S32 at)
@@ -386,6 +411,212 @@ static const T2ImageMap *resolveImages(const T2DataBlockLayout *layout)
    return map;
 }
 
+/// The nodes of one image state, in the order the walk reaches them.
+enum T2StatePart
+{
+   T2StateName,
+   T2StateTransition,
+   T2StateHasTimeout = T2StateTransition + ImageState::TransitionCount,
+   T2StateTimeout,
+   T2StateWaitForTimeout,
+   T2StateFire,
+   T2StateEjectShell,
+   T2StateDirection,
+   T2StateLoaded,
+   T2StateSpin,
+   T2StateRecoil,
+
+   T2StateParts
+};
+
+/// Where an image datablock's states live in its graph.
+struct T2StateMap
+{
+   const T2DataBlockLayout *layout;
+   U32                      states;
+   Vector<S16>              part;   ///< node -> state * T2StateParts + part,
+                                    ///< or -1
+};
+
+static Vector<T2StateMap *> sStateMaps(__FILE__, __LINE__);
+static const T2StateMap *sStates = NULL;
+static Vector<ImageState> sImageStates(__FILE__, __LINE__);
+
+const Vector<ImageState> &lastImageStates()
+{
+   return sImageStates;
+}
+
+   /// A select whose cases all land together is a field rather than a branch.
+static S32 selectValue(const T2DataBlockLayout *layout, S32 at, U32 bits)
+{
+   const T2DataNode *n = nodeAt(layout, at);
+   if(!n || n->op != OpSelect || n->bits != bits || !layout->select || n->a < 0)
+      return -1;
+
+   const S16 to = layout->select[n->a];
+   for(U32 i = 1; i < (1U << bits); i++)
+      if(layout->select[n->a + i] != to)
+         return -1;
+
+   return to;
+}
+
+   /// Named by the shape of the block rather than by an index, with each field
+   /// settled against retail's own datablock.
+static bool matchImageState(const T2DataBlockLayout *layout, S32 top,
+                            S16 *parts)
+{
+   const T2DataNode *name = nodeAt(layout, top);
+   if(!name || name->op != OpString)
+      return false;
+   parts[T2StateName] = S16(top);
+
+   S32 at = name->a;
+   for(U32 i = 0; i < ImageState::TransitionCount; i++)
+   {
+      const S32 next = selectValue(layout, at, 5);
+      if(next < 0)
+         return false;
+      parts[T2StateTransition + i] = S16(at);
+      at = next;
+   }
+
+   // The timeout, behind the flag that says the state has one.
+   const T2DataNode *hasTimeout = nodeAt(layout, at);
+   if(!hasTimeout || hasTimeout->op != OpFlag || hasTimeout->bits != 1)
+      return false;
+   const T2DataNode *timeout = nodeAt(layout, hasTimeout->b);
+   if(!timeout || timeout->op != OpRaw || timeout->bits != 32 ||
+      timeout->a != hasTimeout->a)
+      return false;
+   parts[T2StateHasTimeout] = S16(at);
+   parts[T2StateTimeout] = S16(hasTimeout->b);
+   at = hasTimeout->a;
+
+      // Six flags the body keeps the value of; two are the same in all 211 states
+      // the game's 45 images carry.
+   S16 flag[6];
+   for(U32 i = 0; i < 6; i++)
+   {
+      const T2DataNode *n = nodeAt(layout, at);
+      if(!isBareFlag(n))
+         return false;
+      flag[i] = S16(at);
+      at = n->a;
+   }
+   parts[T2StateWaitForTimeout] = flag[0];
+   parts[T2StateFire]           = flag[1];
+   parts[T2StateEjectShell]     = flag[2];
+   parts[T2StateDirection]      = flag[5];
+
+   // An energy drain, carried the way the timeout is.
+   const T2DataNode *hasDrain = nodeAt(layout, at);
+   if(!hasDrain || hasDrain->op != OpFlag || hasDrain->bits != 1)
+      return false;
+   const T2DataNode *drain = nodeAt(layout, hasDrain->b);
+   if(!drain || drain->op != OpRaw || drain->bits != 32 ||
+      drain->a != hasDrain->a)
+      return false;
+   at = hasDrain->a;
+
+   for(U32 i = 0; i < 3; i++)
+   {
+      const S32 next = selectValue(layout, at, 3);
+      if(next < 0)
+         return false;
+      parts[T2StateLoaded + i] = S16(at);
+      at = next;
+   }
+
+   return true;
+}
+
+   /// The flags that reach the states run one into the next, so a block's place
+   /// in that run is its state number.
+static const T2StateMap *resolveStates(const T2DataBlockLayout *layout)
+{
+   for(U32 i = 0; i < sStateMaps.size(); i++)
+      if(sStateMaps[i]->layout == layout)
+         return sStateMaps[i];
+
+   T2StateMap *map = new T2StateMap;
+   map->layout = layout;
+   map->states = 0;
+   map->part.setSize(layout->count);
+   for(U32 i = 0; i < layout->count; i++)
+      map->part[i] = -1;
+
+   Vector<S16> parts(__FILE__, __LINE__);
+   parts.setSize(layout->count * T2StateParts);
+
+   Vector<bool> isState(__FILE__, __LINE__);
+   isState.setSize(layout->count);
+   for(U32 i = 0; i < layout->count; i++)
+      isState[i] = matchImageState(layout, S32(i), &parts[i * T2StateParts]);
+
+   // The flags that reach them, which are the run the state number comes
+   // from.
+   Vector<S32> heads(__FILE__, __LINE__);
+   for(U32 i = 0; i < layout->count; i++)
+   {
+      const T2DataNode &n = layout->nodes[i];
+      if(n.op == OpFlag && n.bits == 1 && n.b >= 0 &&
+         U32(n.b) < layout->count && isState[n.b])
+         heads.push_back(S32(i));
+   }
+
+   for(U32 i = 0; i < heads.size(); i++)
+   {
+      bool first = true;
+      for(U32 j = 0; j < heads.size() && first; j++)
+         if(layout->nodes[heads[j]].a == heads[i])
+            first = false;
+      if(!first)
+         continue;
+
+      U32 state = 0;
+      for(S32 at = heads[i];
+          state < MaxImageStates && at >= 0 && U32(at) < layout->count &&
+          layout->nodes[at].op == OpFlag && layout->nodes[at].b >= 0 &&
+          U32(layout->nodes[at].b) < layout->count && isState[layout->nodes[at].b];
+          at = layout->nodes[at].a, state++)
+      {
+         const S32 block = layout->nodes[at].b;
+         for(U32 p = 0; p < T2StateParts; p++)
+            map->part[parts[block * T2StateParts + p]] =
+               S16(state * T2StateParts + p);
+      }
+
+      if(state > map->states)
+         map->states = state;
+   }
+
+   if(map->states)
+      Con::printf("T2 layout: %s carries %d image states", layout->name,
+                  map->states);
+
+   sStateMaps.push_back(map);
+   return map;
+}
+
+/// Which state and field this node is, where it is one of a state's.
+static bool stateAt(const T2DataBlockLayout *layout, S32 at, U32 *state,
+                    U32 *part)
+{
+   if(!sStates || sStates->layout != layout || at < 0 ||
+      U32(at) >= sStates->part.size())
+      return false;
+
+   const S16 what = sStates->part[at];
+   if(what < 0)
+      return false;
+
+   *state = U32(what) / T2StateParts;
+   *part = U32(what) % T2StateParts;
+   return true;
+}
+
 /// Which slot and field this node is, where it is one of an image slot's.
 static bool imageAt(const T2DataBlockLayout *layout, S32 at, U32 *slot,
                     U32 *part)
@@ -434,7 +665,7 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
 
          case OpFlag:
          {
-            const bool set = xferFlag(stream, write);
+            const bool set = xferFlag(stream, write, at);
             if(!write)
             {
                const T2GhostFieldRow *row = fieldAt(layout, at);
@@ -446,7 +677,22 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
                   sBody.velocity.set(0.0f, 0.0f, 0.0f);
                }
 
-               U32 slot, part;
+               U32 state, part;
+               if(stateAt(layout, at, &state, &part))
+               {
+                  ImageState &s = sImageStates[state];
+                  switch(part)
+                  {
+                     case T2StateHasTimeout:     s.hasTimeout     = set; break;
+                     case T2StateWaitForTimeout: s.waitForTimeout = set; break;
+                     case T2StateFire:           s.fire           = set; break;
+                     case T2StateEjectShell:     s.ejectShell     = set; break;
+                     case T2StateDirection:      s.direction      = set; break;
+                     default:                                            break;
+                  }
+               }
+
+               U32 slot;
                if(imageAt(layout, at, &slot, &part))
                {
                   Body::Image &image = sBody.images[slot];
@@ -472,7 +718,7 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
 
          case OpCountBits:
          {
-            U32 v = xferInt(stream, n.bits, write);
+            U32 v = xferInt(stream, n.bits, write, at, n.op);
             U32 set = 0;
             for(; v; v >>= 1)
                set += v & 1;
@@ -483,7 +729,7 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
 
          case OpPacketDataOf:
          {
-            const U32 idx = xferInt(stream, n.bits, write);
+            const U32 idx = xferInt(stream, n.bits, write, at, n.op);
             const char *cls = sResolve ? sResolve(sResolveCtx, idx) : NULL;
             if(!cls)
             {
@@ -505,7 +751,22 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
 
          case OpSelect:
          {
-            const U32 v = xferInt(stream, n.bits, write);
+            const U32 v = xferInt(stream, n.bits, write, at, n.op);
+            if(!write)
+            {
+               U32 state, part;
+               if(stateAt(layout, at, &state, &part))
+               {
+                  ImageState &s = sImageStates[state];
+                  if(part >= T2StateTransition &&
+                     part < T2StateTransition + ImageState::TransitionCount)
+                     // Nothing is zero; a way out is the state behind it.
+                     s.transition[part - T2StateTransition] = S32(v) - 1;
+                  else if(part == T2StateLoaded)  s.loaded = v;
+                  else if(part == T2StateSpin)    s.spin   = v;
+                  else if(part == T2StateRecoil)  s.recoil = v;
+               }
+            }
             if(!layout->select || v >= (1U << n.bits))
             {
                Con::warnf("T2 layout: %s node %d select %u out of range",
@@ -518,7 +779,7 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
 
          case OpReadBr:
          {
-            const U32 v = xferInt(stream, n.bits, write);
+            const U32 v = xferInt(stream, n.bits, write, at, n.op);
             if(!layout->select)
             {
                Con::warnf("T2 layout: %s node %d has no select table",
@@ -532,7 +793,7 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
          }
 
          case OpCount:
-            slots[n.b & 7] = xferInt(stream, n.bits, write);
+            slots[n.b & 7] = xferInt(stream, n.bits, write, at, n.op);
             break;
 
          case OpLoop:
@@ -554,7 +815,7 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
 
          case OpDataBlockId:
          {
-            const U32 dbId = xferInt(stream, n.bits, write);
+            const U32 dbId = xferInt(stream, n.bits, write, at, n.op);
             U32 slot, part;
             const bool isImage = !write && imageAt(layout, at, &slot, &part) &&
                                  part == T2ImageBlockId;
@@ -578,7 +839,7 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
          case OpRangedF32:
          case OpRangedU32:
          case OpColor:
-            xferInt(stream, n.bits, write);
+            xferInt(stream, n.bits, write, at, n.op);
             break;
 
          case OpInt:
@@ -595,7 +856,7 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
                   default:                                             break;
                }
 
-            const U32 word = xferInt(stream, n.bits, write);
+            const U32 word = xferInt(stream, n.bits, write, at, n.op);
             if(n.bits == 32 && !write)
             {
                if(!sHaveFirstWord32)
@@ -644,6 +905,10 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
                   else if(part == T2ImageFireCount)
                      sBody.images[slot].fireCount = word;
                }
+
+               U32 state;
+               if(stateAt(layout, at, &state, &part) && part == T2StateTimeout)
+                  dMemcpy(&sImageStates[state].timeout, &word, sizeof(F32));
             }
             break;
          }
@@ -672,6 +937,7 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
             else
             {
                stream->readString(buf);
+               traced(at, n.op, 0, buf);
                noteString(buf);
                sStrings.push_back(String(buf));
                if(!sFirstString[0])
@@ -680,7 +946,11 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
                   sFirstString[sizeof(sFirstString) - 1] = 0;
                }
 
-               U32 slot, part;
+               U32 state, part;
+               if(stateAt(layout, at, &state, &part) && part == T2StateName)
+                  sImageStates[state].name = buf;
+
+               U32 slot;
                if(imageAt(layout, at, &slot, &part) &&
                   part == T2ImageSkinName)
                {
@@ -823,8 +1093,38 @@ static bool runDataBlock(BitStream *stream, U32 classId, bool write)
    for(U32 i = 0; i < T2DbFieldCount; i++)
       sDbHas[i] = false;
 
+   // HH: Added for Tribes 2 compatibility.
+   sStates = resolveStates(layout);
+   sImageStates.setSize(sStates->states);
+   for(U32 i = 0; i < sImageStates.size(); i++)
+   {
+      ImageState &s = sImageStates[i];
+      s.name = String::EmptyString;
+      for(U32 t = 0; t < ImageState::TransitionCount; t++)
+         s.transition[t] = -1;
+      s.hasTimeout = false;
+      s.timeout = 0.0f;
+      s.waitForTimeout = false;
+      s.fire = false;
+      s.ejectShell = false;
+      s.direction = false;
+      s.loaded = 0;
+      s.spin = 0;
+      s.recoil = 0;
+   }
+
+   // HH: Added for Tribes 2 compatibility.
+   const char *traceName = Con::getVariable("$pref::Net::traceLayout");
+   sTrace = !write && traceName && traceName[0] &&
+            !dStricmp(traceName, layout->name);
+   if(sTrace)
+      sTraceBody++;
+
    U32 slots[8] = { 0, 0, 0, 0, 0, 0, 0, 0 };
-   return runGraph(stream, layout, layout->root, slots, 0, false, write);
+   const bool ok = runGraph(stream, layout, layout->root, slots, 0, false,
+                            write);
+   sTrace = false;
+   return ok;
 }
 
 static bool isRawRun(const T2DataBlockLayout *layout, S32 at, U32 words)

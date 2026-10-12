@@ -1304,17 +1304,16 @@ void TSShape::Sequence::read(Stream * s, bool readNameIndex)
       objectMembership.read(s);
    }
    // HH: Modified for Tribes 2 compatibility.
-   // The port keeps no decal or ifl animation, but the bits are on the wire.
+   // The ifl set says which of the shape's ifl materials this sequence runs.
    if (TSShape::smReadVersion>10)
    {
       TSIntegerSet decalMatters;
       decalMatters.read(s);
    }
    if (TSShape::smReadVersion>5)
-   {
-      TSIntegerSet iflMatters;
       iflMatters.read(s);
-   }
+   else
+      iflMatters.clearAll();
    visMatters.read(s);
    frameMatters.read(s);
    matFrameMatters.read(s);
@@ -1361,7 +1360,7 @@ void TSShape::Sequence::write(Stream * s, bool writeNameIndex) const
    scaleMatters.write(s);
    // HH: Modified for Tribes 2 compatibility.
    TSIntegerSet().write(s);
-   TSIntegerSet().write(s);
+   iflMatters.write(s);
    visMatters.write(s);
    frameMatters.write(s);
    matFrameMatters.write(s);

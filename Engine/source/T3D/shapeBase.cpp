@@ -1568,6 +1568,7 @@ void ShapeBase::readT2Images(const T2Layout::Body &body)
          skin = NetStringHandle(slot.skinName.c_str());
 
       if (trace)
+      {
          Con::printf("T2 image: %s %d slot %d db %d skin %s%s loaded %d ammo "
                      "%d trigger %d wet %d target %d fire %d",
                      getClassName(), getId(), i,
@@ -1576,15 +1577,39 @@ void ShapeBase::readT2Images(const T2Layout::Body &body)
                      slot.hasSkinTag ? " (tag)" : "", slot.loaded, slot.ammo,
                      slot.triggerDown, slot.wet, slot.target, slot.fireCount);
 
+         // A slot being emptied carries no datablock to say any of this of.
+         if (data)
+         {
+            const S32 fs = data->fireState;
+            Con::printf("T2 image: %s animated %d flash %d ambient %d spin "
+                        "%d fireState %d seq %d vis %d", data->shapeName,
+                        data->isAnimated[0], data->hasFlash[0],
+                        data->ambientSequence[0], data->spinSequence[0], fs,
+                        fs >= 0 ? data->state[fs].sequence[0] : -1,
+                        fs >= 0 ? data->state[fs].sequenceVis[0] : -1);
+         }
+      }
+
       setImage(i, data, skin, slot.loaded, slot.ammo, slot.triggerDown,
                false, false, false, false, false, false, slot.target);
 
-            // setImageTriggerState is a no-op on a ghost, so the trigger goes on the
-            // slot.
+
       setImageLoadedState(i, slot.loaded);
       setImageAmmoState(i, slot.ammo);
       setImageWetState(i, slot.wet);
       setImageTargetState(i, slot.target);
+
+            // setImageTriggerState gives up on a ghost, so the trigger goes on the
+            // slot.
+      mMountedImageList[i].triggerDown = slot.triggerDown;
+
+            // A client waits for this count to go up; firing is the server's to
+            // decide.
+      if (slot.fireCount != mMountedImageList[i].fireCount)
+      {
+         mMountedImageList[i].fireCount = slot.fireCount;
+         setImageState(i, U32(data->fireState), true);
+      }
    }
 }
 

@@ -841,7 +841,7 @@ void TSShapeInstance::animate(S32 dl)
       return;
 
    // HH: Added for Tribes 2 compatibility.
-   // An ifl material has no thread to run on, so it is moved on here.
+   // An ifl no sequence claims runs on the clock and has no thread to walk.
    animateIfls();
 
    S32 ss = mShape->details[dl].subShapeNum;
