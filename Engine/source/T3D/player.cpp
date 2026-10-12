@@ -435,7 +435,7 @@ bool PlayerData::unpackData(BitStream *stream, U32 classId)
    if (!Parent::unpackData(stream, classId))
       return false;
 
-   static const struct { U32 field; F32 PlayerData::*member; } sJetFields[] =
+   static const struct { U32 field; F32 PlayerData::*member; } sFields[] =
    {
       { T2Layout::T2DbJetForce,                 &PlayerData::jetForce                 },
       { T2Layout::T2DbUnderwaterJetForce,       &PlayerData::underwaterJetForce       },
@@ -446,13 +446,14 @@ bool PlayerData::unpackData(BitStream *stream, U32 classId)
       { T2Layout::T2DbMaxJetForwardSpeed,       &PlayerData::maxJetForwardSpeed       },
       { T2Layout::T2DbMaxJetHorizontalPercentage,
         &PlayerData::maxJetHorizontalPercentage },
+      { T2Layout::T2DbCameraMaxDist,            &PlayerData::cameraMaxDist            },
    };
 
-   for (U32 i = 0; i < sizeof(sJetFields) / sizeof(sJetFields[0]); i++)
+   for (U32 i = 0; i < sizeof(sFields) / sizeof(sFields[0]); i++)
    {
       F32 value;
-      if (T2Layout::lastDataBlockField(sJetFields[i].field, &value))
-         this->*sJetFields[i].member = value;
+      if (T2Layout::lastDataBlockField(sFields[i].field, &value))
+         this->*sFields[i].member = value;
    }
 
    if (Con::getBoolVariable("$pref::Net::traceDataBlockFields", false))
@@ -2196,6 +2197,9 @@ void Player::allowAllPoses()
    mAllowCrouching = true;
    mAllowProne = true;
    mAllowSwimming = true;
+
+   mT2ControlFlagA = false;
+   mT2ControlFlagB = false;
 }
 
 void Player::updateMove(const Move* move)
@@ -4973,6 +4977,9 @@ void Player::onT2BodyRead(const T2Layout::Body &body)
 
    mPredictionCount = sMaxPredictionTicks;
 
+   if (body.hasVelocity)
+      mVelocity = body.velocity;
+
    setPosition(body.position, rot);
 }
 
@@ -5638,16 +5645,6 @@ void Player::writePacketData(GameConnection *connection, BitStream *stream)
       stream->write(mVelocity.y);
       stream->write(mVelocity.z);
       stream->writeInt(mJumpSurfaceLastContact > 15 ? 15 : mJumpSurfaceLastContact, 4);
-
-      if (stream->writeFlag(!mAllowSprinting || !mAllowCrouching || !mAllowProne || !mAllowJumping || !mAllowJetJumping || !mAllowSwimming))
-      {
-         stream->writeFlag(mAllowJumping);
-         stream->writeFlag(mAllowJetJumping);
-         stream->writeFlag(mAllowSprinting);
-         stream->writeFlag(mAllowCrouching);
-         stream->writeFlag(mAllowProne);
-         stream->writeFlag(mAllowSwimming);
-      }
    }
    stream->write(mHead.x);
    stream->write(mHead.z);
@@ -5662,6 +5659,9 @@ void Player::writePacketData(GameConnection *connection, BitStream *stream)
    }
    else
       stream->writeFlag(false);
+
+   stream->writeFlag(mT2ControlFlagA);
+   stream->writeFlag(mT2ControlFlagB);
 }
 
 
@@ -5689,25 +5689,6 @@ void Player::readPacketData(GameConnection *connection, BitStream *stream)
       stream->setCompressionPoint(pos);
       delta.pos = pos;
       mJumpSurfaceLastContact = stream->readInt(4);
-
-      if (stream->readFlag())
-      {
-         mAllowJumping = stream->readFlag();
-         mAllowJetJumping = stream->readFlag();
-         mAllowSprinting = stream->readFlag();
-         mAllowCrouching = stream->readFlag();
-         mAllowProne = stream->readFlag();
-         mAllowSwimming = stream->readFlag();
-      }
-      else
-      {
-         mAllowJumping = true;
-         mAllowJetJumping = true;
-         mAllowSprinting = true;
-         mAllowCrouching = true;
-         mAllowProne = true;
-         mAllowSwimming = true;
-      }
    }
    else
       pos = delta.pos;
@@ -5723,10 +5704,14 @@ void Player::readPacketData(GameConnection *connection, BitStream *stream)
       S32 gIndex = stream->readInt(NetConnection::GhostIdBitSize);
       ShapeBase* obj = static_cast<ShapeBase*>(connection->resolveGhost(gIndex));
       setControlObject(obj);
-      obj->readPacketData(connection, stream);
+      if (obj)
+         obj->readPacketData(connection, stream);
    }
    else
       setControlObject(0);
+
+   mT2ControlFlagA = stream->readFlag();
+   mT2ControlFlagB = stream->readFlag();
 }
 
 

@@ -32,6 +32,8 @@ namespace T2Layout
       MatrixF rotation;             ///< the whole orientation, where the body
       bool    hasScale;
       Point3F scale;
+      bool    hasVelocity;
+      Point3F velocity;             ///< metres a second, world space
    };
 
    const Body &lastBody();
@@ -46,6 +48,7 @@ namespace T2Layout
       T2DbMinJetEnergy,
       T2DbMaxJetForwardSpeed,
       T2DbMaxJetHorizontalPercentage,
+      T2DbCameraMaxDist,
 
       T2DbFieldCount
    };
@@ -83,7 +86,6 @@ namespace T2Layout
 
    bool firstWord32(U32 *out);
 
-   /// Every string the last ghost body read, in the order it read them.
    const Vector<String> &lastStrings();
 
    /// Every 32-bit word the last ghost body read, in the order it read them.

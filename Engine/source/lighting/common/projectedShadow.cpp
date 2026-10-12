@@ -43,6 +43,8 @@
 #include "materials/materialFeatureTypes.h"
 #include "console/console.h"
 #include "postFx/postEffect.h"
+#include "materials/shaderData.h"
+#include "gfx/sim/gfxStateBlockData.h"
 #include "lighting/basic/basicLightManager.h"
 #include "lighting/shadowMap/shadowMatHook.h"
 #include "materials/materialManager.h"
@@ -453,6 +455,96 @@ BaseMatInstance* ProjectedShadow::_getShadowMaterial( BaseMatInstance *inMat )
    return hook->getShadowMat( ShadowType_Spot );
 }
 
+static void setField( SimObject *obj, const char *field, const char *value,
+                      const char *array = NULL )
+{
+   obj->setDataField( StringTable->insert( field ), array, value );
+}
+
+template< class T >
+static T *registerDefault( T *obj, const char *name )
+{
+   if( !obj->registerObject( name ) )
+   {
+      delete obj;
+      return NULL;
+   }
+
+   Sim::getRootGroup()->addObject( obj );
+   return obj;
+}
+
+static ShaderData *createFilterShader( const char *name, const char *blurDir )
+{
+   ShaderData *shader = new ShaderData;
+   setField( shader, "DXVertexShaderFile",
+             "shaders/common/lighting/basic/shadowFilterV.hlsl" );
+   setField( shader, "DXPixelShaderFile",
+             "shaders/common/lighting/basic/shadowFilterP.hlsl" );
+   setField( shader, "OGLVertexShaderFile",
+             "shaders/common/lighting/basic/gl/shadowFilterV.glsl" );
+   setField( shader, "OGLPixelShaderFile",
+             "shaders/common/lighting/basic/gl/shadowFilterP.glsl" );
+   setField( shader, "samplerNames", "$diffuseMap", "0" );
+   setField( shader, "defines", blurDir );
+   setField( shader, "pixVersion", "2.0" );
+
+   return registerDefault( shader, name );
+}
+
+static GFXStateBlockData *createPostFxStateBlock()
+{
+   GFXStateBlockData *block;
+   if( Sim::findObject( "PFX_DefaultStateBlock", block ) )
+      return block;
+
+   block = new GFXStateBlockData;
+   setField( block, "zDefined", "true" );
+   setField( block, "zEnable", "false" );
+   setField( block, "zWriteEnable", "false" );
+
+   SimObject *sampler;
+   if( Sim::findObject( "SamplerClampLinear", sampler ) )
+   {
+      setField( block, "samplersDefined", "true" );
+      setField( block, "samplerStates", "SamplerClampLinear", "0" );
+   }
+
+   return registerDefault( block, "PFX_DefaultStateBlock" );
+}
+
+static PostEffect *createShadowFilter()
+{
+   if( !createFilterShader( "BL_ShadowFilterShaderV",
+                            "BLUR_DIR=float2(1.0,0.0)" ) ||
+       !createFilterShader( "BL_ShadowFilterShaderH",
+                            "BLUR_DIR=float2(0.0,1.0)" ) ||
+       !createPostFxStateBlock() )
+      return NULL;
+
+   PostEffect *vertical = new PostEffect;
+   setField( vertical, "shader", "BL_ShadowFilterShaderV" );
+   setField( vertical, "stateBlock", "PFX_DefaultStateBlock" );
+   setField( vertical, "targetClear", "PFXTargetClear_OnDraw" );
+   setField( vertical, "targetClearColor", "0 0 0 0" );
+   setField( vertical, "texture", "$inTex", "0" );
+   setField( vertical, "target", "$outTex" );
+   if( !registerDefault( vertical, "BL_ShadowFilterPostFx" ) )
+      return NULL;
+
+   PostEffect *horizontal = new PostEffect;
+   setField( horizontal, "shader", "BL_ShadowFilterShaderH" );
+   setField( horizontal, "stateBlock", "PFX_DefaultStateBlock" );
+   setField( horizontal, "texture", "$inTex", "0" );
+   setField( horizontal, "target", "$outTex" );
+   if( horizontal->registerObject() )
+      vertical->addObject( horizontal );
+   else
+      delete horizontal;
+
+   return vertical;
+}
+
 void ProjectedShadow::_renderToTexture( F32 camDist, const TSRenderState &rdata )
 {
    PROFILE_SCOPE( ProjectedShadow_RenderToTexture );
@@ -529,12 +621,21 @@ void ProjectedShadow::_renderToTexture( F32 camDist, const TSRenderState &rdata 
    // If we're close enough then filter the shadow.
    if ( camDist < BasicLightManager::getShadowFilterDistance() )
    {
-      if ( !smShadowFilter )
+      static bool sAskedForFilter = false;
+      if ( !smShadowFilter && !sAskedForFilter )
       {
-         PostEffect *filter = NULL;
+         sAskedForFilter = true;
 
+         PostEffect *filter = NULL;
          if ( !Sim::findObject( "BL_ShadowFilterPostFx", filter ) )
-            Con::errorf( "ProjectedShadow::_renderToTexture() - 'BL_ShadowFilterPostFx' not found!" );
+         {
+            filter = createShadowFilter();
+            if ( filter )
+               Con::warnf( "ProjectedShadow: no BL_ShadowFilterPostFx was set "
+                           "up in script; using a default one." );
+            else
+               Con::errorf( "ProjectedShadow::_renderToTexture() - 'BL_ShadowFilterPostFx' not found!" );
+         }
 
          smShadowFilter = filter;
       }

@@ -22,6 +22,8 @@ namespace T2Protocol
       { "PlayerData", 50, OpRaw, 32, T2DbMinJetEnergy               },
       { "PlayerData", 51, OpRaw, 32, T2DbMaxJetForwardSpeed         },
       { "PlayerData", 52, OpRaw, 32, T2DbMaxJetHorizontalPercentage },
+
+      { "PlayerData", 269, OpRaw, 32, T2DbCameraMaxDist },
    };
 }
 

@@ -472,7 +472,10 @@ protected:
    bool  mAllowCrouching;
    bool  mAllowProne;
    bool  mAllowSwimming;
-   
+
+   bool  mT2ControlFlagA;
+   bool  mT2ControlFlagB;
+
    S32 mContactTimer;               ///< Ticks since last contact
 
    Point3F mJumpSurfaceNormal;      ///< Normal of the surface the player last jumped on

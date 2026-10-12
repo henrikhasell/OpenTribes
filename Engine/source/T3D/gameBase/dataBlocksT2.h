@@ -11,6 +11,12 @@
 #ifndef _STUBST2_H_
 #include "T3D/gameBase/stubsT2.h"
 #endif
+#ifndef _TSSHAPE_H_
+#include "ts/tsShape.h"
+#endif
+#ifndef _RESOURCE_H_
+#include "core/resource.h"
+#endif
 
 class DataBlockT2 : public GameBaseData
 {
@@ -19,15 +25,23 @@ class DataBlockT2 : public GameBaseData
 public:
    DataBlockT2();
 
+   StringTableEntry  shapeName;
+   Resource<TSShape> mShape;
+
+   virtual bool namesGameBaseShape() const { return false; }
+
+   bool preload(bool server, String &errorStr);
+
    DECLARE_CONOBJECT(DataBlockT2);
 };
 
-#define IMPLEMENT_DATABLOCK_T2( className )                                 \
+#define IMPLEMENT_DATABLOCK_T2_SHAPE( className, shaped )                   \
    class className : public DataBlockT2                                     \
    {                                                                        \
       typedef DataBlockT2 Parent;                                           \
    public:                                                                  \
       DECLARE_CONOBJECT(className);                                         \
+      bool namesGameBaseShape() const { return shaped; }                    \
       bool unpackData(BitStream *stream, U32 classId)                     \
       {                                                                     \
          StubT2::warn("datablock", getClassName());                         \
@@ -37,5 +51,8 @@ public:
    IMPLEMENT_CO_DATABLOCK_V1(className);                                     \
    ConsoleDocClass( className, "@brief A Tribes 2 datablock the port reads " \
                                "by its layout.\n\n@internal" )
+
+#define IMPLEMENT_DATABLOCK_T2( className )                                 \
+   IMPLEMENT_DATABLOCK_T2_SHAPE( className, false )
 
 #endif

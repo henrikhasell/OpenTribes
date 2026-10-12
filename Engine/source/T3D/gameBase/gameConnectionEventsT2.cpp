@@ -8,6 +8,13 @@
 #include "sim/netConnection.h"
 #include "T3D/gameBase/gameConnection.h"
 #include "T3D/gameBase/t2Layout.h"
+#include "T3D/shapeBase.h"
+#include "T3D/player.h"
+#include "core/crc.h"
+#include "core/stream/fileStream.h"
+#include "ts/tsShape.h"
+#include "ts/tsMaterialList.h"
+#include "T3D/gameBase/dataBlocksT2.h"
 
 
 //----------------------------------------------------------------------------
@@ -301,9 +308,58 @@ public:
       mWhole = stream->readFlag();
    }
 
+   static bool sum(const char *path, U32 &crc, U32 &total)
+   {
+      FileStream *file = FileStream::createAndOpen(path, Torque::FS::File::Read);
+      if(!file)
+         return false;
+
+      crc = CRC::calculateCRCStream(file, crc);
+      total += file->getStreamSize();
+      delete file;
+      return true;
+   }
+
    void process(NetConnection *conn)
    {
-      conn->postNetEvent(new CRCChallengeResponseEvent(mSeed, 0, mLength));
+      U32 crc = mSeed;
+      U32 total = 0;
+
+      for(U32 id = DataBlockObjectIdFirst; id <= DataBlockObjectIdLast; id++)
+      {
+         StringTableEntry   name  = NULL;
+         const TSShape     *shape = NULL;
+
+         if(ShapeBaseData *data = dynamic_cast<ShapeBaseData *>(Sim::findObject(id)))
+         {
+            name  = data->shapeName;
+            shape = data->mShape;
+         }
+         else if(DataBlockT2 *stub = dynamic_cast<DataBlockT2 *>(Sim::findObject(id)))
+         {
+            name  = stub->shapeName;
+            shape = stub->mShape;
+         }
+
+         if(!shape)
+            continue;
+
+         if(!sum(T2Layout::resourcePath(name, "shapes/"), crc, total))
+            continue;
+
+         if(!mWhole || dynamic_cast<PlayerData *>(Sim::findObject(id)))
+            continue;
+
+         const TSMaterialList *materials = shape->materialList;
+         for(U32 i = 0; materials && i < materials->size(); i++)
+         {
+            const String &texture = materials->getMaterialName(i);
+            if(!sum(T2Layout::resourcePath(texture + ".png", "textures/"), crc, total))
+               sum(T2Layout::resourcePath(texture + ".bm8", "textures/"), crc, total);
+         }
+      }
+
+      conn->postNetEvent(new CRCChallengeResponseEvent(crc + total, total, mLength));
    }
 
    DECLARE_CONOBJECT(CRCChallengeEvent);

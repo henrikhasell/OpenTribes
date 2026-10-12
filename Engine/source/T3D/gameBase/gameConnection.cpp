@@ -245,10 +245,6 @@ GameConnection::GameConnection()
    mBlackOutTimeMS = 0;
    mBlackOutStartTimeMS = 0;
    mFadeToBlack = false;
-
-   // first person
-   mFirstPerson = true;
-   mUpdateFirstPerson = false;
 }
 
 GameConnection::~GameConnection()
@@ -410,7 +406,8 @@ void GameConnection::onDisconnect(const char *reason)
 {
    if(isConnectionToServer())
    {
-      Con::printf("Connection with server lost.");
+      Con::printf("Connection with server lost: %s",
+         reason && reason[0] ? reason : "no reason given");
       onConnectionDropped_callback(reason);
       ::onConnectionToServerLost_callback(reason);
       mMoveList->init();
@@ -648,11 +645,13 @@ void GameConnection::setCameraObject(GameBase *obj)
    }
 }
 
+static bool sFirstPerson = true;
+
 GameBase* GameConnection::getCameraObject()
 {
    // If there is no camera object, or if we're first person, return
    // the control object.
-   if( !mControlObject.isNull() && (mCameraObject.isNull() || mFirstPerson))
+   if( !mControlObject.isNull() && (mCameraObject.isNull() || sFirstPerson))
       return mControlObject;
    return mCameraObject;
 }
@@ -677,7 +676,7 @@ bool GameConnection::getControlCameraTransform(F32 dt, MatrixF* mat)
 
    if (dt) 
    {
-      if (mFirstPerson || obj->onlyFirstPerson()) 
+      if (sFirstPerson || obj->onlyFirstPerson())
       {
          if (mCameraPos > 0)
             if ((mCameraPos -= mCameraSpeed * dt) <= 0)
@@ -691,7 +690,7 @@ bool GameConnection::getControlCameraTransform(F32 dt, MatrixF* mat)
       }
    }
 
-   if (!sChaseQueueSize || mFirstPerson || obj->onlyFirstPerson())
+   if (!sChaseQueueSize || sFirstPerson || obj->onlyFirstPerson())
       obj->getCameraTransform(&mCameraPos,mat);
    else 
    {
@@ -809,8 +808,7 @@ bool GameConnection::isControlObjectRotDampedCamera()
 
 void GameConnection::setFirstPerson(bool firstPerson)
 {
-   mFirstPerson = firstPerson;
-   mUpdateFirstPerson = true;
+   sFirstPerson = firstPerson;
 }
 
 
@@ -892,7 +890,7 @@ void GameConnection::handleRecordedBlock(U32 type, U32 size, void *data)
          if(size >= sizeof(CameraFovBlock))
          {
             const CameraFovBlock *block = (const CameraFovBlock *) data;
-            mFirstPerson = block->firstPerson != 0;
+            sFirstPerson = block->firstPerson != 0;
             mCameraFov = block->cameraFov;
          }
          break;
@@ -919,7 +917,7 @@ void GameConnection::writeDemoStartBlock(ResizeBitStream *stream)
       }
    }
    stream->writeFlag(false);
-   stream->write(mFirstPerson);
+   stream->write(sFirstPerson);
    stream->write(mCameraPos);
    stream->write(mCameraSpeed);
 
@@ -1014,7 +1012,7 @@ bool GameConnection::readDemoStartBlock(BitStream *stream)
          return false;
    }
 
-   stream->read(&mFirstPerson);
+   stream->read(&sFirstPerson);
    stream->read(&mCameraPos);
    stream->read(&mCameraSpeed);
 
@@ -1206,7 +1204,7 @@ void GameConnection::readPacket(BitStream *bstream)
       }
 
       if ( bstream->readFlag() ) // gIndex != -1
-      {         
+      {
          if ( bstream->readFlag() ) // mMoveList->isMismatch() || mControlForceMismatch
          {
             // the control object is dirty...so we get an update:
@@ -1233,16 +1231,7 @@ void GameConnection::readPacket(BitStream *bstream)
 #ifdef TORQUE_NET_STATS
             U32 beginSize = bstream->getBitPosition();
 #endif
-            // HH: Modified for Tribes 2 compatibility. Control data is laid
-            // out Tribes 2's way on every connection, loopback included --
-            // there is no second, Torque-native format to pick.
-            if(!T2Layout::readPacketData(bstream, obj->getClassName(),
-                  ghostClassNameT2, this))
-            {
-               Con::warnf("Dropped a packet carrying %s control data, which "
-                          "we have no layout for.", obj->getClassName());
-               return;
-            }
+            obj->readPacketData(this, bstream);
 #ifdef TORQUE_NET_STATS
             obj->getClassRep()->updateNetStatReadData(bstream->getBitPosition() - beginSize);
 #endif
@@ -1428,9 +1417,7 @@ void GameConnection::writePacket(BitStream *bstream, PacketNotify *note)
 #ifdef TORQUE_NET_STATS
             U32 beginSize = bstream->getBitPosition();
 #endif
-            // HH: Modified for Tribes 2 compatibility.
-            T2Layout::writePacketData(bstream, mControlObject->getClassName(),
-               ghostClassNameT2, this);
+            mControlObject->writePacketData(this, bstream);
 #ifdef TORQUE_NET_STATS
             mControlObject->getClassRep()->updateNetStatWriteData(bstream->getBitPosition() - beginSize);
 #endif
@@ -2142,6 +2129,14 @@ DefineEngineMethod( GameConnection, delete, void, (const char* reason), (""),
 //--------------------------------------------------------------------------
 void GameConnection::consoleInit()
 {
+   Con::addVariable("firstPerson", TypeBool, &sFirstPerson,
+      "@brief Whether the control object is viewed from its own eyes.\n\n"
+
+      "Tribes 2's scripts toggle this to change the camera, and read it to "
+      "decide what of the HUD to show.\n\n"
+
+      "@ingroup Networking\n");
+
    Con::addVariable("$pref::Net::LagThreshold", TypeS32, &mLagThresholdMS,
       "@brief How long between received packets before the client is considered as lagging (in ms).\n\n"
 
