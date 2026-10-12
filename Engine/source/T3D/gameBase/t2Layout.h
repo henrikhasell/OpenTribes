@@ -38,6 +38,9 @@ namespace T2Layout
       Point3F scale;
       bool    hasVelocity;
       Point3F velocity;             ///< metres a second, world space
+      bool    hasDirection;
+      Point3F direction;            ///< a unit vector, where the body says
+                                    ///< which way without saying how fast
       bool    hasDamage;
       F32     damage;               ///< share of the object's maxDamage
 
@@ -81,6 +84,11 @@ namespace T2Layout
       T2DbHeatIncreasePerSec,
       T2DbCameraMaxDist,
       T2DbImageMountPoint,
+      T2DbProjectileVelocity,
+      T2DbProjectileLifetime,
+      T2DbTracerLength,
+      T2DbTracerWidth,
+      T2DbCrossSize,
 
       T2DbFieldCount
    };

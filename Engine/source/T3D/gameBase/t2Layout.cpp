@@ -49,8 +49,11 @@ static bool sDbHas[T2DbFieldCount] = { false };
 static S32 sTransformAt = -1;
 static S32 sAffineAt = -1;
 static S32 sScaleAt = -1;
+static S32 sPointAt = -1;
+static S32 sVelocityAt = -1;
 static bool sQuatNegative = false;
 static F32 sSpeed = 0.0f;
+static F32 sPhi = 0.0f;
 static const void *sFieldsLayout = NULL;
 
 const Body &lastBody()
@@ -834,8 +837,26 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
             break;
          }
 
-         case OpFloat:
          case OpSignedFloat:
+         {
+            const U32 word = xferInt(stream, n.bits, write, at, n.op);
+            const T2GhostFieldRow *row = write ? NULL : fieldAt(layout, at);
+
+               // readNormalVector is a pair of signed floats and nothing else,
+               // so the second of them is where the vector exists.
+            if(row && row->field == T2FieldNormalPhi)
+               sPhi = signedFloatOf(word, n.bits) * M_PI_F;
+            if(row && row->field == T2FieldNormalTheta)
+            {
+               const F32 theta = signedFloatOf(word, n.bits) * M_HALFPI_F;
+               sBody.direction.set(mSin(sPhi) * mCos(theta),
+                                   mCos(sPhi) * mCos(theta), mSin(theta));
+               sBody.hasDirection = true;
+            }
+            break;
+         }
+
+         case OpFloat:
          case OpRangedF32:
          case OpRangedU32:
          case OpColor:
@@ -850,10 +871,12 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
             if(row)
                switch(row->field)
                {
-                  case T2FieldTransform: sTransformAt = sWords.size(); break;
-                  case T2FieldAffine:    sAffineAt    = sWords.size(); break;
-                  case T2FieldScale:     sScaleAt     = sWords.size(); break;
-                  default:                                             break;
+                  case T2FieldTransform:     sTransformAt = sWords.size(); break;
+                  case T2FieldAffine:        sAffineAt    = sWords.size(); break;
+                  case T2FieldScale:         sScaleAt     = sWords.size(); break;
+                  case T2FieldPointWords:    sPointAt     = sWords.size(); break;
+                  case T2FieldVelocityWords: sVelocityAt  = sWords.size(); break;
+                  default:                                                 break;
                }
 
             const U32 word = xferInt(stream, n.bits, write, at, n.op);
@@ -1244,6 +1267,20 @@ static void assembleBody()
       sBody.hasPosition = true;
    }
 
+   if(sPointAt >= 0 && sWords.size() >= U32(sPointAt) + 3)
+   {
+      sBody.position.set(wordFloat(sPointAt), wordFloat(sPointAt + 1),
+                         wordFloat(sPointAt + 2));
+      sBody.hasPosition = true;
+   }
+
+   if(sVelocityAt >= 0 && sWords.size() >= U32(sVelocityAt) + 3)
+   {
+      sBody.velocity.set(wordFloat(sVelocityAt), wordFloat(sVelocityAt + 1),
+                         wordFloat(sVelocityAt + 2));
+      sBody.hasVelocity = true;
+   }
+
    if(sScaleAt >= 0 && sWords.size() >= U32(sScaleAt) + 3)
    {
       sBody.scale.set(wordFloat(sScaleAt), wordFloat(sScaleAt + 1),
@@ -1266,6 +1303,7 @@ static bool runGhost(BitStream *stream, const char *className,
    sBody.hasRotation = false;
    sBody.hasScale = false;
    sBody.hasVelocity = false;
+   sBody.hasDirection = false;
    sBody.hasDamage = false;
    for(U32 i = 0; i < MaxImages; i++)
    {
@@ -1287,8 +1325,11 @@ static bool runGhost(BitStream *stream, const char *className,
    sTransformAt = -1;
    sAffineAt = -1;
    sScaleAt = -1;
+   sPointAt = -1;
+   sVelocityAt = -1;
    sQuatNegative = false;
    sSpeed = 0.0f;
+   sPhi = 0.0f;
    resolveGhostFields(className);
    bool found = false;
    const bool ok = runNamed(stream, className, sT2GhostsRecovered,

@@ -33,6 +33,30 @@ namespace T2Protocol
    // ShapeBaseImageData::packData writes the mount point as a whole word, which
    // is the layout's node 2.
       { "ShapeBaseImageData", 2, OpRaw, 32, T2DbImageMountPoint },
+
+   // The flight of a projectile is not on the wire: the body says where and
+   // which way, and the datablock says how fast and for how long. Each of
+   // these layouts opens with ProjectileData's twenty-four nodes, so the
+   // class's own fields start at node 24, in the order its packData writes
+   // them.
+      { "LinearProjectileData",      24, OpRaw, 32, T2DbProjectileVelocity },
+      { "LinearProjectileData",      27, OpRaw, 32, T2DbProjectileLifetime },
+
+      { "LinearFlareProjectileData", 24, OpRaw, 32, T2DbProjectileVelocity },
+      { "LinearFlareProjectileData", 27, OpRaw, 32, T2DbProjectileLifetime },
+
+   // TracerProjectileData adds the streak a bullet is seen as, after the ten
+   // fields it inherits from LinearProjectileData.
+      { "TracerProjectileData",      24, OpRaw, 32, T2DbProjectileVelocity },
+      { "TracerProjectileData",      27, OpRaw, 32, T2DbProjectileLifetime },
+      { "TracerProjectileData",      34, OpRaw, 32, T2DbTracerLength       },
+      { "TracerProjectileData",      35, OpRaw, 32, T2DbTracerWidth        },
+
+   // EnergyProjectileData is a grenade underneath, so its speed is a muzzle
+   // velocity at node 25 and its bolt is the cross at node 33.
+      { "EnergyProjectileData",      25, OpRaw, 32, T2DbProjectileVelocity },
+      { "EnergyProjectileData",      31, OpRaw, 32, T2DbProjectileLifetime },
+      { "EnergyProjectileData",      33, OpRaw, 32, T2DbCrossSize          },
    };
 }
 
