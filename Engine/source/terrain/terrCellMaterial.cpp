@@ -273,7 +273,7 @@ bool TerrainCellMaterial::_createPass( Vector<MaterialInfo*> *materials,
                                        bool reflectMat,
                                        bool baseOnly )
 {
-   if ( GFX->getPixelShaderVersion() < 3.0f )
+   if ( GFX->getPixelShaderVersion() < 2.0f )
       baseOnly = true;
 
    // NOTE: At maximum we only try to combine 3 materials 

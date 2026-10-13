@@ -421,23 +421,32 @@ void TerrainDetailMapFeatGLSL::processPix(   Vector<ShaderComponent*> &component
    //
    if ( fd.features.hasFeature( MFT_TerrainSideProject, detailIndex ) )
    {
-      meta->addStatement( new GenOp( "      @ = ( mix( texture2D( @, @.yz ), texture2D( @, @.xz ), @.z ) * 2.0 ) - 1.0;\r\n", 
+      meta->addStatement( new GenOp( "      @ = mix( texture2D( @, @.yz ), texture2D( @, @.xz ), @.z );\r\n",
                                                 detailColor, detailMap, inDet, detailMap, inDet, inTex ) );
    }
    else
    {
-      meta->addStatement( new GenOp( "      @ = ( texture2D( @, @.xy ) * 2.0 ) - 1.0;\r\n", 
+      meta->addStatement( new GenOp( "      @ = texture2D( @, @.xy );\r\n",
                                        detailColor, detailMap, inDet ) );
    }
-
-   meta->addStatement( new GenOp( "      @ *= @.y * @.w;\r\n",
-                                    detailColor, detailInfo, inDet ) );
 
    Var *baseColor = (Var*)LangElement::find( "baseColor" );
    Var *outColor = (Var*)LangElement::find( "col" );
 
-   meta->addStatement( new GenOp( "      @ = mix( @, @ + @, @ );\r\n",
+   meta->addStatement( new GenOp( "      if ( @ < 0.0 )\r\n", layerSize ) );
+   meta->addStatement( new GenOp( "         @ = mix( @, @, @ * @.w );\r\n",
+                                    outColor, outColor, detailColor, detailBlend, inDet ) );
+   meta->addStatement( new GenOp( "      else\r\n" ) );
+   meta->addStatement( new GenOp( "      {\r\n" ) );
+
+   meta->addStatement( new GenOp( "         @ = ( @ * 2.0 ) - 1.0;\r\n",
+                                    detailColor, detailColor ) );
+   meta->addStatement( new GenOp( "         @ *= @.y * @.w;\r\n",
+                                    detailColor, detailInfo, inDet ) );
+   meta->addStatement( new GenOp( "         @ = mix( @, @ + @, @ );\r\n",
                                     outColor, outColor, baseColor, detailColor, detailBlend ) );
+
+   meta->addStatement( new GenOp( "      }\r\n" ) );
 
    meta->addStatement( new GenOp( "   }\r\n" ) );
 
