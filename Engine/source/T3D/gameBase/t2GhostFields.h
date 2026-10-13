@@ -16,13 +16,12 @@ namespace T2Protocol
       T2FieldScale,                 ///< the first of a Point3F's three floats
       T2FieldDamage,                ///< readFloat(bits) of the object's
                                     ///< maxDamage
-      T2FieldNormalPhi,             ///< readNormalVector's first signed float,
-      T2FieldNormalTheta,           ///< and its second, which completes the
-                                    ///< unit vector the pair carries
-      T2FieldImpactPhi,             ///< the same pair again, for the normal of
-      T2FieldImpactTheta,           ///< the surface a projectile ended on
-      T2FieldPointWords,            ///< the first of a position's three floats
-      T2FieldVelocityWords,         ///< the first of a velocity's three
+      T2FieldNormalPhi,
+      T2FieldNormalTheta,
+      T2FieldImpactPhi,
+      T2FieldImpactTheta,
+      T2FieldPointWords,
+      T2FieldVelocityWords,
    };
 
    inline U32 t2FieldWords(U32 field)
@@ -122,13 +121,6 @@ namespace T2Protocol
       { "AudioEmitter",         150, OpRaw,  32, T2FieldAffine   },
       { "AudioEmitter",         156, OpFlag,  1, T2FieldQuatSign },
 
-   // LinearProjectile and its heirs share one graph of 29 nodes. A projectile
-   // is told once, when it is fired: node 17 is where it left the muzzle and
-   // nodes 16 and 15 are readNormalVector(14) of the way it is going, which
-   // with the datablock's velocity is the whole flight. Nodes 21 and 4 are
-   // the two bodies that say it has gone off -- an initial one for a
-   // projectile fired before we were looking, and the last body of every
-   // other one -- and both carry only where it ended.
 #define T2_LINEAR_PROJECTILE_FIELDS( cls )                             \
       { cls, 17, OpPoint,        0,  T2FieldPosition    },             \
       { cls, 16, OpSignedFloat, 15,  T2FieldNormalPhi   },             \
@@ -146,9 +138,6 @@ namespace T2Protocol
 
 #undef T2_LINEAR_PROJECTILE_FIELDS
 
-   // EnergyProjectile carries a grenade's state instead: a position and a
-   // velocity, both as three whole floats, on the initial body at nodes 34
-   // and 31 and on every later one at nodes 13 and 10.
       { "EnergyProjectile",      34, OpRaw,  32, T2FieldPointWords    },
       { "EnergyProjectile",      31, OpRaw,  32, T2FieldVelocityWords },
       { "EnergyProjectile",      13, OpRaw,  32, T2FieldPointWords    },

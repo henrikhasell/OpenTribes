@@ -30,11 +30,6 @@ namespace T2Protocol
 
       { "PlayerData", 269, OpRaw, 32, T2DbCameraMaxDist },
 
-   // ExplosionData, read against its unpackData at 0x0061f7a0. The whole-word
-   // fields are floats; the rest arrive as integers that the reader scales,
-   // and the scale is the field's own: a hundredth for a scale or a size, a
-   // twentieth for the play speed, and a two-hundred-and-fifty-fifth for a
-   // time.
       { "ExplosionData",   7, OpInt,   14, T2DbPlaySpeed          },
       { "ExplosionData",  16, OpInt,   16, T2DbDelayMS            },
       { "ExplosionData",  17, OpInt,   16, T2DbDelayVariance      },
@@ -45,12 +40,6 @@ namespace T2Protocol
       { "ExplosionData", 106, OpInt,   16, T2DbExplosionScaleY    },
       { "ExplosionData", 107, OpInt,   16, T2DbExplosionScaleZ    },
 
-   // The size keys are a loop the recovery unrolled: the count picks one of
-   // seven chains, each reading its times and then its sizes, and the chains
-   // share their tails -- so a node names which key only within one chain,
-   // and the field has to be taken in the order it is read instead. Every
-   // float of eight bits in nodes 45 to 93 is a time and every integer of
-   // fourteen is a size.
       { "ExplosionData",  45, OpFloat,  8, T2DbExplosionTime      },
       { "ExplosionData",  49, OpFloat,  8, T2DbExplosionTime      },
       { "ExplosionData",  50, OpFloat,  8, T2DbExplosionTime      },
@@ -101,23 +90,12 @@ namespace T2Protocol
       { "ExplosionData",  92, OpInt,   14, T2DbExplosionSize      },
       { "ExplosionData",  93, OpInt,   14, T2DbExplosionSize      },
 
-   // ExplosionData::unpackData (0x0061f7a0) reads its shape, two datablock
-   // refs, a density and a radius, and then one bit for faceViewer -- the bit
-   // that has retail's explosions turn to the camera every frame rather than
-   // stand on the normal of whatever they went off against.
       { "ExplosionData", 5, OpFlag, 1, T2DbFaceViewer },
 
    // ShapeBaseImageData::packData writes the mount point as a whole word, which
    // is the layout's node 2.
       { "ShapeBaseImageData", 2, OpRaw, 32, T2DbImageMountPoint },
 
-   // Each of these layouts names its explosion as the fourth of the fifteen
-   // datablocks it refers to, which is the eighth flag's id node.
-   // The flight of a projectile is not on the wire: the body says where and
-   // which way, and the datablock says how fast and for how long. Each of
-   // these layouts opens with ProjectileData's twenty-four nodes, so the
-   // class's own fields start at node 24, in the order its packData writes
-   // them.
       { "LinearProjectileData",      24, OpRaw, 32, T2DbProjectileVelocity },
       { "LinearProjectileData",      27, OpRaw, 32, T2DbProjectileLifetime },
       { "LinearProjectileData",      57, OpRaw, 32, T2DbScaleX             },
@@ -132,8 +110,6 @@ namespace T2Protocol
       { "LinearFlareProjectileData", 66, OpRaw, 32, T2DbScaleZ             },
       { "LinearFlareProjectileData", 60, OpDataBlockId, 11, T2DbExplosion   },
 
-   // TracerProjectileData adds the streak a bullet is seen as, after the ten
-   // fields it inherits from LinearProjectileData.
       { "TracerProjectileData",      24, OpRaw, 32, T2DbProjectileVelocity },
       { "TracerProjectileData",      27, OpRaw, 32, T2DbProjectileLifetime },
       { "TracerProjectileData",      34, OpRaw, 32, T2DbTracerLength       },
@@ -143,12 +119,6 @@ namespace T2Protocol
       { "TracerProjectileData",      69, OpRaw, 32, T2DbScaleZ             },
       { "TracerProjectileData",      63, OpDataBlockId, 11, T2DbExplosion   },
 
-   // EnergyProjectileData is a grenade underneath. GrenadeProjectileData's
-   // unpackData at 0x00633cf0 stores in the order 0x148, 0x144, 0x138, 0x13c,
-   // 0x14c, 0x150, 0x140, 0x154 -- arming delay, muzzle velocity, elasticity,
-   // friction, drag, density, gravity and lifetime -- and the class's own
-   // unpackData at 0x00694d80 adds 0x168 to 0x180 after it, which is the
-   // cross, the blur and nothing else.
       { "EnergyProjectileData",      24, OpRaw, 32, T2DbArmingDelay        },
       { "EnergyProjectileData",      25, OpRaw, 32, T2DbProjectileVelocity },
       { "EnergyProjectileData",      26, OpRaw, 32, T2DbElasticity         },

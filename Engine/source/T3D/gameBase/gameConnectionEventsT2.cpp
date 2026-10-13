@@ -330,10 +330,6 @@ public:
          StringTableEntry   name  = NULL;
          const TSShape     *shape = NULL;
 
-            // Tribes 2 sums the shape of a datablock whose class derives from
-            // ShapeBaseData and of no other -- its projectiles, its images,
-            // its explosions and its debris all name shapes and none of them
-            // are counted.
          if(ShapeBaseData *data = dynamic_cast<ShapeBaseData *>(Sim::findObject(id)))
          {
             name  = data->shapeName;

@@ -240,11 +240,6 @@ static void readT2ImageStates( ShapeBaseImageData *image )
 
 
 // HH: Added for Tribes 2 compatibility.
-/// What an explosion's body says about the shape of it: how fast its sequence
-/// runs, how long it lasts, how big it is over that, and whether it turns to
-/// face whoever is watching. Read against ExplosionData::unpackData at
-/// 0x0061f7a0, which writes the ranged ones as integers and scales them on the
-/// way in.
 static void readT2Explosion( ExplosionData *ex )
 {
    U32 word;
@@ -252,9 +247,6 @@ static void readT2Explosion( ExplosionData *ex )
       ex->faceViewer = word != 0;
    if( T2Layout::lastDataBlockWord( T2Layout::T2DbPlaySpeed, &word ) )
       ex->playSpeed = F32( word ) * 0.05f;
-      // The four times go out as ticks -- packData at 0x0061f0c0 writes each
-      // of them shifted down by five -- so a second of life arrives as 31 and
-      // is 992ms again here, which is what retail's own explosion runs for.
    if( T2Layout::lastDataBlockWord( T2Layout::T2DbDelayMS, &word ) )
       ex->delayMS = word * TickMs;
    if( T2Layout::lastDataBlockWord( T2Layout::T2DbDelayVariance, &word ) )
@@ -266,7 +258,6 @@ static void readT2Explosion( ExplosionData *ex )
    if( T2Layout::lastDataBlockWord( T2Layout::T2DbExplosionOffset, &word ) )
       dMemcpy( &ex->offset, &word, sizeof( ex->offset ) );
 
-      // A scale only arrives when it is not the default one.
    U32 x, y, z;
    if( T2Layout::lastDataBlockWord( T2Layout::T2DbExplosionScaleX, &x ) &&
        T2Layout::lastDataBlockWord( T2Layout::T2DbExplosionScaleY, &y ) &&
@@ -274,8 +265,6 @@ static void readT2Explosion( ExplosionData *ex )
       ex->explosionScale.set( F32( x ) * 0.01f, F32( y ) * 0.01f,
                               F32( z ) * 0.01f );
 
-      // The keys come as every time and then every size, however many of them
-      // the count asked for; what it did not ask for keeps its default.
    const Vector<U32> &times = T2Layout::lastDataBlockValues(
       T2Layout::T2DbExplosionTime );
    const Vector<U32> &sizes = T2Layout::lastDataBlockValues(
@@ -344,8 +333,6 @@ void SimDataBlockEvent::unpack(NetConnection *cptr, BitStream *bstream)
                si->shapeName = StringTable->insert( shape );
             else if( DataBlockT2 *db = dynamic_cast< DataBlockT2 * >( mObj ) )
                db->shapeName = StringTable->insert( shape );
-               // An explosion names its shape first as well, and loads it by
-               // the whole path rather than by the bare name.
             else if( ExplosionData *ex = dynamic_cast< ExplosionData * >( mObj ) )
                ex->dtsFileName = StringTable->insert(
                   T2Layout::resourcePath( shape, "shapes/" ) );

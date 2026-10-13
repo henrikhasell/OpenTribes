@@ -254,12 +254,6 @@ void TSShapeInstance::setMaterialList( TSMaterialList *matList )
    }
 
    // HH: Added for Tribes 2 compatibility.
-   // Which frame of an ifl is showing is this instance's own, while the list
-   // it shows it in is the shape's and is mapped once. Binding only inside
-   // the branch above gives the frames to whichever instance mapped the list
-   // -- for an explosion that is the dummy its datablock preloads and throws
-   // away -- and leaves every later one with no frames to walk, showing the
-   // first for its whole life.
    bindIflMaterials();
 }
 

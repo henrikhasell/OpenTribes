@@ -224,8 +224,6 @@ static const T2GhostFieldRow *fieldAt(const T2DataBlockLayout *layout, S32 at)
    return NULL;
 }
 
-/// What a taken node held, as the bits it arrived as. A field that repeats
-/// keeps every one of them in the order they were read.
 static void noteDbField(const T2DataBlockFieldRow *row, U32 word)
 {
    dMemcpy(&sDbValues[row->field], &word, sizeof(F32));
@@ -728,8 +726,6 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
                   }
                }
             }
-               // A flag can be a field in its own right -- an explosion saying
-               // it faces the viewer is one bit and nothing else.
             if(!write)
             {
                const T2DataBlockFieldRow *dbRow = dbFieldAt(layout, at);
@@ -851,9 +847,6 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
 
                // An image slot names a ShapeBaseImageData, never the object's own
                // datablock.
-               // A datablock that names another one -- a projectile naming its
-               // explosion -- is a field like any other, and the id is what
-               // it holds.
             if(!write)
             {
                const T2DataBlockFieldRow *dbRow = dbFieldAt(layout, at);
@@ -878,8 +871,6 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
             const U32 word = xferInt(stream, n.bits, write, at, n.op);
             const T2GhostFieldRow *row = write ? NULL : fieldAt(layout, at);
 
-               // readNormalVector is a pair of signed floats and nothing else,
-               // so the second of them is where the vector exists.
             if(row && (row->field == T2FieldNormalPhi ||
                        row->field == T2FieldImpactPhi))
                sPhi = signedFloatOf(word, n.bits) * M_PI_F;
@@ -944,8 +935,6 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
             }
             if(!write)
             {
-                  // Any width: a sixteen-bit lifetime is as much a field as a
-                  // whole word is, and what it means is the taker's business.
                const T2DataBlockFieldRow *dbRow = dbFieldAt(layout, at);
                if(dbRow)
                   noteDbField(dbRow, word);

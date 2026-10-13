@@ -39,10 +39,9 @@ namespace T2Layout
       bool    hasVelocity;
       Point3F velocity;             ///< metres a second, world space
       bool    hasDirection;
-      Point3F direction;            ///< a unit vector, where the body says
-                                    ///< which way without saying how fast
+      Point3F direction;
       bool    hasImpactNormal;
-      Point3F impactNormal;         ///< the surface a projectile ended on
+      Point3F impactNormal;
       bool    hasDamage;
       F32     damage;               ///< share of the object's maxDamage
 
@@ -115,8 +114,8 @@ namespace T2Layout
       T2DbExplosionLifetime,
       T2DbLifetimeVariance,
       T2DbExplosionOffset,
-      T2DbExplosionTime,            ///< one per key, in the order read
-      T2DbExplosionSize,            ///< three per key, in the order read
+      T2DbExplosionTime,
+      T2DbExplosionSize,
 
       T2DbFieldCount
    };
@@ -163,10 +162,6 @@ namespace T2Layout
    /// as a whole word rather than a float.
    bool lastDataBlockWord(U32 field, U32 *out);
 
-   /// Every value the last body read for a field, in the order it read them,
-   /// which is how a field that repeats -- an explosion's size keys -- is
-   /// taken: one node of the layout per key is no use when the count decides
-   /// which nodes those are.
    const Vector<U32> &lastDataBlockValues(U32 field);
 
    bool readDataBlock(BitStream *stream, U32 classId);
