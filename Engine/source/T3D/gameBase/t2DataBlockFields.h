@@ -30,6 +30,77 @@ namespace T2Protocol
 
       { "PlayerData", 269, OpRaw, 32, T2DbCameraMaxDist },
 
+   // ExplosionData, read against its unpackData at 0x0061f7a0. The whole-word
+   // fields are floats; the rest arrive as integers that the reader scales,
+   // and the scale is the field's own: a hundredth for a scale or a size, a
+   // twentieth for the play speed, and a two-hundred-and-fifty-fifth for a
+   // time.
+      { "ExplosionData",   7, OpInt,   14, T2DbPlaySpeed          },
+      { "ExplosionData",  16, OpInt,   16, T2DbDelayMS            },
+      { "ExplosionData",  17, OpInt,   16, T2DbDelayVariance      },
+      { "ExplosionData",  18, OpInt,   16, T2DbExplosionLifetime  },
+      { "ExplosionData",  19, OpInt,   16, T2DbLifetimeVariance   },
+      { "ExplosionData",  20, OpRaw,   32, T2DbExplosionOffset    },
+      { "ExplosionData", 105, OpInt,   16, T2DbExplosionScaleX    },
+      { "ExplosionData", 106, OpInt,   16, T2DbExplosionScaleY    },
+      { "ExplosionData", 107, OpInt,   16, T2DbExplosionScaleZ    },
+
+   // The size keys are a loop the recovery unrolled: the count picks one of
+   // seven chains, each reading its times and then its sizes, and the chains
+   // share their tails -- so a node names which key only within one chain,
+   // and the field has to be taken in the order it is read instead. Every
+   // float of eight bits in nodes 45 to 93 is a time and every integer of
+   // fourteen is a size.
+      { "ExplosionData",  45, OpFloat,  8, T2DbExplosionTime      },
+      { "ExplosionData",  49, OpFloat,  8, T2DbExplosionTime      },
+      { "ExplosionData",  50, OpFloat,  8, T2DbExplosionTime      },
+      { "ExplosionData",  54, OpFloat,  8, T2DbExplosionTime      },
+      { "ExplosionData",  55, OpFloat,  8, T2DbExplosionTime      },
+      { "ExplosionData",  56, OpFloat,  8, T2DbExplosionTime      },
+      { "ExplosionData",  60, OpFloat,  8, T2DbExplosionTime      },
+      { "ExplosionData",  61, OpFloat,  8, T2DbExplosionTime      },
+      { "ExplosionData",  62, OpFloat,  8, T2DbExplosionTime      },
+      { "ExplosionData",  63, OpFloat,  8, T2DbExplosionTime      },
+      { "ExplosionData",  67, OpFloat,  8, T2DbExplosionTime      },
+      { "ExplosionData",  68, OpFloat,  8, T2DbExplosionTime      },
+      { "ExplosionData",  69, OpFloat,  8, T2DbExplosionTime      },
+      { "ExplosionData",  70, OpFloat,  8, T2DbExplosionTime      },
+      { "ExplosionData",  71, OpFloat,  8, T2DbExplosionTime      },
+      { "ExplosionData",  75, OpFloat,  8, T2DbExplosionTime      },
+      { "ExplosionData",  76, OpFloat,  8, T2DbExplosionTime      },
+      { "ExplosionData",  77, OpFloat,  8, T2DbExplosionTime      },
+      { "ExplosionData",  78, OpFloat,  8, T2DbExplosionTime      },
+      { "ExplosionData",  79, OpFloat,  8, T2DbExplosionTime      },
+      { "ExplosionData",  80, OpFloat,  8, T2DbExplosionTime      },
+      { "ExplosionData",  84, OpFloat,  8, T2DbExplosionTime      },
+      { "ExplosionData",  85, OpFloat,  8, T2DbExplosionTime      },
+      { "ExplosionData",  86, OpFloat,  8, T2DbExplosionTime      },
+      { "ExplosionData",  87, OpFloat,  8, T2DbExplosionTime      },
+      { "ExplosionData",  88, OpFloat,  8, T2DbExplosionTime      },
+      { "ExplosionData",  89, OpFloat,  8, T2DbExplosionTime      },
+      { "ExplosionData",  90, OpFloat,  8, T2DbExplosionTime      },
+      { "ExplosionData",  46, OpInt,   14, T2DbExplosionSize      },
+      { "ExplosionData",  47, OpInt,   14, T2DbExplosionSize      },
+      { "ExplosionData",  48, OpInt,   14, T2DbExplosionSize      },
+      { "ExplosionData",  51, OpInt,   14, T2DbExplosionSize      },
+      { "ExplosionData",  52, OpInt,   14, T2DbExplosionSize      },
+      { "ExplosionData",  53, OpInt,   14, T2DbExplosionSize      },
+      { "ExplosionData",  57, OpInt,   14, T2DbExplosionSize      },
+      { "ExplosionData",  58, OpInt,   14, T2DbExplosionSize      },
+      { "ExplosionData",  59, OpInt,   14, T2DbExplosionSize      },
+      { "ExplosionData",  64, OpInt,   14, T2DbExplosionSize      },
+      { "ExplosionData",  65, OpInt,   14, T2DbExplosionSize      },
+      { "ExplosionData",  66, OpInt,   14, T2DbExplosionSize      },
+      { "ExplosionData",  72, OpInt,   14, T2DbExplosionSize      },
+      { "ExplosionData",  73, OpInt,   14, T2DbExplosionSize      },
+      { "ExplosionData",  74, OpInt,   14, T2DbExplosionSize      },
+      { "ExplosionData",  81, OpInt,   14, T2DbExplosionSize      },
+      { "ExplosionData",  82, OpInt,   14, T2DbExplosionSize      },
+      { "ExplosionData",  83, OpInt,   14, T2DbExplosionSize      },
+      { "ExplosionData",  91, OpInt,   14, T2DbExplosionSize      },
+      { "ExplosionData",  92, OpInt,   14, T2DbExplosionSize      },
+      { "ExplosionData",  93, OpInt,   14, T2DbExplosionSize      },
+
    // ExplosionData::unpackData (0x0061f7a0) reads its shape, two datablock
    // refs, a density and a radius, and then one bit for faceViewer -- the bit
    // that has retail's explosions turn to the camera every frame rather than

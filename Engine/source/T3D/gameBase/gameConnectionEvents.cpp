@@ -34,6 +34,7 @@
 #include "T3D/gameBase/gameConnection.h"
 #include "T3D/gameBase/gameConnectionEvents.h"
 #include "T3D/gameBase/dataBlocksT2.h"
+#include "T3D/gameBase/processList.h"
 #include "T3D/fx/explosion.h"
 #include "T3D/gameBase/t2Layout.h"
 #include "T3D/shapeBase.h"
@@ -237,6 +238,61 @@ static void readT2ImageStates( ShapeBaseImageData *image )
    }
 }
 
+
+// HH: Added for Tribes 2 compatibility.
+/// What an explosion's body says about the shape of it: how fast its sequence
+/// runs, how long it lasts, how big it is over that, and whether it turns to
+/// face whoever is watching. Read against ExplosionData::unpackData at
+/// 0x0061f7a0, which writes the ranged ones as integers and scales them on the
+/// way in.
+static void readT2Explosion( ExplosionData *ex )
+{
+   U32 word;
+   if( T2Layout::lastDataBlockWord( T2Layout::T2DbFaceViewer, &word ) )
+      ex->faceViewer = word != 0;
+   if( T2Layout::lastDataBlockWord( T2Layout::T2DbPlaySpeed, &word ) )
+      ex->playSpeed = F32( word ) * 0.05f;
+      // The four times go out as ticks -- packData at 0x0061f0c0 writes each
+      // of them shifted down by five -- so a second of life arrives as 31 and
+      // is 992ms again here, which is what retail's own explosion runs for.
+   if( T2Layout::lastDataBlockWord( T2Layout::T2DbDelayMS, &word ) )
+      ex->delayMS = word * TickMs;
+   if( T2Layout::lastDataBlockWord( T2Layout::T2DbDelayVariance, &word ) )
+      ex->delayVariance = word * TickMs;
+   if( T2Layout::lastDataBlockWord( T2Layout::T2DbExplosionLifetime, &word ) )
+      ex->lifetimeMS = word * TickMs;
+   if( T2Layout::lastDataBlockWord( T2Layout::T2DbLifetimeVariance, &word ) )
+      ex->lifetimeVariance = word * TickMs;
+   if( T2Layout::lastDataBlockWord( T2Layout::T2DbExplosionOffset, &word ) )
+      dMemcpy( &ex->offset, &word, sizeof( ex->offset ) );
+
+      // A scale only arrives when it is not the default one.
+   U32 x, y, z;
+   if( T2Layout::lastDataBlockWord( T2Layout::T2DbExplosionScaleX, &x ) &&
+       T2Layout::lastDataBlockWord( T2Layout::T2DbExplosionScaleY, &y ) &&
+       T2Layout::lastDataBlockWord( T2Layout::T2DbExplosionScaleZ, &z ) )
+      ex->explosionScale.set( F32( x ) * 0.01f, F32( y ) * 0.01f,
+                              F32( z ) * 0.01f );
+
+      // The keys come as every time and then every size, however many of them
+      // the count asked for; what it did not ask for keeps its default.
+   const Vector<U32> &times = T2Layout::lastDataBlockValues(
+      T2Layout::T2DbExplosionTime );
+   const Vector<U32> &sizes = T2Layout::lastDataBlockValues(
+      T2Layout::T2DbExplosionSize );
+
+   for( U32 i = 0; i < times.size() && i < ExplosionData::EC_NUM_TIME_KEYS;
+        i++ )
+      ex->times[i] = F32( times[i] ) / 255.0f;
+
+   for( U32 i = 0; i * 3 + 2 < sizes.size() &&
+                   i < ExplosionData::EC_NUM_TIME_KEYS; i++ )
+      ex->sizes[i].set( F32( sizes[i * 3 + 0] ) * 0.01f,
+                        F32( sizes[i * 3 + 1] ) * 0.01f,
+                        F32( sizes[i * 3 + 2] ) * 0.01f );
+
+}
+
 void SimDataBlockEvent::unpack(NetConnection *cptr, BitStream *bstream)
 {
    if(bstream->readFlag())
@@ -297,12 +353,7 @@ void SimDataBlockEvent::unpack(NetConnection *cptr, BitStream *bstream)
 
          // HH: Added for Tribes 2 compatibility.
          if( ExplosionData *ex = dynamic_cast< ExplosionData * >( mObj ) )
-         {
-            U32 faceViewer;
-            if( T2Layout::lastDataBlockWord( T2Layout::T2DbFaceViewer,
-                                             &faceViewer ) )
-               ex->faceViewer = faceViewer != 0;
-         }
+            readT2Explosion( ex );
 
             // HH: Added for Tribes 2 compatibility.
             // A weapon wants mount node 0 and a pack node 1.

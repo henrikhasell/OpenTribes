@@ -106,6 +106,17 @@ namespace T2Layout
       T2DbScaleZ,
       T2DbExplosion,
       T2DbFaceViewer,
+      T2DbExplosionScaleX,
+      T2DbExplosionScaleY,
+      T2DbExplosionScaleZ,
+      T2DbPlaySpeed,
+      T2DbDelayMS,
+      T2DbDelayVariance,
+      T2DbExplosionLifetime,
+      T2DbLifetimeVariance,
+      T2DbExplosionOffset,
+      T2DbExplosionTime,            ///< one per key, in the order read
+      T2DbExplosionSize,            ///< three per key, in the order read
 
       T2DbFieldCount
    };
@@ -151,6 +162,12 @@ namespace T2Layout
    /// The same read as the bits it arrived as, for a field Tribes 2 writes
    /// as a whole word rather than a float.
    bool lastDataBlockWord(U32 field, U32 *out);
+
+   /// Every value the last body read for a field, in the order it read them,
+   /// which is how a field that repeats -- an explosion's size keys -- is
+   /// taken: one node of the layout per key is no use when the count decides
+   /// which nodes those are.
+   const Vector<U32> &lastDataBlockValues(U32 field);
 
    bool readDataBlock(BitStream *stream, U32 classId);
 

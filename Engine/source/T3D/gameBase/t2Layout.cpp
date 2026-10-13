@@ -38,13 +38,14 @@ static const T2GhostFieldRow *sRows[16] = { NULL };
 static U32 sRowCount = 0;
 static const char *sFieldsFor = NULL;
 
-static const T2DataBlockFieldRow *sDbRows[32] = { NULL };
+static const T2DataBlockFieldRow *sDbRows[96] = { NULL };
 static U32 sDbRowCount = 0;
 static S32 sDbRowsFor = -1;
 static const void *sDbLayout = NULL;
 static F32 sDbValues[T2DbFieldCount] = { 0.0f };
 static U32 sDbWords[T2DbFieldCount] = { 0 };
 static bool sDbHas[T2DbFieldCount] = { false };
+static Vector<U32> sDbList[T2DbFieldCount];
 
 static S32 sTransformAt = -1;
 static S32 sAffineAt = -1;
@@ -75,6 +76,12 @@ bool lastDataBlockWord(U32 field, U32 *out)
       return false;
    *out = sDbWords[field];
    return true;
+}
+
+const Vector<U32> &lastDataBlockValues(U32 field)
+{
+   static Vector<U32> none;
+   return field < T2DbFieldCount ? sDbList[field] : none;
 }
 
 const char *lastShapeFile()
@@ -215,6 +222,16 @@ static const T2GhostFieldRow *fieldAt(const T2DataBlockLayout *layout, S32 at)
          return sRows[i];
 
    return NULL;
+}
+
+/// What a taken node held, as the bits it arrived as. A field that repeats
+/// keeps every one of them in the order they were read.
+static void noteDbField(const T2DataBlockFieldRow *row, U32 word)
+{
+   dMemcpy(&sDbValues[row->field], &word, sizeof(F32));
+   sDbWords[row->field] = word;
+   sDbHas[row->field] = true;
+   sDbList[row->field].push_back(word);
 }
 
 static const T2DataBlockFieldRow *dbFieldAt(const T2DataBlockLayout *layout,
@@ -717,11 +734,7 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
             {
                const T2DataBlockFieldRow *dbRow = dbFieldAt(layout, at);
                if(dbRow)
-               {
-                  sDbWords[dbRow->field] = U32(set);
-                  sDbValues[dbRow->field] = set ? 1.0f : 0.0f;
-                  sDbHas[dbRow->field] = true;
-               }
+                  noteDbField(dbRow, U32(set));
             }
 
             at = set ? n.b : n.a;
@@ -845,11 +858,7 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
             {
                const T2DataBlockFieldRow *dbRow = dbFieldAt(layout, at);
                if(dbRow)
-               {
-                  sDbWords[dbRow->field] = dbId;
-                  sDbValues[dbRow->field] = (F32)dbId;
-                  sDbHas[dbRow->field] = true;
-               }
+                  noteDbField(dbRow, dbId);
             }
 
             if(!sDataBlockId && !isImage)
@@ -898,8 +907,14 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
          case OpRangedF32:
          case OpRangedU32:
          case OpColor:
-            xferInt(stream, n.bits, write, at, n.op);
+         {
+            const U32 word = xferInt(stream, n.bits, write, at, n.op);
+            const T2DataBlockFieldRow *dbRow = write ? NULL
+                                                     : dbFieldAt(layout, at);
+            if(dbRow)
+               noteDbField(dbRow, word);
             break;
+         }
 
          case OpInt:
          case OpRaw:
@@ -927,15 +942,13 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
                }
                sWords.push_back(word);
             }
-            if(!write && n.bits == 32)
+            if(!write)
             {
+                  // Any width: a sixteen-bit lifetime is as much a field as a
+                  // whole word is, and what it means is the taker's business.
                const T2DataBlockFieldRow *dbRow = dbFieldAt(layout, at);
                if(dbRow)
-               {
-                  dMemcpy(&sDbValues[dbRow->field], &word, sizeof(F32));
-                  sDbWords[dbRow->field] = word;
-                  sDbHas[dbRow->field] = true;
-               }
+                  noteDbField(dbRow, word);
             }
             if(row && row->field == T2FieldYaw && n.bits)
             {
@@ -1152,7 +1165,10 @@ static bool runDataBlock(BitStream *stream, U32 classId, bool write)
    const T2DataBlockLayout *layout = &sT2DataBlocks[classId];
    resolveDataBlockFields(classId, layout);
    for(U32 i = 0; i < T2DbFieldCount; i++)
+   {
       sDbHas[i] = false;
+      sDbList[i].clear();
+   }
 
    // HH: Added for Tribes 2 compatibility.
    sStates = resolveStates(layout);

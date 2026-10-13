@@ -193,6 +193,7 @@ class ProjectileT2 : public GameBase
    bool    mExploded;         ///< it only goes off once
    VectorF mImpactNormal;
 
+   GFXStateBlockRef boltStateBlock();
    TSThread *startThread(const char *name);
    void step(F32 dt);
    void explode();
@@ -201,6 +202,7 @@ class ProjectileT2 : public GameBase
    void renderBolt(ObjectRenderInst *ri, SceneRenderState *state,
                    BaseMatInstance *overrideMat);
    void drawTrail(const Point3F &eye);
+   void drawStreak(const Point3F &eye);
    void drawBolt(const Point3F &eye);
    void drawCross(const Point3F &eye);
 
@@ -627,7 +629,11 @@ void ProjectileT2::renderBolt(ObjectRenderInst *, SceneRenderState *state,
    if(!mFlying)
       return;
 
-   drawBolt(eye);
+   if(mData->streakLength > 0.0f)
+      drawStreak(eye);
+   else
+      drawBolt(eye);
+
    drawCross(eye);
 }
 
@@ -679,6 +685,63 @@ void ProjectileT2::drawTrail(const Point3F &eye)
    }
 }
 
+/// What all three of the textured quads are drawn with, which is the state
+/// retail sets before each of them: no cull, no depth write, and the blend
+/// that adds them into the scene.
+GFXStateBlockRef ProjectileT2::boltStateBlock()
+{
+   if(mBoltSB.isNull())
+   {
+      GFXStateBlockDesc desc;
+      desc.setBlend(true, GFXBlendSrcAlpha, GFXBlendOne);
+      desc.setCullMode(GFXCullNone);
+      desc.zWriteEnable = false;
+      desc.samplersDefined = true;
+      desc.samplers[0] = GFXSamplerStateDesc::getClampLinear();
+      mBoltSB = GFX->createStateBlock(desc);
+   }
+
+   return mBoltSB;
+}
+
+/// A bullet is the streak it leaves: a quad from where it is back along its
+/// flight by the whole of tracerLength, tracerWidth to either side of it, flat
+/// into the view. Retail builds it at 0x006406c0 -- the width is not halved
+/// there, and the colour of the quad is white whatever tracerColor says.
+void ProjectileT2::drawStreak(const Point3F &eye)
+{
+   if(mTexture[0].isNull() || mVelocity.isZero())
+      return;
+
+   const Point3F at = getRenderTransform().getPosition();
+
+   VectorF across = mCross(at - eye, mVelocity);
+   if(across.isZero())
+      return;
+   across.normalize();
+   across *= mData->streakWidth;
+
+   VectorF along = mVelocity;
+   along.normalize();
+
+   const Point3F tail = at - along * mData->streakLength;
+
+   GFX->setStateBlock(boltStateBlock());
+   GFX->setTexture(0, mTexture[0]);
+
+   PrimBuild::color4f(1.0f, 1.0f, 1.0f, 1.0f);
+   PrimBuild::begin(GFXTriangleFan, 4);
+   PrimBuild::texCoord2f(0.0f, 0.0f);
+   PrimBuild::vertex3fv(tail + across);
+   PrimBuild::texCoord2f(0.0f, 1.0f);
+   PrimBuild::vertex3fv(tail - across);
+   PrimBuild::texCoord2f(1.0f, 1.0f);
+   PrimBuild::vertex3fv(at - across);
+   PrimBuild::texCoord2f(1.0f, 0.0f);
+   PrimBuild::vertex3fv(at + across);
+   PrimBuild::end();
+}
+
 /// The bolt itself: a quad along the flight, as wide as the datablock's scale
 /// in x and as long as that again in its y, drawn flat into the view. Retail
 /// builds it at 0x00696ed0 from the velocity and the way to the camera, and
@@ -703,18 +766,7 @@ void ProjectileT2::drawBolt(const Point3F &eye)
    const Point3F tail = at - along;
    const Point3F nose = at + along;
 
-   if(mBoltSB.isNull())
-   {
-      GFXStateBlockDesc desc;
-      desc.setBlend(true, GFXBlendSrcAlpha, GFXBlendOne);
-      desc.setCullMode(GFXCullNone);
-      desc.zWriteEnable = false;
-      desc.samplersDefined = true;
-      desc.samplers[0] = GFXSamplerStateDesc::getClampLinear();
-      mBoltSB = GFX->createStateBlock(desc);
-   }
-
-   GFX->setStateBlock(mBoltSB);
+   GFX->setStateBlock(boltStateBlock());
    GFX->setTexture(0, mTexture[0]);
 
    PrimBuild::color4f(1.0f, 1.0f, 1.0f, 1.0f);
@@ -763,7 +815,7 @@ void ProjectileT2::drawCross(const Point3F &eye)
    const Point3F r = right * half;
    const Point3F u = up * half;
 
-   GFX->setStateBlock(mBoltSB);
+   GFX->setStateBlock(boltStateBlock());
    GFX->setTexture(0, mTexture[1]);
 
    PrimBuild::color4f(1.0f, 1.0f, 1.0f, 1.0f);
