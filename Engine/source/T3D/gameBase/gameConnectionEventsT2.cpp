@@ -337,6 +337,9 @@ public:
          }
          else if(DataBlockT2 *stub = dynamic_cast<DataBlockT2 *>(Sim::findObject(id)))
          {
+            if(!stub->isShapeBaseData())
+               continue;
+
             name  = stub->shapeName;
             shape = stub->mShape;
          }

@@ -38,19 +38,23 @@ static const T2GhostFieldRow *sRows[16] = { NULL };
 static U32 sRowCount = 0;
 static const char *sFieldsFor = NULL;
 
-static const T2DataBlockFieldRow *sDbRows[16] = { NULL };
+static const T2DataBlockFieldRow *sDbRows[96] = { NULL };
 static U32 sDbRowCount = 0;
 static S32 sDbRowsFor = -1;
 static const void *sDbLayout = NULL;
 static F32 sDbValues[T2DbFieldCount] = { 0.0f };
 static U32 sDbWords[T2DbFieldCount] = { 0 };
 static bool sDbHas[T2DbFieldCount] = { false };
+static Vector<U32> sDbList[T2DbFieldCount];
 
 static S32 sTransformAt = -1;
 static S32 sAffineAt = -1;
 static S32 sScaleAt = -1;
+static S32 sPointAt = -1;
+static S32 sVelocityAt = -1;
 static bool sQuatNegative = false;
 static F32 sSpeed = 0.0f;
+static F32 sPhi = 0.0f;
 static const void *sFieldsLayout = NULL;
 
 const Body &lastBody()
@@ -72,6 +76,12 @@ bool lastDataBlockWord(U32 field, U32 *out)
       return false;
    *out = sDbWords[field];
    return true;
+}
+
+const Vector<U32> &lastDataBlockValues(U32 field)
+{
+   static Vector<U32> none;
+   return field < T2DbFieldCount ? sDbList[field] : none;
 }
 
 const char *lastShapeFile()
@@ -212,6 +222,14 @@ static const T2GhostFieldRow *fieldAt(const T2DataBlockLayout *layout, S32 at)
          return sRows[i];
 
    return NULL;
+}
+
+static void noteDbField(const T2DataBlockFieldRow *row, U32 word)
+{
+   dMemcpy(&sDbValues[row->field], &word, sizeof(F32));
+   sDbWords[row->field] = word;
+   sDbHas[row->field] = true;
+   sDbList[row->field].push_back(word);
 }
 
 static const T2DataBlockFieldRow *dbFieldAt(const T2DataBlockLayout *layout,
@@ -708,6 +726,13 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
                   }
                }
             }
+            if(!write)
+            {
+               const T2DataBlockFieldRow *dbRow = dbFieldAt(layout, at);
+               if(dbRow)
+                  noteDbField(dbRow, U32(set));
+            }
+
             at = set ? n.b : n.a;
             continue;
          }
@@ -822,6 +847,13 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
 
                // An image slot names a ShapeBaseImageData, never the object's own
                // datablock.
+            if(!write)
+            {
+               const T2DataBlockFieldRow *dbRow = dbFieldAt(layout, at);
+               if(dbRow)
+                  noteDbField(dbRow, dbId);
+            }
+
             if(!sDataBlockId && !isImage)
                sDataBlockId = dbId;
             if(isImage)
@@ -834,13 +866,46 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
             break;
          }
 
-         case OpFloat:
          case OpSignedFloat:
+         {
+            const U32 word = xferInt(stream, n.bits, write, at, n.op);
+            const T2GhostFieldRow *row = write ? NULL : fieldAt(layout, at);
+
+            if(row && (row->field == T2FieldNormalPhi ||
+                       row->field == T2FieldImpactPhi))
+               sPhi = signedFloatOf(word, n.bits) * M_PI_F;
+            if(row && (row->field == T2FieldNormalTheta ||
+                       row->field == T2FieldImpactTheta))
+            {
+               const F32 theta = signedFloatOf(word, n.bits) * M_HALFPI_F;
+               const Point3F v(mSin(sPhi) * mCos(theta),
+                               mCos(sPhi) * mCos(theta), mSin(theta));
+               if(row->field == T2FieldNormalTheta)
+               {
+                  sBody.direction = v;
+                  sBody.hasDirection = true;
+               }
+               else
+               {
+                  sBody.impactNormal = v;
+                  sBody.hasImpactNormal = true;
+               }
+            }
+            break;
+         }
+
+         case OpFloat:
          case OpRangedF32:
          case OpRangedU32:
          case OpColor:
-            xferInt(stream, n.bits, write, at, n.op);
+         {
+            const U32 word = xferInt(stream, n.bits, write, at, n.op);
+            const T2DataBlockFieldRow *dbRow = write ? NULL
+                                                     : dbFieldAt(layout, at);
+            if(dbRow)
+               noteDbField(dbRow, word);
             break;
+         }
 
          case OpInt:
          case OpRaw:
@@ -850,10 +915,12 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
             if(row)
                switch(row->field)
                {
-                  case T2FieldTransform: sTransformAt = sWords.size(); break;
-                  case T2FieldAffine:    sAffineAt    = sWords.size(); break;
-                  case T2FieldScale:     sScaleAt     = sWords.size(); break;
-                  default:                                             break;
+                  case T2FieldTransform:     sTransformAt = sWords.size(); break;
+                  case T2FieldAffine:        sAffineAt    = sWords.size(); break;
+                  case T2FieldScale:         sScaleAt     = sWords.size(); break;
+                  case T2FieldPointWords:    sPointAt     = sWords.size(); break;
+                  case T2FieldVelocityWords: sVelocityAt  = sWords.size(); break;
+                  default:                                                 break;
                }
 
             const U32 word = xferInt(stream, n.bits, write, at, n.op);
@@ -866,15 +933,11 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
                }
                sWords.push_back(word);
             }
-            if(!write && n.bits == 32)
+            if(!write)
             {
                const T2DataBlockFieldRow *dbRow = dbFieldAt(layout, at);
                if(dbRow)
-               {
-                  dMemcpy(&sDbValues[dbRow->field], &word, sizeof(F32));
-                  sDbWords[dbRow->field] = word;
-                  sDbHas[dbRow->field] = true;
-               }
+                  noteDbField(dbRow, word);
             }
             if(row && row->field == T2FieldYaw && n.bits)
             {
@@ -1091,7 +1154,10 @@ static bool runDataBlock(BitStream *stream, U32 classId, bool write)
    const T2DataBlockLayout *layout = &sT2DataBlocks[classId];
    resolveDataBlockFields(classId, layout);
    for(U32 i = 0; i < T2DbFieldCount; i++)
+   {
       sDbHas[i] = false;
+      sDbList[i].clear();
+   }
 
    // HH: Added for Tribes 2 compatibility.
    sStates = resolveStates(layout);
@@ -1244,6 +1310,20 @@ static void assembleBody()
       sBody.hasPosition = true;
    }
 
+   if(sPointAt >= 0 && sWords.size() >= U32(sPointAt) + 3)
+   {
+      sBody.position.set(wordFloat(sPointAt), wordFloat(sPointAt + 1),
+                         wordFloat(sPointAt + 2));
+      sBody.hasPosition = true;
+   }
+
+   if(sVelocityAt >= 0 && sWords.size() >= U32(sVelocityAt) + 3)
+   {
+      sBody.velocity.set(wordFloat(sVelocityAt), wordFloat(sVelocityAt + 1),
+                         wordFloat(sVelocityAt + 2));
+      sBody.hasVelocity = true;
+   }
+
    if(sScaleAt >= 0 && sWords.size() >= U32(sScaleAt) + 3)
    {
       sBody.scale.set(wordFloat(sScaleAt), wordFloat(sScaleAt + 1),
@@ -1266,6 +1346,8 @@ static bool runGhost(BitStream *stream, const char *className,
    sBody.hasRotation = false;
    sBody.hasScale = false;
    sBody.hasVelocity = false;
+   sBody.hasDirection = false;
+   sBody.hasImpactNormal = false;
    sBody.hasDamage = false;
    for(U32 i = 0; i < MaxImages; i++)
    {
@@ -1287,8 +1369,11 @@ static bool runGhost(BitStream *stream, const char *className,
    sTransformAt = -1;
    sAffineAt = -1;
    sScaleAt = -1;
+   sPointAt = -1;
+   sVelocityAt = -1;
    sQuatNegative = false;
    sSpeed = 0.0f;
+   sPhi = 0.0f;
    resolveGhostFields(className);
    bool found = false;
    const bool ok = runNamed(stream, className, sT2GhostsRecovered,

@@ -38,6 +38,10 @@ namespace T2Layout
       Point3F scale;
       bool    hasVelocity;
       Point3F velocity;             ///< metres a second, world space
+      bool    hasDirection;
+      Point3F direction;
+      bool    hasImpactNormal;
+      Point3F impactNormal;
       bool    hasDamage;
       F32     damage;               ///< share of the object's maxDamage
 
@@ -81,6 +85,37 @@ namespace T2Layout
       T2DbHeatIncreasePerSec,
       T2DbCameraMaxDist,
       T2DbImageMountPoint,
+      T2DbProjectileVelocity,
+      T2DbProjectileLifetime,
+      T2DbTracerLength,
+      T2DbTracerWidth,
+      T2DbCrossSize,
+      T2DbCrossViewAng,
+      T2DbElasticity,
+      T2DbFriction,
+      T2DbGravityMod,
+      T2DbArmingDelay,
+      T2DbBlurLifetime,
+      T2DbBlurWidth,
+      T2DbBlurColorR,
+      T2DbBlurColorG,
+      T2DbBlurColorB,
+      T2DbScaleX,
+      T2DbScaleY,
+      T2DbScaleZ,
+      T2DbExplosion,
+      T2DbFaceViewer,
+      T2DbExplosionScaleX,
+      T2DbExplosionScaleY,
+      T2DbExplosionScaleZ,
+      T2DbPlaySpeed,
+      T2DbDelayMS,
+      T2DbDelayVariance,
+      T2DbExplosionLifetime,
+      T2DbLifetimeVariance,
+      T2DbExplosionOffset,
+      T2DbExplosionTime,
+      T2DbExplosionSize,
 
       T2DbFieldCount
    };
@@ -126,6 +161,8 @@ namespace T2Layout
    /// The same read as the bits it arrived as, for a field Tribes 2 writes
    /// as a whole word rather than a float.
    bool lastDataBlockWord(U32 field, U32 *out);
+
+   const Vector<U32> &lastDataBlockValues(U32 field);
 
    bool readDataBlock(BitStream *stream, U32 classId);
 

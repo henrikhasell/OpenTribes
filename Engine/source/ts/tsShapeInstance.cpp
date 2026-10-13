@@ -252,6 +252,9 @@ void TSShapeInstance::setMaterialList( TSMaterialList *matList )
       initMaterialList();
       Material::sAllowTextureTargetAssignment = false;
    }
+
+   // HH: Added for Tribes 2 compatibility.
+   bindIflMaterials();
 }
 
 void TSShapeInstance::cloneMaterialList( const FeatureSet *features )

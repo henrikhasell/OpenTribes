@@ -30,6 +30,8 @@ public:
 
    virtual bool namesGameBaseShape() const { return false; }
 
+   virtual bool isShapeBaseData() const { return false; }
+
    bool preload(bool server, String &errorStr);
 
    DECLARE_CONOBJECT(DataBlockT2);
@@ -42,6 +44,7 @@ public:
    public:                                                                  \
       DECLARE_CONOBJECT(className);                                         \
       bool namesGameBaseShape() const { return shaped; }                    \
+      bool isShapeBaseData() const { return shaped; }                       \
       bool unpackData(BitStream *stream, U32 classId)                     \
       {                                                                     \
          StubT2::warn("datablock", getClassName());                         \

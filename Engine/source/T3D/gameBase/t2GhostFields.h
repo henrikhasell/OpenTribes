@@ -16,16 +16,24 @@ namespace T2Protocol
       T2FieldScale,                 ///< the first of a Point3F's three floats
       T2FieldDamage,                ///< readFloat(bits) of the object's
                                     ///< maxDamage
+      T2FieldNormalPhi,
+      T2FieldNormalTheta,
+      T2FieldImpactPhi,
+      T2FieldImpactTheta,
+      T2FieldPointWords,
+      T2FieldVelocityWords,
    };
 
    inline U32 t2FieldWords(U32 field)
    {
       switch(field)
       {
-         case T2FieldTransform: return 16;
-         case T2FieldAffine:    return 6;
-         case T2FieldScale:     return 3;
-         default:               return 0;
+         case T2FieldTransform:     return 16;
+         case T2FieldAffine:        return 6;
+         case T2FieldScale:         return 3;
+         case T2FieldPointWords:    return 3;
+         case T2FieldVelocityWords: return 3;
+         default:                   return 0;
       }
    }
 
@@ -112,6 +120,28 @@ namespace T2Protocol
 
       { "AudioEmitter",         150, OpRaw,  32, T2FieldAffine   },
       { "AudioEmitter",         156, OpFlag,  1, T2FieldQuatSign },
+
+#define T2_LINEAR_PROJECTILE_FIELDS( cls )                             \
+      { cls, 17, OpPoint,        0,  T2FieldPosition    },             \
+      { cls, 16, OpSignedFloat, 15,  T2FieldNormalPhi   },             \
+      { cls, 15, OpSignedFloat, 14,  T2FieldNormalTheta },             \
+      { cls, 21, OpPoint,        0,  T2FieldPosition     },            \
+      { cls, 20, OpSignedFloat, 15,  T2FieldImpactPhi    },            \
+      { cls, 19, OpSignedFloat, 14,  T2FieldImpactTheta  },            \
+      { cls,  4, OpPoint,        0,  T2FieldPosition     },            \
+      { cls,  3, OpSignedFloat, 15,  T2FieldImpactPhi    },            \
+      { cls,  2, OpSignedFloat, 14,  T2FieldImpactTheta  },
+
+      T2_LINEAR_PROJECTILE_FIELDS( "LinearProjectile"      )
+      T2_LINEAR_PROJECTILE_FIELDS( "LinearFlareProjectile" )
+      T2_LINEAR_PROJECTILE_FIELDS( "TracerProjectile"      )
+
+#undef T2_LINEAR_PROJECTILE_FIELDS
+
+      { "EnergyProjectile",      34, OpRaw,  32, T2FieldPointWords    },
+      { "EnergyProjectile",      31, OpRaw,  32, T2FieldVelocityWords },
+      { "EnergyProjectile",      13, OpRaw,  32, T2FieldPointWords    },
+      { "EnergyProjectile",      10, OpRaw,  32, T2FieldVelocityWords },
    };
 }
 

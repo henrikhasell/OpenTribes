@@ -34,6 +34,8 @@
 #include "T3D/gameBase/gameConnection.h"
 #include "T3D/gameBase/gameConnectionEvents.h"
 #include "T3D/gameBase/dataBlocksT2.h"
+#include "T3D/gameBase/processList.h"
+#include "T3D/fx/explosion.h"
 #include "T3D/gameBase/t2Layout.h"
 #include "T3D/shapeBase.h"
 #include "T3D/fx/particleEmitter.h"
@@ -236,6 +238,50 @@ static void readT2ImageStates( ShapeBaseImageData *image )
    }
 }
 
+
+// HH: Added for Tribes 2 compatibility.
+static void readT2Explosion( ExplosionData *ex )
+{
+   U32 word;
+   if( T2Layout::lastDataBlockWord( T2Layout::T2DbFaceViewer, &word ) )
+      ex->faceViewer = word != 0;
+   if( T2Layout::lastDataBlockWord( T2Layout::T2DbPlaySpeed, &word ) )
+      ex->playSpeed = F32( word ) * 0.05f;
+   if( T2Layout::lastDataBlockWord( T2Layout::T2DbDelayMS, &word ) )
+      ex->delayMS = word * TickMs;
+   if( T2Layout::lastDataBlockWord( T2Layout::T2DbDelayVariance, &word ) )
+      ex->delayVariance = word * TickMs;
+   if( T2Layout::lastDataBlockWord( T2Layout::T2DbExplosionLifetime, &word ) )
+      ex->lifetimeMS = word * TickMs;
+   if( T2Layout::lastDataBlockWord( T2Layout::T2DbLifetimeVariance, &word ) )
+      ex->lifetimeVariance = word * TickMs;
+   if( T2Layout::lastDataBlockWord( T2Layout::T2DbExplosionOffset, &word ) )
+      dMemcpy( &ex->offset, &word, sizeof( ex->offset ) );
+
+   U32 x, y, z;
+   if( T2Layout::lastDataBlockWord( T2Layout::T2DbExplosionScaleX, &x ) &&
+       T2Layout::lastDataBlockWord( T2Layout::T2DbExplosionScaleY, &y ) &&
+       T2Layout::lastDataBlockWord( T2Layout::T2DbExplosionScaleZ, &z ) )
+      ex->explosionScale.set( F32( x ) * 0.01f, F32( y ) * 0.01f,
+                              F32( z ) * 0.01f );
+
+   const Vector<U32> &times = T2Layout::lastDataBlockValues(
+      T2Layout::T2DbExplosionTime );
+   const Vector<U32> &sizes = T2Layout::lastDataBlockValues(
+      T2Layout::T2DbExplosionSize );
+
+   for( U32 i = 0; i < times.size() && i < ExplosionData::EC_NUM_TIME_KEYS;
+        i++ )
+      ex->times[i] = F32( times[i] ) / 255.0f;
+
+   for( U32 i = 0; i * 3 + 2 < sizes.size() &&
+                   i < ExplosionData::EC_NUM_TIME_KEYS; i++ )
+      ex->sizes[i].set( F32( sizes[i * 3 + 0] ) * 0.01f,
+                        F32( sizes[i * 3 + 1] ) * 0.01f,
+                        F32( sizes[i * 3 + 2] ) * 0.01f );
+
+}
+
 void SimDataBlockEvent::unpack(NetConnection *cptr, BitStream *bstream)
 {
    if(bstream->readFlag())
@@ -287,7 +333,14 @@ void SimDataBlockEvent::unpack(NetConnection *cptr, BitStream *bstream)
                si->shapeName = StringTable->insert( shape );
             else if( DataBlockT2 *db = dynamic_cast< DataBlockT2 * >( mObj ) )
                db->shapeName = StringTable->insert( shape );
+            else if( ExplosionData *ex = dynamic_cast< ExplosionData * >( mObj ) )
+               ex->dtsFileName = StringTable->insert(
+                  T2Layout::resourcePath( shape, "shapes/" ) );
          }
+
+         // HH: Added for Tribes 2 compatibility.
+         if( ExplosionData *ex = dynamic_cast< ExplosionData * >( mObj ) )
+            readT2Explosion( ex );
 
             // HH: Added for Tribes 2 compatibility.
             // A weapon wants mount node 0 and a pack node 1.
