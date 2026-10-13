@@ -129,6 +129,9 @@ protected:
       GFXShaderConstHandle *fogDataConst;
       GFXShaderConstHandle *fogBandDataConst;
       GFXShaderConstHandle *fogColorConst;
+
+      GFXShaderConstHandle *missionDetailTexConst;
+      GFXShaderConstHandle *missionDetailInfoConst;
    };
 
    TerrainBlock *mTerrain;

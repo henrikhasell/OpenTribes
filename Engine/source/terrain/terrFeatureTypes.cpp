@@ -34,3 +34,5 @@ ImplementFeatureType( MFT_TerrainLightMap, MFG_Texture, 104.0f, false );
 ImplementFeatureType( MFT_TerrainSideProject, MFG_Texture, 105.0f, false );
 ImplementFeatureType( MFT_TerrainAdditive, MFG_PostProcess, 999.0f, false );
 
+ImplementFeatureType( MFT_TerrainMissionDetail, MFG_Texture, 102.5f, false );
+

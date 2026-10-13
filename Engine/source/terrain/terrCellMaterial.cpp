@@ -407,6 +407,9 @@ bool TerrainCellMaterial::_createPass( Vector<MaterialInfo*> *materials,
             features.addFeature( MFT_TerrainSideProject, featureIndex );
       }
 
+      if ( !prePassMat && mTerrain->getMissionDetailTex() )
+         features.addFeature( MFT_TerrainMissionDetail, pass->materials.size() );
+
       MaterialFeatureData featureData;
       featureData.features = features;
       featureData.materialFeatures = features;
@@ -493,6 +496,9 @@ bool TerrainCellMaterial::_createPass( Vector<MaterialInfo*> *materials,
    pass->oneOverTerrainSize = pass->shader->getShaderConstHandle( "$oneOverTerrainSize" );
    pass->squareSize = pass->shader->getShaderConstHandle( "$squareSize" );
 
+   pass->missionDetailTexConst = pass->shader->getShaderConstHandle( "$missionDetailMap" );
+   pass->missionDetailInfoConst = pass->shader->getShaderConstHandle( "$missionDetailInfo" );
+
    // NOTE: We're assuming rtParams0 here as we know its the only
    // render target we currently get in a terrain material and the
    // DeferredRTLightingFeatHLSL will always use 0.
@@ -550,6 +556,19 @@ bool TerrainCellMaterial::_createPass( Vector<MaterialInfo*> *materials,
       desc.samplers[pass->lightMapTexConst->getSamplerRegister()] = GFXSamplerStateDesc::getWrapLinear();
 
    const U32 maxAnisotropy = MATMGR->getDefaultAnisotropy();
+
+   if ( pass->missionDetailTexConst->isValid() )
+   {
+      const S32 sampler = pass->missionDetailTexConst->getSamplerRegister();
+
+      desc.samplers[sampler] = GFXSamplerStateDesc::getWrapLinear();
+
+      if ( maxAnisotropy > 1 )
+      {
+         desc.samplers[sampler].minFilter = GFXTextureFilterAnisotropic;
+         desc.samplers[sampler].maxAnisotropy = maxAnisotropy;
+      }
+   }
 
    // Finally setup the material specific shader 
    // constants and stateblock state.
@@ -757,6 +776,23 @@ bool TerrainCellMaterial::setupPass(   const SceneRenderState *state,
    }
 
    pass.consts->setSafe( pass.squareSize, mTerrain->getSquareSize() );
+
+   GFXTextureObject *missionDetail = mTerrain->getMissionDetailTex();
+   if ( missionDetail && pass.missionDetailTexConst->isValid() )
+   {
+      GFX->setTexture( pass.missionDetailTexConst->getSamplerRegister(), missionDetail );
+
+      const F32 squareSize = mTerrain->getSquareSize();
+      const F32 zeroDetail = squareSize * state->projectRadius( 1.0f, 1.0f ) / 64.0f
+                           - mFloor( squareSize * 0.5f );
+
+      Point4F info( 62.0f / (F32)missionDetail->getWidth(),
+                    62.0f / (F32)missionDetail->getHeight(),
+                    zeroDetail,
+                    zeroDetail > 0.0f ? 1.0f / zeroDetail : 0.0f );
+
+      pass.consts->setSafe( pass.missionDetailInfoConst, info );
+   }
 
    if ( pass.fogDataConst->isValid() )
    {

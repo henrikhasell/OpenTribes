@@ -963,6 +963,19 @@ bool TerrainBlock::onAdd()
 
    if ( terr->hasLayerAlpha() )
    {
+      if ( mDetailTexture.isNotEmpty() )
+      {
+         Vector<Torque::Path> found;
+         Torque::Path path( String( "textures/" ) + mDetailTexture );
+
+         if ( GBitmap::sFindFiles( path, &found ) && found.size() )
+            mMissionDetailTex.set( found.first().getFullPath(),
+                                   &GFXDefaultStaticDiffuseProfile, "" );
+         else
+            Con::warnf( "TerrainBlock: no detail texture for '%s'.",
+                        mDetailTexture.c_str() );
+      }
+
       const F32 textureSize = mSquareSize * 8.0f;
 
       for ( U32 i = 0; i < terr->mMaterials.size(); i++ )

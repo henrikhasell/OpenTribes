@@ -35,5 +35,7 @@ DeclareFeatureType( MFT_TerrainLightMap );
 DeclareFeatureType( MFT_TerrainSideProject );
 DeclareFeatureType( MFT_TerrainAdditive );
 
+DeclareFeatureType( MFT_TerrainMissionDetail );
+
 #endif // _TERRFEATURETYPES_H_
 
