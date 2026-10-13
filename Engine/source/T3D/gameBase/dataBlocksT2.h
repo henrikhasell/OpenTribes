@@ -30,6 +30,13 @@ public:
 
    virtual bool namesGameBaseShape() const { return false; }
 
+      /// Whether the class Tribes 2 has in this one's place derives from
+      /// ShapeBaseData, which is the whole of what the file checksum sums
+      /// (ResManager's walk at 0x004401a0 casts to it and skips everything
+      /// else). A stub standing in for anything else must answer false, or
+      /// our answer carries files the server's never counted.
+   virtual bool isShapeBaseData() const { return false; }
+
    bool preload(bool server, String &errorStr);
 
    DECLARE_CONOBJECT(DataBlockT2);
@@ -42,6 +49,7 @@ public:
    public:                                                                  \
       DECLARE_CONOBJECT(className);                                         \
       bool namesGameBaseShape() const { return shaped; }                    \
+      bool isShapeBaseData() const { return shaped; }                       \
       bool unpackData(BitStream *stream, U32 classId)                     \
       {                                                                     \
          StubT2::warn("datablock", getClassName());                         \
