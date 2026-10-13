@@ -34,6 +34,7 @@
 #include "T3D/gameBase/gameConnection.h"
 #include "T3D/gameBase/gameConnectionEvents.h"
 #include "T3D/gameBase/dataBlocksT2.h"
+#include "T3D/fx/explosion.h"
 #include "T3D/gameBase/t2Layout.h"
 #include "T3D/shapeBase.h"
 #include "T3D/fx/particleEmitter.h"
@@ -287,6 +288,11 @@ void SimDataBlockEvent::unpack(NetConnection *cptr, BitStream *bstream)
                si->shapeName = StringTable->insert( shape );
             else if( DataBlockT2 *db = dynamic_cast< DataBlockT2 * >( mObj ) )
                db->shapeName = StringTable->insert( shape );
+               // An explosion names its shape first as well, and loads it by
+               // the whole path rather than by the bare name.
+            else if( ExplosionData *ex = dynamic_cast< ExplosionData * >( mObj ) )
+               ex->dtsFileName = StringTable->insert(
+                  T2Layout::resourcePath( shape, "shapes/" ) );
          }
 
             // HH: Added for Tribes 2 compatibility.

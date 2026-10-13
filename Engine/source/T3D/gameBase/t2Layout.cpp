@@ -825,6 +825,20 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
 
                // An image slot names a ShapeBaseImageData, never the object's own
                // datablock.
+               // A datablock that names another one -- a projectile naming its
+               // explosion -- is a field like any other, and the id is what
+               // it holds.
+            if(!write)
+            {
+               const T2DataBlockFieldRow *dbRow = dbFieldAt(layout, at);
+               if(dbRow)
+               {
+                  sDbWords[dbRow->field] = dbId;
+                  sDbValues[dbRow->field] = (F32)dbId;
+                  sDbHas[dbRow->field] = true;
+               }
+            }
+
             if(!sDataBlockId && !isImage)
                sDataBlockId = dbId;
             if(isImage)
@@ -844,14 +858,25 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
 
                // readNormalVector is a pair of signed floats and nothing else,
                // so the second of them is where the vector exists.
-            if(row && row->field == T2FieldNormalPhi)
+            if(row && (row->field == T2FieldNormalPhi ||
+                       row->field == T2FieldImpactPhi))
                sPhi = signedFloatOf(word, n.bits) * M_PI_F;
-            if(row && row->field == T2FieldNormalTheta)
+            if(row && (row->field == T2FieldNormalTheta ||
+                       row->field == T2FieldImpactTheta))
             {
                const F32 theta = signedFloatOf(word, n.bits) * M_HALFPI_F;
-               sBody.direction.set(mSin(sPhi) * mCos(theta),
-                                   mCos(sPhi) * mCos(theta), mSin(theta));
-               sBody.hasDirection = true;
+               const Point3F v(mSin(sPhi) * mCos(theta),
+                               mCos(sPhi) * mCos(theta), mSin(theta));
+               if(row->field == T2FieldNormalTheta)
+               {
+                  sBody.direction = v;
+                  sBody.hasDirection = true;
+               }
+               else
+               {
+                  sBody.impactNormal = v;
+                  sBody.hasImpactNormal = true;
+               }
             }
             break;
          }
@@ -1304,6 +1329,7 @@ static bool runGhost(BitStream *stream, const char *className,
    sBody.hasScale = false;
    sBody.hasVelocity = false;
    sBody.hasDirection = false;
+   sBody.hasImpactNormal = false;
    sBody.hasDamage = false;
    for(U32 i = 0; i < MaxImages; i++)
    {

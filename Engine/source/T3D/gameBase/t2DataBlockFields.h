@@ -34,6 +34,8 @@ namespace T2Protocol
    // is the layout's node 2.
       { "ShapeBaseImageData", 2, OpRaw, 32, T2DbImageMountPoint },
 
+   // Each of these layouts names its explosion as the fourth of the fifteen
+   // datablocks it refers to, which is the eighth flag's id node.
    // The flight of a projectile is not on the wire: the body says where and
    // which way, and the datablock says how fast and for how long. Each of
    // these layouts opens with ProjectileData's twenty-four nodes, so the
@@ -44,12 +46,14 @@ namespace T2Protocol
       { "LinearProjectileData",      57, OpRaw, 32, T2DbScaleX             },
       { "LinearProjectileData",      58, OpRaw, 32, T2DbScaleY             },
       { "LinearProjectileData",      59, OpRaw, 32, T2DbScaleZ             },
+      { "LinearProjectileData",      53, OpDataBlockId, 11, T2DbExplosion   },
 
       { "LinearFlareProjectileData", 24, OpRaw, 32, T2DbProjectileVelocity },
       { "LinearFlareProjectileData", 27, OpRaw, 32, T2DbProjectileLifetime },
       { "LinearFlareProjectileData", 64, OpRaw, 32, T2DbScaleX             },
       { "LinearFlareProjectileData", 65, OpRaw, 32, T2DbScaleY             },
       { "LinearFlareProjectileData", 66, OpRaw, 32, T2DbScaleZ             },
+      { "LinearFlareProjectileData", 60, OpDataBlockId, 11, T2DbExplosion   },
 
    // TracerProjectileData adds the streak a bullet is seen as, after the ten
    // fields it inherits from LinearProjectileData.
@@ -60,6 +64,7 @@ namespace T2Protocol
       { "TracerProjectileData",      67, OpRaw, 32, T2DbScaleX             },
       { "TracerProjectileData",      68, OpRaw, 32, T2DbScaleY             },
       { "TracerProjectileData",      69, OpRaw, 32, T2DbScaleZ             },
+      { "TracerProjectileData",      63, OpDataBlockId, 11, T2DbExplosion   },
 
    // EnergyProjectileData is a grenade underneath. GrenadeProjectileData's
    // unpackData at 0x00633cf0 stores in the order 0x148, 0x144, 0x138, 0x13c,
@@ -83,6 +88,7 @@ namespace T2Protocol
       { "EnergyProjectileData",      64, OpRaw, 32, T2DbScaleX             },
       { "EnergyProjectileData",      65, OpRaw, 32, T2DbScaleY             },
       { "EnergyProjectileData",      66, OpRaw, 32, T2DbScaleZ             },
+      { "EnergyProjectileData",      60, OpDataBlockId, 11, T2DbExplosion   },
    };
 }
 

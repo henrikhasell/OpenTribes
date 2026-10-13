@@ -19,6 +19,8 @@ namespace T2Protocol
       T2FieldNormalPhi,             ///< readNormalVector's first signed float,
       T2FieldNormalTheta,           ///< and its second, which completes the
                                     ///< unit vector the pair carries
+      T2FieldImpactPhi,             ///< the same pair again, for the normal of
+      T2FieldImpactTheta,           ///< the surface a projectile ended on
       T2FieldPointWords,            ///< the first of a position's three floats
       T2FieldVelocityWords,         ///< the first of a velocity's three
    };
@@ -131,8 +133,12 @@ namespace T2Protocol
       { cls, 17, OpPoint,        0,  T2FieldPosition    },             \
       { cls, 16, OpSignedFloat, 15,  T2FieldNormalPhi   },             \
       { cls, 15, OpSignedFloat, 14,  T2FieldNormalTheta },             \
-      { cls, 21, OpPoint,        0,  T2FieldPosition    },             \
-      { cls,  4, OpPoint,        0,  T2FieldPosition    },
+      { cls, 21, OpPoint,        0,  T2FieldPosition     },            \
+      { cls, 20, OpSignedFloat, 15,  T2FieldImpactPhi    },            \
+      { cls, 19, OpSignedFloat, 14,  T2FieldImpactTheta  },            \
+      { cls,  4, OpPoint,        0,  T2FieldPosition     },            \
+      { cls,  3, OpSignedFloat, 15,  T2FieldImpactPhi    },            \
+      { cls,  2, OpSignedFloat, 14,  T2FieldImpactTheta  },
 
       T2_LINEAR_PROJECTILE_FIELDS( "LinearProjectile"      )
       T2_LINEAR_PROJECTILE_FIELDS( "LinearFlareProjectile" )

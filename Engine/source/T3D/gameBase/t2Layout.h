@@ -41,6 +41,8 @@ namespace T2Layout
       bool    hasDirection;
       Point3F direction;            ///< a unit vector, where the body says
                                     ///< which way without saying how fast
+      bool    hasImpactNormal;
+      Point3F impactNormal;         ///< the surface a projectile ended on
       bool    hasDamage;
       F32     damage;               ///< share of the object's maxDamage
 
@@ -102,6 +104,7 @@ namespace T2Layout
       T2DbScaleX,
       T2DbScaleY,
       T2DbScaleZ,
+      T2DbExplosion,
 
       T2DbFieldCount
    };

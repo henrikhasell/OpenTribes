@@ -18,6 +18,7 @@
 #include "scene/sceneRenderState.h"
 #include "T3D/gameBase/dataBlocksT2.h"
 #include "T3D/gameBase/processList.h"
+#include "T3D/fx/explosion.h"
 #include "T3D/gameBase/t2Layout.h"
 #include "T3D/objectTypes.h"
 #include "ts/tsShapeInstance.h"
@@ -38,6 +39,7 @@ public:
    F32    friction;        ///< what a bounce takes off along the surface
    F32    gravityMod;      ///< a share of gravity, and zero for a bolt
    U32    armingDelayMS;   ///< it bounces until this, and goes off after
+   U32    explosionId;     ///< the ExplosionData it ends as
    F32    blurLifetime;    ///< seconds a length of the trail lasts
    F32    blurWidth;
    ColorF blurColor;
@@ -71,6 +73,7 @@ ProjectileDataT2::ProjectileDataT2()
      friction(0.0f),
      gravityMod(0.0f),
      armingDelayMS(0),
+     explosionId(0),
      blurLifetime(0.0f),
      blurWidth(0.0f),
      blurColor(1.0f, 1.0f, 1.0f, 1.0f)
@@ -98,6 +101,8 @@ bool ProjectileDataT2::unpackData(BitStream *stream, U32 classId)
       crossViewAng = value;
    if(T2Layout::lastDataBlockWord(T2Layout::T2DbArmingDelay, &word))
       armingDelayMS = word;
+   if(T2Layout::lastDataBlockWord(T2Layout::T2DbExplosion, &word))
+      explosionId = word;
    if(T2Layout::lastDataBlockField(T2Layout::T2DbBlurLifetime, &value))
       blurLifetime = value;
    if(T2Layout::lastDataBlockField(T2Layout::T2DbBlurWidth, &value))
@@ -179,13 +184,18 @@ class ProjectileT2 : public GameBase
 
    Point3F mStart;            ///< where the body put it
    Point3F mPosition;         ///< where it has got to since
-   VectorF mHeading;          ///< a unit vector, or a whole velocity where
-   bool    mHeadingIsVelocity;///< the body carried one
+   VectorF mVelocity;         ///< metres a second, which is all the flight is
+   bool    mNeedsSpeed;       ///< the body gave a direction and the datablock
+                              ///< the speed, and it arrives after the body
+   bool    mBounces;          ///< a grenade's family does; a disc goes off
    F32     mAge;              ///< seconds since that body
    bool    mFlying;
+   bool    mExploded;         ///< it only goes off once
+   VectorF mImpactNormal;
 
    TSThread *startThread(const char *name);
    void step(F32 dt);
+   void explode();
    void headingMatrix(MatrixF *mat);
    void ageTrail(F32 dt);
    void renderBolt(ObjectRenderInst *ri, SceneRenderState *state,
@@ -222,14 +232,17 @@ ProjectileT2::ProjectileT2()
      mMaintainSeq(-1),
      mStart(0.0f, 0.0f, 0.0f),
      mPosition(0.0f, 0.0f, 0.0f),
-     mHeading(0.0f, 0.0f, 0.0f),
-     mHeadingIsVelocity(false),
+     mVelocity(0.0f, 0.0f, 0.0f),
+     mNeedsSpeed(false),
+     mBounces(false),
      mTrail(__FILE__, __LINE__),
      mTrailAt(0.0f, 0.0f, 0.0f),
      mBoxReach(0.0f),
      mSinceTrail(0.0f),
      mAge(0.0f),
-     mFlying(false)
+     mFlying(false),
+     mExploded(false),
+     mImpactNormal(0.0f, 0.0f, 1.0f)
 {
    mTypeMask |= ProjectileObjectType;
 }
@@ -335,23 +348,68 @@ void ProjectileT2::onT2BodyRead(const T2Layout::Body &body)
       mTrailAt = body.position;
    mAge = 0.0f;
 
+      // A grenade's family is told its velocity; a disc's is told the way it
+      // is going and takes the speed off its datablock. Either way the client
+      // flies it from here, tests it against the world itself, and sets it
+      // off where it lands -- which is what retail's own simulate does
+      // (LinearProjectile at 0x0062e010, GrenadeProjectile at 0x00634910).
    if(body.hasVelocity)
    {
-      mHeading = body.velocity;
-      mHeadingIsVelocity = true;
+      mVelocity = body.velocity;
+      mNeedsSpeed = false;
+      mBounces = true;
       mFlying = true;
    }
    else if(body.hasDirection)
    {
-      mHeading = body.direction;
-      mHeadingIsVelocity = false;
+         // The datablock arrives after the body it belongs to, so the speed
+         // cannot be applied here.
+      mVelocity = body.direction;
+      mNeedsSpeed = true;
+      mBounces = false;
       mFlying = true;
    }
    else
+   {
          // A body that says where it is without saying which way it is going
-         // is the one that says it has gone off, and retail draws nothing of
-         // it either.
+         // is the one that says it has gone off. Retail draws nothing of the
+         // projectile from here, and plays the explosion its datablock names.
       mFlying = false;
+      if(body.hasImpactNormal)
+         mImpactNormal = body.impactNormal;
+      explode();
+   }
+}
+
+/// What retail's client does with the body that ends a projectile: play the
+/// datablock's explosion where it ended (projectile.cc 0x00632530 and
+/// Projectile::explode).
+void ProjectileT2::explode()
+{
+   if(mExploded)
+      return;
+
+   mExploded = true;
+
+   ExplosionData *data = NULL;
+   if(!mData || !mData->explosionId ||
+      !Sim::findObject(mData->explosionId, data) || !data)
+      return;
+
+   Explosion *blast = new Explosion;
+   blast->onNewDataBlock(data, false);
+
+   MatrixF mat(true);
+   mat.setPosition(mPosition);
+   blast->setTransform(mat);
+   blast->setInitialState(mPosition, mImpactNormal);
+
+   if(!blast->registerObject())
+   {
+      Con::warnf("ProjectileT2: %s could not register its explosion.",
+                 mData->getName());
+      delete blast;
+   }
 }
 
 void ProjectileT2::advanceTime(F32 dt)
@@ -369,6 +427,12 @@ void ProjectileT2::advanceTime(F32 dt)
    if(!mFlying)
       return;
 
+   if(mNeedsSpeed)
+   {
+      mVelocity *= mData->velocity;
+      mNeedsSpeed = false;
+   }
+
    mAge += dt;
 
    if(mData->lifetimeMS && mAge * 1000.0f > F32(mData->lifetimeMS))
@@ -377,14 +441,7 @@ void ProjectileT2::advanceTime(F32 dt)
       return;
    }
 
-      // A projectile the body gave a whole velocity to is one the client is
-      // meant to fly itself, bounces and all; one given a direction holds the
-      // line its datablock's velocity puts it on, and the server says where
-      // it ended.
-   if(mHeadingIsVelocity)
-      step(dt);
-   else
-      mPosition = mStart + mHeading * (mData->velocity * mAge);
+   step(dt);
 
       // One length of trail per tick, which is where retail lays one -- the
       // flight here is per frame, and a length a frame would be four of them
@@ -420,10 +477,12 @@ void ProjectileT2::advanceTime(F32 dt)
    mShapeInstance->advanceTime(dt);
 }
 
-/// What a projectile collides with, which is Projectile's own two masks.
+/// What a projectile collides with. Retail takes players and vehicles too and
+/// turns the shooter's own collision off for the first few ticks; until the
+/// body's source object is read, the world alone is the safe half -- a muzzle
+/// that counted as a hit would go off in the shooter's face.
 static const U32 sProjectileCollisionMask =
-   TerrainObjectType | InteriorObjectType | StaticShapeObjectType |
-   PlayerObjectType | VehicleObjectType;
+   TerrainObjectType | InteriorObjectType | StaticShapeObjectType;
 
 /// Age every length of the trail from both ends and drop the ones that have
 /// run out, which is GrenadeBlur's advance at 0x00698380 and the pass after it
@@ -451,10 +510,12 @@ void ProjectileT2::ageTrail(F32 dt)
 /// arming delay and goes off on the first thing it touches after that.
 void ProjectileT2::step(F32 dt)
 {
-   mHeading.z -= 9.81f * mData->gravityMod * dt;
+      // The datablock's velocity already set the speed, so a projectile with
+      // no gravity of its own holds its line.
+   mVelocity.z -= 9.81f * mData->gravityMod * dt;
 
    const Point3F from = mPosition;
-   const Point3F to = from + mHeading * dt;
+   const Point3F to = from + mVelocity * dt;
 
    RayInfo info;
    disableCollision();
@@ -469,21 +530,24 @@ void ProjectileT2::step(F32 dt)
    }
 
    mPosition = info.point;
+   mImpactNormal = info.normal;
 
-   if(mAge * 1000.0f > F32(mData->armingDelayMS))
+      // A disc goes off on the first thing it touches; a grenade bounces
+      // until its arming delay has run and goes off on the first thing after
+      // that (0x00634e0f).
+   if(!mBounces || mAge * 1000.0f > F32(mData->armingDelayMS))
    {
-         // Armed, so this is where it goes off. The server owns the explosion
-         // and takes the ghost with it; what is left here is the trail.
       mFlying = false;
+      explode();
       return;
    }
 
    const Point3F bounced =
-      mHeading - info.normal * (mDot(mHeading, info.normal) * 2.0f);
+      mVelocity - info.normal * (mDot(mVelocity, info.normal) * 2.0f);
    const Point3F tangent =
       bounced - info.normal * mDot(bounced, info.normal);
 
-   mHeading = (bounced - tangent * mData->friction) * mData->elasticity;
+   mVelocity = (bounced - tangent * mData->friction) * mData->elasticity;
 
       // Off the surface, so the next step does not start inside it.
    mPosition = info.point + info.normal * 0.05f;
@@ -494,7 +558,7 @@ void ProjectileT2::step(F32 dt)
 /// perpendicular at all turns the disc over at random.
 void ProjectileT2::headingMatrix(MatrixF *mat)
 {
-   VectorF forward = mHeading;
+   VectorF forward = mVelocity;
    if(forward.isZero())
       return;
    forward.normalize();
@@ -621,18 +685,18 @@ void ProjectileT2::drawTrail(const Point3F &eye)
 /// takes the half length as scale.x * scale.y * 0.5.
 void ProjectileT2::drawBolt(const Point3F &eye)
 {
-   if(mTexture[0].isNull() || mHeading.isZero())
+   if(mTexture[0].isNull() || mVelocity.isZero())
       return;
 
    const Point3F at = getRenderTransform().getPosition();
 
-   VectorF across = mCross(at - eye, mHeading);
+   VectorF across = mCross(at - eye, mVelocity);
    if(across.isZero())
       return;
    across.normalize();
    across *= mData->scale.x;
 
-   VectorF along = mHeading;
+   VectorF along = mVelocity;
    along.normalize();
    along *= mData->scale.x * mData->scale.y * 0.5f;
 
@@ -671,7 +735,7 @@ void ProjectileT2::drawBolt(const Point3F &eye)
 /// way to the eye (0x006973b0).
 void ProjectileT2::drawCross(const Point3F &eye)
 {
-   if(mTexture[1].isNull() || mData->crossSize <= 0.0f || mHeading.isZero())
+   if(mTexture[1].isNull() || mData->crossSize <= 0.0f || mVelocity.isZero())
       return;
 
    const Point3F at = getRenderTransform().getPosition();
@@ -681,7 +745,7 @@ void ProjectileT2::drawCross(const Point3F &eye)
       return;
    toEye.normalize();
 
-   VectorF along = mHeading;
+   VectorF along = mVelocity;
    along.normalize();
 
    if(mFabs(mDot(along, toEye)) < mData->crossViewAng)

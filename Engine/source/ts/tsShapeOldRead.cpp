@@ -386,6 +386,7 @@ struct Keyframe
 // read in and throw away
 Vector<Keyframe> keyframes(__FILE__,__LINE__);
 
+
 void TSShape::readOldShape(Stream * s,
                            S32 * & memBuffer32, S16 * & memBuffer16, S8 * & memBuffer8,
                            S32 & count32, S32 & count16, S32 & count8)
@@ -587,21 +588,35 @@ void TSShape::readOldShape(Stream * s,
    S32 * pDetailStart = memBuffer32 + detailStart;
    for (i=numDetails-1; i>=0; i--)
       dMemmove(&pDetailStart[i*7],&pDetailStart[i*4],4*sizeof(S32));
-   // now find the smallest renderable detail level and size
-   Detail * pd = (Detail*)pDetailStart;
+   // HH: Modified for Tribes 2 compatibility.
+   // Seven words a detail, which is what the file carries and what the
+   // expansion above packed them at. A Detail* over this buffer strides the
+   // thirteen words the struct has grown to since, so from the second detail
+   // on it writes its three computed members into the detail after it -- and
+   // an objectDetailNum holding the bits of -1.0f indexes the mesh array
+   // wild. Address the words instead.
+   enum { OldDetailWords = 7, OldDetailSize = 3,
+          OldDetailAverageError = 4, OldDetailMaxError = 5,
+          OldDetailPolyCount = 6 };
+
+   const F32 noError = convertLEndianToHost(-1.0f);
    memBuffer32[13] = 0; // initialize to something valid
    memBuffer32[14] = 0; // initialize to something valid
    for (i=0; i<numDetails; i++)
    {
-      S32 dsize = (S32) convertLEndianToHost(pd[i].size);
-      if (dsize>=0.0f)
+      S32 * det = pDetailStart + i * OldDetailWords;
+
+         // The size is a float; this keeps the original's reading of its
+         // bits, where all that decides the branch is the sign.
+      S32 dsize = (S32) convertLEndianToHost(det[OldDetailSize]);
+      if (dsize>=0)
       {
-         memBuffer32[13] = (S32)dsize;
+         memBuffer32[13] = dsize;
          memBuffer32[14] = i;
       }
-      pd[i].maxError = convertLEndianToHost(-1.0f);
-      pd[i].averageError = convertLEndianToHost(-1.0f);
-      pd[i].polyCount = convertLEndianToHost(0);
+      dMemcpy(&det[OldDetailAverageError],&noError,sizeof(noError));
+      dMemcpy(&det[OldDetailMaxError],&noError,sizeof(noError));
+      det[OldDetailPolyCount] = convertLEndianToHost((S32)0);
    }
 
    DebugGuard();
