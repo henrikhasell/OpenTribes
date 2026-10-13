@@ -105,6 +105,7 @@ namespace T2Layout
       T2DbScaleY,
       T2DbScaleZ,
       T2DbExplosion,
+      T2DbFaceViewer,
 
       T2DbFieldCount
    };

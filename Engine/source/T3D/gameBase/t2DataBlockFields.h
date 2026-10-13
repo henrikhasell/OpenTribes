@@ -30,6 +30,12 @@ namespace T2Protocol
 
       { "PlayerData", 269, OpRaw, 32, T2DbCameraMaxDist },
 
+   // ExplosionData::unpackData (0x0061f7a0) reads its shape, two datablock
+   // refs, a density and a radius, and then one bit for faceViewer -- the bit
+   // that has retail's explosions turn to the camera every frame rather than
+   // stand on the normal of whatever they went off against.
+      { "ExplosionData", 5, OpFlag, 1, T2DbFaceViewer },
+
    // ShapeBaseImageData::packData writes the mount point as a whole word, which
    // is the layout's node 2.
       { "ShapeBaseImageData", 2, OpRaw, 32, T2DbImageMountPoint },

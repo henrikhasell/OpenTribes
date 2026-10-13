@@ -295,6 +295,15 @@ void SimDataBlockEvent::unpack(NetConnection *cptr, BitStream *bstream)
                   T2Layout::resourcePath( shape, "shapes/" ) );
          }
 
+         // HH: Added for Tribes 2 compatibility.
+         if( ExplosionData *ex = dynamic_cast< ExplosionData * >( mObj ) )
+         {
+            U32 faceViewer;
+            if( T2Layout::lastDataBlockWord( T2Layout::T2DbFaceViewer,
+                                             &faceViewer ) )
+               ex->faceViewer = faceViewer != 0;
+         }
+
             // HH: Added for Tribes 2 compatibility.
             // A weapon wants mount node 0 and a pack node 1.
          U32 mountPoint;

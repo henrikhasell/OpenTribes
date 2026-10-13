@@ -711,6 +711,19 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
                   }
                }
             }
+               // A flag can be a field in its own right -- an explosion saying
+               // it faces the viewer is one bit and nothing else.
+            if(!write)
+            {
+               const T2DataBlockFieldRow *dbRow = dbFieldAt(layout, at);
+               if(dbRow)
+               {
+                  sDbWords[dbRow->field] = U32(set);
+                  sDbValues[dbRow->field] = set ? 1.0f : 0.0f;
+                  sDbHas[dbRow->field] = true;
+               }
+            }
+
             at = set ? n.b : n.a;
             continue;
          }
