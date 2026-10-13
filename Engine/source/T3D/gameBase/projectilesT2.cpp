@@ -17,6 +17,7 @@
 #include "renderInstance/renderPassManager.h"
 #include "scene/sceneRenderState.h"
 #include "T3D/gameBase/dataBlocksT2.h"
+#include "T3D/gameBase/processList.h"
 #include "T3D/gameBase/t2Layout.h"
 #include "T3D/objectTypes.h"
 #include "ts/tsShapeInstance.h"
@@ -30,11 +31,17 @@ public:
    U32    lifetimeMS;      ///< how long retail's client keeps it
    F32    streakLength;    ///< the tracer a bullet is seen as, where it is
    F32    streakWidth;     ///< seen as one rather than drawn as a shape
-   F32    boltSize;        ///< metres across, for a bolt that is neither
+   F32    crossSize;       ///< the quad a bolt is seen as end on
+   F32    crossViewAng;    ///< how square to the view that has to be
+   Point3F scale;          ///< a bolt's width, and its length in widths
    F32    elasticity;      ///< what a bounce keeps of its speed
    F32    friction;        ///< what a bounce takes off along the surface
    F32    gravityMod;      ///< a share of gravity, and zero for a bolt
-   String texture;         ///< what to draw it with, where there is no shape
+   U32    armingDelayMS;   ///< it bounces until this, and goes off after
+   F32    blurLifetime;    ///< seconds a length of the trail lasts
+   F32    blurWidth;
+   ColorF blurColor;
+   String texture[2];      ///< the bolt's and the cross's
 
    ProjectileDataT2();
 
@@ -57,11 +64,16 @@ ProjectileDataT2::ProjectileDataT2()
      lifetimeMS(0),
      streakLength(0.0f),
      streakWidth(0.0f),
-     boltSize(0.0f),
+     crossSize(0.0f),
+     crossViewAng(0.0f),
+     scale(1.0f, 1.0f, 1.0f),
      elasticity(0.0f),
      friction(0.0f),
      gravityMod(0.0f),
-     texture(String::EmptyString)
+     armingDelayMS(0),
+     blurLifetime(0.0f),
+     blurWidth(0.0f),
+     blurColor(1.0f, 1.0f, 1.0f, 1.0f)
 {
 }
 
@@ -81,7 +93,28 @@ bool ProjectileDataT2::unpackData(BitStream *stream, U32 classId)
    if(T2Layout::lastDataBlockField(T2Layout::T2DbTracerWidth, &value))
       streakWidth = value;
    if(T2Layout::lastDataBlockField(T2Layout::T2DbCrossSize, &value))
-      boltSize = value;
+      crossSize = value;
+   if(T2Layout::lastDataBlockField(T2Layout::T2DbCrossViewAng, &value))
+      crossViewAng = value;
+   if(T2Layout::lastDataBlockWord(T2Layout::T2DbArmingDelay, &word))
+      armingDelayMS = word;
+   if(T2Layout::lastDataBlockField(T2Layout::T2DbBlurLifetime, &value))
+      blurLifetime = value;
+   if(T2Layout::lastDataBlockField(T2Layout::T2DbBlurWidth, &value))
+      blurWidth = value;
+   if(T2Layout::lastDataBlockField(T2Layout::T2DbBlurColorR, &value))
+      blurColor.red = value;
+   if(T2Layout::lastDataBlockField(T2Layout::T2DbBlurColorG, &value))
+      blurColor.green = value;
+   if(T2Layout::lastDataBlockField(T2Layout::T2DbBlurColorB, &value))
+      blurColor.blue = value;
+      // A scale is only on the wire when it is not the default one.
+   if(T2Layout::lastDataBlockField(T2Layout::T2DbScaleX, &value))
+      scale.x = value;
+   if(T2Layout::lastDataBlockField(T2Layout::T2DbScaleY, &value))
+      scale.y = value;
+   if(T2Layout::lastDataBlockField(T2Layout::T2DbScaleZ, &value))
+      scale.z = value;
    if(T2Layout::lastDataBlockField(T2Layout::T2DbElasticity, &value))
       elasticity = value;
    if(T2Layout::lastDataBlockField(T2Layout::T2DbFriction, &value))
@@ -89,12 +122,14 @@ bool ProjectileDataT2::unpackData(BitStream *stream, U32 classId)
    if(T2Layout::lastDataBlockField(T2Layout::T2DbGravityMod, &value))
       gravityMod = value;
 
-      // Every one of these layouts names its shape first and its textures
-      // after it, so a projectile with no shape is drawn with the second
-      // string the body carried.
+      // Every one of these layouts names its shape first and its two
+      // textures after it, which for a bolt are what it is drawn with along
+      // its flight and what it is drawn with end on.
    const Vector<String> &strings = T2Layout::lastStrings();
    if(strings.size() > 1)
-      texture = strings[1];
+      texture[0] = strings[1];
+   if(strings.size() > 2)
+      texture[1] = strings[2];
 
    return true;
 }
@@ -126,8 +161,21 @@ class ProjectileT2 : public GameBase
    TSThread         *mAmbientThread;
    TSThread         *mFlightThread;  ///< Activate, and Maintain after it
    S32               mMaintainSeq;
-   GFXTexHandle      mTexture;
+   GFXTexHandle      mTexture[2];
    GFXStateBlockRef  mBoltSB;
+   GFXStateBlockRef  mTrailSB;
+
+   /// One length of the trail a bolt leaves, aged from each end so the quad
+   /// fades along itself as well as away.
+   struct Trail
+   {
+      Point3F from, to;
+      F32     ageFrom, ageTo;
+   };
+   Vector<Trail> mTrail;
+   Point3F mTrailAt;          ///< where the last length of it ended
+   F32     mBoxReach;         ///< what the bolt and its trail need enclosing
+   F32     mSinceTrail;       ///< seconds since the last length was laid
 
    Point3F mStart;            ///< where the body put it
    Point3F mPosition;         ///< where it has got to since
@@ -139,8 +187,12 @@ class ProjectileT2 : public GameBase
    TSThread *startThread(const char *name);
    void step(F32 dt);
    void headingMatrix(MatrixF *mat);
+   void ageTrail(F32 dt);
    void renderBolt(ObjectRenderInst *ri, SceneRenderState *state,
                    BaseMatInstance *overrideMat);
+   void drawTrail(const Point3F &eye);
+   void drawBolt(const Point3F &eye);
+   void drawCross(const Point3F &eye);
 
 public:
    ProjectileT2();
@@ -172,6 +224,10 @@ ProjectileT2::ProjectileT2()
      mPosition(0.0f, 0.0f, 0.0f),
      mHeading(0.0f, 0.0f, 0.0f),
      mHeadingIsVelocity(false),
+     mTrail(__FILE__, __LINE__),
+     mTrailAt(0.0f, 0.0f, 0.0f),
+     mBoxReach(0.0f),
+     mSinceTrail(0.0f),
      mAge(0.0f),
      mFlying(false)
 {
@@ -224,6 +280,7 @@ bool ProjectileT2::onNewDataBlock(GameBaseData *dptr, bool reload)
       mShapeInstance = new TSShapeInstance(mData->mShape, isClientObject());
       mObjBox = mData->mShape->bounds;
       resetWorldBox();
+      mBoxReach = 0.0f;
 
          // The spin of a disc is in the shape, not in the transform: it
          // carries Ambient, Activate and Maintain, and a projectile that
@@ -234,9 +291,22 @@ bool ProjectileT2::onNewDataBlock(GameBaseData *dptr, bool reload)
       if(!mFlightThread && mMaintainSeq >= 0)
          mFlightThread = startThread("maintain");
    }
-   else if(mData->texture.isNotEmpty())
-      mTexture.set(String("textures/") + mData->texture,
-                   &GFXDefaultStaticDiffuseProfile, "ProjectileT2");
+   else
+   {
+      for(U32 i = 0; i < 2; i++)
+         if(mData->texture[i].isNotEmpty())
+            mTexture[i].set(String("textures/") + mData->texture[i],
+                            &GFXDefaultStaticDiffuseProfile, "ProjectileT2");
+
+         // A bolt is drawn five metres long and trails a fifth of a second
+         // behind itself, and none of that is inside a box the size of the
+         // point it is at -- which would have the scene cull the lot.
+      mBoxReach = getMax(mData->scale.x * mData->scale.y * 0.5f,
+                         mData->blurLifetime * mData->velocity) + 1.0f;
+      mObjBox.minExtents.set(-mBoxReach, -mBoxReach, -mBoxReach);
+      mObjBox.maxExtents.set( mBoxReach,  mBoxReach,  mBoxReach);
+      resetWorldBox();
+   }
 
    return true;
 }
@@ -261,6 +331,8 @@ void ProjectileT2::onT2BodyRead(const T2Layout::Body &body)
       return;
 
    mStart = mPosition = body.position;
+   if(mTrail.empty())
+      mTrailAt = body.position;
    mAge = 0.0f;
 
    if(body.hasVelocity)
@@ -286,7 +358,15 @@ void ProjectileT2::advanceTime(F32 dt)
 {
    Parent::advanceTime(dt);
 
-   if(!mFlying || dt <= 0.0f)
+   if(dt <= 0.0f)
+      return;
+
+      // The trail outlives the bolt: retail keeps the object a blurLifetime
+      // past the explosion so what is left of it fades out rather than going
+      // with it.
+   ageTrail(dt);
+
+   if(!mFlying)
       return;
 
    mAge += dt;
@@ -305,6 +385,21 @@ void ProjectileT2::advanceTime(F32 dt)
       step(dt);
    else
       mPosition = mStart + mHeading * (mData->velocity * mAge);
+
+      // One length of trail per tick, which is where retail lays one -- the
+      // flight here is per frame, and a length a frame would be four of them
+      // for every one of its.
+   mSinceTrail += dt;
+   if(mData->blurLifetime > 0.0f && mSinceTrail >= TickSec)
+   {
+      mTrail.increment();
+      Trail &t = mTrail.last();
+      t.from = mTrailAt;
+      t.to = mPosition;
+      t.ageFrom = t.ageTo = 0.0f;
+      mTrailAt = mPosition;
+      mSinceTrail = 0.0f;
+   }
 
    MatrixF mat(true);
    headingMatrix(&mat);
@@ -330,10 +425,30 @@ static const U32 sProjectileCollisionMask =
    TerrainObjectType | InteriorObjectType | StaticShapeObjectType |
    PlayerObjectType | VehicleObjectType;
 
+/// Age every length of the trail from both ends and drop the ones that have
+/// run out, which is GrenadeBlur's advance at 0x00698380 and the pass after it
+/// at 0x006983d0.
+void ProjectileT2::ageTrail(F32 dt)
+{
+   if(mTrail.empty())
+      return;
+
+   for(U32 i = 0; i < mTrail.size(); i++)
+   {
+      mTrail[i].ageFrom += dt;
+      mTrail[i].ageTo += dt;
+   }
+
+   while(!mTrail.empty() && mTrail.first().ageTo >= mData->blurLifetime)
+      mTrail.pop_front();
+}
+
 /// One step of the flight of a grenade -- which a blaster bolt is underneath,
-/// at no gravity and very nearly all of its speed kept. The bounce is
-/// Projectile::simulate's, because that is the same bounce Tribes 2 hands its
-/// client the elasticity and friction for.
+/// at no gravity and very nearly all of its speed kept. Both the bounce and
+/// the rule that ends it are GrenadeProjectile's: the reflect, the tangent
+/// rubbed off by friction and the elasticity at 0x00635001, and the test at
+/// 0x00634e0f that bounces only while the projectile is younger than its
+/// arming delay and goes off on the first thing it touches after that.
 void ProjectileT2::step(F32 dt)
 {
    mHeading.z -= 9.81f * mData->gravityMod * dt;
@@ -350,6 +465,16 @@ void ProjectileT2::step(F32 dt)
    if(!hit)
    {
       mPosition = to;
+      return;
+   }
+
+   mPosition = info.point;
+
+   if(mAge * 1000.0f > F32(mData->armingDelayMS))
+   {
+         // Armed, so this is where it goes off. The server owns the explosion
+         // and takes the ghost with it; what is left here is the trail.
+      mFlying = false;
       return;
    }
 
@@ -388,11 +513,11 @@ void ProjectileT2::headingMatrix(MatrixF *mat)
 
 void ProjectileT2::prepRenderImage(SceneRenderState *state)
 {
-   if(!mFlying)
-      return;
-
    if(mShapeInstance)
    {
+      if(!mFlying)
+         return;
+
       GFXTransformSaver saver;
 
       TSRenderState rdata;
@@ -413,7 +538,7 @@ void ProjectileT2::prepRenderImage(SceneRenderState *state)
       return;
    }
 
-   if(mTexture.isNull())
+   if(mTexture[0].isNull() && mTrail.empty())
       return;
 
    ObjectRenderInst *ri = state->getRenderPass()->allocInst<ObjectRenderInst>();
@@ -422,11 +547,97 @@ void ProjectileT2::prepRenderImage(SceneRenderState *state)
    state->getRenderPass()->addInst(ri);
 }
 
+/// Everything retail's EnergyProjectile::renderObject (0x00696dd0) draws, in
+/// the order it draws it: the trail first, and then the bolt and its cross
+/// only while the bolt is still there.
 void ProjectileT2::renderBolt(ObjectRenderInst *, SceneRenderState *state,
                               BaseMatInstance *overrideMat)
 {
    if(overrideMat)
       return;
+
+   const Point3F eye = state->getCameraPosition();
+
+   drawTrail(eye);
+
+   if(!mFlying)
+      return;
+
+   drawBolt(eye);
+   drawCross(eye);
+}
+
+/// A length of trail is a flat quad, untextured, carrying the datablock's
+/// blurColor at an alpha of one less the share of its life each end has used.
+/// The oldest length has its far end pinned transparent, which is what keeps
+/// the trail from ending in a hard edge.
+void ProjectileT2::drawTrail(const Point3F &eye)
+{
+   if(mTrail.empty() || mData->blurLifetime <= 0.0f)
+      return;
+
+   if(mTrailSB.isNull())
+   {
+      GFXStateBlockDesc desc;
+      desc.setBlend(true, GFXBlendSrcAlpha, GFXBlendOne);
+      desc.setCullMode(GFXCullNone);
+      desc.zWriteEnable = false;
+      mTrailSB = GFX->createStateBlock(desc);
+   }
+
+   GFX->setStateBlock(mTrailSB);
+   GFX->setupGenericShaders(GFXDevice::GSColor);
+
+   const F32 half = mData->blurWidth * 0.5f;
+   const ColorF &c = mData->blurColor;
+
+   for(U32 i = 0; i < mTrail.size(); i++)
+   {
+      const Trail &t = mTrail[i];
+
+      VectorF across = mCross(t.to - t.from, t.from - eye);
+      if(across.isZero())
+         continue;
+      across.normalize();
+      across *= half;
+
+      const F32 a = i ? 1.0f - t.ageFrom / mData->blurLifetime : 0.0f;
+      const F32 b = 1.0f - t.ageTo / mData->blurLifetime;
+
+      PrimBuild::begin(GFXTriangleFan, 4);
+      PrimBuild::color4f(c.red, c.green, c.blue, a);
+      PrimBuild::vertex3fv(t.from + across);
+      PrimBuild::vertex3fv(t.from - across);
+      PrimBuild::color4f(c.red, c.green, c.blue, b);
+      PrimBuild::vertex3fv(t.to - across);
+      PrimBuild::vertex3fv(t.to + across);
+      PrimBuild::end(false);
+   }
+}
+
+/// The bolt itself: a quad along the flight, as wide as the datablock's scale
+/// in x and as long as that again in its y, drawn flat into the view. Retail
+/// builds it at 0x00696ed0 from the velocity and the way to the camera, and
+/// takes the half length as scale.x * scale.y * 0.5.
+void ProjectileT2::drawBolt(const Point3F &eye)
+{
+   if(mTexture[0].isNull() || mHeading.isZero())
+      return;
+
+   const Point3F at = getRenderTransform().getPosition();
+
+   VectorF across = mCross(at - eye, mHeading);
+   if(across.isZero())
+      return;
+   across.normalize();
+   across *= mData->scale.x;
+
+   VectorF along = mHeading;
+   along.normalize();
+   along *= mData->scale.x * mData->scale.y * 0.5f;
+
+   const Point3F tail = at - along;
+   const Point3F nose = at + along;
 
    if(mBoltSB.isNull())
    {
@@ -440,56 +651,67 @@ void ProjectileT2::renderBolt(ObjectRenderInst *, SceneRenderState *state,
    }
 
    GFX->setStateBlock(mBoltSB);
-   GFX->setTexture(0, mTexture);
-
-   const Point3F at = getRenderTransform().getPosition();
-   const Point3F eye = state->getCameraPosition();
-
-   Point3F corner[4];
-   if(mData->streakLength > 0.0f)
-   {
-         // A bullet is a streak drawn back along the flight it has had.
-      VectorF across = mCross(mHeading, at - eye);
-      if(across.isZero())
-         return;
-      across.normalize();
-      across *= mData->streakWidth * 0.5f;
-
-      VectorF along = mHeading;
-      along.normalize();
-      const Point3F tail = at - along * mData->streakLength;
-
-      corner[0] = tail + across;
-      corner[1] = at + across;
-      corner[2] = at - across;
-      corner[3] = tail - across;
-   }
-   else
-   {
-         // Anything else is a square held square to the camera.
-      const F32 half = (mData->boltSize > 0.0f ? mData->boltSize : 0.5f) * 0.5f;
-      VectorF right, up;
-      state->getCameraTransform().getColumn(0, &right);
-      state->getCameraTransform().getColumn(2, &up);
-      right *= half;
-      up *= half;
-
-      corner[0] = at - right + up;
-      corner[1] = at + right + up;
-      corner[2] = at + right - up;
-      corner[3] = at - right - up;
-   }
+   GFX->setTexture(0, mTexture[0]);
 
    PrimBuild::color4f(1.0f, 1.0f, 1.0f, 1.0f);
    PrimBuild::begin(GFXTriangleFan, 4);
    PrimBuild::texCoord2f(0.0f, 0.0f);
-   PrimBuild::vertex3fv(corner[0]);
-   PrimBuild::texCoord2f(1.0f, 0.0f);
-   PrimBuild::vertex3fv(corner[1]);
-   PrimBuild::texCoord2f(1.0f, 1.0f);
-   PrimBuild::vertex3fv(corner[2]);
+   PrimBuild::vertex3fv(tail + across);
    PrimBuild::texCoord2f(0.0f, 1.0f);
-   PrimBuild::vertex3fv(corner[3]);
+   PrimBuild::vertex3fv(tail - across);
+   PrimBuild::texCoord2f(1.0f, 1.0f);
+   PrimBuild::vertex3fv(nose - across);
+   PrimBuild::texCoord2f(1.0f, 0.0f);
+   PrimBuild::vertex3fv(nose + across);
+   PrimBuild::end();
+}
+
+/// A bolt coming at the camera is a quad the width of its flight instead, and
+/// retail draws that one only once the flight is within crossViewAng of the
+/// way to the eye (0x006973b0).
+void ProjectileT2::drawCross(const Point3F &eye)
+{
+   if(mTexture[1].isNull() || mData->crossSize <= 0.0f || mHeading.isZero())
+      return;
+
+   const Point3F at = getRenderTransform().getPosition();
+
+   VectorF toEye = at - eye;
+   if(toEye.isZero())
+      return;
+   toEye.normalize();
+
+   VectorF along = mHeading;
+   along.normalize();
+
+   if(mFabs(mDot(along, toEye)) < mData->crossViewAng)
+      return;
+
+      // Square to the flight, which is what the matrix retail loads for it
+      // puts the quad in.
+   VectorF right = mCross(along, Point3F(0.0f, 0.0f, 1.0f));
+   if(right.len() < 0.001f)
+      right = mCross(along, Point3F(1.0f, 0.0f, 0.0f));
+   right.normalize();
+   const VectorF up = mCross(right, along);
+
+   const F32 half = mData->crossSize * 0.5f;
+   const Point3F r = right * half;
+   const Point3F u = up * half;
+
+   GFX->setStateBlock(mBoltSB);
+   GFX->setTexture(0, mTexture[1]);
+
+   PrimBuild::color4f(1.0f, 1.0f, 1.0f, 1.0f);
+   PrimBuild::begin(GFXTriangleFan, 4);
+   PrimBuild::texCoord2f(0.0f, 0.0f);
+   PrimBuild::vertex3fv(at - r + u);
+   PrimBuild::texCoord2f(0.0f, 1.0f);
+   PrimBuild::vertex3fv(at - r - u);
+   PrimBuild::texCoord2f(1.0f, 1.0f);
+   PrimBuild::vertex3fv(at + r - u);
+   PrimBuild::texCoord2f(1.0f, 0.0f);
+   PrimBuild::vertex3fv(at + r + u);
    PrimBuild::end();
 }
 

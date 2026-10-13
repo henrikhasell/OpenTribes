@@ -89,9 +89,19 @@ namespace T2Layout
       T2DbTracerLength,
       T2DbTracerWidth,
       T2DbCrossSize,
+      T2DbCrossViewAng,
       T2DbElasticity,
       T2DbFriction,
       T2DbGravityMod,
+      T2DbArmingDelay,
+      T2DbBlurLifetime,
+      T2DbBlurWidth,
+      T2DbBlurColorR,
+      T2DbBlurColorG,
+      T2DbBlurColorB,
+      T2DbScaleX,
+      T2DbScaleY,
+      T2DbScaleZ,
 
       T2DbFieldCount
    };

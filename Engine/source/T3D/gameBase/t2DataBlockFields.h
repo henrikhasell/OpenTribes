@@ -41,9 +41,15 @@ namespace T2Protocol
    // them.
       { "LinearProjectileData",      24, OpRaw, 32, T2DbProjectileVelocity },
       { "LinearProjectileData",      27, OpRaw, 32, T2DbProjectileLifetime },
+      { "LinearProjectileData",      57, OpRaw, 32, T2DbScaleX             },
+      { "LinearProjectileData",      58, OpRaw, 32, T2DbScaleY             },
+      { "LinearProjectileData",      59, OpRaw, 32, T2DbScaleZ             },
 
       { "LinearFlareProjectileData", 24, OpRaw, 32, T2DbProjectileVelocity },
       { "LinearFlareProjectileData", 27, OpRaw, 32, T2DbProjectileLifetime },
+      { "LinearFlareProjectileData", 64, OpRaw, 32, T2DbScaleX             },
+      { "LinearFlareProjectileData", 65, OpRaw, 32, T2DbScaleY             },
+      { "LinearFlareProjectileData", 66, OpRaw, 32, T2DbScaleZ             },
 
    // TracerProjectileData adds the streak a bullet is seen as, after the ten
    // fields it inherits from LinearProjectileData.
@@ -51,16 +57,32 @@ namespace T2Protocol
       { "TracerProjectileData",      27, OpRaw, 32, T2DbProjectileLifetime },
       { "TracerProjectileData",      34, OpRaw, 32, T2DbTracerLength       },
       { "TracerProjectileData",      35, OpRaw, 32, T2DbTracerWidth        },
+      { "TracerProjectileData",      67, OpRaw, 32, T2DbScaleX             },
+      { "TracerProjectileData",      68, OpRaw, 32, T2DbScaleY             },
+      { "TracerProjectileData",      69, OpRaw, 32, T2DbScaleZ             },
 
-   // EnergyProjectileData is a grenade underneath: its speed is a muzzle
-   // velocity at node 25, the three fields a bounce needs follow it, and its
-   // bolt is the cross at node 33.
+   // EnergyProjectileData is a grenade underneath. GrenadeProjectileData's
+   // unpackData at 0x00633cf0 stores in the order 0x148, 0x144, 0x138, 0x13c,
+   // 0x14c, 0x150, 0x140, 0x154 -- arming delay, muzzle velocity, elasticity,
+   // friction, drag, density, gravity and lifetime -- and the class's own
+   // unpackData at 0x00694d80 adds 0x168 to 0x180 after it, which is the
+   // cross, the blur and nothing else.
+      { "EnergyProjectileData",      24, OpRaw, 32, T2DbArmingDelay        },
       { "EnergyProjectileData",      25, OpRaw, 32, T2DbProjectileVelocity },
       { "EnergyProjectileData",      26, OpRaw, 32, T2DbElasticity         },
       { "EnergyProjectileData",      27, OpRaw, 32, T2DbFriction           },
       { "EnergyProjectileData",      30, OpRaw, 32, T2DbGravityMod         },
       { "EnergyProjectileData",      31, OpRaw, 32, T2DbProjectileLifetime },
+      { "EnergyProjectileData",      32, OpRaw, 32, T2DbCrossViewAng       },
       { "EnergyProjectileData",      33, OpRaw, 32, T2DbCrossSize          },
+      { "EnergyProjectileData",      34, OpRaw, 32, T2DbBlurLifetime       },
+      { "EnergyProjectileData",      35, OpRaw, 32, T2DbBlurWidth          },
+      { "EnergyProjectileData",      36, OpRaw, 32, T2DbBlurColorR         },
+      { "EnergyProjectileData",      37, OpRaw, 32, T2DbBlurColorG         },
+      { "EnergyProjectileData",      38, OpRaw, 32, T2DbBlurColorB         },
+      { "EnergyProjectileData",      64, OpRaw, 32, T2DbScaleX             },
+      { "EnergyProjectileData",      65, OpRaw, 32, T2DbScaleY             },
+      { "EnergyProjectileData",      66, OpRaw, 32, T2DbScaleZ             },
    };
 }
 

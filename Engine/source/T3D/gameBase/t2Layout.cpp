@@ -38,7 +38,7 @@ static const T2GhostFieldRow *sRows[16] = { NULL };
 static U32 sRowCount = 0;
 static const char *sFieldsFor = NULL;
 
-static const T2DataBlockFieldRow *sDbRows[16] = { NULL };
+static const T2DataBlockFieldRow *sDbRows[32] = { NULL };
 static U32 sDbRowCount = 0;
 static S32 sDbRowsFor = -1;
 static const void *sDbLayout = NULL;
