@@ -81,8 +81,8 @@ ConsoleDocClass( TerrainBlock,
 
 Signal<void(U32,TerrainBlock*,const Point2I& ,const Point2I&)> TerrainBlock::smUpdateSignal;
 
-F32 TerrainBlock::smLODScale = 1.0f;
-F32 TerrainBlock::smDetailScale = 1.0f;
+F32 TerrainBlock::smLODScale = 0.75f;
+F32 TerrainBlock::smDetailScale = 4.0f;
 
 
 //RBP - Global function declared in Terrdata.h
