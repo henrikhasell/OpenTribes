@@ -791,6 +791,10 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
                   else if(part == T2StateSpin)    s.spin   = v;
                   else if(part == T2StateRecoil)  s.recoil = v;
                }
+
+               const T2DataBlockFieldRow *dbRow = dbFieldAt(layout, at);
+               if(dbRow)
+                  noteDbField(dbRow, v);
             }
             if(!layout->select || v >= (1U << n.bits))
             {

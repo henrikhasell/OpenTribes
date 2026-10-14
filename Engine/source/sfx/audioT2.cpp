@@ -9,6 +9,8 @@
 #include "console/simSet.h"
 #include "core/module.h"
 #include "core/strings/stringFunctions.h"
+#include "core/util/path.h"
+#include "T3D/gameBase/t2Layout.h"
 #include "math/mMathFn.h"
 #include "math/mMatrix.h"
 #include "sfx/sfxDescription.h"
@@ -150,6 +152,69 @@ MODULE_END;
 //-----------------------------------------------------------------------------
 // Datablocks.
 //-----------------------------------------------------------------------------
+
+void AudioDescription::readT2Fields()
+{
+   U32 word;
+   F32 value;
+
+   if( T2Layout::lastDataBlockWord( T2Layout::T2DbAudioVolume, &word ) )
+      mVolume = F32( word ) / 63.0f;
+
+   if( T2Layout::lastDataBlockWord( T2Layout::T2DbAudioLooping, &word ) )
+      mIsLooping = word != 0;
+
+   if( T2Layout::lastDataBlockWord( T2Layout::T2DbAudio3D, &word ) )
+      mIs3D = word != 0;
+
+   if( T2Layout::lastDataBlockField( T2Layout::T2DbAudioReferenceDistance,
+                                     &value ) )
+      mMinDistance = value;
+
+   if( T2Layout::lastDataBlockField( T2Layout::T2DbAudioMaxDistance, &value ) )
+      mMaxDistance = value;
+
+   if( T2Layout::lastDataBlockWord( T2Layout::T2DbAudioConeInsideAngle,
+                                    &word ) )
+      mConeInsideAngle = word;
+
+   if( T2Layout::lastDataBlockWord( T2Layout::T2DbAudioConeOutsideAngle,
+                                    &word ) )
+      mConeOutsideAngle = word;
+
+   if( T2Layout::lastDataBlockWord( T2Layout::T2DbAudioConeOutsideVolume,
+                                    &word ) )
+      mConeOutsideVolume = F32( word ) / 63.0f;
+
+   if( T2Layout::lastDataBlockWord( T2Layout::T2DbAudioChannel, &word ) )
+   {
+      char type[ 16 ];
+      dSprintf( type, sizeof( type ), "%u", word );
+      setDataField( StringTable->insert( "type" ), NULL, type );
+   }
+}
+
+
+void AudioProfile::readT2Fields()
+{
+   const Vector< String > &strings = T2Layout::lastStrings();
+   if( strings.size() && strings.first().isNotEmpty() )
+   {
+      String file = strings.first();
+      if( !file.endsWith( ".wav" ) && !file.endsWith( ".WAV" ) )
+         file += ".wav";
+
+      mFilename = file;
+   }
+
+   U32 word;
+   if( T2Layout::lastDataBlockWord( T2Layout::T2DbAudioDescription, &word ) )
+      *reinterpret_cast< U32 * >( &mDescription ) =
+         ( ( word + DataBlockObjectIdFirst ) << 1 ) | 0x1;
+
+   mPreload = false;
+}
+
 
 bool AudioDescription::onAdd()
 {

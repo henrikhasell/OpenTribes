@@ -30,6 +30,7 @@
 #include "scene/sceneManager.h"
 #include "sfx/sfxSystem.h"
 #include "sfx/sfxDescription.h"
+#include "sfx/audioT2.h"
 #include "app/game.h"
 #include "T3D/gameBase/gameConnection.h"
 #include "T3D/gameBase/gameConnectionEvents.h"
@@ -341,6 +342,11 @@ void SimDataBlockEvent::unpack(NetConnection *cptr, BitStream *bstream)
          // HH: Added for Tribes 2 compatibility.
          if( ExplosionData *ex = dynamic_cast< ExplosionData * >( mObj ) )
             readT2Explosion( ex );
+
+         if( AudioProfile *ap = dynamic_cast< AudioProfile * >( mObj ) )
+            ap->readT2Fields();
+         else if( AudioDescription *ad = dynamic_cast< AudioDescription * >( mObj ) )
+            ad->readT2Fields();
 
             // HH: Added for Tribes 2 compatibility.
             // A weapon wants mount node 0 and a pack node 1.

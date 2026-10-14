@@ -117,6 +117,17 @@ namespace T2Layout
       T2DbExplosionTime,
       T2DbExplosionSize,
 
+      T2DbAudioDescription,
+      T2DbAudioVolume,
+      T2DbAudioLooping,
+      T2DbAudio3D,
+      T2DbAudioChannel,
+      T2DbAudioReferenceDistance,
+      T2DbAudioMaxDistance,
+      T2DbAudioConeInsideAngle,
+      T2DbAudioConeOutsideAngle,
+      T2DbAudioConeOutsideVolume,
+
       T2DbFieldCount
    };
 

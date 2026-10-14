@@ -63,6 +63,9 @@ public:
 
    virtual bool onAdd();
 
+   /// Take what the last datablock body read into this description.
+   void readT2Fields();
+
    DECLARE_CONOBJECT( AudioDescription );
 };
 
@@ -77,6 +80,9 @@ class AudioProfile : public SFXProfile
    typedef SFXProfile Parent;
 
 public:
+
+   /// Take what the last datablock body read into this profile.
+   void readT2Fields();
 
    DECLARE_CONOBJECT( AudioProfile );
 };

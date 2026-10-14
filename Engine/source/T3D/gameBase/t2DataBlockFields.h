@@ -92,6 +92,18 @@ namespace T2Protocol
 
       { "ExplosionData", 5, OpFlag, 1, T2DbFaceViewer },
 
+      { "AudioProfile", 7, OpDataBlockId, 11, T2DbAudioDescription },
+
+      { "AudioDescription",  0, OpFloat,  6, T2DbAudioVolume             },
+      { "AudioDescription",  1, OpFlag,   1, T2DbAudioLooping            },
+      { "AudioDescription",  2, OpFlag,   1, T2DbAudio3D                 },
+      { "AudioDescription",  3, OpSelect, 3, T2DbAudioChannel            },
+      { "AudioDescription",  5, OpRaw,   32, T2DbAudioReferenceDistance  },
+      { "AudioDescription",  6, OpRaw,   32, T2DbAudioMaxDistance        },
+      { "AudioDescription",  7, OpInt,    9, T2DbAudioConeInsideAngle    },
+      { "AudioDescription",  8, OpInt,    9, T2DbAudioConeOutsideAngle   },
+      { "AudioDescription",  9, OpFloat,  6, T2DbAudioConeOutsideVolume  },
+
    // ShapeBaseImageData::packData writes the mount point as a whole word, which
    // is the layout's node 2.
       { "ShapeBaseImageData", 2, OpRaw, 32, T2DbImageMountPoint },
