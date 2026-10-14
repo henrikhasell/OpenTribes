@@ -27,16 +27,11 @@ GuiControl *GuiScrollContentCtrl::getContents()
 
 void GuiScrollContentCtrl::setWindow( const Point2I &position, const Point2I &extent )
 {
+   mNotifyChildrenResized = false;
+
    Parent::resize( position, extent );
 
-   // Contents that follow the window across are as wide as it is.  Following
-   // it by how much it changed instead would keep whatever gap they happened
-   // to be built with, and they are built before the scroll control has
-   // worked out how wide the window is.
-   GuiControl *contents = getContents();
-
-   if ( contents && contents->getHorizSizing() == horizResizeWidth )
-      contents->setWidth( getWidth() );
+   mNotifyChildrenResized = true;
 }
 
 void GuiScrollContentCtrl::contentsMoved()
@@ -54,14 +49,17 @@ bool GuiScrollContentCtrl::resize( const Point2I &newPosition, const Point2I &ne
    if ( !contents )
       return Parent::resize( newPosition, newExtent );
 
-   // Scrolling asks this control to move.  Move what it holds instead, and
-   // stay where the scroll control put us.  The extent is not passed on: how
-   // tall the contents are is the contents' own answer, and it is what there
-   // is to scroll over.
-   Point2I delta = newPosition - getPosition();
+   const RectI bounds = getBounds();
+
+   Point2I delta = newPosition - bounds.point;
 
    if ( !delta.isZero() )
       contents->setPosition( contents->getPosition() + delta );
+
+   if ( newExtent != bounds.extent )
+      for ( iterator i = begin(); i != end(); i++ )
+         static_cast< GuiControl* >( *i )->parentResized( bounds,
+            RectI( bounds.point, newExtent ) );
 
    return false;
 }
