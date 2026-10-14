@@ -539,12 +539,12 @@ bool StandardMainLoop::handleCommandLine( S32 argc, const char **argv )
    Platform::setMainDotCsDir(buffer);
    Platform::setCurrentDirectory(buffer);
 
-   Con::evaluate(script, false, useDefaultScript ? defaultScriptName : argv[1]); 
-   delete[] script;
-
    // HH: Added for Tribes 2 compatibility.
    if( SFX )
       SFX->createDefaultDevice();
+
+   Con::evaluate(script, false, useDefaultScript ? defaultScriptName : argv[1]);
+   delete[] script;
 
 #ifdef TORQUE_ENABLE_VFS
    closeEmbeddedVFSArchive();
