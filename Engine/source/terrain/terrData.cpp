@@ -81,8 +81,8 @@ ConsoleDocClass( TerrainBlock,
 
 Signal<void(U32,TerrainBlock*,const Point2I& ,const Point2I&)> TerrainBlock::smUpdateSignal;
 
-F32 TerrainBlock::smLODScale = 1.0f;
-F32 TerrainBlock::smDetailScale = 1.0f;
+F32 TerrainBlock::smLODScale = 0.75f;
+F32 TerrainBlock::smDetailScale = 4.0f;
 
 
 //RBP - Global function declared in Terrdata.h
@@ -961,15 +961,23 @@ bool TerrainBlock::onAdd()
       setPosition( Point3F( half, half, 0.0f ) );
    }
 
-   // HH: Added for Tribes 2 compatibility.
-   // Tribes 2 draws a terrain square as its materials' own textures, summed
-   // by their alphas and tiled once per square; the mission's one detail
-   // texture multiplies over the top of that. Torque reaches the same place
-   // through a detail layer per material, so each material's own texture goes
-   // in that slot -- a material with no detail map is not admitted to a pass
-   // at all, and the base texture alone is four texels to a square.
    if ( terr->hasLayerAlpha() )
    {
+      if ( mDetailTexture.isNotEmpty() )
+      {
+         Vector<Torque::Path> found;
+         Torque::Path path( String( "textures/" ) + mDetailTexture );
+
+         if ( GBitmap::sFindFiles( path, &found ) && found.size() )
+            mMissionDetailTex.set( found.first().getFullPath(),
+                                   &GFXDefaultStaticDiffuseProfile, "" );
+         else
+            Con::warnf( "TerrainBlock: no detail texture for '%s'.",
+                        mDetailTexture.c_str() );
+      }
+
+      const F32 textureSize = mSquareSize * 8.0f;
+
       for ( U32 i = 0; i < terr->mMaterials.size(); i++ )
       {
          TerrainMaterial *mat = terr->mMaterials[ i ];
@@ -978,15 +986,12 @@ bool TerrainBlock::onAdd()
          if ( mat->getDetailMap().isEmpty() )
             mat->setDataField( field, NULL, mat->getDiffuseMap() );
 
-         // One repeat per square, and far enough out to cover the view a
-         // Tribes 2 mission asks for (`visibleDistance` is 1200 in the
-         // missions, against a Torque default of fifty).
          mat->setDataField( StringTable->insert( "detailSize" ), NULL,
-                            String::ToString( mSquareSize ) );
+                            String::ToString( textureSize ) );
          mat->setDataField( StringTable->insert( "detailDistance" ), NULL,
                             String::ToString( getWorldBlockSize() * 0.5f ) );
          mat->setDataField( StringTable->insert( "diffuseSize" ), NULL,
-                            String::ToString( mSquareSize ) );
+                            String::ToString( textureSize ) );
       }
    }
 

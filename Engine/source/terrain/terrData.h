@@ -98,6 +98,8 @@ protected:
    /// The one detail texture a Tribes 2 mission gives its whole terrain.
    FileName mDetailTexture;
 
+   GFXTexHandle mMissionDetailTex;
+
    /// The maximum detail distance found in the material list.
    F32 mMaxDetailDistance;
 
@@ -402,6 +404,8 @@ public:
 
    ///
    GFXTextureObject* getLightMapTex();
+
+   GFXTextureObject* getMissionDetailTex() const { return mMissionDetailTex.getPointer(); }
 
 public:
 

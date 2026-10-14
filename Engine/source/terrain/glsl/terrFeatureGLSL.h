@@ -61,6 +61,21 @@ public:
    virtual String getName() { return "Terrain Base Texture"; }
 };
 
+class TerrainMissionDetailFeatGLSL : public TerrainFeatGLSL
+{
+public:
+
+   virtual void processVert(  Vector<ShaderComponent*> &componentList,
+                              const MaterialFeatureData &fd );
+
+   virtual void processPix(   Vector<ShaderComponent*> &componentList,
+                              const MaterialFeatureData &fd );
+
+   virtual Resources getResources( const MaterialFeatureData &fd );
+
+   virtual String getName() { return "Terrain Mission Detail Texture"; }
+};
+
 class TerrainDetailMapFeatGLSL : public TerrainFeatGLSL
 {
 protected:

@@ -46,6 +46,8 @@ MODULE_BEGIN( TerrainFeatGLSL )
       FEATUREMGR->registerFeature( MFT_TerrainLightMap, new TerrainLightMapFeatGLSL );
       FEATUREMGR->registerFeature( MFT_TerrainSideProject, new NamedFeatureGLSL( "Terrain Side Projection" ) );
       FEATUREMGR->registerFeature( MFT_TerrainAdditive, new TerrainAdditiveFeatGLSL );
+
+      FEATUREMGR->registerFeature( MFT_TerrainMissionDetail, new TerrainMissionDetailFeatGLSL );
    }
 
 MODULE_END;
@@ -223,6 +225,87 @@ ShaderFeature::Resources TerrainBaseMapFeatGLSL::getResources( const MaterialFea
    // We only sample from the base map during a diffuse pass.
    if ( !fd.features.hasFeature( MFT_PrePassConditioner ) )
       res.numTex = 1;
+
+   return res;
+}
+
+void TerrainMissionDetailFeatGLSL::processVert(   Vector<ShaderComponent*> &componentList,
+                                                 const MaterialFeatureData &fd )
+{
+   if ( fd.features.hasFeature( MFT_PrePassConditioner ) )
+      return;
+
+   Var *inPos = (Var*)LangElement::find( "inPosition" );
+   if ( !inPos )
+      inPos = (Var*)LangElement::find( "position" );
+
+   Var *eyePos = _getUniformVar( "eyePos", "vec3", cspPotentialPrimitive );
+
+   MultiLine *meta = new MultiLine;
+
+   Var *dist = (Var*)LangElement::find( "dist" );
+   if ( !dist )
+   {
+      dist = new Var;
+      dist->setType( "float" );
+      dist->setName( "dist" );
+
+      meta->addStatement( new GenOp( "   @ = distance( @.xyz, @ );\r\n",
+                                       new DecOp( dist ), inPos, eyePos ) );
+   }
+
+   Var *info = _getUniformVar( "missionDetailInfo", "vec4", cspPass );
+
+   ShaderConnector *connectComp = dynamic_cast<ShaderConnector *>( componentList[C_CONNECTOR] );
+   Var *outTex = connectComp->getElement( RT_TEXCOORD );
+   outTex->setName( "outMissionDetCoord" );
+   outTex->setType( "vec4" );
+   outTex->mapsToSampler = true;
+
+   meta->addStatement( new GenOp( "   @.xy = @.xy * @.xy;\r\n", outTex, inPos, info ) );
+   meta->addStatement( new GenOp( "   @.z = 0.0;\r\n", outTex ) );
+   meta->addStatement( new GenOp( "   @.w = clamp( ( @.z - @ ) * @.w, 0.0, 1.0 );\r\n",
+                                    outTex, info, dist, info ) );
+
+   output = meta;
+}
+
+void TerrainMissionDetailFeatGLSL::processPix(   Vector<ShaderComponent*> &componentList,
+                                                 const MaterialFeatureData &fd )
+{
+   if ( fd.features.hasFeature( MFT_PrePassConditioner ) )
+      return;
+
+   Var *outColor = (Var*)LangElement::find( "col" );
+   if ( !outColor )
+      return;
+
+   Var *inTex = getInTexCoord( "outMissionDetCoord", "vec4", true, componentList );
+
+   Var *detailMap = new Var;
+   detailMap->setType( "sampler2D" );
+   detailMap->setName( "missionDetailMap" );
+   detailMap->uniform = true;
+   detailMap->sampler = true;
+   detailMap->constNum = Var::getTexUnitNum();
+
+   MultiLine *meta = new MultiLine;
+
+   meta->addStatement( new GenOp( "   @.rgb *= mix( vec3( 1.0 ), texture2D( @, @.xy ).rgb, @.w );\r\n",
+                                    outColor, detailMap, inTex, inTex ) );
+
+   output = meta;
+}
+
+ShaderFeature::Resources TerrainMissionDetailFeatGLSL::getResources( const MaterialFeatureData &fd )
+{
+   Resources res;
+
+   if ( !fd.features.hasFeature( MFT_PrePassConditioner ) )
+   {
+      res.numTex = 1;
+      res.numTexReg = 1;
+   }
 
    return res;
 }
@@ -421,23 +504,32 @@ void TerrainDetailMapFeatGLSL::processPix(   Vector<ShaderComponent*> &component
    //
    if ( fd.features.hasFeature( MFT_TerrainSideProject, detailIndex ) )
    {
-      meta->addStatement( new GenOp( "      @ = ( mix( texture2D( @, @.yz ), texture2D( @, @.xz ), @.z ) * 2.0 ) - 1.0;\r\n", 
+      meta->addStatement( new GenOp( "      @ = mix( texture2D( @, @.yz ), texture2D( @, @.xz ), @.z );\r\n",
                                                 detailColor, detailMap, inDet, detailMap, inDet, inTex ) );
    }
    else
    {
-      meta->addStatement( new GenOp( "      @ = ( texture2D( @, @.xy ) * 2.0 ) - 1.0;\r\n", 
+      meta->addStatement( new GenOp( "      @ = texture2D( @, @.xy );\r\n",
                                        detailColor, detailMap, inDet ) );
    }
-
-   meta->addStatement( new GenOp( "      @ *= @.y * @.w;\r\n",
-                                    detailColor, detailInfo, inDet ) );
 
    Var *baseColor = (Var*)LangElement::find( "baseColor" );
    Var *outColor = (Var*)LangElement::find( "col" );
 
-   meta->addStatement( new GenOp( "      @ = mix( @, @ + @, @ );\r\n",
+   meta->addStatement( new GenOp( "      if ( @ < 0.0 )\r\n", layerSize ) );
+   meta->addStatement( new GenOp( "         @ = mix( @, @, @ * @.w );\r\n",
+                                    outColor, outColor, detailColor, detailBlend, inDet ) );
+   meta->addStatement( new GenOp( "      else\r\n" ) );
+   meta->addStatement( new GenOp( "      {\r\n" ) );
+
+   meta->addStatement( new GenOp( "         @ = ( @ * 2.0 ) - 1.0;\r\n",
+                                    detailColor, detailColor ) );
+   meta->addStatement( new GenOp( "         @ *= @.y * @.w;\r\n",
+                                    detailColor, detailInfo, inDet ) );
+   meta->addStatement( new GenOp( "         @ = mix( @, @ + @, @ );\r\n",
                                     outColor, outColor, baseColor, detailColor, detailBlend ) );
+
+   meta->addStatement( new GenOp( "      }\r\n" ) );
 
    meta->addStatement( new GenOp( "   }\r\n" ) );
 
