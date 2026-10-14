@@ -187,13 +187,21 @@ bool ShellChatMemberList::addStyle( S32 id, const char *left, const char *right,
    Style &style = mStyles.last();
    style.id = id;
 
+   char path[ 256 ];
+
    if ( left && left[ 0 ] )
-      style.left.set( left, &GFXDefaultPersistentProfile,
+   {
+      dSprintf( path, sizeof( path ), "texticons/%s", left );
+      style.left.set( path, &GFXDefaultPersistentProfile,
                       avar( "%s() - left", __FUNCTION__ ) );
+   }
 
    if ( right && right[ 0 ] )
-      style.right.set( right, &GFXDefaultPersistentProfile,
+   {
+      dSprintf( path, sizeof( path ), "texticons/%s", right );
+      style.right.set( path, &GFXDefaultPersistentProfile,
                        avar( "%s() - right", __FUNCTION__ ) );
+   }
 
    const char *given[ StateCount ] = { color, colorHL, colorSEL };
 
