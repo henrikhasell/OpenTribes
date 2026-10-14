@@ -517,19 +517,15 @@ void GFXDrawUtil::drawRectFill( const Point2F &upperLeft, const Point2F &lowerRi
    //               v2---------v3
    //
 
-   // NorthWest and NorthEast facing offset vectors
-   Point2F nw(-0.5,-0.5); /*  \  */
-   Point2F ne(0.5,-0.5); /*  /  */
-
    GFXVertexBufferHandle<GFXVertexPC> verts(mDevice, 4, GFXBufferTypeVolatile);
    verts.lock();
 
-   F32 ulOffset = 0.5f - mDevice->getFillConventionOffset();
-   
-   verts[0].point.set( upperLeft.x+nw.x+ulOffset, upperLeft.y+nw.y+ulOffset, 0.0f );
-   verts[1].point.set( lowerRight.x+ne.x, upperLeft.y+ne.y+ulOffset, 0.0f );
-   verts[2].point.set( upperLeft.x-ne.x+ulOffset, lowerRight.y-ne.y, 0.0f );
-   verts[3].point.set( lowerRight.x-nw.x, lowerRight.y-nw.y, 0.0f );
+   const F32 offset = mDevice->getFillConventionOffset();
+
+   verts[0].point.set( upperLeft.x - offset, upperLeft.y - offset, 0.0f );
+   verts[1].point.set( lowerRight.x - offset, upperLeft.y - offset, 0.0f );
+   verts[2].point.set( upperLeft.x - offset, lowerRight.y - offset, 0.0f );
+   verts[3].point.set( lowerRight.x - offset, lowerRight.y - offset, 0.0f );
 
    for (int i=0; i<4; i++)
       verts[i].color = color;

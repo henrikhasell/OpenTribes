@@ -138,7 +138,6 @@ protected:
    bool hitHorizontalDivider(S32 y, const Point2I &point);
 
    virtual void getCursor(GuiCursor *&cursor, bool &showCursor, const GuiEvent &lastGuiEvent);
-   void rebalance(const Point2I &newExtent);
 
    void computeSizes(bool balanceFrames = false);
    void computeMovableRange(Region hitRegion, S32 vertHit, S32 horzHit, S32 numIndexes, const S32 indexes[], S32 ranges[]);

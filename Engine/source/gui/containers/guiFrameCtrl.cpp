@@ -388,15 +388,10 @@ void GuiFrameSetCtrl::removeObject(SimObject *object)
 //-----------------------------------------------------------------------------
 bool GuiFrameSetCtrl::resize(const Point2I &newPos, const Point2I &newExtent)
 {
-   // rebalance before losing the old extent (if required)
-   if (mAutoBalance == true)
-      rebalance(newExtent);
-
    if( !Parent::resize(newPos, newExtent) )
       return false;
 
-   // compute new sizing info for the frames - takes care of resizing the children
-   computeSizes( !mAutoBalance );
+   computeSizes( mAutoBalance );
 
    return true;
 }
@@ -925,28 +920,6 @@ void GuiFrameSetCtrl::computeSizes(bool balanceFrames)
          }
       }
    }
-}
-
-//-----------------------------------------------------------------------------
-// this method looks at the previous offsets, and uses them to redistribute
-// the available height & width proportionally.
-void GuiFrameSetCtrl::rebalance(const Point2I &newExtent)
-{
-   TORQUE_UNUSED(newExtent);
-
-   // look at old_width and old_height - current extent
-   F32 widthScale = (F32)newExtent.x/(F32)getWidth();
-   F32 heightScale = (F32)newExtent.y/(F32)getHeight();
-   Vector<S32>::iterator itr;
-   // look at old width offsets
-   for (itr = mColumnOffsets.begin() + 1; itr < mColumnOffsets.end(); itr++)
-      // multiply each by new_width/old_width
-      *itr = S32(F32(*itr) * widthScale);
-   // look at old height offsets
-   for (itr = mRowOffsets.begin() + 1; itr < mRowOffsets.end(); itr++)
-      // multiply each by new_height/new_width
-      *itr = S32(F32(*itr) * heightScale);
-
 }
 
 //-----------------------------------------------------------------------------
