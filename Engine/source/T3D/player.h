@@ -118,18 +118,6 @@ struct PlayerData: public ShapeBaseData {
    F32 jumpSurfaceAngle;      ///< Angle from vertical in degrees where the player can jump
    S32 jumpDelay;             ///< Delay time in ticks between jumps
 
-   // Sprinting
-   F32 sprintForce;                 ///< Force used to accelerate player
-   F32 sprintEnergyDrain;           ///< Energy drain/tick
-   F32 minSprintEnergy;             ///< Minimum energy required to sprint
-   F32 maxSprintForwardSpeed;       ///< Maximum forward speed when sprinting
-   F32 maxSprintBackwardSpeed;      ///< Maximum backward speed when sprinting
-   F32 maxSprintSideSpeed;          ///< Maximum side speed when sprinting
-   F32 sprintStrafeScale;           ///< Amount to scale strafing motion vector while sprinting
-   F32 sprintYawScale;              ///< Amount to scale yaw motion while sprinting
-   F32 sprintPitchScale;            ///< Amount to scale pitch motion while sprinting
-   bool sprintCanJump;              ///< Can the player jump while sprinting
-
    // Swimming
    F32 swimForce;                   ///< Force used to accelerate player while swimming
    F32 maxUnderwaterForwardSpeed;   ///< Maximum underwater forward speed when running
@@ -249,12 +237,6 @@ struct PlayerData: public ShapeBaseData {
       SideLeftAnim,
       SideRightAnim,
 
-      SprintRootAnim,
-      SprintForwardAnim,
-      SprintBackwardAnim,
-      SprintLeftAnim,
-      SprintRightAnim,
-
       CrouchRootAnim,
       CrouchForwardAnim,
       CrouchBackwardAnim,
@@ -366,8 +348,6 @@ struct PlayerData: public ShapeBaseData {
    DECLARE_CALLBACK( void, onPoseChange, ( Player* obj, const char* oldPose, const char* newPose ) );
    DECLARE_CALLBACK( void, onStartSwim, ( Player* obj ) );
    DECLARE_CALLBACK( void, onStopSwim, ( Player* obj ) );
-   DECLARE_CALLBACK( void, onStartSprintMotion, ( Player* obj ) );
-   DECLARE_CALLBACK( void, onStopSprintMotion, ( Player* obj ) );
    DECLARE_CALLBACK( void, doDismount, ( Player* obj ) );
    DECLARE_CALLBACK( void, onEnterLiquid, ( Player* obj, F32 coverage, const char* type ) );
    DECLARE_CALLBACK( void, onLeaveLiquid, ( Player* obj, const char* type ) );
@@ -387,7 +367,6 @@ class Player: public ShapeBase
 public:
    enum Pose {
       StandPose = 0,
-      SprintPose,
       CrouchPose,
       PronePose,
       SwimPose,
@@ -470,7 +449,6 @@ protected:
    Pose  mPose;
    bool  mAllowJumping;
    bool  mAllowJetJumping;
-   bool  mAllowSprinting;
    bool  mAllowCrouching;
    bool  mAllowProne;
    bool  mAllowSwimming;
@@ -725,7 +703,6 @@ public:
    void allowAllPoses();
    void allowJumping(bool state) { mAllowJumping = state; }
    void allowJetJumping(bool state) { mAllowJetJumping = state; }
-   void allowSprinting(bool state) { mAllowSprinting = state; }
    void allowCrouching(bool state) { mAllowCrouching = state; }
    void allowProne(bool state) { mAllowProne = state; }
    void allowSwimming(bool state) { mAllowSwimming = state; }
@@ -736,7 +713,6 @@ public:
    bool canCrouch();
    bool canStand();
    bool canProne();
-   bool canSprint();
    bool haveContact() const { return !mContactTimer; }         ///< Is it in contact with something
    void getMuzzlePointAI( U32 imageSlot, Point3F *point );
    F32 getMaxForwardVelocity() const { return (mDataBlock != NULL ? mDataBlock->maxForwardSpeed : 0); }

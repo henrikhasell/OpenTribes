@@ -85,7 +85,6 @@ static F32 sMaxImpulseVelocity = 200.0f;
 static S32 sJumpTrigger = 2;
 static S32 sCrouchTrigger = 3;
 static S32 sProneTrigger = 4;
-static S32 sSprintTrigger = 5;
 static S32 sImageTrigger0 = 0;
 static S32 sImageTrigger1 = 1;
 static S32 sJumpJetTrigger = 1;
@@ -148,12 +147,6 @@ PlayerData::ActionAnimationDef PlayerData::ActionAnimationList[NumTableActionAni
    { "side",         {-1.0f, 0.0f, 0.0f } },       // SideLeftAnim,
    { "side_right",   { 1.0f, 0.0f, 0.0f } },       // SideRightAnim,
 
-   { "sprint_root" },
-   { "sprint_forward",  { 0.0f, 1.0f, 0.0f } },
-   { "sprint_backward", { 0.0f,-1.0f, 0.0f } },
-   { "sprint_side",     {-1.0f, 0.0f, 0.0f } },
-   { "sprint_right",    { 1.0f, 0.0f, 0.0f } },
-
    { "crouch_root" },
    { "crouch_forward",  { 0.0f, 1.0f, 0.0f } },
    { "crouch_backward", { 0.0f,-1.0f, 0.0f } },
@@ -204,14 +197,6 @@ IMPLEMENT_CALLBACK( PlayerData, onStartSwim, void, ( Player* obj ), ( obj ),
 
 IMPLEMENT_CALLBACK( PlayerData, onStopSwim, void, ( Player* obj ), ( obj ),
    "@brief Called when the player stops swimming.\n\n"
-   "@param obj The Player object\n" );
-
-IMPLEMENT_CALLBACK( PlayerData, onStartSprintMotion, void, ( Player* obj ), ( obj ),
-   "@brief Called when the player starts moving while in a Sprint pose.\n\n"
-   "@param obj The Player object\n" );
-
-IMPLEMENT_CALLBACK( PlayerData, onStopSprintMotion, void, ( Player* obj ), ( obj ),
-   "@brief Called when the player stops moving while in a Sprint pose.\n\n"
    "@param obj The Player object\n" );
 
 IMPLEMENT_CALLBACK( PlayerData, doDismount, void, ( Player* obj ), ( obj ),
@@ -306,18 +291,6 @@ PlayerData::PlayerData()
    jumpDelay = 30;
    minJumpSpeed = 500.0f;
    maxJumpSpeed = 2.0f * minJumpSpeed;
-
-   // Sprinting
-   sprintForce = 50.0f * 9.0f;
-   sprintEnergyDrain = 0.0f;
-   minSprintEnergy = 0.0f;
-   maxSprintForwardSpeed = 15.0f;
-   maxSprintBackwardSpeed = 10.0f;
-   maxSprintSideSpeed = 10.0f;
-   sprintStrafeScale = 1.0f;
-   sprintYawScale = 1.0f;
-   sprintPitchScale = 1.0f;
-   sprintCanJump = true;
 
    // Swimming
    swimForce = 55.0f * 9.0f;  
@@ -526,15 +499,6 @@ bool PlayerData::preload(bool server, String &errorStr)
          dp->name          = sp->name;
          dp->dir.set(sp->dir.x,sp->dir.y,sp->dir.z);
          dp->sequence      = mShape->findSequence(sp->name);
-
-         // If this is a sprint action and is missing a sequence, attempt to use
-         // the standard run ones.
-         if(dp->sequence == -1 && i >= SprintRootAnim && i <= SprintRightAnim)
-         {
-            S32 offset = i-SprintRootAnim;
-            ActionAnimationDef *standDef = &ActionAnimationList[RootAnim+offset];
-            dp->sequence = mShape->findSequence(standDef->name);
-         }
 
          dp->velocityScale = true;
          dp->death         = false;
@@ -893,40 +857,6 @@ void PlayerData::initPersistFields()
    
    endGroup( "Movement: Jumping" );
    
-   addGroup( "Movement: Sprinting" );
-
-      addField( "sprintForce", TypeF32, Offset(sprintForce, PlayerData),
-         "@brief Force used to accelerate the player when sprinting.\n\n" );
-
-      addField( "sprintEnergyDrain", TypeF32, Offset(sprintEnergyDrain, PlayerData),
-         "@brief Energy value drained each tick that the player is sprinting.\n\n"
-         "The player will not be able to move when his energy falls below "
-         "sprintEnergyDrain.\n"
-         "@note Setting this to zero will disable any energy drain.\n"
-         "@see minSprintEnergy\n");
-      addField( "minSprintEnergy", TypeF32, Offset(minSprintEnergy, PlayerData),
-         "@brief Minimum energy level required to sprint.\n\n"
-         "@see sprintEnergyDrain\n");
-
-      addField( "maxSprintForwardSpeed", TypeF32, Offset(maxSprintForwardSpeed, PlayerData),
-         "@brief Maximum forward speed when sprinting." );
-      addField( "maxSprintBackwardSpeed", TypeF32, Offset(maxSprintBackwardSpeed, PlayerData),
-         "@brief Maximum backward speed when sprinting." );
-      addField( "maxSprintSideSpeed", TypeF32, Offset(maxSprintSideSpeed, PlayerData),
-         "@brief Maximum sideways speed when sprinting." );
-
-      addField( "sprintStrafeScale", TypeF32, Offset(sprintStrafeScale, PlayerData),
-         "@brief Amount to scale strafing motion vector while sprinting." );
-      addField( "sprintYawScale", TypeF32, Offset(sprintYawScale, PlayerData),
-         "@brief Amount to scale yaw motion while sprinting." );
-      addField( "sprintPitchScale", TypeF32, Offset(sprintPitchScale, PlayerData),
-         "@brief Amount to scale pitch motion while sprinting." );
-
-      addField( "sprintCanJump", TypeBool, Offset(sprintCanJump, PlayerData),
-         "@brief Can the player jump while sprinting." );
-
-   endGroup( "Movement: Sprinting" );
-
    addGroup( "Movement: Swimming" );
 
       addField( "swimForce", TypeF32, Offset(swimForce, PlayerData),
@@ -1277,7 +1207,6 @@ ImplementEnumType( PlayerPose,
    "@brief The pose of the Player.\n\n"
    "@ingroup gameObjects\n\n")
    { Player::StandPose,    "Stand",    "Standard movement pose.\n" },
-   { Player::SprintPose,   "Sprint",   "Sprinting pose.\n" },
    { Player::CrouchPose,   "Crouch",   "Crouch pose.\n" },
    { Player::PronePose,    "Prone",    "Prone pose.\n" },
    { Player::SwimPose,     "Swim",     "Swimming pose.\n" },
@@ -1749,9 +1678,6 @@ void Player::processTick(const Move* move)
 {
    PROFILE_SCOPE(Player_ProcessTick);
 
-   bool prevMoveMotion = mMoveMotion;
-   Pose prevPose = getPose();
-
    // If we're not being controlled by a client, let the
    // AI sub-module get a chance at producing a move.
    Move aiMove;
@@ -1859,31 +1785,6 @@ void Player::processTick(const Move* move)
          // client and must be ticked on the server.
          updateActionThread();
          updateAnimationTree(true);
-
-         // Check for sprinting motion changes
-         Pose currentPose = getPose();
-         // Player has just switched into Sprint pose and is moving
-         if (currentPose == SprintPose && prevPose != SprintPose && mMoveMotion)
-         {
-            mDataBlock->onStartSprintMotion_callback( this );
-         }
-         // Player has just switched out of Sprint pose and is moving, or was just moving
-         else if (currentPose != SprintPose && prevPose == SprintPose && (mMoveMotion || prevMoveMotion))
-         {
-            mDataBlock->onStopSprintMotion_callback( this );
-         }
-         // Player is in Sprint pose and has modified their motion
-         else if (currentPose == SprintPose && prevMoveMotion != mMoveMotion)
-         {
-            if (mMoveMotion)
-            {
-               mDataBlock->onStartSprintMotion_callback( this );
-            }
-            else
-            {
-               mDataBlock->onStopSprintMotion_callback( this );
-            }
-         }
       }
    }
 }
@@ -2159,7 +2060,6 @@ void Player::setPose( Pose pose )
    switch (pose) 
    {
       case StandPose:
-      case SprintPose:
          boxSize = mDataBlock->boxSize;
          break;
       case CrouchPose:
@@ -2204,7 +2104,6 @@ void Player::allowAllPoses()
 {
    mAllowJumping = true;
    mAllowJetJumping = true;
-   mAllowSprinting = true;
    mAllowCrouching = true;
    mAllowProne = true;
    mAllowSwimming = true;
@@ -2254,13 +2153,13 @@ void Player::updateMove(const Move* move)
       F32 prevZRot = mRot.z;
       delta.headVec = mHead;
 
-      F32 p = move->pitch * (mPose == SprintPose ? mDataBlock->sprintPitchScale : 1.0f);
+      F32 p = move->pitch;
       if (p > M_PI_F) 
          p -= M_2PI_F;
       mHead.x = mClampF(mHead.x + p,mDataBlock->minLookAngle,
                         mDataBlock->maxLookAngle);
 
-      F32 y = move->yaw * (mPose == SprintPose ? mDataBlock->sprintYawScale : 1.0f);
+      F32 y = move->yaw;
       if (y > M_PI_F)
          y -= M_2PI_F;
 
@@ -2307,7 +2206,7 @@ void Player::updateMove(const Move* move)
    if ((mState == MoveState || (mState == RecoverState && mDataBlock->recoverRunForceScale > 0.0f)) && mDamageState == Enabled)
    {
       zRot.getColumn(0,&moveVec);
-      moveVec *= (move->x * (mPose == SprintPose ? mDataBlock->sprintStrafeScale : 1.0f));
+      moveVec *= move->x;
       VectorF tv;
       zRot.getColumn(1,&tv);
       moveVec += tv * move->y;
@@ -2324,10 +2223,6 @@ void Player::updateMove(const Move* move)
          else if ( mPose == CrouchPose )
             moveSpeed = getMax(mDataBlock->maxCrouchForwardSpeed * move->y,
                                mDataBlock->maxCrouchSideSpeed * mFabs(move->x));
-         else if ( mPose == SprintPose )
-            moveSpeed = getMax(mDataBlock->maxSprintForwardSpeed * move->y,
-                               mDataBlock->maxSprintSideSpeed * mFabs(move->x));
-
          else // StandPose
             moveSpeed = getMax(mDataBlock->maxForwardSpeed * move->y,
                                mDataBlock->maxSideSpeed * mFabs(move->x));
@@ -2343,9 +2238,6 @@ void Player::updateMove(const Move* move)
          else if ( mPose == CrouchPose )
             moveSpeed = getMax(mDataBlock->maxCrouchBackwardSpeed * mFabs(move->y),
                                mDataBlock->maxCrouchSideSpeed * mFabs(move->x));         
-         else if ( mPose == SprintPose )
-            moveSpeed = getMax(mDataBlock->maxSprintBackwardSpeed * mFabs(move->y),
-                               mDataBlock->maxSprintSideSpeed * mFabs(move->x));         
          else // StandPose
             moveSpeed = getMax(mDataBlock->maxBackwardSpeed * mFabs(move->y),
                                mDataBlock->maxSideSpeed * mFabs(move->x));
@@ -2406,12 +2298,7 @@ void Player::updateMove(const Move* move)
       // Force a 0 move if there is no energy, and only drain
       // move energy if we're moving.
       VectorF pv;
-      if (mPose == SprintPose && mEnergy >= mDataBlock->minSprintEnergy) {
-         if (moveSpeed)
-            mEnergy -= mDataBlock->sprintEnergyDrain;
-         pv = moveVec;
-      }
-      else if (mEnergy >= mDataBlock->minRunEnergy) {
+      if (mEnergy >= mDataBlock->minRunEnergy) {
          if (moveSpeed)
             mEnergy -= mDataBlock->runEnergyDrain;
          pv = moveVec;
@@ -2460,15 +2347,7 @@ void Player::updateMove(const Move* move)
 
       // Clamp acceleration, player also accelerates faster when
       // in his hard landing recover state.
-      F32 maxAcc;
-      if (mPose == SprintPose)
-      {
-         maxAcc = (mDataBlock->sprintForce / getMass()) * TickSec;
-      }
-      else
-      {
-         maxAcc = (mDataBlock->runForce / getMass()) * TickSec;
-      }
+      F32 maxAcc = (mDataBlock->runForce / getMass()) * TickSec;
       if (mState == RecoverState)
          maxAcc *= mDataBlock->recoverRunForceScale;
       if (runSpeed > maxAcc)
@@ -2493,7 +2372,6 @@ void Player::updateMove(const Move* move)
       runAcc.x = runAcc.x * mDataBlock->airControl;
       runAcc.y = runAcc.y * mDataBlock->airControl;
       F32 runSpeed = runAcc.len();
-      // We don't test for sprinting when performing air control
       F32 maxAcc = (mDataBlock->runForce / getMass()) * TickSec * 0.3f;
 
       if (runSpeed > maxAcc)
@@ -2853,8 +2731,6 @@ void Player::updateMove(const Move* move)
       desiredPose = CrouchPose;
    else if ( runSurface && move->trigger[sProneTrigger] && canProne() )
       desiredPose = PronePose;
-   else if ( move->trigger[sSprintTrigger] && canSprint() )
-      desiredPose = SprintPose;
    else if ( canStand() )
       desiredPose = StandPose;
 
@@ -2915,7 +2791,7 @@ bool Player::checkDismountPosition(const MatrixF& oldMat, const MatrixF& mat)
 
 bool Player::canJump()
 {
-   return mAllowJumping && mState == MoveState && mDamageState == Enabled && !isMounted() && !mJumpDelay && mEnergy >= mDataBlock->minJumpEnergy && mJumpSurfaceLastContact < JumpSkipContactsMax && !mSwimming && (mPose != SprintPose || mDataBlock->sprintCanJump);
+   return mAllowJumping && mState == MoveState && mDamageState == Enabled && !isMounted() && !mJumpDelay && mEnergy >= mDataBlock->minJumpEnergy && mJumpSurfaceLastContact < JumpSkipContactsMax && !mSwimming;
 }
 
 bool Player::canJetJump()
@@ -3067,11 +2943,6 @@ bool Player::canProne()
 		return true;
 
    return mPhysicsRep->testSpacials( getPosition(), mDataBlock->proneBoxSize );
-}
-
-bool Player::canSprint()
-{
-   return mAllowSprinting && mState == MoveState && mDamageState == Enabled && !isMounted() && mEnergy >= mDataBlock->minSprintEnergy && !mSwimming;
 }
 
 //----------------------------------------------------------------------------
@@ -3672,10 +3543,6 @@ void Player::pickActionAnimation()
    {
       pickBestMoveAction(PlayerData::ProneRootAnim, PlayerData::ProneBackwardAnim, &action, &forward);
    }
-   else if ( mPose == SprintPose )
-   {
-      pickBestMoveAction(PlayerData::SprintRootAnim, PlayerData::SprintRightAnim, &action, &forward);
-   }
    setActionThread(action,forward,false,false,fsp);
 }
 
@@ -3854,22 +3721,6 @@ S32 Player::convertActionToImagePrefix(U32 action)
       if (actionSeq.isNotEmpty())
       {
          seq = findPrefixSequence(prefixPaths, actionSeq);
-      }
-
-      if (seq == -1)
-      {
-         // Couldn't find a valid sequence.  If this is a sprint action
-         // then we also need to search through the standard movement
-         // sequences.
-         if (action >= PlayerData::SprintRootAnim && action <= PlayerData::SprintRightAnim)
-         {
-            U32 standardAction = action - PlayerData::SprintRootAnim;
-            actionSeq = mDataBlock->actionList[standardAction].name;
-            if (actionSeq.isNotEmpty())
-            {
-               seq = findPrefixSequence(prefixPaths, actionSeq);
-            }
-         }
       }
 
       return seq;
@@ -5743,12 +5594,11 @@ DefineEngineMethod( Player, getPose, const char*, (),,
 
    "The pose is one of the following:\n\n<ul>"
    "<li>Stand - Standard movement pose.</li>"
-   "<li>Sprint - Sprinting pose.</li>"
    "<li>Crouch - Crouch pose.</li>"
    "<li>Prone - Prone pose.</li>"
    "<li>Swim - Swimming pose.</li></ul>\n"
 
-   "@return The current pose; one of: \"Stand\", \"Sprint\", \"Crouch\", \"Prone\", \"Swim\"\n" )
+   "@return The current pose; one of: \"Stand\", \"Crouch\", \"Prone\", \"Swim\"\n" )
 {
    return object->getPoseName();
 }
@@ -5756,13 +5606,12 @@ DefineEngineMethod( Player, getPose, const char*, (),,
 DefineEngineMethod( Player, allowAllPoses, void, (),,
    "@brief Allow all poses a chance to occur.\n\n"
    "This method resets any poses that have manually been blocked from occuring.  "
-   "This includes the regular pose states such as sprinting, crouch, being prone "
+   "This includes the regular pose states such as crouch, being prone "
    "and swimming.  It also includes being able to jump and jet jump.  While this "
    "is allowing these poses to occur it doesn't mean that they all can due to other "
    "conditions.  We're just not manually blocking them from being allowed.\n"
    "@see allowJumping()\n"
    "@see allowJetJumping()\n"
-   "@see allowSprinting()\n"
    "@see allowCrouching()\n"
    "@see allowProne()\n"
    "@see allowSwimming()\n" )
@@ -5790,17 +5639,6 @@ DefineEngineMethod( Player, allowJetJumping, void, (bool state),,
    "@see allowAllPoses()\n" )
 {
    object->allowJetJumping(state);
-}
-
-DefineEngineMethod( Player, allowSprinting, void, (bool state),,
-   "@brief Set if the Player is allowed to sprint.\n\n"
-   "The default is to allow sprinting unless there are other environmental concerns "
-   "that prevent it.  This method is mainly used to explicitly disallow sprinting "
-   "at any time.\n"
-   "@param state Set to true to allow sprinting, false to disable it.\n"
-   "@see allowAllPoses()\n" )
-{
-   object->allowSprinting(state);
 }
 
 DefineEngineMethod( Player, allowCrouching, void, (bool state),,
@@ -6128,9 +5966,6 @@ void Player::consoleInit()
 	   "@ingroup GameObjects\n");
    Con::addVariable("$player::proneTrigger", TypeS32, &sProneTrigger, 
       "@brief The move trigger index used for player prone pose.\n\n"
-	   "@ingroup GameObjects\n");
-   Con::addVariable("$player::sprintTrigger", TypeS32, &sSprintTrigger, 
-      "@brief The move trigger index used for player sprinting.\n\n"
 	   "@ingroup GameObjects\n");
    Con::addVariable("$player::imageTrigger0", TypeS32, &sImageTrigger0, 
       "@brief The move trigger index used to trigger mounted image 0.\n\n"
