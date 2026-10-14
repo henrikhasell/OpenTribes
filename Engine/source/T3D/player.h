@@ -427,7 +427,6 @@ protected:
    Point3F mRot;                    ///< Body rotation, uses only z
    VectorF mVelocity;               ///< Velocity
    Point3F mAnchorPoint;            ///< Pos compression anchor
-   static F32 mGravity;             ///< Gravity
    S32 mImpactSound;
 
    bool mUseHeadZCalc;              ///< Including mHead.z in transform calculations
@@ -668,6 +667,10 @@ protected:
    void enableHeadZCalc() { mUseHeadZCalc = true; }
 
 public:
+   // HH: Modified for Tribes 2 compatibility.
+   // setGravity and getGravity reach this.
+   static F32 mGravity;             ///< Gravity
+
    DECLARE_CONOBJECT(Player);
 
    Player();

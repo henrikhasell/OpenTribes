@@ -90,7 +90,8 @@ static S32 sImageTrigger1 = 1;
 static S32 sJumpJetTrigger = 1;
 static S32 sVehicleDismountTrigger = 2;
 static S32 sJetTrigger = 3;
-static S32 sJetContactTicks = 9;
+// Retail compares the contact timer against eight (0x005d3f36).
+static S32 sJetContactTicks = 8;
 
 // Client prediction
 static F32 sMinWarpTicks = 0.5f;       // Fraction of tick at which instant warp occurs
@@ -424,6 +425,54 @@ bool PlayerData::unpackData(BitStream *stream, U32 classId)
       { T2Layout::T2DbHeatDecayPerSec,          &PlayerData::heatDecayPerSec          },
       { T2Layout::T2DbHeatIncreasePerSec,       &PlayerData::heatIncreasePerSec       },
       { T2Layout::T2DbCameraMaxDist,            &PlayerData::cameraMaxDist            },
+
+      { T2Layout::T2DbMinLookAngle,             &PlayerData::minLookAngle             },
+      { T2Layout::T2DbMaxLookAngle,             &PlayerData::maxLookAngle             },
+      { T2Layout::T2DbMaxFreelookAngle,         &PlayerData::maxFreelookAngle         },
+      { T2Layout::T2DbMaxTimeScale,             &PlayerData::maxTimeScale             },
+      { T2Layout::T2DbMaxStepHeight,            &PlayerData::maxStepHeight            },
+      { T2Layout::T2DbRunForce,                 &PlayerData::runForce                 },
+      { T2Layout::T2DbRunEnergyDrain,           &PlayerData::runEnergyDrain           },
+      { T2Layout::T2DbMinRunEnergy,             &PlayerData::minRunEnergy             },
+      { T2Layout::T2DbMaxForwardSpeed,          &PlayerData::maxForwardSpeed          },
+      { T2Layout::T2DbMaxBackwardSpeed,         &PlayerData::maxBackwardSpeed         },
+      { T2Layout::T2DbMaxSideSpeed,             &PlayerData::maxSideSpeed             },
+      { T2Layout::T2DbMaxUnderwaterForwardSpeed,
+        &PlayerData::maxUnderwaterForwardSpeed },
+      { T2Layout::T2DbMaxUnderwaterBackwardSpeed,
+        &PlayerData::maxUnderwaterBackwardSpeed },
+      { T2Layout::T2DbMaxUnderwaterSideSpeed,   &PlayerData::maxUnderwaterSideSpeed   },
+      { T2Layout::T2DbRunSurfaceAngle,          &PlayerData::runSurfaceAngle          },
+      { T2Layout::T2DbRecoverRunForceScale,     &PlayerData::recoverRunForceScale     },
+      { T2Layout::T2DbJumpForce,                &PlayerData::jumpForce                },
+      { T2Layout::T2DbJumpEnergyDrain,          &PlayerData::jumpEnergyDrain          },
+      { T2Layout::T2DbMinJumpEnergy,            &PlayerData::minJumpEnergy            },
+      { T2Layout::T2DbMinJumpSpeed,             &PlayerData::minJumpSpeed             },
+      { T2Layout::T2DbMaxJumpSpeed,             &PlayerData::maxJumpSpeed             },
+      { T2Layout::T2DbJumpSurfaceAngle,         &PlayerData::jumpSurfaceAngle         },
+      { T2Layout::T2DbHorizMaxSpeed,            &PlayerData::horizMaxSpeed            },
+      { T2Layout::T2DbHorizResistSpeed,         &PlayerData::horizResistSpeed         },
+      { T2Layout::T2DbHorizResistFactor,        &PlayerData::horizResistFactor        },
+      { T2Layout::T2DbUpMaxSpeed,               &PlayerData::upMaxSpeed               },
+      { T2Layout::T2DbUpResistSpeed,            &PlayerData::upResistSpeed            },
+      { T2Layout::T2DbUpResistFactor,           &PlayerData::upResistFactor           },
+      { T2Layout::T2DbSplashVelocity,           &PlayerData::splashVelocity           },
+      { T2Layout::T2DbSplashAngle,              &PlayerData::splashAngle              },
+      { T2Layout::T2DbSplashFreqMod,            &PlayerData::splashFreqMod            },
+      { T2Layout::T2DbSplashVelEpsilon,         &PlayerData::splashVelEpsilon         },
+      { T2Layout::T2DbBubbleEmitTime,           &PlayerData::bubbleEmitTime           },
+      { T2Layout::T2DbMedSplashSoundVel,        &PlayerData::medSplashSoundVel        },
+      { T2Layout::T2DbHardSplashSoundVel,       &PlayerData::hardSplashSoundVel       },
+      { T2Layout::T2DbExitSplashSoundVel,       &PlayerData::exitSplashSoundVel       },
+      { T2Layout::T2DbFootSplashHeight,         &PlayerData::footSplashHeight         },
+      { T2Layout::T2DbMinImpactSpeed,           &PlayerData::minImpactSpeed           },
+      { T2Layout::T2DbFootPuffRadius,           &PlayerData::footPuffRadius           },
+      { T2Layout::T2DbDecalOffset,              &PlayerData::decalOffset              },
+      { T2Layout::T2DbGroundImpactMinSpeed,     &PlayerData::groundImpactMinSpeed     },
+      { T2Layout::T2DbGroundImpactShakeDuration,
+        &PlayerData::groundImpactShakeDuration },
+      { T2Layout::T2DbGroundImpactShakeFalloff,
+        &PlayerData::groundImpactShakeFalloff },
    };
 
    for (U32 i = 0; i < sizeof(sFields) / sizeof(sFields[0]); i++)
@@ -433,12 +482,57 @@ bool PlayerData::unpackData(BitStream *stream, U32 classId)
          this->*sFields[i].member = value;
    }
 
+   static const struct { U32 field; Point3F PlayerData::*vector;
+                         F32 Point3F::*part; } sParts[] =
+   {
+      { T2Layout::T2DbBoxSizeX, &PlayerData::boxSize, &Point3F::x },
+      { T2Layout::T2DbBoxSizeY, &PlayerData::boxSize, &Point3F::y },
+      { T2Layout::T2DbBoxSizeZ, &PlayerData::boxSize, &Point3F::z },
+      { T2Layout::T2DbGroundImpactShakeFreqX,
+        &PlayerData::groundImpactShakeFreq, &Point3F::x },
+      { T2Layout::T2DbGroundImpactShakeFreqY,
+        &PlayerData::groundImpactShakeFreq, &Point3F::y },
+      { T2Layout::T2DbGroundImpactShakeFreqZ,
+        &PlayerData::groundImpactShakeFreq, &Point3F::z },
+      { T2Layout::T2DbGroundImpactShakeAmpX,
+        &PlayerData::groundImpactShakeAmp, &Point3F::x },
+      { T2Layout::T2DbGroundImpactShakeAmpY,
+        &PlayerData::groundImpactShakeAmp, &Point3F::y },
+      { T2Layout::T2DbGroundImpactShakeAmpZ,
+        &PlayerData::groundImpactShakeAmp, &Point3F::z },
+   };
+
+   for (U32 i = 0; i < sizeof(sParts) / sizeof(sParts[0]); i++)
+   {
+      F32 value;
+      if (T2Layout::lastDataBlockField(sParts[i].field, &value))
+         (this->*sParts[i].vector).*sParts[i].part = value;
+   }
+
+   // Tick and particle counts, which Tribes 2 writes as whole words.
+   static const struct { U32 field; S32 PlayerData::*member; } sCounts[] =
+   {
+      { T2Layout::T2DbRecoverDelay,     &PlayerData::recoverDelay     },
+      { T2Layout::T2DbJumpDelay,        &PlayerData::jumpDelay        },
+      { T2Layout::T2DbFootPuffNumParts, &PlayerData::footPuffNumParts },
+   };
+
+   for (U32 i = 0; i < sizeof(sCounts) / sizeof(sCounts[0]); i++)
+   {
+      U32 word;
+      if (T2Layout::lastDataBlockWord(sCounts[i].field, &word))
+         this->*sCounts[i].member = S32(word);
+   }
+
    if (Con::getBoolVariable("$pref::Net::traceDataBlockFields", false))
-      Con::printf("T2 PlayerData %d: jetForce %.4f drain %.4f minEnergy %.4f "
-                  "maxFwd %.4f maxHoriz %.4f heatUp %.4f heatDown %.4f",
-                  getId(), jetForce, jetEnergyDrain, minJetEnergy,
+      Con::printf("T2 PlayerData %d: mass %.4f drag %.4f jetForce %.4f "
+                  "drain %.4f minEnergy %.4f maxFwd %.4f maxHoriz %.4f "
+                  "horiz %.4f/%.4f/%.4f up %.4f/%.4f/%.4f box %.4f %.4f %.4f",
+                  getId(), mass, drag, jetForce, jetEnergyDrain, minJetEnergy,
                   maxJetForwardSpeed, maxJetHorizontalPercentage,
-                  heatIncreasePerSec, heatDecayPerSec);
+                  horizMaxSpeed, horizResistSpeed, horizResistFactor,
+                  upMaxSpeed, upResistSpeed, upResistFactor,
+                  boxSize.x, boxSize.y, boxSize.z);
 
    return true;
 }
@@ -1220,7 +1314,13 @@ ConsoleDocClass( Player,
    "@ingroup gameObjects\n"
 );
 
-F32 Player::mGravity = -20;
+// HH: Modified for Tribes 2 compatibility.
+// Retail's static starts at -20 (0x007a1a20) and base/scripts/TR2Physics.cs
+// raises it through setGravity before a mission runs; a stock server answers
+// getGravity() with -26.9.  Those scripts ship compiled, so we cannot exec
+// them to be told, and a client that simulates on -20 falls at three quarters
+// of the rate the server it is predicting against does.
+F32 Player::mGravity = -26.9f;
 
 //----------------------------------------------------------------------------
 
@@ -2675,10 +2775,14 @@ void Player::updateMove(const Move* move)
       }
    }
 
-   // Apply drag
+   // HH: Modified for Tribes 2 compatibility.
+   // Retail drags a swimmer and a body on its feet; a body in the air it
+   // leaves alone, and a recording of one falling bears that out -- twenty-two
+   // packets of it gaining a flat 0.84 m/s a tick from 21 m/s to 55 m/s, where
+   // any share of the speed would have shown up as the gain tailing off.
    if ( mSwimming )
       mVelocity -= mVelocity * mDrag * TickSec * ( mVelocity.len() / mDataBlock->maxUnderwaterForwardSpeed );
-   else
+   else if ( runSurface )
       mVelocity -= mVelocity * mDrag * TickSec;
 
    // Clamp very small velocity to zero
@@ -5977,9 +6081,26 @@ void Player::consoleInit()
    Con::addVariable("$player::jumpJetTrigger", TypeS32, &sJumpJetTrigger, 
       "@brief The move trigger index used for player jump jetting.\n\n"
 	   "@ingroup GameObjects\n");
-   Con::addVariable("$player::vehicleDismountTrigger", TypeS32, &sVehicleDismountTrigger, 
+   Con::addVariable("$player::vehicleDismountTrigger", TypeS32, &sVehicleDismountTrigger,
       "@brief The move trigger index used to dismount player.\n\n"
 	   "@ingroup GameObjects\n");
+}
+
+// HH: Added for Tribes 2 compatibility.
+// The pair retail exposes over one static (0x005f9df0 and 0x005f9ec0), so a
+// mission can say what it falls at and a probe can read the answer back.
+DefineEngineFunction( setGravity, void, ( F32 gravity ),,
+   "@brief Set the acceleration gravity pulls a player down with.\n\n"
+   "@ingroup GameObjects\n")
+{
+   Player::mGravity = gravity;
+}
+
+DefineEngineFunction( getGravity, F32, (),,
+   "@brief Get the acceleration gravity pulls a player down with.\n\n"
+   "@ingroup GameObjects\n")
+{
+   return Player::mGravity;
 }
 
 //--------------------------------------------------------------------------

@@ -228,6 +228,32 @@ ShapeBaseData::~ShapeBaseData()
 
 }
 
+// HH: Added for Tribes 2 compatibility.
+// The four values every ShapeBase simulates on, which a client has to agree
+// with the server about or its prediction walks away from the server's.
+bool ShapeBaseData::unpackData(BitStream *stream, U32 classId)
+{
+   if (!Parent::unpackData(stream, classId))
+      return false;
+
+   static const struct { U32 field; F32 ShapeBaseData::*member; } sFields[] =
+   {
+      { T2Layout::T2DbMass,      &ShapeBaseData::mass      },
+      { T2Layout::T2DbDrag,      &ShapeBaseData::drag      },
+      { T2Layout::T2DbDensity,   &ShapeBaseData::density   },
+      { T2Layout::T2DbMaxEnergy, &ShapeBaseData::maxEnergy },
+   };
+
+   for (U32 i = 0; i < sizeof(sFields) / sizeof(sFields[0]); i++)
+   {
+      F32 value;
+      if (T2Layout::lastDataBlockField(sFields[i].field, &value))
+         this->*sFields[i].member = value;
+   }
+
+   return true;
+}
+
 bool ShapeBaseData::preload(bool server, String &errorStr)
 {
    if (!Parent::preload(server, errorStr))
