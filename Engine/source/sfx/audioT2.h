@@ -15,21 +15,21 @@ class SFXSource;
 
 /// Tribes 2's mixer channels.
 ///
-/// Retail exposes these to script as `$GuiAudioType` and its siblings and
-/// never writes them from script, so the engine owns the numbering.  Nothing
-/// in the shipped data spells a channel as a literal, which leaves us free to
-/// number them; `AudioChannels::describe` is the only mapping that matters.
+/// Retail exposes these to script as `$GuiAudioType` and its siblings, and an
+/// AudioDescription carries one over the wire, so the numbering is retail's
+/// and not ours: its own console answers 0, 1, 2, 3, 4, 5 for default, chat,
+/// gui, effect, voice and music.  Radio is ours; nothing on the wire uses it.
 namespace AudioChannels
 {
    enum Channel
    {
-      Default,
-      Gui,
-      Effect,
-      Music,
-      Voice,
-      Chat,
-      Radio,
+      Default = 0,
+      Chat    = 1,
+      Gui     = 2,
+      Effect  = 3,
+      Voice   = 4,
+      Music   = 5,
+      Radio   = 6,
 
       Count
    };
