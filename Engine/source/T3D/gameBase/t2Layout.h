@@ -162,6 +162,7 @@ namespace T2Layout
       U32    loaded;             ///< ShapeBaseImageData::StateData::LoadedState
       U32    spin;               ///< ...::SpinState
       U32    recoil;             ///< ...::RecoilState
+      S32    sound;              ///< an AudioProfile, or -1 for a silent state
    };
 
    /// The states the last datablock read, in the order it read them.

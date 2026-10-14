@@ -202,6 +202,10 @@ static void readT2ImageStates( ShapeBaseImageData *image )
             // retail has it ejecting a shell and carrying a flash sequence alike.
       image->stateEjectShell[i] = state.ejectShell;
       image->stateSequenceRandomFlash[i] = state.ejectShell;
+      if( state.sound >= 0 )
+         *reinterpret_cast< U32 * >( &image->stateSound[i] ) =
+            ( ( U32( state.sound ) + DataBlockObjectIdFirst ) << 1 ) | 0x1;
+
       image->stateLoaded[i] =
          ( ShapeBaseImageData::StateData::LoadedState ) state.loaded;
       image->stateSpin[i] =
