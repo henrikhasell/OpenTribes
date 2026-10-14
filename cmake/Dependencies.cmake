@@ -130,5 +130,23 @@ FetchContent_MakeAvailable(glad)
 
 unset(CMAKE_POLICY_VERSION_MINIMUM)
 
+# --- dr_mp3 -----------------------------------------------------------------
+# Tribes 2's five music tracks are mp3, which neither SDL3 nor the Xiph
+# libraries decode. dr_mp3 is one public domain header and is what SDL3_mixer
+# decodes mp3 with, so taking it directly buys the same decoder without the
+# satellite library -- which could not sit behind SFXStream anyway, since it
+# owns its own output device.
+#
+# dr_libs is a rolling repository with no release tags, so this pins the file
+# by the commit it came from and checks its hash.
+FetchContent_Declare(dr_mp3
+    URL      https://raw.githubusercontent.com/mackron/dr_libs/dfe8377631000664666519fdb83da193fd8037f4/dr_mp3.h
+    URL_HASH SHA256=997b7ee18de6e6b81e2a83f1ea9fc62aef25c62b28d48db95635f49e65de0a2f
+    DOWNLOAD_NO_EXTRACT TRUE)
+
+FetchContent_MakeAvailable(dr_mp3)
+
+set(TORQUE_DR_MP3_DIR "${dr_mp3_SOURCE_DIR}" CACHE INTERNAL "")
+
 # Still to arrive: zlib and the Xiph libraries when their vendored copies
 # retire.

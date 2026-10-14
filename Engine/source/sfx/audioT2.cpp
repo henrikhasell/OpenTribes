@@ -300,13 +300,16 @@ DefineEngineFunction( alxStopAll, void, (),,
       return;
 
    // Stopping a play-once source deletes it, so collect before stopping.  A
-   // channel group is a source too, and stopping one silences the channel for
-   // good, so leave anything that is not inside a group alone.
+   // channel group is a source too, and stopping one would silence that
+   // channel for good, so the groups are the only sources left alone.
    Vector< SimObjectPtr< SFXSource > > playing;
    for( SimSet::iterator iter = sources->begin(); iter != sources->end(); ++ iter )
    {
       SFXSource* source = dynamic_cast< SFXSource* >( *iter );
-      if( source && source->getSourceGroup() != NULL && source->getSourceGroup() != AudioChannels::master() )
+      if( !source || source == AudioChannels::master() )
+         continue;
+
+      if( source->getSourceGroup() != AudioChannels::master() )
          playing.push_back( source );
    }
 
@@ -474,6 +477,11 @@ DefineEngineFunction( alxPlayMusic, bool, ( const char* filename ),,
 
    sMusicSource->setDataField( StringTable->insert( "statusCallback" ), NULL, "_alxMusicStatus" );
    sMusicSource->play();
+
+   // A track that reaches its end is never played again -- the script starts
+   // the next one -- so let the system reap it rather than deleting it from
+   // inside its own status callback.
+   SFX->deleteWhenStopped( sMusicSource );
 
    return true;
 }
