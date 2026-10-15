@@ -37,8 +37,6 @@
 class blInteriorSystem : public SceneLightingInterface
 {
 public:
-   static bool smUseVertexLighting;
-
    virtual SceneLighting::ObjectProxy* createObjectProxy(SceneObject* obj, SceneLighting::ObjectProxyList* sceneObjects);
    virtual PersistInfo::PersistChunk* createPersistChunk(const U32 chunkType);
    virtual bool createPersistChunkFromProxy(SceneLighting::ObjectProxy* objproxy, PersistInfo::PersistChunk **ret);
@@ -47,7 +45,6 @@ public:
    virtual U32 addObjectType();
    virtual U32 addToClippingMask();
 
-   virtual void processLightingBegin();
    virtual void processLightingCompleted(bool success);
 
    // Given a ray, this will return the color from the lightmap of this object, return true if handled
