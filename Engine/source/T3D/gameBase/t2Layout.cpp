@@ -875,6 +875,12 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
          case OpReadBr:
          {
             const U32 v = xferInt(stream, n.bits, write, at, n.op);
+            if(!write)
+            {
+               const T2DataBlockFieldRow *dbRow = dbFieldAt(layout, at);
+               if(dbRow)
+                  noteDbField(dbRow, v);
+            }
             if(!layout->select)
             {
                Con::warnf("T2 layout: %s node %d has no select table",

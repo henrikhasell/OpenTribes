@@ -195,8 +195,54 @@ namespace T2Layout
       T2DbGroundImpactShakeDuration,
       T2DbGroundImpactShakeFalloff,
 
+      T2DbEjectionPeriodMS,
+      T2DbPeriodVarianceMS,
+      T2DbEjectionVelocity,
+      T2DbVelocityVariance,
+      T2DbEjectionOffset,
+      T2DbThetaMin,
+      T2DbThetaMax,
+      T2DbPhiReferenceVel,
+      T2DbPhiVariance,
+      T2DbOverrideAdvance,
+      T2DbOrientParticles,
+      T2DbOrientOnVelocity,
+      T2DbEmitterLifetimeMS,
+      T2DbEmitterLifetimeVarianceMS,
+      T2DbUseEmitterSizes,
+      T2DbUseEmitterColors,
+
+      T2DbDragCoefficient,
+      T2DbWindCoefficient,
+      T2DbGravityCoefficient,
+      T2DbInheritedVelFactor,
+      T2DbConstantAcceleration,
+      T2DbParticleLifetimeMS,
+      T2DbParticleLifetimeVarianceMS,
+      T2DbSpinSpeed,
+      T2DbSpinRandomMin,
+      T2DbSpinRandomMax,
+      T2DbUseInvAlpha,
+      T2DbParticleColorR,
+      T2DbParticleColorG,
+      T2DbParticleColorB,
+      T2DbParticleColorA,
+      T2DbParticleSize,
+      T2DbParticleTime,
+
       T2DbFieldCount
    };
+
+   inline F32 t2Float(U32 word, U32 bits)
+   {
+      const U32 mask = bits >= 32 ? 0xffffffffu : (1u << bits) - 1;
+      return mask ? F32(word & mask) / F32(mask) : 0.0f;
+   }
+
+   inline F32 t2SignedFloat(U32 word, U32 bits)
+   {
+      return t2Float(word, bits) * 2.0f - 1.0f;
+   }
 
    /// How many states a Tribes 2 image datablock can carry, which is what a
    /// way out of one is wide enough to name.

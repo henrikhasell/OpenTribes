@@ -61,6 +61,7 @@ class ParticleEmitterData : public GameBaseData
    DECLARE_CONOBJECT(ParticleEmitterData);
    static void initPersistFields();
    bool preload(bool server, String &errorStr);
+   bool unpackData(BitStream *stream, U32 classId) override;
    bool onAdd();
    void allocPrimBuffer( S32 overrideSize = -1 );
 
