@@ -17,6 +17,7 @@
 #include "renderInstance/renderPassManager.h"
 #include "scene/sceneManager.h"
 #include "scene/sceneRenderState.h"
+#include "T3D/gameBase/t2Layout.h"
 
 #define HORIZON         0.0f
 #define OFFSET_HEIGHT   60.0f
@@ -544,6 +545,206 @@ void Sky::inspectPostApply()
 {
    Parent::inspectPostApply();
    updateVisibility();
+}
+
+//---------------------------------------------------------------------------
+static F32 readF32( BitStream *stream )
+{
+   const U32 word = stream->readInt( 32 );
+   F32 value;
+   dMemcpy( &value, &word, sizeof( value ) );
+   return value;
+}
+
+static void writeF32( BitStream *stream, F32 value )
+{
+   U32 word;
+   dMemcpy( &word, &value, sizeof( word ) );
+   stream->writeInt( word, 32 );
+}
+
+U32 Sky::packUpdate( NetConnection *, U32 mask, BitStream *stream, bool )
+{
+   if( stream->writeFlag( mask & InitMask ) )
+   {
+      stream->writeString( mMaterialListName );
+
+      writeF32( stream, mFogColor.red );
+      writeF32( stream, mFogColor.green );
+      writeF32( stream, mFogColor.blue );
+
+      stream->writeInt( mNumFogVolumes, 32 );
+
+      stream->writeInt( mSkyTexturesOn   ? 1 : 0, 8 );
+      stream->writeInt( mRenderBoxBottom ? 1 : 0, 8 );
+
+      writeF32( stream, mSolidFillColor.red );
+      writeF32( stream, mSolidFillColor.green );
+      writeF32( stream, mSolidFillColor.blue );
+
+      stream->writeInt( mEffectPrecip ? 1 : 0, 8 );
+
+      for( U32 i = 0; i < mNumFogVolumes; ++i )
+      {
+         writeF32( stream, mFogVolumes[i].visibleDistance );
+         writeF32( stream, mFogVolumes[i].minHeight );
+         writeF32( stream, mFogVolumes[i].maxHeight );
+         writeF32( stream, mFogVolumes[i].color.red );
+         writeF32( stream, mFogVolumes[i].color.green );
+         writeF32( stream, mFogVolumes[i].color.blue );
+      }
+
+      for( U32 i = 0; i < MAX_NUM_LAYERS; ++i )
+      {
+         stream->writeString( "" );
+         writeF32( stream, mCloudHeight[i] );
+         writeF32( stream, mCloudSpeed[i] );
+      }
+
+      writeF32( stream, mWindVelocity.x );
+      writeF32( stream, mWindVelocity.y );
+      writeF32( stream, mWindVelocity.z );
+
+      writeF32( stream, 0.0f );
+      stream->writeFlag( false );
+   }
+
+   stream->writeFlag( false );
+   stream->writeFlag( false );
+
+   if( stream->writeFlag( mask & VisibilityMask ) )
+   {
+      writeF32( stream, mVisibleDistance );
+      writeF32( stream, mFogDistance );
+   }
+
+   stream->writeFlag( false );
+   stream->writeFlag( false );
+   stream->writeFlag( false );
+
+   if( stream->writeFlag( mask & WindMask ) )
+   {
+      writeF32( stream, mWindVelocity.x );
+      writeF32( stream, mWindVelocity.y );
+      writeF32( stream, mWindVelocity.z );
+   }
+
+   return 0;
+}
+
+bool Sky::unpackUpdate( BitStream *stream, bool isInitial )
+{
+   char buf[256];
+   bool changed = false;
+
+   if( stream->readFlag() )
+   {
+      stream->readString( buf );
+      mMaterialListName =
+         StringTable->insert( T2Layout::resourcePath( buf, "textures/" ) );
+
+      mFogColor.red   = readF32( stream );
+      mFogColor.green = readF32( stream );
+      mFogColor.blue  = readF32( stream );
+      mFogColor.alpha = 1.0f;
+
+      const U32 volumes = stream->readInt( 32 );
+      if( volumes > 64 )
+      {
+         Con::errorf( "Sky: %u fog volumes on the wire", volumes );
+         return false;
+      }
+
+      mSkyTexturesOn   = stream->readInt( 8 ) != 0;
+      mRenderBoxBottom = stream->readInt( 8 ) != 0;
+
+      mSolidFillColor.red   = readF32( stream );
+      mSolidFillColor.green = readF32( stream );
+      mSolidFillColor.blue  = readF32( stream );
+
+      mEffectPrecip = stream->readInt( 8 ) != 0;
+
+      for( U32 i = 0; i < volumes; ++i )
+      {
+         const F32 visibleDistance = readF32( stream );
+         const F32 minHeight       = readF32( stream );
+         const F32 maxHeight       = readF32( stream );
+         const F32 red             = readF32( stream );
+         const F32 green           = readF32( stream );
+         const F32 blue            = readF32( stream );
+
+         if( i >= MaxFogVolumes )
+            continue;
+
+         mFogVolumes[i].visibleDistance = visibleDistance;
+         mFogVolumes[i].minHeight       = minHeight;
+         mFogVolumes[i].maxHeight       = maxHeight;
+         mFogVolumes[i].color.set( red, green, blue, 1.0f );
+      }
+      mNumFogVolumes = getMin( volumes, (U32)MaxFogVolumes );
+
+      for( U32 i = 0; i < MAX_NUM_LAYERS; ++i )
+      {
+         stream->readString( buf );
+         mCloudHeight[i] = readF32( stream );
+         mCloudSpeed[i]  = readF32( stream );
+      }
+
+      mWindVelocity.x = readF32( stream );
+      mWindVelocity.y = readF32( stream );
+      mWindVelocity.z = readF32( stream );
+
+      readF32( stream );
+
+      if( stream->readFlag() )
+         for( U32 i = 0; i < 5; ++i )
+            stream->readInt( 32 );
+
+      changed = true;
+   }
+
+   if( stream->readFlag() )
+      stream->readInt( 8 );
+
+   if( stream->readFlag() )
+      stream->readInt( 8 );
+
+   if( stream->readFlag() )
+   {
+      mVisibleDistance = readF32( stream );
+      mFogDistance     = readF32( stream );
+      changed = true;
+   }
+
+   if( stream->readFlag() )
+   {
+      stream->readInt( 32 );
+      stream->readInt( 32 );
+   }
+
+   if( stream->readFlag() )
+   {
+      stream->readInt( 32 );
+      stream->readInt( 32 );
+      stream->readInt( 32 );
+   }
+
+   if( stream->readFlag() )
+      for( U32 i = 0; i < 4; ++i )
+         stream->readInt( 32 );
+
+   if( stream->readFlag() )
+   {
+      mWindVelocity.x = readF32( stream );
+      mWindVelocity.y = readF32( stream );
+      mWindVelocity.z = readF32( stream );
+      changed = true;
+   }
+
+   if( changed && !isInitial && isClientObject() )
+      initSkyData();
+
+   return true;
 }
 
 //---------------------------------------------------------------------------

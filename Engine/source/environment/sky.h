@@ -169,6 +169,10 @@ public:
    void setWindVelocity( const Point3F & );
    Point3F getWindVelocity();
 
+   U32  packUpdate( NetConnection *conn, U32 mask, BitStream *stream,
+                    bool isInitial );
+   bool unpackUpdate( BitStream *stream, bool isInitial );
+
    DECLARE_CONOBJECT(Sky);
    static void initPersistFields();
    static void consoleInit();
