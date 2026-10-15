@@ -141,7 +141,11 @@ class HudScoreCtrl : public HudCtrl
    Point2I mVerticalInset;
    Point2I mHorizontalInset;
 
+   Vector<S32> mSeparators;
    bool mHorzSeparator;
+
+   RectI mArt[3];
+   bool mHasArt;
 
 public:
    HudScoreCtrl();
@@ -149,7 +153,10 @@ public:
    DECLARE_CONOBJECT(HudScoreCtrl);
    static void initPersistFields();
 
-   void setSeparators(bool on) { mHorzSeparator = on; setUpdate(); }
+   bool onWake();
+
+   void setSeparators(const char *list);
+   void setHorzSeparator(bool on) { mHorzSeparator = on; setUpdate(); }
 
    void onRender(Point2I offset, const RectI &updateRect);
 };
