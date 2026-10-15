@@ -393,6 +393,10 @@ bool ParticleData::unpackData(BitStream *stream, U32 classId)
       times[i] = T2Layout::t2Float(timeOf[i], 8);
    }
 
+   const Vector<String> &strings = T2Layout::lastStrings();
+   if( strings.size() && strings[0].isNotEmpty() )
+      textureName = StringTable->insert( String("textures/") + strings[0] );
+
    if( Con::getBoolVariable("$pref::Net::traceDataBlockFields", false) )
       Con::printf("T2 ParticleData %d: drag %.3f gravity %.3f inherited %.3f "
                   "life %d/%d spin %.1f %.0f..%.0f keys %d tex %s",
