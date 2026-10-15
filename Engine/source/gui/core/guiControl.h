@@ -140,7 +140,10 @@ class GuiControl : public SimGroup
    
       SimGroup               *mAddGroup;   ///< The internal name of a SimGroup child of the global GuiGroup in which to organize this gui on creation
       RectI                   mBounds;     ///< The internal bounds of this control
-      
+      RectI                   mLayoutBounds; ///< The bounds parentResized() lays out from, before minExtent clamping
+      Point2I                 mLayoutParentExtent; ///< The parent extent mLayoutBounds was authored against
+      bool                    mLayoutSeeded; ///< Whether the two above have been set against a real parent yet
+
    protected:
    
       GuiControlProfile* mProfile;         ///< The profile for this gui (data settings that are likely to be shared by multiple guis)
@@ -413,6 +416,7 @@ class GuiControl : public SimGroup
       
       virtual bool acceptsAsChild( SimObject* object ) const;
       
+      virtual void onGroupAdd();
       virtual void onGroupRemove();
       
       /// @}
