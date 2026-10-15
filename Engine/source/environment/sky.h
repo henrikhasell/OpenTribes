@@ -123,6 +123,7 @@ private:
    static bool smCloudsOn;
    static bool smSkyOn;
    static S32  smNumCloudsOn;
+   static F32  smVisibleDistanceMod;
 
    void calcPoints();
 

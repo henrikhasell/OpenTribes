@@ -49,6 +49,8 @@ struct ShaderGenVars
    const static String fogData;
    const static String fogColor;
    const static String fogBandData;
+   const static String fogBandData2;
+   const static String fogBandData3;
    const static String detailScale;
    const static String visibility;
    const static String colorMultiply;

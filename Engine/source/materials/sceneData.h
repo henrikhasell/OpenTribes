@@ -78,9 +78,9 @@ struct SceneData
    F32 fogHeightFalloff;
    ColorF fogColor;
 
-   F32 fogBandMin;
-   F32 fogBandMax;
-   F32 fogBandInvVisDist;
+   F32 fogBandMin[FogData::MaxBands];
+   F32 fogBandMax[FogData::MaxBands];
+   F32 fogBandFactor[FogData::MaxBands];
    F32 fogHazeScale;
   
    // misc
@@ -128,12 +128,12 @@ struct SceneData
 
       fogColor = data.color;
 
-      fogBandMin = data.bandMin;
-      fogBandMax = data.bandMax;
-      if ( !mIsZero( data.bandVisDist ) )
-         fogBandInvVisDist = 1.0f / data.bandVisDist;
-      else
-         fogBandInvVisDist = 0.0f;
+      for ( U32 i = 0; i < FogData::MaxBands; i++ )
+      {
+         fogBandMin[i] = data.bandMin[i];
+         fogBandMax[i] = data.bandMax[i];
+         fogBandFactor[i] = data.bandFactor[i];
+      }
       fogHazeScale = data.hazeScale;
    }
 };

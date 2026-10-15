@@ -491,6 +491,8 @@ bool TerrainCellMaterial::_createPass( Vector<MaterialInfo*> *materials,
    pass->layerTexConst = pass->shader->getShaderConstHandle( "$layerTex" );
    pass->fogDataConst = pass->shader->getShaderConstHandle( "$fogData" );
    pass->fogBandDataConst = pass->shader->getShaderConstHandle( "$fogBandData" );
+   pass->fogBandData2Const = pass->shader->getShaderConstHandle( "$fogBandData2" );
+   pass->fogBandData3Const = pass->shader->getShaderConstHandle( "$fogBandData3" );
    pass->fogColorConst = pass->shader->getShaderConstHandle( "$fogColor" );
    pass->lightMapTexConst = pass->shader->getShaderConstHandle( "$lightMapTex" );
    pass->oneOverTerrainSize = pass->shader->getShaderConstHandle( "$oneOverTerrainSize" );
@@ -804,13 +806,19 @@ bool TerrainCellMaterial::setupPass(   const SceneRenderState *state,
    }
 
    if ( pass.fogBandDataConst->isValid() )
-   {
-      Point4F fogBandData( sceneData.fogBandMin,
-                           sceneData.fogBandMax,
-                           sceneData.fogBandInvVisDist,
-                           sceneData.fogHazeScale );
-      pass.consts->set( pass.fogBandDataConst, fogBandData );
-   }
+      pass.consts->set( pass.fogBandDataConst,
+         Point4F( sceneData.fogBandMin[0], sceneData.fogBandMax[0],
+                  sceneData.fogBandFactor[0], sceneData.fogHazeScale ) );
+
+   if ( pass.fogBandData2Const->isValid() )
+      pass.consts->set( pass.fogBandData2Const,
+         Point4F( sceneData.fogBandMin[1], sceneData.fogBandMax[1],
+                  sceneData.fogBandFactor[1], 0.0f ) );
+
+   if ( pass.fogBandData3Const->isValid() )
+      pass.consts->set( pass.fogBandData3Const,
+         Point4F( sceneData.fogBandMin[2], sceneData.fogBandMax[2],
+                  sceneData.fogBandFactor[2], 0.0f ) );
 
    pass.consts->setSafe( pass.fogColorConst, sceneData.fogColor );
 

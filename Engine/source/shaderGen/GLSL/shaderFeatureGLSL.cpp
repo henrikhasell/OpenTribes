@@ -1840,6 +1840,14 @@ void FogFeatGLSL::processVert(   Vector<ShaderComponent*> &componentList,
       Var *fogBandData = new Var( "fogBandData", "vec4" );
       fogBandData->uniform = true;
       fogBandData->constSortPos = cspPass;
+
+      Var *fogBandData2 = new Var( "fogBandData2", "vec4" );
+      fogBandData2->uniform = true;
+      fogBandData2->constSortPos = cspPass;
+
+      Var *fogBandData3 = new Var( "fogBandData3", "vec4" );
+      fogBandData3->uniform = true;
+      fogBandData3->constSortPos = cspPass;
 		
       Var *wsPosition = new Var( "fogPos", "vec3" );
       getWsPosition( componentList, 
@@ -1856,9 +1864,13 @@ void FogFeatGLSL::processVert(   Vector<ShaderComponent*> &componentList,
 		
       meta->addStatement( new GenOp( "   @ = saturate( computeSceneFog( @, @, @.r, @.g, @.b )\r\n"
                                      "                  - computeSceneFogBand( @, @, @.r, @.g, @.b )\r\n"
+                                     "                  - computeSceneFogBand( @, @, @.r, @.g, @.b )\r\n"
+                                     "                  - computeSceneFogBand( @, @, @.r, @.g, @.b )\r\n"
                                      "                  - computeSceneHaze( length( @ - @ ), @.g, @.a ) );\r\n",
 												fogAmount, eyePos, wsPosition, fogData, fogData, fogData,
 												eyePos, wsPosition, fogBandData, fogBandData, fogBandData,
+												eyePos, wsPosition, fogBandData2, fogBandData2, fogBandData2,
+												eyePos, wsPosition, fogBandData3, fogBandData3, fogBandData3,
 												wsPosition, eyePos, fogData, fogBandData ) );
    }
    else
@@ -1924,14 +1936,26 @@ void FogFeatGLSL::processPix( Vector<ShaderComponent*> &componentList,
       Var *fogBandData = new Var( "fogBandData", "vec4" );
       fogBandData->uniform = true;
       fogBandData->constSortPos = cspPass;
+
+      Var *fogBandData2 = new Var( "fogBandData2", "vec4" );
+      fogBandData2->uniform = true;
+      fogBandData2->constSortPos = cspPass;
+
+      Var *fogBandData3 = new Var( "fogBandData3", "vec4" );
+      fogBandData3->uniform = true;
+      fogBandData3->constSortPos = cspPass;
 		
       /// Get the fog amount.
       fogAmount = new Var( "fogAmount", "float" );
       meta->addStatement( new GenOp( "   @ = saturate( computeSceneFog( @, @, @.r, @.g, @.b )\r\n"
                                      "                  - computeSceneFogBand( @, @, @.r, @.g, @.b )\r\n"
+                                     "                  - computeSceneFogBand( @, @, @.r, @.g, @.b )\r\n"
+                                     "                  - computeSceneFogBand( @, @, @.r, @.g, @.b )\r\n"
                                      "                  - computeSceneHaze( length( @ - @ ), @.g, @.a ) );\r\n",
 												new DecOp( fogAmount ), eyePos, wsPosition, fogData, fogData, fogData,
 												eyePos, wsPosition, fogBandData, fogBandData, fogBandData,
+												eyePos, wsPosition, fogBandData2, fogBandData2, fogBandData2,
+												eyePos, wsPosition, fogBandData3, fogBandData3, fogBandData3,
 												wsPosition, eyePos, fogData, fogBandData ) );
    }
 	

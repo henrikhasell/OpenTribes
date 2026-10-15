@@ -69,14 +69,14 @@ float computeSceneFogBand( vec3 startPos,
                            vec3 endPos,
                            float bandMin,
                            float bandMax,
-                           float invVisDist )
+                           float bandFactor )
 {
    float dz = endPos.z - startPos.z;
    float inBand = step( bandMin, startPos.z ) * step( startPos.z, bandMax );
    float frac = abs( dz ) > 1e-4
       ? ( clamp( endPos.z, bandMin, bandMax ) - clamp( startPos.z, bandMin, bandMax ) ) / dz
       : inBand;
-   return length( endPos - startPos ) * frac * invVisDist;
+   return length( endPos - startPos ) * frac * bandFactor;
 }
 
 

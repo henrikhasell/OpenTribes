@@ -28,6 +28,7 @@ IMPLEMENT_CO_NETOBJECT_V1(Sky);
 bool Sky::smCloudsOn    = true;
 bool Sky::smSkyOn       = true;
 S32  Sky::smNumCloudsOn = MAX_NUM_LAYERS;
+F32  Sky::smVisibleDistanceMod = 1.0f;
 
 F32 Cloud::mRadius;
 
@@ -256,6 +257,7 @@ void Sky::consoleInit()
    Con::addVariable( "pref::CloudsOn", TypeBool, &smCloudsOn, "" );
    Con::addVariable( "pref::NumCloudLayers", TypeS32, &smNumCloudsOn, "" );
    Con::addVariable( "pref::SkyOn", TypeBool, &smSkyOn, "" );
+   Con::addVariable( "pref::VisibleDistanceMod", TypeF32, &smVisibleDistanceMod, "" );
 }
 
 //---------------------------------------------------------------------------
@@ -484,37 +486,36 @@ void Sky::setVisibility()
    if( !scene )
       return;
 
-   scene->setVisibleDistance( mVisibleDistance );
+   F32 visFactor = smVisibleDistanceMod;
+   if( visFactor > 1.0f )
+      visFactor = 1.0f;
+   else if( visFactor < 0.5f )
+      visFactor = 0.5f;
 
-   // The two halves of the original fog, handed to the shaders as they were
-   // written rather than reshaped into this engine's exponential curve.
-   //
-   //   haze   a quadratic ramp from fogDistance out to visibleDistance
-   //   band   the length of the eye ray inside a fog slab, over the slab's
-   //          own visible distance
-   //
-   // density stays at zero so the exponential term contributes nothing; a
-   // level driven by a LevelInfo instead leaves hazeScale and bandVisDist at
-   // zero and gets only the exponential, exactly as before.
+   const F32 visibleDistance = mVisibleDistance * visFactor;
+   const F32 fogDistance     = mFogDistance * visFactor;
+
+   scene->setVisibleDistance( visibleDistance );
+
    FogData fog;
    fog.color = mFogColor;
    fog.density = 0.0f;
-   fog.densityOffset = mFogDistance;
+   fog.densityOffset = fogDistance;
    fog.atmosphereHeight = 0.0f;
-   fog.hazeScale = ( mVisibleDistance > mFogDistance )
-      ? 1.0f / ( mVisibleDistance - mFogDistance )
-      : 0.0f;
+   fog.hazeScale = ( visibleDistance == fogDistance )
+      ? 1000.0f
+      : 1.0f / ( visibleDistance - fogDistance );
 
-   if( mNumFogVolumes > 0 )
+   for( U32 i = 0; i < mNumFogVolumes && i < FogData::MaxBands; ++i )
    {
-      fog.bandMin     = mFogVolumes[0].minHeight;
-      fog.bandMax     = mFogVolumes[0].maxHeight;
-      fog.bandVisDist = mFogVolumes[0].visibleDistance * mFogVolumes[0].percentage;
-   }
+      const F32 bandDistance = mFogVolumes[i].visibleDistance * visFactor;
+      if( mIsZero( bandDistance ) )
+         continue;
 
-   if( mNumFogVolumes > 1 )
-      Con::warnf( "Sky: %d fog volumes, only the first reaches the shaders; the "
-                  "rest still set the height the sky is fogged to.", mNumFogVolumes );
+      fog.bandMin[i]    = mFogVolumes[i].minHeight;
+      fog.bandMax[i]    = mFogVolumes[i].maxHeight;
+      fog.bandFactor[i] = mFogVolumes[i].percentage / bandDistance;
+   }
 
    scene->setFogData( fog );
 }
