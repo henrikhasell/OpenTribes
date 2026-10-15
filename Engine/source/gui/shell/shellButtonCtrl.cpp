@@ -1,5 +1,7 @@
 #include "platform/platform.h"
 #include "gui/shell/shellButtonCtrl.h"
+#include "sfx/sfxSystem.h"
+#include "sfx/sfxTrack.h"
 
 #include "console/console.h"
 #include "console/consoleTypes.h"
@@ -396,8 +398,16 @@ const char *ShellTabGroupCtrl::getSelectedText() const
 void ShellTabGroupCtrl::onMouseDown( const GuiEvent &event )
 {
    const S32 tab = hitTab( globalToLocalCoord( event.mousePoint ) );
-   if ( tab != -1 )
-      setSelectedByIndex( tab );
+   if ( tab == -1 )
+      return;
+
+   if ( mActive && mTabs[ tab ].active && tab != mSelected )
+   {
+      if ( SFXTrack *down = mProfile->getSoundButtonDown() )
+         SFX->playOnce( down );
+   }
+
+   setSelectedByIndex( tab );
 }
 
 void ShellTabGroupCtrl::onMouseMove( const GuiEvent &event )
@@ -405,6 +415,12 @@ void ShellTabGroupCtrl::onMouseMove( const GuiEvent &event )
    const S32 over = hitTab( globalToLocalCoord( event.mousePoint ) );
    if ( over != mMouseOver )
    {
+      if ( mActive && over != -1 && mTabs[ over ].active && over != mSelected )
+      {
+         if ( SFXTrack *overSound = mProfile->getSoundButtonOver() )
+            SFX->playOnce( overSound );
+      }
+
       mMouseOver = over;
       setUpdate();
    }

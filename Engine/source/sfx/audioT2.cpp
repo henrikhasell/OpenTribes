@@ -347,6 +347,9 @@ ConsoleFunction( alxPlay, S32, 2, 5,
    return source ? source->getId() : 0;
 }
 
+static SimObjectPtr< SFXSource > sMusicSource;
+static bool sMusicStopping = false;
+
 DefineEngineFunction( alxStop, void, ( const char* handle ),,
    "Stop the source named by @a handle and release it.\n\n"
    "@ingroup SFX" )
@@ -371,7 +374,7 @@ DefineEngineFunction( alxStopAll, void, (),,
    for( SimSet::iterator iter = sources->begin(); iter != sources->end(); ++ iter )
    {
       SFXSource* source = dynamic_cast< SFXSource* >( *iter );
-      if( !source || source == AudioChannels::master() )
+      if( !source || source == AudioChannels::master() || source == sMusicSource )
          continue;
 
       if( source->getSourceGroup() != AudioChannels::master() )
@@ -473,9 +476,6 @@ DefineEngineFunction( alxGetWaveLen, S32, ( const char* filename ),,
 // Music.
 //-----------------------------------------------------------------------------
 
-static SimObjectPtr< SFXSource > sMusicSource;
-static bool sMusicStopping = false;
-
 /// Tribes 2 spells a music path the way Windows does and roots it at the game
 /// directory rather than the mod, so it reaches us as `base\music\x.mp3`.
 static String musicPath( const char* filename )
@@ -493,17 +493,18 @@ static void stopMusic()
    sMusicStopping = true;
    SFX->stopAndDeleteSource( sMusicSource );
    sMusicSource = NULL;
-   sMusicStopping = false;
 }
 
 DefineEngineFunction( _alxMusicStatus, void, ( const char* handle, const char* status ),,
    "@internal" )
 {
-   if( sMusicStopping || dStricmp( status, "Stopped" ) != 0 )
+   if( dStricmp( status, "Stopped" ) != 0 )
       return;
 
+   const bool stopped = sMusicStopping;
+   sMusicStopping = false;
    sMusicSource = NULL;
-   Con::executef( "finishedMusicStream", "false" );
+   Con::executef( "finishedMusicStream", stopped ? "true" : "false" );
 }
 
 DefineEngineFunction( alxPlayMusic, bool, ( const char* filename ),,
@@ -512,6 +513,7 @@ DefineEngineFunction( alxPlayMusic, bool, ( const char* filename ),,
 {
    AudioChannels::create();
    stopMusic();
+   sMusicStopping = false;
 
    SFXDescription* description;
    if( !Sim::findObject( "AudioChannelMusicDescription", description ) )
