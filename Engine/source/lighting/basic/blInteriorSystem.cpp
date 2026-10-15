@@ -31,7 +31,6 @@
 //#define SET_COLORS
 
 
-bool blInteriorSystem::smUseVertexLighting = false;
 
 
 //------------------------------------------------------------------------------
@@ -1238,11 +1237,19 @@ bool blInteriorProxy::setPersistInfo(PersistInfo::PersistChunk * info)
 
          for(U32 j = 0; j < chunk->mDetailLightmapCount[i]; j++)
          {
+            if(idx >= chunk->mDetailLightmapIndices.size() || idx >= chunk->mLightmaps.size())
+               return(false);
+
             U32 baseIndex = chunk->mDetailLightmapIndices[idx];
             if(baseIndex >= baseHandles.size())
                return(false);
 
             AssertFatal(chunk->mLightmaps[idx], "blInteriorProxy::setPersistInfo: bunk bitmap!");
+
+            // HH: Modified for Tribes 2 compatibility.
+            if(!baseHandles[baseIndex])
+               return(false);
+
             if(chunk->mLightmaps[idx]->getWidth() != baseHandles[baseIndex]->getWidth() ||
                chunk->mLightmaps[idx]->getHeight() != baseHandles[baseIndex]->getHeight())
                return(false);
@@ -1407,29 +1414,13 @@ U32 blInteriorSystem::addToClippingMask()
    return InteriorObjectType;
 }
 
-void blInteriorSystem::processLightingBegin()
-{
-   // Store the vertex lighting state when we being lighting, we compare this when we finish lighting 
-   smUseVertexLighting = Interior::smUseVertexLighting;
-}
-
+// HH: Modified for Tribes 2 compatibility.
 void blInteriorSystem::processLightingCompleted(bool success)
 {
    if(success)
    {
-      AssertFatal(smUseVertexLighting == Interior::smUseVertexLighting, "SceneLighting::completed: vertex lighting state changed during scene light");
-
-      // cannot do anything if vertex state has changed (since we only load in what is needed)
-      if(smUseVertexLighting == Interior::smUseVertexLighting)
-      {
-         if(!smUseVertexLighting)
-         {
-            gInteriorLMManager.downloadGLTextures();
-            gInteriorLMManager.destroyBitmaps();
-         }
-         else
-            gInteriorLMManager.destroyTextures();
-      }
+      gInteriorLMManager.downloadGLTextures();
+      gInteriorLMManager.destroyBitmaps();
    }
 }
 
