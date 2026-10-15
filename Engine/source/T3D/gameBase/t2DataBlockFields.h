@@ -14,6 +14,19 @@ namespace T2Protocol
 
    static const T2DataBlockFieldRow sT2DataBlockFields[] =
    {
+   // The ShapeBaseData layer a PlayerData opens with, whose values are gated
+   // by the flags at nodes 0 to 6 and so sit at the tail of the layout.
+      { "PlayerData", 273, OpRaw, 32, T2DbMass      },
+      { "PlayerData", 272, OpRaw, 32, T2DbDrag      },
+      { "PlayerData", 271, OpRaw, 32, T2DbDensity   },
+      { "PlayerData", 270, OpRaw, 32, T2DbMaxEnergy },
+
+      { "PlayerData", 40, OpRaw, 32, T2DbMinLookAngle     },
+      { "PlayerData", 41, OpRaw, 32, T2DbMaxLookAngle     },
+      { "PlayerData", 42, OpRaw, 32, T2DbMaxFreelookAngle },
+      { "PlayerData", 43, OpRaw, 32, T2DbMaxTimeScale     },
+      { "PlayerData", 44, OpRaw, 32, T2DbMaxStepHeight    },
+
       { "PlayerData", 45, OpRaw, 32, T2DbJetForce                   },
       { "PlayerData", 46, OpRaw, 32, T2DbUnderwaterJetForce         },
       { "PlayerData", 47, OpRaw, 32, T2DbUnderwaterVertJetFactor    },
@@ -23,10 +36,69 @@ namespace T2Protocol
       { "PlayerData", 51, OpRaw, 32, T2DbMaxJetForwardSpeed         },
       { "PlayerData", 52, OpRaw, 32, T2DbMaxJetHorizontalPercentage },
 
+      { "PlayerData", 55, OpRaw, 32, T2DbRunForce                   },
+      { "PlayerData", 56, OpRaw, 32, T2DbRunEnergyDrain             },
+      { "PlayerData", 57, OpRaw, 32, T2DbMinRunEnergy               },
+      { "PlayerData", 58, OpRaw, 32, T2DbMaxForwardSpeed            },
+      { "PlayerData", 59, OpRaw, 32, T2DbMaxBackwardSpeed           },
+      { "PlayerData", 60, OpRaw, 32, T2DbMaxSideSpeed               },
+      { "PlayerData", 61, OpRaw, 32, T2DbMaxUnderwaterForwardSpeed  },
+      { "PlayerData", 62, OpRaw, 32, T2DbMaxUnderwaterBackwardSpeed },
+      { "PlayerData", 63, OpRaw, 32, T2DbMaxUnderwaterSideSpeed     },
+      { "PlayerData", 64, OpRaw, 32, T2DbRunSurfaceAngle            },
+
+   // A tick count, so a whole word rather than a float.
+      { "PlayerData", 65, OpRaw, 32, T2DbRecoverDelay         },
+      { "PlayerData", 66, OpRaw, 32, T2DbRecoverRunForceScale },
+
+      { "PlayerData", 67, OpRaw, 32, T2DbJumpForce        },
+      { "PlayerData", 68, OpRaw, 32, T2DbJumpEnergyDrain  },
+      { "PlayerData", 69, OpRaw, 32, T2DbMinJumpEnergy    },
+      { "PlayerData", 70, OpRaw, 32, T2DbMinJumpSpeed     },
+      { "PlayerData", 71, OpRaw, 32, T2DbMaxJumpSpeed     },
+      { "PlayerData", 72, OpRaw, 32, T2DbJumpSurfaceAngle },
+      { "PlayerData", 73, OpInt,  7, T2DbJumpDelay        },
+
+      { "PlayerData", 74, OpRaw, 32, T2DbHorizMaxSpeed     },
+      { "PlayerData", 75, OpRaw, 32, T2DbHorizResistSpeed  },
+      { "PlayerData", 76, OpRaw, 32, T2DbHorizResistFactor },
+      { "PlayerData", 77, OpRaw, 32, T2DbUpMaxSpeed        },
+      { "PlayerData", 78, OpRaw, 32, T2DbUpResistSpeed     },
+      { "PlayerData", 79, OpRaw, 32, T2DbUpResistFactor    },
+
+      { "PlayerData", 80, OpRaw, 32, T2DbSplashVelocity     },
+      { "PlayerData", 81, OpRaw, 32, T2DbSplashAngle        },
+      { "PlayerData", 82, OpRaw, 32, T2DbSplashFreqMod      },
+      { "PlayerData", 83, OpRaw, 32, T2DbSplashVelEpsilon   },
+      { "PlayerData", 84, OpRaw, 32, T2DbBubbleEmitTime     },
+      { "PlayerData", 85, OpRaw, 32, T2DbMedSplashSoundVel  },
+      { "PlayerData", 86, OpRaw, 32, T2DbHardSplashSoundVel },
+      { "PlayerData", 87, OpRaw, 32, T2DbExitSplashSoundVel },
+      { "PlayerData", 88, OpRaw, 32, T2DbFootSplashHeight   },
+      { "PlayerData", 89, OpRaw, 32, T2DbMinImpactSpeed     },
+
+      { "PlayerData", 122, OpRaw, 32, T2DbBoxSizeX },
+      { "PlayerData", 123, OpRaw, 32, T2DbBoxSizeY },
+      { "PlayerData", 124, OpRaw, 32, T2DbBoxSizeZ },
+
+   // A particle count, likewise a word.
+      { "PlayerData", 126, OpRaw, 32, T2DbFootPuffNumParts },
+      { "PlayerData", 127, OpRaw, 32, T2DbFootPuffRadius   },
+      { "PlayerData", 129, OpRaw, 32, T2DbDecalOffset      },
+
    // PlayerData::packData (0x005cf935) writes eleven bare floats here, which is
    // the layout's only run of eleven, at nodes 135 to 145.
-      { "PlayerData", 135, OpRaw, 32, T2DbHeatDecayPerSec    },
-      { "PlayerData", 136, OpRaw, 32, T2DbHeatIncreasePerSec },
+      { "PlayerData", 135, OpRaw, 32, T2DbHeatDecayPerSec           },
+      { "PlayerData", 136, OpRaw, 32, T2DbHeatIncreasePerSec        },
+      { "PlayerData", 137, OpRaw, 32, T2DbGroundImpactMinSpeed      },
+      { "PlayerData", 138, OpRaw, 32, T2DbGroundImpactShakeFreqX    },
+      { "PlayerData", 139, OpRaw, 32, T2DbGroundImpactShakeFreqY    },
+      { "PlayerData", 140, OpRaw, 32, T2DbGroundImpactShakeFreqZ    },
+      { "PlayerData", 141, OpRaw, 32, T2DbGroundImpactShakeAmpX     },
+      { "PlayerData", 142, OpRaw, 32, T2DbGroundImpactShakeAmpY     },
+      { "PlayerData", 143, OpRaw, 32, T2DbGroundImpactShakeAmpZ     },
+      { "PlayerData", 144, OpRaw, 32, T2DbGroundImpactShakeDuration },
+      { "PlayerData", 145, OpRaw, 32, T2DbGroundImpactShakeFalloff  },
 
       { "PlayerData", 269, OpRaw, 32, T2DbCameraMaxDist },
 

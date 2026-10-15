@@ -33,7 +33,12 @@
 //----------------------------------------------------------------------------
 
 #define TickMs      32
-#define TickSec     (F32(TickMs) / 1000.0f)
+// HH: Modified for Tribes 2 compatibility.
+// A tick is scheduled 32ms apart, but the seconds a tick is worth to physics
+// is its own constant in retail (0x0079c140), and that constant is a thirty-
+// second, not 0.032.  The 2.4% between them lands on every force a body
+// integrates, so a client using Torque's value cannot agree with a server.
+#define TickSec     (1.0f / 32.0f)
 
 //----------------------------------------------------------------------------
 

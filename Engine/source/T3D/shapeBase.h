@@ -643,6 +643,8 @@ public:
    /// @}
 
    virtual bool preload(bool server, String &errorStr);
+   // HH: Added for Tribes 2 compatibility.
+   bool unpackData(BitStream *stream, U32 classId) override;
    void computeAccelerator(U32 i);
    S32  findMountPoint(U32 n);
 
