@@ -1161,8 +1161,12 @@ GuiMLTextCtrl::Bitmap *GuiMLTextCtrl::allocBitmap(const char *bitmapName, U32 bi
    else
       ret->bitmapName[BitmapNameSize - 1] = 0;
    ret->bitmapNameLen = bitmapNameLen;
-      
-   ret->bitmapObject.set(ret->bitmapName, &GFXMLTextureProfile, avar("%s() - ret->bitmapObject (line %d)", __FUNCTION__, __LINE__));
+
+   // HH: Modified for Tribes 2 compatibility.
+   char path[256];
+   dSprintf(path, sizeof(path), "texticons/%s", ret->bitmapName);
+
+   ret->bitmapObject.set(path, &GFXMLTextureProfile, avar("%s() - ret->bitmapObject (line %d)", __FUNCTION__, __LINE__));
    //ret->bitmapObject.set(bitmapName, &GFXMLTextureProfile);
    if( bool(ret->bitmapObject) )
    {
