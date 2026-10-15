@@ -175,6 +175,8 @@ class Item: public ShapeBase
    void setCollisionTimeout(ShapeBase* obj);
    ShapeBase* getCollisionObject()   { return mCollisionObject; };
 
+   void onT2BodyRead( const T2Layout::Body &body ) override;
+
    void processTick(const Move *move);
    void interpolateTick(F32 delta);
    virtual void setTransform(const MatrixF &mat);

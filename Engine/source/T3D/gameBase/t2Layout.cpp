@@ -53,6 +53,7 @@ static S32 sScaleAt = -1;
 static S32 sPointAt = -1;
 static S32 sVelocityAt = -1;
 static bool sQuatNegative = false;
+static bool sAxisNegative = false;
 static F32 sSpeed = 0.0f;
 static F32 sPhi = 0.0f;
 static const void *sFieldsLayout = NULL;
@@ -748,18 +749,42 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
             if(!write)
             {
                const T2GhostFieldRow *row = fieldAt(layout, at);
-               if(row && row->field == T2FieldQuatSign)
-                  sQuatNegative = set;
-               if(row && row->field == T2FieldVelocityHere)
-               {
-                  sBody.hasVelocity = true;
-                  sBody.velocity.set(0.0f, 0.0f, 0.0f);
-               }
-               if(row && row->field == T2FieldJetting)
-               {
-                  sBody.hasJetting = true;
-                  sBody.jetting = set;
-               }
+               if(row)
+                  switch(row->field)
+                  {
+                     case T2FieldQuatSign:
+                        sQuatNegative = set;
+                        break;
+                     case T2FieldAxisZSign:
+                        sAxisNegative = set;
+                        break;
+                     case T2FieldVelocityHere:
+                        sBody.hasVelocity = true;
+                        sBody.velocity.set(0.0f, 0.0f, 0.0f);
+                        break;
+                     case T2FieldJetting:
+                        sBody.hasJetting = true;
+                        sBody.jetting = set;
+                        break;
+                     case T2FieldRotate:
+                        sBody.hasRotate = true;
+                        sBody.rotate = set;
+                        break;
+                     case T2FieldStatic:
+                        sBody.hasStatic = true;
+                        sBody.isStatic = set;
+                        break;
+                     case T2FieldAtRest:
+                        sBody.hasAtRest = true;
+                        sBody.atRest = set;
+                        break;
+                     case T2FieldWarp:
+                        sBody.hasWarp = true;
+                        sBody.warp = set;
+                        break;
+                     default:
+                        break;
+                  }
 
                U32 state, part;
                if(stateAt(layout, at, &state, &part))
@@ -1026,6 +1051,15 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
             {
                sBody.hasYaw = true;
                sBody.yaw = (F32)word / (F32)((1 << n.bits) - 1) * M_2PI_F;
+            }
+            if(row && row->field == T2FieldZAngle)
+            {
+               // An angle about the Z axis, with the sign of that axis read
+               // a node earlier: a heading, whichever way the axis points.
+               F32 angle;
+               dMemcpy(&angle, &word, sizeof(angle));
+               sBody.hasYaw = true;
+               sBody.yaw = sAxisNegative ? -angle : angle;
             }
             if(row && row->field == T2FieldDamage && n.bits)
             {
@@ -1435,6 +1469,14 @@ static bool runGhost(BitStream *stream, const char *className,
    sBody.hasDamage = false;
    sBody.hasJetting = false;
    sBody.jetting = false;
+   sBody.hasRotate = false;
+   sBody.rotate = false;
+   sBody.hasStatic = false;
+   sBody.isStatic = false;
+   sBody.hasAtRest = false;
+   sBody.atRest = false;
+   sBody.hasWarp = false;
+   sBody.warp = false;
    for(U32 i = 0; i < MaxImages; i++)
    {
       Body::Image &image = sBody.images[i];
@@ -1458,6 +1500,7 @@ static bool runGhost(BitStream *stream, const char *className,
    sPointAt = -1;
    sVelocityAt = -1;
    sQuatNegative = false;
+   sAxisNegative = false;
    sSpeed = 0.0f;
    sPhi = 0.0f;
    resolveGhostFields(className);
