@@ -1,6 +1,7 @@
 #include "gui/hud/hudItemCtrl.h"
 
 #include "console/consoleTypes.h"
+#include "core/strings/stringUnit.h"
 #include "console/engineAPI.h"
 #include "gfx/gfxDevice.h"
 #include "gfx/gfxDrawUtil.h"
@@ -257,9 +258,12 @@ void HudItemCtrl::onRender(Point2I offset, const RectI &updateRect)
 //-----------------------------------------------------------------------------
 HudScoreCtrl::HudScoreCtrl()
 {
+   VECTOR_SET_ASSOCIATION(mSeparators);
+
    mVerticalInset.set(0, 0);
    mHorizontalInset.set(0, 0);
    mHorzSeparator = false;
+   mHasArt = false;
 }
 
 void HudScoreCtrl::initPersistFields()
@@ -270,19 +274,89 @@ void HudScoreCtrl::initPersistFields()
    addField("horizontalInset", TypePoint2I, Offset(mHorizontalInset, HudScoreCtrl));
 }
 
+bool HudScoreCtrl::onWake()
+{
+   if(!Parent::onWake())
+      return false;
+
+   mHasArt = mProfile->constructBitmapArray() >= 3;
+   if(mHasArt)
+   {
+      for(U32 i = 0; i < 3; i++)
+      {
+         mArt[i] = mProfile->mBitmapArrayRects[i];
+         mArt[i].inset(1, 1);
+      }
+
+      setMinExtent(Point2I(mArt[0].extent.x + mArt[2].extent.x, mArt[0].extent.y));
+      resize(getPosition(), getExtent());
+   }
+
+   return true;
+}
+
+void HudScoreCtrl::setSeparators(const char *list)
+{
+   mSeparators.clear();
+
+   const U32 count = list ? StringUnit::getUnitCount(list, " ") : 0;
+   for(U32 i = 0; i < count; i++)
+      mSeparators.push_back(dAtoi(StringUnit::getUnit(list, i, " ")));
+
+   setUpdate();
+}
+
 void HudScoreCtrl::onRender(Point2I offset, const RectI &updateRect)
 {
    GFXDrawUtil *draw = GFX->getDrawUtil();
-   const RectI bounds(offset, getExtent());
+   const Point2I extent = getExtent();
 
-   draw->drawRectFill(bounds, faded(mFillColor));
-
-   if(mHorzSeparator)
+   if(mHasArt && mProfile->mTextureObject)
    {
-      const S32 y = offset.y + getExtent().y / 2;
-      draw->drawLine(offset.x + mHorizontalInset.x, y,
-                  offset.x + getExtent().x - mHorizontalInset.y, y,
-                  faded(mFrameColor));
+      draw->clearBitmapModulation();
+      draw->drawBitmapSR(mProfile->mTextureObject, offset, mArt[0]);
+
+      const S32 middle = extent.x - mArt[0].extent.x - mArt[2].extent.x;
+      const Point2I at(offset.x + mArt[0].extent.x, offset.y);
+
+      draw->drawBitmapStretchSR(mProfile->mTextureObject,
+         RectI(at, Point2I(middle, mArt[1].extent.y)), mArt[1]);
+
+      draw->drawBitmapSR(mProfile->mTextureObject,
+         Point2I(at.x + middle, offset.y), mArt[2]);
+   }
+   else
+      Parent::onRender(offset, updateRect);
+
+   const ColorI &edge = mProfile->mBorderColor;
+   const ColorI shadow(U8(edge.red   * 0.75f + 0.5f),
+                       U8(edge.green * 0.75f + 0.5f),
+                       U8(edge.blue  * 0.75f + 0.5f),
+                       edge.alpha);
+
+   for(U32 pass = 0; pass < 2; pass++)
+   {
+      const ColorI &colour = pass ? edge : shadow;
+      const S32 step = pass ? 1 : 2;
+
+      if(mHorzSeparator)
+      {
+         const S32 y = offset.y + extent.y / 2 + step;
+         draw->drawLine(Point2I(offset.x + mHorizontalInset.x, y),
+                        Point2I(offset.x + extent.x - mHorizontalInset.y, y),
+                        colour);
+      }
+
+      for(U32 i = 0; i < mSeparators.size(); i++)
+      {
+         const S32 x = mSeparators[i];
+         if(x <= 0 || x >= extent.x - 2)
+            continue;
+
+         draw->drawLine(Point2I(offset.x + x + step - 1, offset.y + mVerticalInset.x),
+                        Point2I(offset.x + x + step - 1, offset.y + extent.y - mVerticalInset.y),
+                        colour);
+      }
    }
 
    renderChildControls(offset, updateRect);
@@ -545,22 +619,22 @@ DefineEngineMethod(HudItemCtrl, getInfiniteBitmap, const char *, (), ,
 }
 
 //-----------------------------------------------------------------------------
-DefineEngineMethod(HudScoreCtrl, setSeparators, void, (bool on), ,
-   "@brief Draw the rule between the two teams.\n\n@ingroup GuiHud")
+DefineEngineMethod(HudScoreCtrl, setSeparators, void, (const char *offsets), ,
+   "@brief Put a column rule at each x offset in the list.\n\n@ingroup GuiHud")
 {
-   object->setSeparators(on);
+   object->setSeparators(offsets);
 }
 
 DefineEngineMethod(HudScoreCtrl, enableHorzSeparator, void, (), ,
    "@brief Draw the rule between the two teams.\n\n@ingroup GuiHud")
 {
-   object->setSeparators(true);
+   object->setHorzSeparator(true);
 }
 
 DefineEngineMethod(HudScoreCtrl, disableHorzSeparator, void, (), ,
    "@brief Stop drawing the rule between the two teams.\n\n@ingroup GuiHud")
 {
-   object->setSeparators(false);
+   object->setHorzSeparator(false);
 }
 
 //-----------------------------------------------------------------------------
