@@ -16,6 +16,7 @@ namespace T2Protocol
       T2FieldScale,                 ///< the first of a Point3F's three floats
       T2FieldDamage,                ///< readFloat(bits) of the object's
                                     ///< maxDamage
+      T2FieldJetting,               ///< the flag that lights a jet pack
       T2FieldNormalPhi,
       T2FieldNormalTheta,
       T2FieldImpactPhi,
@@ -53,6 +54,8 @@ namespace T2Protocol
       { "Player", 23, OpRaw,   13, T2FieldSpeed        },
       { "Player", 22, OpRaw,   21, T2FieldDirection    },
       { "Player", 19, OpRaw,   7,  T2FieldYaw          },
+
+      { "Player", 26, OpFlag,  1,  T2FieldJetting      },
 
    // ShapeBase::unpackUpdate reads the damage at 0x005ef194 as readFloat(6) of
    // the datablock's maxDamage, followed by two bits of state.

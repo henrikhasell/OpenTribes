@@ -36,6 +36,8 @@ namespace T2Protocol
       { "PlayerData", 51, OpRaw, 32, T2DbMaxJetForwardSpeed         },
       { "PlayerData", 52, OpRaw, 32, T2DbMaxJetHorizontalPercentage },
 
+      { "PlayerData", 187, OpDataBlockId, 11, T2DbJetEmitter },
+
       { "PlayerData", 55, OpRaw, 32, T2DbRunForce                   },
       { "PlayerData", 56, OpRaw, 32, T2DbRunEnergyDrain             },
       { "PlayerData", 57, OpRaw, 32, T2DbMinRunEnergy               },
@@ -85,6 +87,8 @@ namespace T2Protocol
       { "PlayerData", 126, OpRaw, 32, T2DbFootPuffNumParts },
       { "PlayerData", 127, OpRaw, 32, T2DbFootPuffRadius   },
       { "PlayerData", 129, OpRaw, 32, T2DbDecalOffset      },
+
+      { "PlayerData", 151, OpDataBlockId, 11, T2DbDustEmitter },
 
    // PlayerData::packData (0x005cf935) writes eleven bare floats here, which is
    // the layout's only run of eleven, at nodes 135 to 145.

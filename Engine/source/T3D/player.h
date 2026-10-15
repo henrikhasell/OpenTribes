@@ -306,6 +306,12 @@ struct PlayerData: public ShapeBaseData {
    ParticleEmitterData * dustEmitter;
    S32 dustID;
 
+   enum { MaxJetNodes = 2 };
+
+   ParticleEmitterData * jetEmitter;
+   S32 jetEmitterID;
+   S32 jetNode[MaxJetNodes];
+
    SplashData* splash;
    S32 splashId;
    F32 splashVelocity;
@@ -395,6 +401,9 @@ protected:
 
    SimObjectPtr<ParticleEmitter> mSplashEmitter[PlayerData::NUM_SPLASH_EMITTERS];
    F32 mBubbleEmitterTime;
+
+   SimObjectPtr<ParticleEmitter> mJetEmitter[PlayerData::MaxJetNodes];
+   SimObjectPtr<ParticleEmitter> mDustEmitter;
 
    /// Client interpolation/warp data
    struct StateDelta {
@@ -590,6 +599,9 @@ protected:
 
    ///Update head animation
    void updateLookAnimation(F32 dT = 0.f);
+
+   void updateJetEffect(F32 dt);
+   void updateDustEffect(F32 dt);
 
    ///Update other animations
    void updateAnimation(F32 dt);

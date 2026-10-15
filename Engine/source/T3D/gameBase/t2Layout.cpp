@@ -755,6 +755,11 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
                   sBody.hasVelocity = true;
                   sBody.velocity.set(0.0f, 0.0f, 0.0f);
                }
+               if(row && row->field == T2FieldJetting)
+               {
+                  sBody.hasJetting = true;
+                  sBody.jetting = set;
+               }
 
                U32 state, part;
                if(stateAt(layout, at, &state, &part))
@@ -1422,6 +1427,8 @@ static bool runGhost(BitStream *stream, const char *className,
    sBody.hasDirection = false;
    sBody.hasImpactNormal = false;
    sBody.hasDamage = false;
+   sBody.hasJetting = false;
+   sBody.jetting = false;
    for(U32 i = 0; i < MaxImages; i++)
    {
       Body::Image &image = sBody.images[i];

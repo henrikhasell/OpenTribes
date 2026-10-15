@@ -44,6 +44,8 @@ namespace T2Layout
       Point3F impactNormal;
       bool    hasDamage;
       F32     damage;               ///< share of the object's maxDamage
+      bool    hasJetting;
+      bool    jetting;              ///< the jet pack is lit
 
       /// What a body said about one of its object's image slots -- the
       /// weapon in the hand, the pack on the back.
@@ -81,6 +83,7 @@ namespace T2Layout
       T2DbMinJetEnergy,
       T2DbMaxJetForwardSpeed,
       T2DbMaxJetHorizontalPercentage,
+      T2DbJetEmitter,
       T2DbHeatDecayPerSec,
       T2DbHeatIncreasePerSec,
       T2DbCameraMaxDist,
@@ -181,6 +184,7 @@ namespace T2Layout
       T2DbFootPuffNumParts,
       T2DbFootPuffRadius,
       T2DbDecalOffset,
+      T2DbDustEmitter,
       T2DbGroundImpactMinSpeed,
       T2DbGroundImpactShakeFreqX,
       T2DbGroundImpactShakeFreqY,
