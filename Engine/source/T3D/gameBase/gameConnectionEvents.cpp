@@ -30,6 +30,7 @@
 #include "scene/sceneManager.h"
 #include "sfx/sfxSystem.h"
 #include "sfx/sfxDescription.h"
+#include "sfx/audioT2.h"
 #include "app/game.h"
 #include "T3D/gameBase/gameConnection.h"
 #include "T3D/gameBase/gameConnectionEvents.h"
@@ -201,6 +202,10 @@ static void readT2ImageStates( ShapeBaseImageData *image )
             // retail has it ejecting a shell and carrying a flash sequence alike.
       image->stateEjectShell[i] = state.ejectShell;
       image->stateSequenceRandomFlash[i] = state.ejectShell;
+      if( state.sound >= 0 )
+         *reinterpret_cast< U32 * >( &image->stateSound[i] ) =
+            ( ( U32( state.sound ) + DataBlockObjectIdFirst ) << 1 ) | 0x1;
+
       image->stateLoaded[i] =
          ( ShapeBaseImageData::StateData::LoadedState ) state.loaded;
       image->stateSpin[i] =
@@ -280,6 +285,9 @@ static void readT2Explosion( ExplosionData *ex )
                         F32( sizes[i * 3 + 1] ) * 0.01f,
                         F32( sizes[i * 3 + 2] ) * 0.01f );
 
+   if( T2Layout::lastDataBlockWord( T2Layout::T2DbExplosionSound, &word ) )
+      *reinterpret_cast< U32 * >( &ex->soundProfile ) =
+         ( ( word + DataBlockObjectIdFirst ) << 1 ) | 0x1;
 }
 
 void SimDataBlockEvent::unpack(NetConnection *cptr, BitStream *bstream)
@@ -341,6 +349,11 @@ void SimDataBlockEvent::unpack(NetConnection *cptr, BitStream *bstream)
          // HH: Added for Tribes 2 compatibility.
          if( ExplosionData *ex = dynamic_cast< ExplosionData * >( mObj ) )
             readT2Explosion( ex );
+
+         if( AudioProfile *ap = dynamic_cast< AudioProfile * >( mObj ) )
+            ap->readT2Fields();
+         else if( AudioDescription *ad = dynamic_cast< AudioDescription * >( mObj ) )
+            ad->readT2Fields();
 
             // HH: Added for Tribes 2 compatibility.
             // A weapon wants mount node 0 and a pack node 1.

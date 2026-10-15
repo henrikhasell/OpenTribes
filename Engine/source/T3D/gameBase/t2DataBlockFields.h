@@ -92,9 +92,42 @@ namespace T2Protocol
 
       { "ExplosionData", 5, OpFlag, 1, T2DbFaceViewer },
 
+   // The file name opens the body, then the sound and the emitter it names.
+      { "ExplosionData", 109, OpDataBlockId, 11, T2DbExplosionSound },
+
+      { "AudioProfile", 7, OpDataBlockId, 11, T2DbAudioDescription },
+
+      { "AudioDescription",  0, OpFloat,  6, T2DbAudioVolume             },
+      { "AudioDescription",  1, OpFlag,   1, T2DbAudioLooping            },
+      { "AudioDescription",  2, OpFlag,   1, T2DbAudio3D                 },
+      { "AudioDescription",  3, OpSelect, 3, T2DbAudioChannel            },
+      { "AudioDescription",  5, OpRaw,   32, T2DbAudioReferenceDistance  },
+      { "AudioDescription",  6, OpRaw,   32, T2DbAudioMaxDistance        },
+      { "AudioDescription",  7, OpInt,    9, T2DbAudioConeInsideAngle    },
+      { "AudioDescription",  8, OpInt,    9, T2DbAudioConeOutsideAngle   },
+      { "AudioDescription",  9, OpFloat,  6, T2DbAudioConeOutsideVolume  },
+
    // ShapeBaseImageData::packData writes the mount point as a whole word, which
    // is the layout's node 2.
       { "ShapeBaseImageData", 2, OpRaw, 32, T2DbImageMountPoint },
+
+   // Every projectile carries the same run of datablock ids, the emitters then
+   // the explosions then the splash and the sound, so the sound is three past
+   // whichever node that class's explosion sits at.
+      { "BombProjectileData",        56, OpDataBlockId, 11, T2DbProjectileSound },
+      { "ELFProjectileData",         51, OpDataBlockId, 11, T2DbProjectileSound },
+      { "EnergyProjectileData",      57, OpDataBlockId, 11, T2DbProjectileSound },
+      { "FlareProjectileData",       52, OpDataBlockId, 11, T2DbProjectileSound },
+      { "GrenadeProjectileData",     48, OpDataBlockId, 11, T2DbProjectileSound },
+      { "LinearFlareProjectileData", 57, OpDataBlockId, 11, T2DbProjectileSound },
+      { "LinearProjectileData",      50, OpDataBlockId, 11, T2DbProjectileSound },
+      { "ProjectileData",            40, OpDataBlockId, 11, T2DbProjectileSound },
+      { "RepairProjectileData",      50, OpDataBlockId, 11, T2DbProjectileSound },
+      { "SeekerProjectileData",      63, OpDataBlockId, 11, T2DbProjectileSound },
+      { "ShockLanceProjectileData",  63, OpDataBlockId, 11, T2DbProjectileSound },
+      { "SniperProjectileData",      66, OpDataBlockId, 11, T2DbProjectileSound },
+      { "TargetProjectileData",      53, OpDataBlockId, 11, T2DbProjectileSound },
+      { "TracerProjectileData",      60, OpDataBlockId, 11, T2DbProjectileSound },
 
       { "LinearProjectileData",      24, OpRaw, 32, T2DbProjectileVelocity },
       { "LinearProjectileData",      27, OpRaw, 32, T2DbProjectileLifetime },

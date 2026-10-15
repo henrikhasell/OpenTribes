@@ -443,6 +443,7 @@ enum T2StatePart
    T2StateLoaded,
    T2StateSpin,
    T2StateRecoil,
+   T2StateSound,
 
    T2StateParts
 };
@@ -546,6 +547,66 @@ static bool matchImageState(const T2DataBlockLayout *layout, S32 top,
       parts[T2StateLoaded + i] = S16(at);
       at = next;
    }
+
+      // The sound is the last thing in the block, four flags and an emitter
+      // past the three selects.  A state is still a state without it, so a
+      // shape that does not match leaves the sound unread rather than taking
+      // the whole state machine down with it.
+   for(U32 i = 0; i < 2; i++)
+   {
+      // A sequence index: a flag whose set arm is a sign and a magnitude.
+      const T2DataNode *has = nodeAt(layout, at);
+      if(!has || has->op != OpFlag || has->bits != 1)
+         return true;
+
+      const T2DataNode *sign = nodeAt(layout, has->b);
+      if(!isBareFlag(sign))
+         return true;
+
+      const T2DataNode *magnitude = nodeAt(layout, sign->a);
+      if(!magnitude || magnitude->op != OpInt || magnitude->a != has->a)
+         return true;
+
+      at = has->a;
+   }
+
+   for(U32 i = 0; i < 2; i++)
+   {
+      const T2DataNode *n = nodeAt(layout, at);
+      if(!isBareFlag(n))
+         return true;
+      at = n->a;
+   }
+
+   // An emitter: an id, how long it runs and the node it hangs off.
+   const T2DataNode *hasEmitter = nodeAt(layout, at);
+   if(!hasEmitter || hasEmitter->op != OpFlag || hasEmitter->bits != 1)
+      return true;
+
+   const T2DataNode *emitter = nodeAt(layout, hasEmitter->b);
+   if(!emitter || emitter->op != OpDataBlockId)
+      return true;
+
+   const T2DataNode *emitterTime = nodeAt(layout, emitter->a);
+   if(!emitterTime || emitterTime->op != OpRaw || emitterTime->bits != 32)
+      return true;
+
+   const T2DataNode *emitterNode = nodeAt(layout, emitterTime->a);
+   if(!emitterNode || emitterNode->op != OpRaw || emitterNode->bits != 32 ||
+      emitterNode->a != hasEmitter->a)
+      return true;
+
+   at = hasEmitter->a;
+
+   const T2DataNode *hasSound = nodeAt(layout, at);
+   if(!hasSound || hasSound->op != OpFlag || hasSound->bits != 1)
+      return true;
+
+   const T2DataNode *sound = nodeAt(layout, hasSound->b);
+   if(!sound || sound->op != OpDataBlockId || sound->a != hasSound->a)
+      return true;
+
+   parts[T2StateSound] = S16(hasSound->b);
 
    return true;
 }
@@ -791,6 +852,10 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
                   else if(part == T2StateSpin)    s.spin   = v;
                   else if(part == T2StateRecoil)  s.recoil = v;
                }
+
+               const T2DataBlockFieldRow *dbRow = dbFieldAt(layout, at);
+               if(dbRow)
+                  noteDbField(dbRow, v);
             }
             if(!layout->select || v >= (1U << n.bits))
             {
@@ -852,6 +917,13 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
                const T2DataBlockFieldRow *dbRow = dbFieldAt(layout, at);
                if(dbRow)
                   noteDbField(dbRow, dbId);
+            }
+
+            if(!write)
+            {
+               U32 state, part;
+               if(stateAt(layout, at, &state, &part) && part == T2StateSound)
+                  sImageStates[state].sound = S32(dbId);
             }
 
             if(!sDataBlockId && !isImage)
@@ -1177,6 +1249,7 @@ static bool runDataBlock(BitStream *stream, U32 classId, bool write)
       s.loaded = 0;
       s.spin = 0;
       s.recoil = 0;
+      s.sound = -1;
    }
 
    // HH: Added for Tribes 2 compatibility.

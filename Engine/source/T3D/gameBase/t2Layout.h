@@ -87,6 +87,7 @@ namespace T2Layout
       T2DbImageMountPoint,
       T2DbProjectileVelocity,
       T2DbProjectileLifetime,
+      T2DbProjectileSound,
       T2DbTracerLength,
       T2DbTracerWidth,
       T2DbCrossSize,
@@ -116,6 +117,18 @@ namespace T2Layout
       T2DbExplosionOffset,
       T2DbExplosionTime,
       T2DbExplosionSize,
+      T2DbExplosionSound,
+
+      T2DbAudioDescription,
+      T2DbAudioVolume,
+      T2DbAudioLooping,
+      T2DbAudio3D,
+      T2DbAudioChannel,
+      T2DbAudioReferenceDistance,
+      T2DbAudioMaxDistance,
+      T2DbAudioConeInsideAngle,
+      T2DbAudioConeOutsideAngle,
+      T2DbAudioConeOutsideVolume,
 
       T2DbFieldCount
    };
@@ -151,6 +164,7 @@ namespace T2Layout
       U32    loaded;             ///< ShapeBaseImageData::StateData::LoadedState
       U32    spin;               ///< ...::SpinState
       U32    recoil;             ///< ...::RecoilState
+      S32    sound;              ///< an AudioProfile, or -1 for a silent state
    };
 
    /// The states the last datablock read, in the order it read them.
