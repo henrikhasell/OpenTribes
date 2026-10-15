@@ -346,7 +346,6 @@ bool Sky::loadDml()
 
    mNumCloudLayers = 0;
 
-   MaterialList materials;
    FileStream stream;
    if( !stream.open( mMaterialListName, Torque::FS::File::Read ) )
    {
@@ -354,21 +353,39 @@ bool Sky::loadDml()
       return false;
    }
 
-   materials.read( stream );
+   Vector<String> names;
+   for( ;; )
+   {
+      char line[1024];
+      stream.readLine( (U8 *)line, sizeof( line ) );
+      if( !line[0] )
+         break;
+
+      char *end = line + dStrlen( line );
+      while( end != line && ( end[-1] == '\r' || end[-1] == ' ' || end[-1] == '\t' ) )
+         *--end = 0;
+
+      if( line[0] )
+         names.push_back( String( line ) );
+   }
    stream.close();
 
-   for( S32 x = 0; x < 6 && x < (S32)materials.size(); ++x )
+   for( S32 x = 0; x < 6 && x < names.size(); ++x )
    {
-      String name = String::ToString( "%s/%s", path, materials.getMaterialName( x ).c_str() );
+      String name = String::ToString( "%s/%s", path, names[x].c_str() );
       mSkyHandle[x].set( name, &GFXDefaultStaticDiffuseProfile, "Sky" );
+      if( !mSkyHandle[x].isValid() )
+         Con::warnf( "Sky box face is missing: %s", name.c_str() );
    }
 
-   for( S32 x = 0; x + CloudMaterialOffset < (S32)materials.size() && x < MAX_NUM_LAYERS;
+   for( S32 x = 0; x + CloudMaterialOffset < names.size() && x < MAX_NUM_LAYERS;
         ++x, ++mNumCloudLayers )
    {
       String name = String::ToString( "%s/%s", path,
-         materials.getMaterialName( x + CloudMaterialOffset ).c_str() );
+         names[x + CloudMaterialOffset].c_str() );
       GFXTexHandle tex( name, &GFXDefaultStaticDiffuseProfile, "SkyCloud" );
+      if( !tex.isValid() )
+         Con::warnf( "Sky cloud layer is missing: %s", name.c_str() );
       mCloudLayer[x].setTexture( tex );
    }
 
