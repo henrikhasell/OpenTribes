@@ -16,6 +16,9 @@
 #include "math/mathUtils.h"
 #include "renderInstance/renderPassManager.h"
 #include "scene/sceneRenderState.h"
+#include "sfx/sfxSystem.h"
+#include "sfx/sfxSource.h"
+#include "sfx/sfxTrack.h"
 #include "T3D/gameBase/dataBlocksT2.h"
 #include "T3D/gameBase/processList.h"
 #include "T3D/fx/explosion.h"
@@ -40,6 +43,7 @@ public:
    F32    gravityMod;      ///< a share of gravity, and zero for a bolt
    U32    armingDelayMS;   ///< it bounces until this, and goes off after
    U32    explosionId;     ///< the ExplosionData it ends as
+   U32    soundId;         ///< the AudioProfile it flies to
    F32    blurLifetime;    ///< seconds a length of the trail lasts
    F32    blurWidth;
    ColorF blurColor;
@@ -74,6 +78,7 @@ ProjectileDataT2::ProjectileDataT2()
      gravityMod(0.0f),
      armingDelayMS(0),
      explosionId(0),
+     soundId(0),
      blurLifetime(0.0f),
      blurWidth(0.0f),
      blurColor(1.0f, 1.0f, 1.0f, 1.0f)
@@ -103,6 +108,8 @@ bool ProjectileDataT2::unpackData(BitStream *stream, U32 classId)
       armingDelayMS = word;
    if(T2Layout::lastDataBlockWord(T2Layout::T2DbExplosion, &word))
       explosionId = word;
+   if(T2Layout::lastDataBlockWord(T2Layout::T2DbProjectileSound, &word))
+      soundId = word;
    if(T2Layout::lastDataBlockField(T2Layout::T2DbBlurLifetime, &value))
       blurLifetime = value;
    if(T2Layout::lastDataBlockField(T2Layout::T2DbBlurWidth, &value))
@@ -192,6 +199,7 @@ class ProjectileT2 : public GameBase
    bool    mFlying;
    bool    mExploded;         ///< it only goes off once
    VectorF mImpactNormal;
+   SFXSource *mSound;         ///< what it is heard as on the way
 
    GFXStateBlockRef boltStateBlock();
    TSThread *startThread(const char *name);
@@ -228,6 +236,7 @@ ConsoleDocClass( ProjectileT2,
 
 ProjectileT2::ProjectileT2()
    : mData(NULL),
+     mSound(NULL),
      mShapeInstance(NULL),
      mAmbientThread(NULL),
      mFlightThread(NULL),
@@ -273,6 +282,8 @@ bool ProjectileT2::onAdd()
 
 void ProjectileT2::onRemove()
 {
+   SFX_DELETE(mSound);
+
    removeFromScene();
    Parent::onRemove();
 }
@@ -282,6 +293,14 @@ bool ProjectileT2::onNewDataBlock(GameBaseData *dptr, bool reload)
    mData = dynamic_cast<ProjectileDataT2 *>(dptr);
    if(!mData || !Parent::onNewDataBlock(dptr, reload))
       return false;
+
+   SFX_DELETE(mSound);
+   if(isClientObject() && mData->soundId)
+   {
+      SFXTrack *track = NULL;
+      if(Sim::findObject(mData->soundId, track))
+         mSound = SFX->createSource(track, &getTransform());
+   }
 
    delete mShapeInstance;
    mShapeInstance = NULL;
@@ -425,6 +444,20 @@ void ProjectileT2::advanceTime(F32 dt)
       // past the explosion so what is left of it fades out rather than going
       // with it.
    ageTrail(dt);
+
+   if(mSound)
+   {
+      if(mExploded || !mFlying)
+         mSound->stop();
+      else
+      {
+         if(!mSound->isPlaying())
+            mSound->play();
+
+         mSound->setVelocity(mVelocity);
+         mSound->setTransform(getRenderTransform());
+      }
+   }
 
    if(!mFlying)
       return;

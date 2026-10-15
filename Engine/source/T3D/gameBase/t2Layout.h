@@ -87,6 +87,7 @@ namespace T2Layout
       T2DbImageMountPoint,
       T2DbProjectileVelocity,
       T2DbProjectileLifetime,
+      T2DbProjectileSound,
       T2DbTracerLength,
       T2DbTracerWidth,
       T2DbCrossSize,

@@ -111,6 +111,24 @@ namespace T2Protocol
    // is the layout's node 2.
       { "ShapeBaseImageData", 2, OpRaw, 32, T2DbImageMountPoint },
 
+   // Every projectile carries the same run of datablock ids, the emitters then
+   // the explosions then the splash and the sound, so the sound is three past
+   // whichever node that class's explosion sits at.
+      { "BombProjectileData",        56, OpDataBlockId, 11, T2DbProjectileSound },
+      { "ELFProjectileData",         51, OpDataBlockId, 11, T2DbProjectileSound },
+      { "EnergyProjectileData",      57, OpDataBlockId, 11, T2DbProjectileSound },
+      { "FlareProjectileData",       52, OpDataBlockId, 11, T2DbProjectileSound },
+      { "GrenadeProjectileData",     48, OpDataBlockId, 11, T2DbProjectileSound },
+      { "LinearFlareProjectileData", 57, OpDataBlockId, 11, T2DbProjectileSound },
+      { "LinearProjectileData",      50, OpDataBlockId, 11, T2DbProjectileSound },
+      { "ProjectileData",            40, OpDataBlockId, 11, T2DbProjectileSound },
+      { "RepairProjectileData",      50, OpDataBlockId, 11, T2DbProjectileSound },
+      { "SeekerProjectileData",      63, OpDataBlockId, 11, T2DbProjectileSound },
+      { "ShockLanceProjectileData",  63, OpDataBlockId, 11, T2DbProjectileSound },
+      { "SniperProjectileData",      66, OpDataBlockId, 11, T2DbProjectileSound },
+      { "TargetProjectileData",      53, OpDataBlockId, 11, T2DbProjectileSound },
+      { "TracerProjectileData",      60, OpDataBlockId, 11, T2DbProjectileSound },
+
       { "LinearProjectileData",      24, OpRaw, 32, T2DbProjectileVelocity },
       { "LinearProjectileData",      27, OpRaw, 32, T2DbProjectileLifetime },
       { "LinearProjectileData",      57, OpRaw, 32, T2DbScaleX             },
