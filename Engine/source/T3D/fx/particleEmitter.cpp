@@ -36,6 +36,7 @@
 #include "T3D/gameBase/gameProcess.h"
 #include "lighting/lightInfo.h"
 #include "console/engineAPI.h"
+#include "T3D/gameBase/t2Layout.h"
 
 #if defined(TORQUE_OS_XENON)
 #  include "gfx/D3D9/360/gfx360MemVertexBuffer.h"
@@ -530,6 +531,80 @@ bool ParticleEmitterData::preload(bool server, String &errorStr)
    return true;
 }
 
+bool ParticleEmitterData::unpackData(BitStream *stream, U32 classId)
+{
+   if( !Parent::unpackData(stream, classId) )
+      return false;
+
+   U32 word;
+
+   static const struct { U32 field; S32 ParticleEmitterData::*member; } sCounts[] =
+   {
+      { T2Layout::T2DbEjectionPeriodMS, &ParticleEmitterData::ejectionPeriodMS },
+      { T2Layout::T2DbPeriodVarianceMS, &ParticleEmitterData::periodVarianceMS },
+   };
+
+   for( U32 i = 0; i < sizeof(sCounts) / sizeof(sCounts[0]); i++ )
+      if( T2Layout::lastDataBlockWord(sCounts[i].field, &word) )
+         this->*sCounts[i].member = S32(word);
+
+   static const struct { U32 field; F32 ParticleEmitterData::*member; } sAngles[] =
+   {
+      { T2Layout::T2DbThetaMin,        &ParticleEmitterData::thetaMin        },
+      { T2Layout::T2DbThetaMax,        &ParticleEmitterData::thetaMax        },
+      { T2Layout::T2DbPhiReferenceVel, &ParticleEmitterData::phiReferenceVel },
+      { T2Layout::T2DbPhiVariance,     &ParticleEmitterData::phiVariance     },
+   };
+
+   for( U32 i = 0; i < sizeof(sAngles) / sizeof(sAngles[0]); i++ )
+      if( T2Layout::lastDataBlockWord(sAngles[i].field, &word) )
+         this->*sAngles[i].member = F32(word);
+
+   static const struct { U32 field; F32 ParticleEmitterData::*member; } sVelocities[] =
+   {
+      { T2Layout::T2DbEjectionVelocity, &ParticleEmitterData::ejectionVelocity },
+      { T2Layout::T2DbVelocityVariance, &ParticleEmitterData::velocityVariance },
+      { T2Layout::T2DbEjectionOffset,   &ParticleEmitterData::ejectionOffset   },
+   };
+
+   for( U32 i = 0; i < sizeof(sVelocities) / sizeof(sVelocities[0]); i++ )
+      if( T2Layout::lastDataBlockWord(sVelocities[i].field, &word) )
+         this->*sVelocities[i].member = F32(word) * 0.01f;
+
+   static const struct { U32 field; U32 ParticleEmitterData::*member; } sLifetimes[] =
+   {
+      { T2Layout::T2DbEmitterLifetimeMS, &ParticleEmitterData::lifetimeMS },
+      { T2Layout::T2DbEmitterLifetimeVarianceMS,
+        &ParticleEmitterData::lifetimeVarianceMS },
+   };
+
+   for( U32 i = 0; i < sizeof(sLifetimes) / sizeof(sLifetimes[0]); i++ )
+      if( T2Layout::lastDataBlockWord(sLifetimes[i].field, &word) )
+         this->*sLifetimes[i].member = word << 5;
+
+   static const struct { U32 field; bool ParticleEmitterData::*member; } sFlags[] =
+   {
+      { T2Layout::T2DbOverrideAdvance,  &ParticleEmitterData::overrideAdvance  },
+      { T2Layout::T2DbOrientParticles,  &ParticleEmitterData::orientParticles  },
+      { T2Layout::T2DbOrientOnVelocity, &ParticleEmitterData::orientOnVelocity },
+      { T2Layout::T2DbUseEmitterSizes,  &ParticleEmitterData::useEmitterSizes  },
+      { T2Layout::T2DbUseEmitterColors, &ParticleEmitterData::useEmitterColors },
+   };
+
+   for( U32 i = 0; i < sizeof(sFlags) / sizeof(sFlags[0]); i++ )
+      if( T2Layout::lastDataBlockWord(sFlags[i].field, &word) )
+         this->*sFlags[i].member = word != 0;
+
+   if( Con::getBoolVariable("$pref::Net::traceDataBlockFields", false) )
+      Con::printf("T2 ParticleEmitterData %d: period %d/%d velocity %.2f/%.2f "
+                  "offset %.2f theta %.0f-%.0f phi %.0f/%.0f life %d/%d",
+                  getId(), ejectionPeriodMS, periodVarianceMS, ejectionVelocity,
+                  velocityVariance, ejectionOffset, thetaMin, thetaMax,
+                  phiReferenceVel, phiVariance, lifetimeMS, lifetimeVarianceMS);
+
+   return true;
+}
+
 //-----------------------------------------------------------------------------
 // alloc PrimitiveBuffer
 // The datablock allocates this static index buffer because it's the same
@@ -641,17 +716,9 @@ bool ParticleEmitter::onAdd()
    if( !Parent::onAdd() )
       return false;
 
-   // add to client side mission cleanup
    SimGroup *cleanup = dynamic_cast<SimGroup *>( Sim::findObject( "ClientMissionCleanup") );
    if( cleanup != NULL )
-   {
       cleanup->addObject( this );
-   }
-   else
-   {
-      AssertFatal( false, "Error, could not find ClientMissionCleanup group" );
-      return false;
-   }
 
    removeFromProcessList();
 

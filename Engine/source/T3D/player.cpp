@@ -56,6 +56,8 @@
 #include "T3D/decal/decalManager.h"
 #include "T3D/decal/decalData.h"
 #include "materials/baseMatInstance.h"
+#include "materials/materialPropertyMap.h"
+#include "terrain/terrData.h"
 
 // Amount of time if takes to transition to a new action sequence.
 static F32 sAnimationTransitionTime = 0.25f;
@@ -374,6 +376,11 @@ PlayerData::PlayerData()
    dustEmitter = NULL;
    dustID = 0;
 
+   jetEmitter = NULL;
+   jetEmitterID = 0;
+   for (S32 i = 0; i < MaxJetNodes; i++)
+      jetNode[i] = -1;
+
    splash = NULL;
    splashId = 0;
    splashVelocity = 1.0f;
@@ -524,6 +531,19 @@ bool PlayerData::unpackData(BitStream *stream, U32 classId)
          this->*sCounts[i].member = S32(word);
    }
 
+   static const struct { U32 field; S32 PlayerData::*member; } sEmitters[] =
+   {
+      { T2Layout::T2DbJetEmitter,  &PlayerData::jetEmitterID },
+      { T2Layout::T2DbDustEmitter, &PlayerData::dustID       },
+   };
+
+   for (U32 i = 0; i < sizeof(sEmitters) / sizeof(sEmitters[0]); i++)
+   {
+      U32 word;
+      if (T2Layout::lastDataBlockWord(sEmitters[i].field, &word))
+         this->*sEmitters[i].member = S32(word);
+   }
+
    if (Con::getBoolVariable("$pref::Net::traceDataBlockFields", false))
       Con::printf("T2 PlayerData %d: mass %.4f drag %.4f jetForce %.4f "
                   "drain %.4f minEnergy %.4f maxFwd %.4f maxHoriz %.4f "
@@ -624,6 +644,13 @@ bool PlayerData::preload(bool server, String &errorStr)
          if( dStricmp( dp->name, lookName ) == 0 )
             lookAction = c;
 
+      for (S32 i = 0; i < MaxJetNodes; i++)
+      {
+         char name[32];
+         dSprintf(name, sizeof(name), "jetNozzle%d", i);
+         jetNode[i] = mShape->findNode(name);
+      }
+
       // Resolve spine
       spineNode[0] = mShape->findNode("Bip01 Pelvis");
       spineNode[1] = mShape->findNode("Bip01 Spine");
@@ -667,6 +694,10 @@ bool PlayerData::preload(bool server, String &errorStr)
    if (!dustEmitter && dustID != 0 )
       if (!Sim::findObject(dustID, dustEmitter))
          Con::errorf(ConsoleLogEntry::General, "PlayerData::preload - Invalid packet, bad datablockId(dustEmitter): 0x%x", dustID);
+
+   if (!jetEmitter && jetEmitterID != 0 )
+      if (!Sim::findObject(jetEmitterID, jetEmitter))
+         Con::errorf(ConsoleLogEntry::General, "PlayerData::preload - Invalid packet, bad datablockId(jetEmitter): 0x%x", jetEmitterID);
 
    for (int i=0; i<NUM_SPLASH_EMITTERS; i++)
       if( !splashEmitterList[i] && splashEmitterIDList[i] != 0 )
@@ -876,6 +907,11 @@ void PlayerData::initPersistFields()
       addField( "maxJetHorizontalPercentage", TypeF32, Offset(maxJetHorizontalPercentage, PlayerData),
          "@brief Most of the pack a move may take for horizontal thrust.\n\n"
          "@see maxJetForwardSpeed\n" );
+      addField( "jetEmitter", TYPEID< ParticleEmitterData >(), Offset(jetEmitter, PlayerData),
+         "@brief Emitter the pack blows out of each of its nozzles.\n\n"
+         "One emitter is created per `jetNozzle%d` node the shape carries, so "
+         "a heavy armour flames from two and the lighter ones from one.\n"
+         "@see dustEmitter\n" );
       addField( "heatIncreasePerSec", TypeF32, Offset(heatIncreasePerSec, PlayerData),
          "@brief Heat a second of thrust adds to the player's signature.\n\n"
          "@see heatDecayPerSec\n" );
@@ -1103,8 +1139,11 @@ void PlayerData::initPersistFields()
          "set this value to zero if you want a single foot puff placed at exactly the same location "
          "under the player each time.\n");
       addField( "dustEmitter", TYPEID< ParticleEmitterData >(), Offset(dustEmitter, PlayerData),
-         "@brief Emitter used to generate dust particles.\n\n"
-         "@note Currently unused." );
+         "@brief Emitter used to generate the dust a jet pack kicks up off the "
+         "ground beneath it.\n\n"
+         "Its particles take their colour from the material mapping of the "
+         "terrain under the player.\n"
+         "@see jetEmitter\n" );
 
       addField( "decalData", TYPEID< DecalData >(), Offset(decalData, PlayerData),
          "@brief Decal to place on the ground for player footsteps.\n\n" );
@@ -1369,6 +1408,8 @@ Player::Player()
    mJumpSurfaceNormal.set(0.0f, 0.0f, 1.0f);
    mControlObject = 0;
    dMemset( mSplashEmitter, 0, sizeof( mSplashEmitter ) );
+   dMemset( mJetEmitter, 0, sizeof( mJetEmitter ) );
+   mDustEmitter = NULL;
 
    mUseHeadZCalc = true;
 
@@ -1469,10 +1510,22 @@ bool Player::onAdd()
    }
    else
    {
+      if ( mDataBlock->dustEmitter )
+      {
+         mDustEmitter = new ParticleEmitter;
+         mDustEmitter->onNewDataBlock( mDataBlock->dustEmitter, false );
+         if( !mDustEmitter->registerObject() )
+         {
+            Con::warnf( ConsoleLogEntry::General, "Could not register dust emitter for class: %s", mDataBlock->getName() );
+            mDustEmitter.getPointer()->destroySelf();
+            mDustEmitter = NULL;
+         }
+      }
+
       U32 i;
       for( i=0; i<PlayerData::NUM_SPLASH_EMITTERS; i++ )
       {
-         if ( mDataBlock->splashEmitterList[i] ) 
+         if ( mDataBlock->splashEmitterList[i] )
          {
             mSplashEmitter[i] = new ParticleEmitter;
             mSplashEmitter[i]->onNewDataBlock( mDataBlock->splashEmitterList[i], false );
@@ -1521,6 +1574,21 @@ void Player::onRemove()
          mSplashEmitter[i]->deleteWhenEmpty();
          mSplashEmitter[i] = NULL;
       }
+   }
+
+   for( i=0; i<PlayerData::MaxJetNodes; i++ )
+   {
+      if( mJetEmitter[i] )
+      {
+         mJetEmitter[i]->deleteWhenEmpty();
+         mJetEmitter[i] = NULL;
+      }
+   }
+
+   if( mDustEmitter )
+   {
+      mDustEmitter->deleteWhenEmpty();
+      mDustEmitter = NULL;
    }
 
    mWorkingQueryBox.minExtents.set(-1e9f, -1e9f, -1e9f);
@@ -1927,6 +1995,8 @@ void Player::advanceTime(F32 dt)
    Parent::advanceTime(dt);
    updateActionThread();
    updateAnimation(dt);
+   updateJetEffect(dt);
+   updateDustEffect(dt);
    updateSplash();
    updateFroth(dt);
    updateWaterSounds(dt);
@@ -2568,9 +2638,10 @@ void Player::updateMove(const Move* move)
 
    if (mDataBlock->jetForce != 0.0f)
    {
-      mJetting = mState == MoveState && mDamageState == Enabled &&
-                 mAllowJetJumping && move->trigger[sJetTrigger] &&
-                 mEnergy >= mDataBlock->minJetEnergy;
+      if (!isGhost() || isControlObject())
+         mJetting = mState == MoveState && mDamageState == Enabled &&
+                    mAllowJetJumping && move->trigger[sJetTrigger] &&
+                    mEnergy >= mDataBlock->minJetEnergy;
 
       if (mJetting)
       {
@@ -4938,6 +5009,9 @@ void Player::onT2BodyRead(const T2Layout::Body &body)
 {
    readT2Damage(body);
 
+   if (body.hasJetting)
+      mJetting = body.jetting;
+
    if (!body.hasPosition)
       return;
 
@@ -6261,6 +6335,108 @@ void Player:: playImpactSound()
    }
 
    mImpactSound = 0;
+}
+
+void Player::updateJetEffect(F32 dt)
+{
+   if (!mJetting)
+   {
+      for (U32 i = 0; i < PlayerData::MaxJetNodes; i++)
+         if (mJetEmitter[i])
+         {
+            mJetEmitter[i]->deleteWhenEmpty();
+            mJetEmitter[i] = NULL;
+         }
+      return;
+   }
+
+   if (!mDataBlock->jetEmitter)
+      return;
+
+   const U32 numMilliseconds = (U32)(1000.0f * dt);
+
+   for (U32 i = 0; i < PlayerData::MaxJetNodes; i++)
+   {
+      if (mDataBlock->jetNode[i] == -1)
+         continue;
+
+      if (!bool(mJetEmitter[i]))
+      {
+         mJetEmitter[i] = new ParticleEmitter;
+         mJetEmitter[i]->onNewDataBlock(mDataBlock->jetEmitter, false);
+         if (!mJetEmitter[i]->registerObject())
+         {
+            Con::warnf(ConsoleLogEntry::General, "Error, unable to start jet emitter!");
+            mJetEmitter[i].getPointer()->destroySelf();
+            mJetEmitter[i] = NULL;
+            continue;
+         }
+      }
+
+      MatrixF nozzle;
+      nozzle.mul(getRenderTransform(),
+                 mShapeInstance->mNodeTransforms[mDataBlock->jetNode[i]]);
+
+      Point3F axis;
+      nozzle.getColumn(1, &axis);
+
+      mJetEmitter[i]->emitParticles(nozzle.getPosition(), true, axis,
+                                    getVelocity(), numMilliseconds);
+   }
+}
+
+static const MaterialPropertyMap::Entry *groundDustProperties(SceneObject *hit)
+{
+   TerrainBlock *terrain = dynamic_cast<TerrainBlock *>(hit);
+   if (!terrain)
+      return NULL;
+
+   const char *name = terrain->getMaterialName(0);
+   if (!name || !name[0])
+      return NULL;
+
+   if (!dStrnicmp(name, "terrain.", 8))
+      name += 8;
+
+   return MaterialPropertyMap::get()->find(avar("terrain/%s", name));
+}
+
+void Player::updateDustEffect(F32 dt)
+{
+   if (!mDustEmitter || !mJetting)
+      return;
+
+   const MatrixF &mat = getTransform();
+   Point3F back(0.0f, -1.3f, 0.0f);
+   mat.mulV(back);
+
+   Point3F axis;
+   mat.getColumn(1, &axis);
+
+   Point3F start = getPosition();
+   start.x += axis.x + back.x;
+   start.y += axis.y + back.y;
+
+   const Point3F end(start.x, start.y, start.z - 2.0f);
+
+   RayInfo coll;
+   if (!getContainer()->castRay(start, end, TerrainObjectType, &coll))
+      return;
+
+   ColorF colorList[ParticleData::PDC_NUM_KEYS];
+   for (U32 i = 0; i < ParticleData::PDC_NUM_KEYS; i++)
+      colorList[i].set(1.0f, 1.0f, 1.0f, 0.0f);
+
+   if (const MaterialPropertyMap::Entry *e = groundDustProperties(coll.object))
+      for (U32 i = 0; i < MaterialPropertyMap::NumColors &&
+                      i < ParticleData::PDC_NUM_KEYS; i++)
+         colorList[i] = e->color[i];
+
+   mDustEmitter->setColors(colorList);
+
+   const Point3F point = coll.point + Point3F(0.0f, 0.0f, 0.3f);
+   mDustEmitter->emitParticles(point, point, coll.normal, Point3F::Zero,
+                               (U32)(1000.0f * dt));
 }
 
 //--------------------------------------------------------------------------

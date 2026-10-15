@@ -90,6 +90,7 @@ class ParticleData : public SimDataBlock
 
    bool onAdd();
    bool preload(bool server, String &errorStr);
+   bool unpackData(BitStream *stream, U32 classId) override;
    DECLARE_CONOBJECT(ParticleData);
    static void  initPersistFields();
 

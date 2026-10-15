@@ -25,6 +25,7 @@
 #include "math/mRandom.h"
 #include "math/mathIO.h"
 #include "console/engineAPI.h"
+#include "T3D/gameBase/t2Layout.h"
 
 IMPLEMENT_CO_DATABLOCK_V1( ParticleData );
 
@@ -324,6 +325,85 @@ bool ParticleData::onAdd()
        return false;
      }
    }
+
+   return true;
+}
+
+bool ParticleData::unpackData(BitStream *stream, U32 classId)
+{
+   if( Parent::unpackData(stream, classId) == false )
+      return false;
+
+   U32 word;
+
+   static const struct { U32 field; F32 ParticleData::*member; } sWhole[] =
+   {
+      { T2Layout::T2DbWindCoefficient,      &ParticleData::windCoefficient      },
+      { T2Layout::T2DbConstantAcceleration, &ParticleData::constantAcceleration },
+      { T2Layout::T2DbSpinSpeed,            &ParticleData::spinSpeed            },
+   };
+
+   F32 value;
+   for( U32 i = 0; i < sizeof(sWhole) / sizeof(sWhole[0]); i++ )
+      if( T2Layout::lastDataBlockField(sWhole[i].field, &value) )
+         this->*sWhole[i].member = value;
+
+   if( T2Layout::lastDataBlockWord(T2Layout::T2DbDragCoefficient, &word) )
+      dragCoefficient = T2Layout::t2Float(word, 10) * 5.0f;
+   if( T2Layout::lastDataBlockWord(T2Layout::T2DbGravityCoefficient, &word) )
+      gravityCoefficient = T2Layout::t2SignedFloat(word, 12) * 10.0f;
+   if( T2Layout::lastDataBlockWord(T2Layout::T2DbInheritedVelFactor, &word) )
+      inheritedVelFactor = T2Layout::t2Float(word, 9);
+
+   if( T2Layout::lastDataBlockWord(T2Layout::T2DbParticleLifetimeMS, &word) )
+      lifetimeMS = S32(word << 5);
+   if( T2Layout::lastDataBlockWord(T2Layout::T2DbParticleLifetimeVarianceMS, &word) )
+      lifetimeVarianceMS = S32(word << 5);
+
+   if( T2Layout::lastDataBlockWord(T2Layout::T2DbSpinRandomMin, &word) )
+      spinRandomMin = F32(S32(word) - 1000);
+   if( T2Layout::lastDataBlockWord(T2Layout::T2DbSpinRandomMax, &word) )
+      spinRandomMax = F32(S32(word) - 1000);
+
+   if( T2Layout::lastDataBlockWord(T2Layout::T2DbUseInvAlpha, &word) )
+      useInvAlpha = word != 0;
+
+   const Vector<U32> &reds   = T2Layout::lastDataBlockValues(T2Layout::T2DbParticleColorR);
+   const Vector<U32> &greens = T2Layout::lastDataBlockValues(T2Layout::T2DbParticleColorG);
+   const Vector<U32> &blues  = T2Layout::lastDataBlockValues(T2Layout::T2DbParticleColorB);
+   const Vector<U32> &alphas = T2Layout::lastDataBlockValues(T2Layout::T2DbParticleColorA);
+   const Vector<U32> &sizeOf = T2Layout::lastDataBlockValues(T2Layout::T2DbParticleSize);
+   const Vector<U32> &timeOf = T2Layout::lastDataBlockValues(T2Layout::T2DbParticleTime);
+
+   U32 keys = reds.size();
+   keys = getMin(keys, (U32)greens.size());
+   keys = getMin(keys, (U32)blues.size());
+   keys = getMin(keys, (U32)alphas.size());
+   keys = getMin(keys, (U32)sizeOf.size());
+   keys = getMin(keys, (U32)timeOf.size());
+   keys = getMin(keys, (U32)PDC_NUM_KEYS);
+
+   for( U32 i = 0; i < keys; i++ )
+   {
+      colors[i].set(T2Layout::t2Float(reds[i], 7),
+                    T2Layout::t2Float(greens[i], 7),
+                    T2Layout::t2Float(blues[i], 7),
+                    T2Layout::t2Float(alphas[i], 7));
+      sizes[i] = T2Layout::t2Float(sizeOf[i], 14) * 50.0f;
+      times[i] = T2Layout::t2Float(timeOf[i], 8);
+   }
+
+   const Vector<String> &strings = T2Layout::lastStrings();
+   if( strings.size() && strings[0].isNotEmpty() )
+      textureName = StringTable->insert( String("textures/") + strings[0] );
+
+   if( Con::getBoolVariable("$pref::Net::traceDataBlockFields", false) )
+      Con::printf("T2 ParticleData %d: drag %.3f gravity %.3f inherited %.3f "
+                  "life %d/%d spin %.1f %.0f..%.0f keys %d tex %s",
+                  getId(), dragCoefficient, gravityCoefficient,
+                  inheritedVelFactor, lifetimeMS, lifetimeVarianceMS,
+                  spinSpeed, spinRandomMin, spinRandomMax, keys,
+                  textureName ? textureName : "none");
 
    return true;
 }

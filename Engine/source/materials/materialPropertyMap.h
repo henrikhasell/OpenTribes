@@ -20,11 +20,12 @@
 class MaterialPropertyMap
 {
 public:
+   enum { NumColors = 2 };
+
    struct Entry
    {
       bool              hasColor;
-      ColorF            color;
-      F32               emissive;
+      ColorF            color[NumColors];
       bool              hasSound;
       S32               sound;
       bool              hasEnvironment;
@@ -32,9 +33,12 @@ public:
       F32               envFactor;
 
       Entry()
-         : hasColor(false), color(1.0f, 1.0f, 1.0f, 1.0f), emissive(0.0f),
-           hasSound(false), sound(-1),
-           hasEnvironment(false), envTexture(NULL), envFactor(0.0f) {}
+         : hasColor(false), hasSound(false), sound(-1),
+           hasEnvironment(false), envTexture(NULL), envFactor(0.0f)
+      {
+         for(U32 i = 0; i < NumColors; i++)
+            color[i].set(0.0f, 0.0f, 0.0f, 1.0f);
+      }
    };
 
    static MaterialPropertyMap *get();

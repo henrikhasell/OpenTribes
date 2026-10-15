@@ -374,6 +374,9 @@ void RenderParticleMgr::_initGFXResources()
 
 void RenderParticleMgr::renderInstance(ParticleRenderInst *ri, SceneRenderState *state)
 {
+   if( !mParticleShader && !_initShader() )
+      return;
+
    // Draw system path, or draw composite path
    if(ri->systemState == PSS_DrawComplete)
       return;
@@ -521,6 +524,38 @@ void RenderParticleMgr::renderInstance(ParticleRenderInst *ri, SceneRenderState 
    }
 }
 
+static ShaderData *findOrDeclareShader( const char *name, const char *vertex,
+                                        const char *pixel,
+                                        const char *sampler0,
+                                        const char *sampler1 )
+{
+   ShaderData *shaderData = NULL;
+   if( Sim::findObject( name, shaderData ) && shaderData )
+      return shaderData;
+
+   shaderData = new ShaderData;
+   shaderData->setDataField( StringTable->insert( "DXVertexShaderFile" ), NULL,
+      avar( "shaders/common/%s.hlsl", vertex ) );
+   shaderData->setDataField( StringTable->insert( "DXPixelShaderFile" ), NULL,
+      avar( "shaders/common/%s.hlsl", pixel ) );
+   shaderData->setDataField( StringTable->insert( "OGLVertexShaderFile" ), NULL,
+      avar( "shaders/common/gl/%s.glsl", vertex ) );
+   shaderData->setDataField( StringTable->insert( "OGLPixelShaderFile" ), NULL,
+      avar( "shaders/common/gl/%s.glsl", pixel ) );
+   shaderData->setDataField( StringTable->insert( "samplerNames" ), "0", sampler0 );
+   shaderData->setDataField( StringTable->insert( "samplerNames" ), "1", sampler1 );
+   shaderData->setDataField( StringTable->insert( "pixVersion" ), NULL, "2.0" );
+
+   if( !shaderData->registerObject( name ) )
+   {
+      Con::errorf( "RenderParticleMgr - could not declare shader %s", name );
+      delete shaderData;
+      return NULL;
+   }
+
+   return shaderData;
+}
+
 bool RenderParticleMgr::_initShader()
 {
    ShaderData *shaderData = NULL;
@@ -532,7 +567,10 @@ bool RenderParticleMgr::_initShader()
       mPrepassTarget->getShaderMacros( &macros );
 
    // Create particle shader
-   if ( !Sim::findObject( "ParticlesShaderData", shaderData ) || !shaderData )
+   shaderData = findOrDeclareShader( "ParticlesShaderData", "particlesV",
+                                     "particlesP", "$diffuseMap",
+                                     "$prepassTex" );
+   if( !shaderData )
       Con::warnf( "RenderParticleMgr::_initShader - failed to locate shader ParticlesShaderData!" );
    if( shaderData )
       mParticleShader = shaderData->getShader( macros );
@@ -553,7 +591,11 @@ bool RenderParticleMgr::_initShader()
    shaderData = NULL;
 
    // Create off screen particle composite shader
-   if ( !Sim::findObject( "OffscreenParticleCompositeShaderData", shaderData ) || !shaderData )
+   shaderData = findOrDeclareShader( "OffscreenParticleCompositeShaderData",
+                                     "particleCompositeV",
+                                     "particleCompositeP", "$colorSource",
+                                     "$edgeSource" );
+   if( !shaderData )
       Con::warnf( "RenderParticleMgr::_initShader - failed to locate shader OffscreenParticleCompositeShaderData!" );
    if( shaderData )
       mParticleCompositeShader = shaderData->getShader( macros );

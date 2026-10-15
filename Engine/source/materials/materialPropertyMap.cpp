@@ -56,12 +56,12 @@ void MaterialPropertyMap::add(const char *textureName,
 
       if(!dStricmp(kind, "color"))
       {
-         // Five numbers: the colour, then how much it emits.
-         F32 r = 1.0f, g = 1.0f, b = 1.0f, a = 1.0f, em = 0.0f;
-         dSscanf(values, "%g %g %g %g %g", &r, &g, &b, &a, &em);
+         F32 c[NumColors * 4] = { 0.0f };
+         dSscanf(values, "%g %g %g %g %g %g %g %g",
+                 &c[0], &c[1], &c[2], &c[3], &c[4], &c[5], &c[6], &c[7]);
          e.hasColor = true;
-         e.color.set(r, g, b, a);
-         e.emissive = em;
+         for(U32 j = 0; j < NumColors; j++)
+            e.color[j].set(c[j * 4], c[j * 4 + 1], c[j * 4 + 2], c[j * 4 + 3]);
       }
       else if(!dStricmp(kind, "sound"))
       {
