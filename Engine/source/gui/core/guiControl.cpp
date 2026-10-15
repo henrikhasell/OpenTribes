@@ -364,13 +364,11 @@ void GuiControl::awaken()
    if( mAwake )
       return;
       
-   // Wake up visible children.
-      
    for( GuiControl::iterator iter = begin(); iter != end(); ++ iter )
    {
       GuiControl* ctrl = static_cast< GuiControl* >( *iter );
-      
-      if( ctrl->isVisible() && !ctrl->isAwake() )
+
+      if( !ctrl->isAwake() )
          ctrl->awaken();
    }
 
