@@ -47,6 +47,8 @@
 #ifdef TORQUE_OGGVORBIS
    #include "sfx/media/sfxVorbisStream.h"
 #endif
+// HH: Added for Tribes 2 compatibility.
+#include "sfx/media/sfxMp3Stream.h"
 
 
 MODULE_BEGIN( SFX )
@@ -366,6 +368,9 @@ void SFXSystem::init()
    #ifdef TORQUE_OGGVORBIS
       SFXFileStream::registerExtension( ".ogg", ( SFXFILESTREAM_CREATE_FN ) SFXVorbisStream::create );
    #endif
+   // HH: Added for Tribes 2 compatibility.  Registering the extension is what
+   // lets a lookup strip it, so without this a track is probed as "x.mp3.wav".
+   SFXFileStream::registerExtension( ".mp3", ( SFXFILESTREAM_CREATE_FN ) SFXMp3Stream::create );
    
    // Create the stream thread pool.
    
@@ -388,6 +393,8 @@ void SFXSystem::destroy()
    #ifdef TORQUE_OGGVORBIS
       SFXFileStream::unregisterExtension( ".ogg" );
    #endif
+   // HH: Added for Tribes 2 compatibility.
+   SFXFileStream::unregisterExtension( ".mp3" );
 
    delete smSingleton;
    smSingleton = NULL;

@@ -10,18 +10,58 @@
 #include "sfx/sfxDescription.h"
 #endif
 
+class SFXSource;
+
+
+/// Tribes 2's mixer channels.
+///
+/// Retail exposes these to script as `$GuiAudioType` and its siblings and
+/// never writes them from script, so the engine owns the numbering.  Nothing
+/// in the shipped data spells a channel as a literal, which leaves us free to
+/// number them; `AudioChannels::describe` is the only mapping that matters.
+namespace AudioChannels
+{
+   enum Channel
+   {
+      Default,
+      Gui,
+      Effect,
+      Music,
+      Voice,
+      Chat,
+      Radio,
+
+      Count
+   };
+
+   /// Build the channel groups and publish the `$*AudioType` globals.
+   ///
+   /// Safe to call more than once; the second call does nothing.
+   void create();
+
+   /// The group every sound on \a channel plays under, or NULL before
+   /// create().
+   SFXSource* group( S32 channel );
+
+   /// The group the channel groups themselves play under, which carries the
+   /// master volume.
+   SFXSource* master();
+}
+
 
 /// How Tribes 2 describes a sound: its volume, whether it loops and whether it
 /// is placed in the world.
 ///
 /// Those three are Torque 3D's own fields under the same names, so there is
 /// nothing to map.  Tribes 2 also gives a `type`, its mixer channel, which
-/// Torque 3D has no notion of and which is left as a dynamic field.
+/// Torque 3D models as a source group.
 class AudioDescription : public SFXDescription
 {
    typedef SFXDescription Parent;
 
 public:
+
+   virtual bool onAdd();
 
    DECLARE_CONOBJECT( AudioDescription );
 };
@@ -40,5 +80,6 @@ public:
 
    DECLARE_CONOBJECT( AudioProfile );
 };
+
 
 #endif // _AUDIOT2_H_

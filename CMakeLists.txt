@@ -43,7 +43,8 @@ target_sources(${TORQUE_APP_NAME} PRIVATE ${TORQUE_ENGINE_SOURCES})
 
 target_include_directories(${TORQUE_APP_NAME} PRIVATE
     "${ENGINE_SOURCE_DIR}"
-    "${CMAKE_CURRENT_BINARY_DIR}/generated")
+    "${CMAKE_CURRENT_BINARY_DIR}/generated"
+    "${TORQUE_DR_MP3_DIR}")
 
 target_compile_definitions(${TORQUE_APP_NAME} PRIVATE
     TORQUE_UNICODE

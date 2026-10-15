@@ -72,7 +72,15 @@ static String applyAudioSearchDir( const String &filename )
       return filename;
 
    path.setPath( Torque::Path::Join( sAudioSearchDir, '/', path.getPath() ) );
-   return path.getFullPath();
+   const String searched = path.getFullPath();
+
+   // A music track is named relative to the game directory rather than the
+   // search directory, so fall back to what we were given.  Keeping the
+   // search directory first leaves every other lookup as it was.
+   if( !SFXFileStream::exists( searched ) && SFXFileStream::exists( filename ) )
+      return filename;
+
+   return searched;
 }
 
 Resource< SFXResource > SFXResource::load( String filename )

@@ -83,6 +83,61 @@ struct WAVChunkHdr
 };
 
 
+// HH: Added for Tribes 2 compatibility.
+//
+// The IMA ADPCM step and index tables, which every decoder of it shares.
+static const S32 sAdpcmIndexTable[ 16 ] =
+{
+   -1, -1, -1, -1, 2, 4, 6, 8,
+   -1, -1, -1, -1, 2, 4, 6, 8
+};
+
+static const S32 sAdpcmStepTable[ 89 ] =
+{
+       7,     8,     9,    10,    11,    12,    13,    14,    16,    17,
+      19,    21,    23,    25,    28,    31,    34,    37,    41,    45,
+      50,    55,    60,    66,    73,    80,    88,    97,   107,   118,
+     130,   143,   157,   173,   190,   209,   230,   253,   279,   307,
+     337,   371,   408,   449,   494,   544,   598,   658,   724,   796,
+     876,   963,  1060,  1166,  1282,  1411,  1552,  1707,  1878,  2066,
+    2272,  2499,  2749,  3024,  3327,  3660,  4026,  4428,  4871,  5358,
+    5894,  6484,  7132,  7845,  8630,  9493, 10442, 11487, 12635, 13899,
+   15289, 16818, 18500, 20350, 22385, 24623, 27086, 29794, 32767
+};
+
+static inline S16 decodeAdpcmNibble( U8 nibble, S32 &predictor, S32 &index )
+{
+   const S32 step = sAdpcmStepTable[ index ];
+
+   // Shift each term rather than rounding the whole difference once.  The two
+   // are not the same for a step the shifts truncate, and this is the one the
+   // reference decoder takes.
+   S32 difference = step >> 3;
+   if( nibble & 1 )
+      difference += step >> 2;
+   if( nibble & 2 )
+      difference += step >> 1;
+   if( nibble & 4 )
+      difference += step;
+   if( nibble & 8 )
+      difference = -difference;
+
+   predictor += difference;
+   if( predictor > 32767 )
+      predictor = 32767;
+   else if( predictor < -32768 )
+      predictor = -32768;
+
+   index += sAdpcmIndexTable[ nibble ];
+   if( index > 88 )
+      index = 88;
+   else if( index < 0 )
+      index = 0;
+
+   return S16( predictor );
+}
+
+
 SFXWavStream* SFXWavStream::create( Stream *stream )
 {
    SFXWavStream *sfxStream = new SFXWavStream();
@@ -94,12 +149,28 @@ SFXWavStream* SFXWavStream::create( Stream *stream )
 }
 
 SFXWavStream::SFXWavStream()
+   : mDataStart( -1 ),
+     mDataLength( 0 ),
+     mBlockAlign( 0 ),
+     mSamplesPerBlock( 0 ),
+     mPosition( 0 ),
+     mBlockIndex( -1 ),
+     mBlockSamples( 0 )
 {
 }
 
 SFXWavStream::SFXWavStream( const SFXWavStream& cloneFrom )
    : Parent( cloneFrom ),
-     mDataStart( cloneFrom.mDataStart )
+     mDataStart( cloneFrom.mDataStart ),
+     // HH: Modified for Tribes 2 compatibility.
+     mDataLength( cloneFrom.mDataLength ),
+     mBlockAlign( cloneFrom.mBlockAlign ),
+     mSamplesPerBlock( cloneFrom.mSamplesPerBlock ),
+     mPosition( 0 ),
+     mBlockIndex( -1 ),
+     mBlockSamples( 0 ),
+     mBlock( cloneFrom.mBlock.size() ),
+     mEncoded( cloneFrom.mEncoded.size() )
 {
 }
 
@@ -114,6 +185,14 @@ SFXWavStream::~SFXWavStream()
 void SFXWavStream::_close()
 {
    mDataStart = -1;
+
+   // HH: Modified for Tribes 2 compatibility.
+   mDataLength = 0;
+   mBlockAlign = 0;
+   mSamplesPerBlock = 0;
+   mPosition = 0;
+   mBlockIndex = -1;
+   mBlockSamples = 0;
 }
 
 bool SFXWavStream::_readHeader()
@@ -140,6 +219,10 @@ bool SFXWavStream::_readHeader()
    WAVFmtExHdr fmtExHdr;
    WAVSmplHdr  smplHdr;
 
+   // HH: Added for Tribes 2 compatibility.
+   // A compressed file's true sample count, which its final block overruns.
+   U32 factSamples = 0;
+
    dMemset(&fmtHdr, 0, sizeof(fmtHdr));
 
    while ((fileHdr.size!=0) && (mStream->getStatus() != Stream::EOS))
@@ -164,6 +247,22 @@ bool SFXWavStream::_readHeader()
             mStream->read(sizeof(WAVFmtExHdr), &fmtExHdr);
             // HH: Modified for Tribes 2 compatibility.
             chunkRemaining -= sizeof(WAVFmtHdr) + sizeof(WAVFmtExHdr);
+
+            if( fmtHdr.format == 0x0011 && fmtHdr.channels > 0 && fmtHdr.channels <= 2 )
+            {
+               // We hand out the decoded samples, so the format we advertise
+               // is 16 bit PCM rather than the four bits on disk.
+               mFormat.set( fmtHdr.channels, 16 * fmtHdr.channels, fmtHdr.samplesPerSec );
+
+               mBlockAlign = fmtHdr.blockAlign;
+               mSamplesPerBlock = fmtExHdr.samplesPerBlock;
+
+               const U32 preamble = 4 * fmtHdr.channels;
+               if( mBlockAlign <= preamble )
+                  mBlockAlign = 0;
+               else if( !mSamplesPerBlock )
+                  mSamplesPerBlock = 1 + ( ( mBlockAlign - preamble ) * 2 ) / fmtHdr.channels;
+            }
          }
       }
 
@@ -179,10 +278,32 @@ bool SFXWavStream::_readHeader()
             chunkRemaining -= chunkHdr.size;
             mSamples = chunkHdr.size / mFormat.getBytesPerSample();
          }
+         // HH: Modified for Tribes 2 compatibility.
+         else if( _isCompressed() )
+         {
+            mDataStart = mStream->getPosition();
+            mDataLength = chunkHdr.size;
+            mStream->setPosition( mDataStart + chunkHdr.size );
+            chunkRemaining -= chunkHdr.size;
+
+            const U32 channels = mFormat.getChannels();
+            const U32 preamble = 4 * channels;
+            const U32 tail = mDataLength % mBlockAlign;
+
+            mSamples = ( mDataLength / mBlockAlign ) * mSamplesPerBlock;
+            if( tail >= preamble )
+               mSamples += 1 + ( ( tail - preamble ) * 2 ) / channels;
+
+            if( factSamples && factSamples < mSamples )
+               mSamples = factSamples;
+
+            mBlock.setSize( mSamplesPerBlock * channels * sizeof( S16 ) );
+            mEncoded.setSize( mBlockAlign );
+         }
          else
          {
             // HH: Modified for Tribes 2 compatibility.
-            // TODO: decode IMA ADPCM (0x0011) and MP3 (0x0055).
+            // TODO: decode MP3 (0x0055), which no shipped wav uses.
             static U16 sWarnedFormat = 0;
             if( fmtHdr.format != sWarnedFormat )
             {
@@ -192,6 +313,15 @@ bool SFXWavStream::_readHeader()
             }
             return false;
          }
+      }
+
+      // HH: Added for Tribes 2 compatibility.
+      // Sample count, which a compressed file carries because its blocks hold
+      // a whole number of samples and its sound does not.
+      else if (!dStrncmp((const char*)chunkHdr.id,"fact",4))
+      {
+         mStream->read( &factSamples );
+         chunkRemaining -= sizeof( factSamples );
       }
 
       // WAV sample header
@@ -239,12 +369,137 @@ void SFXWavStream::reset()
 {
    AssertFatal( mStream, "SFXWavStream::reset() - Stream is null!" );
    AssertFatal( mDataStart != -1, "SFXWavStream::seek() - Data start offset is invalid!" );
+
+   // HH: Modified for Tribes 2 compatibility.
+   if( _isCompressed() )
+   {
+      mPosition = 0;
+      return;
+   }
+
    mStream->setPosition( mDataStart );
+}
+
+
+// HH: Added for Tribes 2 compatibility.
+bool SFXWavStream::_decodeBlock( U32 index )
+{
+   if( mBlockIndex == S32( index ) )
+      return mBlockSamples > 0;
+
+   mBlockIndex = -1;
+   mBlockSamples = 0;
+
+   const U32 offset = index * mBlockAlign;
+   if( offset >= mDataLength )
+      return false;
+
+   const U32 channels = mFormat.getChannels();
+   const U32 preamble = 4 * channels;
+   const U32 size = getMin( mBlockAlign, mDataLength - offset );
+   if( size < preamble )
+      return false;
+
+   mStream->setPosition( mDataStart + offset );
+   if( !mStream->read( size, mEncoded.address() ) )
+      return false;
+
+   // Each channel opens the block with the sample to predict from and the
+   // step to predict it with.
+   S32 predictor[ 2 ];
+   S32 stepIndex[ 2 ];
+   const U8 *in = mEncoded.address();
+
+   for( U32 c = 0; c < channels; ++ c )
+   {
+      predictor[ c ] = S16( U16( in[ 0 ] ) | ( U16( in[ 1 ] ) << 8 ) );
+      stepIndex[ c ] = in[ 2 ] <= 88 ? in[ 2 ] : 88;
+      in += 4;
+   }
+
+   S16 *out = ( S16* ) mBlock.address();
+   for( U32 c = 0; c < channels; ++ c )
+      out[ c ] = S16( predictor[ c ] );
+
+   U32 frames = 1;
+
+   // The nibbles that follow come a word of each channel at a time, low
+   // nibble first.
+   const U32 dataBytes = size - preamble;
+   for( U32 consumed = 0;
+        consumed + preamble <= dataBytes && frames + 8 <= mSamplesPerBlock;
+        consumed += preamble )
+   {
+      for( U32 c = 0; c < channels; ++ c )
+         for( U32 b = 0; b < 4; ++ b )
+         {
+            const U8 byte = in[ consumed + c * 4 + b ];
+
+            out[ ( frames + b * 2 ) * channels + c ] =
+               decodeAdpcmNibble( byte & 0xf, predictor[ c ], stepIndex[ c ] );
+            out[ ( frames + b * 2 + 1 ) * channels + c ] =
+               decodeAdpcmNibble( byte >> 4, predictor[ c ], stepIndex[ c ] );
+         }
+
+      frames += 8;
+   }
+
+   mBlockIndex = index;
+   mBlockSamples = frames;
+
+   return true;
+}
+
+
+// HH: Added for Tribes 2 compatibility.
+U32 SFXWavStream::_readCompressed( U8 *buffer, U32 bytes )
+{
+   const U32 frameSize = mFormat.getBytesPerSample();
+   const U32 length = mSamples * frameSize;
+
+   bytes -= bytes % frameSize;
+   if( mPosition >= length )
+      return 0;
+   if( mPosition + bytes > length )
+      bytes = length - mPosition;
+
+   U32 done = 0;
+   while( done < bytes )
+   {
+      const U32 frame = ( mPosition + done ) / frameSize;
+      const U32 inBlock = frame % mSamplesPerBlock;
+
+      if( !_decodeBlock( frame / mSamplesPerBlock ) || inBlock >= mBlockSamples )
+         break;
+
+      const U32 copy = getMin( ( mBlockSamples - inBlock ) * frameSize, bytes - done );
+      dMemcpy( buffer + done, mBlock.address() + inBlock * frameSize, copy );
+
+      done += copy;
+   }
+
+   mPosition += done;
+   return done;
+}
+
+
+// HH: Added for Tribes 2 compatibility.
+bool SFXWavStream::isEOS() const
+{
+   if( _isCompressed() )
+      return mPosition >= mSamples * mFormat.getBytesPerSample();
+
+   return Parent::isEOS();
 }
 
 U32 SFXWavStream::getPosition() const
 {
    AssertFatal( mStream, "SFXWavStream::getPosition() - Stream is null!" );
+
+   // HH: Modified for Tribes 2 compatibility.
+   if( _isCompressed() )
+      return mPosition;
+
    return ( mStream->getPosition() - mDataStart );
 }
 
@@ -259,6 +514,13 @@ void SFXWavStream::setPosition( U32 offset )
 
    AssertFatal( mDataStart != -1, "SFXWavStream::getPosition() - Data start offset is invalid!" );
 
+   // HH: Modified for Tribes 2 compatibility.
+   if( _isCompressed() )
+   {
+      mPosition = offset;
+      return;
+   }
+
    U32 byte = mDataStart + offset;
 
    mStream->setPosition( byte );
@@ -267,6 +529,10 @@ void SFXWavStream::setPosition( U32 offset )
 U32 SFXWavStream::read( U8 *buffer, U32 bytes )
 {
    AssertFatal( mStream, "SFXWavStream::seek() - Stream is null!" );
+
+   // HH: Modified for Tribes 2 compatibility.
+   if( _isCompressed() )
+      return _readCompressed( buffer, bytes );
 
    // Read in even sample chunks.
    
