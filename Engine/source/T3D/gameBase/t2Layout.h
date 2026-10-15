@@ -116,6 +116,7 @@ namespace T2Layout
       T2DbExplosionOffset,
       T2DbExplosionTime,
       T2DbExplosionSize,
+      T2DbExplosionSound,
 
       T2DbAudioDescription,
       T2DbAudioVolume,

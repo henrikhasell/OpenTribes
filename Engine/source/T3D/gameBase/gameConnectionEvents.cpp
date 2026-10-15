@@ -285,6 +285,9 @@ static void readT2Explosion( ExplosionData *ex )
                         F32( sizes[i * 3 + 1] ) * 0.01f,
                         F32( sizes[i * 3 + 2] ) * 0.01f );
 
+   if( T2Layout::lastDataBlockWord( T2Layout::T2DbExplosionSound, &word ) )
+      *reinterpret_cast< U32 * >( &ex->soundProfile ) =
+         ( ( word + DataBlockObjectIdFirst ) << 1 ) | 0x1;
 }
 
 void SimDataBlockEvent::unpack(NetConnection *cptr, BitStream *bstream)
