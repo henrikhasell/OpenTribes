@@ -128,6 +128,8 @@ protected:
 
       GFXShaderConstHandle *fogDataConst;
       GFXShaderConstHandle *fogBandDataConst;
+      GFXShaderConstHandle *fogBandData2Const;
+      GFXShaderConstHandle *fogBandData3Const;
       GFXShaderConstHandle *fogColorConst;
 
       GFXShaderConstHandle *missionDetailTexConst;

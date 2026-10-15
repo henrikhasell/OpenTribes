@@ -17,6 +17,7 @@
 #include "renderInstance/renderPassManager.h"
 #include "scene/sceneManager.h"
 #include "scene/sceneRenderState.h"
+#include "T3D/gameBase/t2Layout.h"
 
 #define HORIZON         0.0f
 #define OFFSET_HEIGHT   60.0f
@@ -28,6 +29,7 @@ IMPLEMENT_CO_NETOBJECT_V1(Sky);
 bool Sky::smCloudsOn    = true;
 bool Sky::smSkyOn       = true;
 S32  Sky::smNumCloudsOn = MAX_NUM_LAYERS;
+F32  Sky::smVisibleDistanceMod = 1.0f;
 
 F32 Cloud::mRadius;
 
@@ -256,6 +258,7 @@ void Sky::consoleInit()
    Con::addVariable( "pref::CloudsOn", TypeBool, &smCloudsOn, "" );
    Con::addVariable( "pref::NumCloudLayers", TypeS32, &smNumCloudsOn, "" );
    Con::addVariable( "pref::SkyOn", TypeBool, &smSkyOn, "" );
+   Con::addVariable( "pref::VisibleDistanceMod", TypeF32, &smVisibleDistanceMod, "" );
 }
 
 //---------------------------------------------------------------------------
@@ -346,7 +349,6 @@ bool Sky::loadDml()
 
    mNumCloudLayers = 0;
 
-   MaterialList materials;
    FileStream stream;
    if( !stream.open( mMaterialListName, Torque::FS::File::Read ) )
    {
@@ -354,21 +356,39 @@ bool Sky::loadDml()
       return false;
    }
 
-   materials.read( stream );
+   Vector<String> names;
+   for( ;; )
+   {
+      char line[1024];
+      stream.readLine( (U8 *)line, sizeof( line ) );
+      if( !line[0] )
+         break;
+
+      char *end = line + dStrlen( line );
+      while( end != line && ( end[-1] == '\r' || end[-1] == ' ' || end[-1] == '\t' ) )
+         *--end = 0;
+
+      if( line[0] )
+         names.push_back( String( line ) );
+   }
    stream.close();
 
-   for( S32 x = 0; x < 6 && x < (S32)materials.size(); ++x )
+   for( S32 x = 0; x < 6 && x < names.size(); ++x )
    {
-      String name = String::ToString( "%s/%s", path, materials.getMaterialName( x ).c_str() );
+      String name = String::ToString( "%s/%s", path, names[x].c_str() );
       mSkyHandle[x].set( name, &GFXDefaultStaticDiffuseProfile, "Sky" );
+      if( !mSkyHandle[x].isValid() )
+         Con::warnf( "Sky box face is missing: %s", name.c_str() );
    }
 
-   for( S32 x = 0; x + CloudMaterialOffset < (S32)materials.size() && x < MAX_NUM_LAYERS;
+   for( S32 x = 0; x + CloudMaterialOffset < names.size() && x < MAX_NUM_LAYERS;
         ++x, ++mNumCloudLayers )
    {
       String name = String::ToString( "%s/%s", path,
-         materials.getMaterialName( x + CloudMaterialOffset ).c_str() );
+         names[x + CloudMaterialOffset].c_str() );
       GFXTexHandle tex( name, &GFXDefaultStaticDiffuseProfile, "SkyCloud" );
+      if( !tex.isValid() )
+         Con::warnf( "Sky cloud layer is missing: %s", name.c_str() );
       mCloudLayer[x].setTexture( tex );
    }
 
@@ -467,37 +487,36 @@ void Sky::setVisibility()
    if( !scene )
       return;
 
-   scene->setVisibleDistance( mVisibleDistance );
+   F32 visFactor = smVisibleDistanceMod;
+   if( visFactor > 1.0f )
+      visFactor = 1.0f;
+   else if( visFactor < 0.5f )
+      visFactor = 0.5f;
 
-   // The two halves of the original fog, handed to the shaders as they were
-   // written rather than reshaped into this engine's exponential curve.
-   //
-   //   haze   a quadratic ramp from fogDistance out to visibleDistance
-   //   band   the length of the eye ray inside a fog slab, over the slab's
-   //          own visible distance
-   //
-   // density stays at zero so the exponential term contributes nothing; a
-   // level driven by a LevelInfo instead leaves hazeScale and bandVisDist at
-   // zero and gets only the exponential, exactly as before.
+   const F32 visibleDistance = mVisibleDistance * visFactor;
+   const F32 fogDistance     = mFogDistance * visFactor;
+
+   scene->setVisibleDistance( visibleDistance );
+
    FogData fog;
    fog.color = mFogColor;
    fog.density = 0.0f;
-   fog.densityOffset = mFogDistance;
+   fog.densityOffset = fogDistance;
    fog.atmosphereHeight = 0.0f;
-   fog.hazeScale = ( mVisibleDistance > mFogDistance )
-      ? 1.0f / ( mVisibleDistance - mFogDistance )
-      : 0.0f;
+   fog.hazeScale = ( visibleDistance == fogDistance )
+      ? 1000.0f
+      : 1.0f / ( visibleDistance - fogDistance );
 
-   if( mNumFogVolumes > 0 )
+   for( U32 i = 0; i < mNumFogVolumes && i < FogData::MaxBands; ++i )
    {
-      fog.bandMin     = mFogVolumes[0].minHeight;
-      fog.bandMax     = mFogVolumes[0].maxHeight;
-      fog.bandVisDist = mFogVolumes[0].visibleDistance * mFogVolumes[0].percentage;
-   }
+      const F32 bandDistance = mFogVolumes[i].visibleDistance * visFactor;
+      if( mIsZero( bandDistance ) )
+         continue;
 
-   if( mNumFogVolumes > 1 )
-      Con::warnf( "Sky: %d fog volumes, only the first reaches the shaders; the "
-                  "rest still set the height the sky is fogged to.", mNumFogVolumes );
+      fog.bandMin[i]    = mFogVolumes[i].minHeight;
+      fog.bandMax[i]    = mFogVolumes[i].maxHeight;
+      fog.bandFactor[i] = mFogVolumes[i].percentage / bandDistance;
+   }
 
    scene->setFogData( fog );
 }
@@ -526,6 +545,206 @@ void Sky::inspectPostApply()
 {
    Parent::inspectPostApply();
    updateVisibility();
+}
+
+//---------------------------------------------------------------------------
+static F32 readF32( BitStream *stream )
+{
+   const U32 word = stream->readInt( 32 );
+   F32 value;
+   dMemcpy( &value, &word, sizeof( value ) );
+   return value;
+}
+
+static void writeF32( BitStream *stream, F32 value )
+{
+   U32 word;
+   dMemcpy( &word, &value, sizeof( word ) );
+   stream->writeInt( word, 32 );
+}
+
+U32 Sky::packUpdate( NetConnection *, U32 mask, BitStream *stream, bool )
+{
+   if( stream->writeFlag( mask & InitMask ) )
+   {
+      stream->writeString( mMaterialListName );
+
+      writeF32( stream, mFogColor.red );
+      writeF32( stream, mFogColor.green );
+      writeF32( stream, mFogColor.blue );
+
+      stream->writeInt( mNumFogVolumes, 32 );
+
+      stream->writeInt( mSkyTexturesOn   ? 1 : 0, 8 );
+      stream->writeInt( mRenderBoxBottom ? 1 : 0, 8 );
+
+      writeF32( stream, mSolidFillColor.red );
+      writeF32( stream, mSolidFillColor.green );
+      writeF32( stream, mSolidFillColor.blue );
+
+      stream->writeInt( mEffectPrecip ? 1 : 0, 8 );
+
+      for( U32 i = 0; i < mNumFogVolumes; ++i )
+      {
+         writeF32( stream, mFogVolumes[i].visibleDistance );
+         writeF32( stream, mFogVolumes[i].minHeight );
+         writeF32( stream, mFogVolumes[i].maxHeight );
+         writeF32( stream, mFogVolumes[i].color.red );
+         writeF32( stream, mFogVolumes[i].color.green );
+         writeF32( stream, mFogVolumes[i].color.blue );
+      }
+
+      for( U32 i = 0; i < MAX_NUM_LAYERS; ++i )
+      {
+         stream->writeString( "" );
+         writeF32( stream, mCloudHeight[i] );
+         writeF32( stream, mCloudSpeed[i] );
+      }
+
+      writeF32( stream, mWindVelocity.x );
+      writeF32( stream, mWindVelocity.y );
+      writeF32( stream, mWindVelocity.z );
+
+      writeF32( stream, 0.0f );
+      stream->writeFlag( false );
+   }
+
+   stream->writeFlag( false );
+   stream->writeFlag( false );
+
+   if( stream->writeFlag( mask & VisibilityMask ) )
+   {
+      writeF32( stream, mVisibleDistance );
+      writeF32( stream, mFogDistance );
+   }
+
+   stream->writeFlag( false );
+   stream->writeFlag( false );
+   stream->writeFlag( false );
+
+   if( stream->writeFlag( mask & WindMask ) )
+   {
+      writeF32( stream, mWindVelocity.x );
+      writeF32( stream, mWindVelocity.y );
+      writeF32( stream, mWindVelocity.z );
+   }
+
+   return 0;
+}
+
+bool Sky::unpackUpdate( BitStream *stream, bool isInitial )
+{
+   char buf[256];
+   bool changed = false;
+
+   if( stream->readFlag() )
+   {
+      stream->readString( buf );
+      mMaterialListName =
+         StringTable->insert( T2Layout::resourcePath( buf, "textures/" ) );
+
+      mFogColor.red   = readF32( stream );
+      mFogColor.green = readF32( stream );
+      mFogColor.blue  = readF32( stream );
+      mFogColor.alpha = 1.0f;
+
+      const U32 volumes = stream->readInt( 32 );
+      if( volumes > 64 )
+      {
+         Con::errorf( "Sky: %u fog volumes on the wire", volumes );
+         return false;
+      }
+
+      mSkyTexturesOn   = stream->readInt( 8 ) != 0;
+      mRenderBoxBottom = stream->readInt( 8 ) != 0;
+
+      mSolidFillColor.red   = readF32( stream );
+      mSolidFillColor.green = readF32( stream );
+      mSolidFillColor.blue  = readF32( stream );
+
+      mEffectPrecip = stream->readInt( 8 ) != 0;
+
+      for( U32 i = 0; i < volumes; ++i )
+      {
+         const F32 visibleDistance = readF32( stream );
+         const F32 minHeight       = readF32( stream );
+         const F32 maxHeight       = readF32( stream );
+         const F32 red             = readF32( stream );
+         const F32 green           = readF32( stream );
+         const F32 blue            = readF32( stream );
+
+         if( i >= MaxFogVolumes )
+            continue;
+
+         mFogVolumes[i].visibleDistance = visibleDistance;
+         mFogVolumes[i].minHeight       = minHeight;
+         mFogVolumes[i].maxHeight       = maxHeight;
+         mFogVolumes[i].color.set( red, green, blue, 1.0f );
+      }
+      mNumFogVolumes = getMin( volumes, (U32)MaxFogVolumes );
+
+      for( U32 i = 0; i < MAX_NUM_LAYERS; ++i )
+      {
+         stream->readString( buf );
+         mCloudHeight[i] = readF32( stream );
+         mCloudSpeed[i]  = readF32( stream );
+      }
+
+      mWindVelocity.x = readF32( stream );
+      mWindVelocity.y = readF32( stream );
+      mWindVelocity.z = readF32( stream );
+
+      readF32( stream );
+
+      if( stream->readFlag() )
+         for( U32 i = 0; i < 5; ++i )
+            stream->readInt( 32 );
+
+      changed = true;
+   }
+
+   if( stream->readFlag() )
+      stream->readInt( 8 );
+
+   if( stream->readFlag() )
+      stream->readInt( 8 );
+
+   if( stream->readFlag() )
+   {
+      mVisibleDistance = readF32( stream );
+      mFogDistance     = readF32( stream );
+      changed = true;
+   }
+
+   if( stream->readFlag() )
+   {
+      stream->readInt( 32 );
+      stream->readInt( 32 );
+   }
+
+   if( stream->readFlag() )
+   {
+      stream->readInt( 32 );
+      stream->readInt( 32 );
+      stream->readInt( 32 );
+   }
+
+   if( stream->readFlag() )
+      for( U32 i = 0; i < 4; ++i )
+         stream->readInt( 32 );
+
+   if( stream->readFlag() )
+   {
+      mWindVelocity.x = readF32( stream );
+      mWindVelocity.y = readF32( stream );
+      mWindVelocity.z = readF32( stream );
+      changed = true;
+   }
+
+   if( changed && !isInitial && isClientObject() )
+      initSkyData();
+
+   return true;
 }
 
 //---------------------------------------------------------------------------
