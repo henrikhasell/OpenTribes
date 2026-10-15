@@ -195,6 +195,9 @@ EndImplementEnumType;
 GuiControl::GuiControl() : mAddGroup( NULL ),
                            mLayer(0),
                            mBounds(0,0,64,64),
+                           mLayoutBounds(0,0,64,64),
+                           mLayoutParentExtent(64,64),
+                           mLayoutSeeded(false),
                            mMinExtent(8,2),
                            mProfile(NULL),
                            mLangTable(NULL),
@@ -897,6 +900,18 @@ void GuiControl::onChildRemoved( GuiControl *child )
 
 //-----------------------------------------------------------------------------
 
+void GuiControl::onGroupAdd()
+{
+   Parent::onGroupAdd();
+
+   if (GuiControl *parent = getParent())
+   {
+      mLayoutBounds = mBounds;
+      mLayoutParentExtent = parent->getExtent();
+      mLayoutSeeded = true;
+   }
+}
+
 void GuiControl::onGroupRemove()
 {
    // If we have a first responder in our hierarchy,
@@ -1254,6 +1269,13 @@ void GuiControl::setSizing(S32 horz, S32 vert)
 
 bool GuiControl::resize(const Point2I &newPosition, const Point2I &newExtent)
 {
+   if (GuiControl *layoutParent = getParent())
+   {
+      mLayoutBounds.set( newPosition, newExtent );
+      mLayoutParentExtent = layoutParent->getExtent();
+      mLayoutSeeded = true;
+   }
+
    const Point2I minExtent = getMinExtent();
    Point2I actualNewExtent = Point2I(getMax(minExtent.x, newExtent.x),
       getMax(minExtent.y, newExtent.y));
@@ -1368,11 +1390,21 @@ void GuiControl::childResized( GuiControl* )
 
 void GuiControl::parentResized(const RectI &oldParentRect, const RectI &newParentRect)
 {
-   Point2I newPosition = getPosition();
-   Point2I newExtent = getExtent();
+   if (!mLayoutSeeded)
+   {
+      mLayoutBounds = mBounds;
+      mLayoutParentExtent = oldParentRect.extent;
+      mLayoutSeeded = true;
+   }
 
-	S32 deltaX = newParentRect.extent.x - oldParentRect.extent.x;
- 	S32 deltaY = newParentRect.extent.y - oldParentRect.extent.y;
+   const RectI layoutBounds = mLayoutBounds;
+   const Point2I layoutParentExtent = mLayoutParentExtent;
+
+   Point2I newPosition = layoutBounds.point;
+   Point2I newExtent = layoutBounds.extent;
+
+	S32 deltaX = newParentRect.extent.x - layoutParentExtent.x;
+ 	S32 deltaY = newParentRect.extent.y - layoutParentExtent.y;
 
 	if (mHorizSizing == horizResizeCenter)
 	   newPosition.x = (newParentRect.extent.x - getWidth()) >> 1;
@@ -1380,10 +1412,10 @@ void GuiControl::parentResized(const RectI &oldParentRect, const RectI &newParen
 		newExtent.x += deltaX;
 	else if (mHorizSizing == horizResizeLeft)
       newPosition.x += deltaX;
-   else if (mHorizSizing == horizResizeRelative && oldParentRect.extent.x != 0)
+   else if (mHorizSizing == horizResizeRelative && layoutParentExtent.x != 0)
    {
-      S32 newLeft = mRoundToNearest( ( F32( newPosition.x ) / F32( oldParentRect.extent.x ) ) * F32( newParentRect.extent.x ) );
-      S32 newWidth = mRoundToNearest( ( F32( newExtent.x ) / F32( oldParentRect.extent.x ) ) * F32( newParentRect.extent.x ) );
+      S32 newLeft = mRoundToNearest( ( F32( newPosition.x ) / F32( layoutParentExtent.x ) ) * F32( newParentRect.extent.x ) );
+      S32 newWidth = mRoundToNearest( ( F32( newExtent.x ) / F32( layoutParentExtent.x ) ) * F32( newParentRect.extent.x ) );
 
       newPosition.x = newLeft;
       newExtent.x = newWidth;
@@ -1395,20 +1427,19 @@ void GuiControl::parentResized(const RectI &oldParentRect, const RectI &newParen
 		newExtent.y += deltaY;
 	else if (mVertSizing == vertResizeTop)
       newPosition.y += deltaY;
-   else if(mVertSizing == vertResizeRelative && oldParentRect.extent.y != 0)
+   else if(mVertSizing == vertResizeRelative && layoutParentExtent.y != 0)
    {
-      S32 newTop = mRoundToNearest( ( F32( newPosition.y ) / F32( oldParentRect.extent.y ) ) * F32( newParentRect.extent.y ) );
-      S32 newHeight = mRoundToNearest( ( F32( newExtent.y ) / F32( oldParentRect.extent.y ) ) * F32( newParentRect.extent.y ) );
+      S32 newTop = mRoundToNearest( ( F32( newPosition.y ) / F32( layoutParentExtent.y ) ) * F32( newParentRect.extent.y ) );
+      S32 newHeight = mRoundToNearest( ( F32( newExtent.y ) / F32( layoutParentExtent.y ) ) * F32( newParentRect.extent.y ) );
 
       newPosition.y = newTop;
       newExtent.y = newHeight;
    }
 
-   // Resizing Re factor [9/18/2006]
-   // Only resize if our minExtent is satisfied with it.
-   Point2I minExtent = getMinExtent();
-   if( newExtent.x >= minExtent.x && newExtent.y >= minExtent.y )
-      resize(newPosition, newExtent);
+   resize(newPosition, newExtent);
+
+   mLayoutBounds = layoutBounds;
+   mLayoutParentExtent = layoutParentExtent;
 }
 
 //-----------------------------------------------------------------------------
