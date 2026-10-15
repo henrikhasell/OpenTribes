@@ -641,17 +641,9 @@ bool ParticleEmitter::onAdd()
    if( !Parent::onAdd() )
       return false;
 
-   // add to client side mission cleanup
    SimGroup *cleanup = dynamic_cast<SimGroup *>( Sim::findObject( "ClientMissionCleanup") );
    if( cleanup != NULL )
-   {
       cleanup->addObject( this );
-   }
-   else
-   {
-      AssertFatal( false, "Error, could not find ClientMissionCleanup group" );
-      return false;
-   }
 
    removeFromProcessList();
 
