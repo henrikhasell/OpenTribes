@@ -76,6 +76,9 @@ Frustum::Frustum( bool isOrtho,
    mNumTiles = 1;
    mCurrTile.set(0,0);
    mTileOverlap.set(0.0f, 0.0f);
+
+
+   mDirty = true;
 }
 
 //-----------------------------------------------------------------------------
