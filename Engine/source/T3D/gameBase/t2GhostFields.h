@@ -13,10 +13,18 @@ namespace T2Protocol
       T2FieldTransform,             ///< the first of a MatrixF's 16 floats
       T2FieldAffine,                ///< the first of a position and a quat's
       T2FieldQuatSign,              ///< the flag that negates a quat's w
+      T2FieldAxisZSign,             ///< the flag that turns a Z axis around
+      T2FieldZAngle,                ///< a raw float of radians about that
+                                    ///< axis, which is a heading either way
       T2FieldScale,                 ///< the first of a Point3F's three floats
       T2FieldDamage,                ///< readFloat(bits) of the object's
                                     ///< maxDamage
       T2FieldJetting,               ///< the flag that lights a jet pack
+      T2FieldRotate,                ///< the flag that spins an item
+      T2FieldStatic,                ///< the flag that says it never moves
+      T2FieldAtRest,                ///< the flag that says it has stopped
+      T2FieldWarp,                  ///< the flag that asks for the position
+                                    ///< to be interpolated to, not snapped to
       T2FieldNormalPhi,
       T2FieldNormalTheta,
       T2FieldImpactPhi,
@@ -64,6 +72,18 @@ namespace T2Protocol
       { "FlyingVehicle",  217, OpRaw, 6, T2FieldDamage },
       { "HoverVehicle",   215, OpRaw, 6, T2FieldDamage },
       { "WheeledVehicle", 234, OpRaw, 6, T2FieldDamage },
+
+   // The tail Item::unpackUpdate adds to ShapeBase's body: what the item is,
+   // where it is, and whether it is still moving.
+      { "Item", 21, OpFlag,  1, T2FieldRotate        },
+      { "Item", 20, OpFlag,  1, T2FieldStatic        },
+      { "Item", 17, OpRaw,  32, T2FieldScale         },
+      { "Item", 11, OpFlag,  1, T2FieldAxisZSign     },
+      { "Item", 10, OpRaw,  32, T2FieldZAngle        },
+      { "Item",  8, OpRaw,  32, T2FieldPointWords    },
+      { "Item",  5, OpFlag,  1, T2FieldAtRest        },
+      { "Item",  4, OpRaw,  32, T2FieldVelocityWords },
+      { "Item",  1, OpFlag,  1, T2FieldWarp          },
 
       { "InteriorInstance",      11, OpRaw, 32, T2FieldTransform },
       { "InteriorInstance",      27, OpRaw, 32, T2FieldScale     },

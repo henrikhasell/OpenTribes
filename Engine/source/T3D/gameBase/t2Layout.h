@@ -46,6 +46,16 @@ namespace T2Layout
       F32     damage;               ///< share of the object's maxDamage
       bool    hasJetting;
       bool    jetting;              ///< the jet pack is lit
+      bool    hasRotate;
+      bool    rotate;               ///< the body spins about its own Z axis
+      bool    hasStatic;
+      bool    isStatic;             ///< it never moves, so it never simulates
+      bool    hasAtRest;
+      bool    atRest;               ///< it has stopped where the server left
+                                    ///< it, and carries no velocity
+      bool    hasWarp;
+      bool    warp;                 ///< interpolate to the position rather
+                                    ///< than snap to it
 
       /// What a body said about one of its object's image slots -- the
       /// weapon in the hand, the pack on the back.

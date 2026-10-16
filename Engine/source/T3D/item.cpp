@@ -559,6 +559,71 @@ void Item::interpolateTick(F32 dt)
 
 //----------------------------------------------------------------------------
 
+void Item::onT2BodyRead(const T2Layout::Body &body)
+{
+   if (body.hasRotate)
+      mRotate = body.rotate;
+   if (body.hasStatic)
+      mStatic = body.isStatic;
+
+   if (body.hasScale)
+      mObjScale = body.scale;
+   else if (body.hasStatic)
+      mObjScale.set(1.0f, 1.0f, 1.0f);
+
+   MatrixF mat = mObjToWorld;
+
+   if (body.hasYaw) {
+      Point3F pos = mat.getPosition();
+      mat.set(EulerF(0.0f, 0.0f, body.yaw));
+      mat.setPosition(pos);
+   }
+
+   if (body.hasPosition) {
+      F32 speed = mVelocity.len();
+
+      mAtRest = body.atRest;
+      mVelocity = body.hasVelocity ? body.velocity : VectorF(0.0f, 0.0f, 0.0f);
+
+      if (body.warp && isProperlyAdded()) {
+         delta.warpOffset = body.position - delta.pos;
+         F32 as = (speed + mVelocity.len()) * 0.5f * TickSec;
+         F32 dt = (as > 0.00001f) ? delta.warpOffset.len() / as: sMaxWarpTicks;
+         delta.warpTicks = (S32)((dt > sMinWarpTicks)? getMax(mFloor(dt + 0.5f), 1.0f): 0.0f);
+
+         if (delta.warpTicks)
+         {
+            if (delta.warpTicks > sMaxWarpTicks)
+               delta.warpTicks = sMaxWarpTicks;
+            delta.warpOffset /= (F32)delta.warpTicks;
+         }
+         else {
+            Point3F cp = delta.pos + delta.posVec * delta.dt;
+            VectorF vec = delta.pos - cp;
+            F32 vl = vec.len();
+            if (vl) {
+               F32 s = delta.posVec.len() / vl;
+               delta.posVec = (cp - body.position) * s;
+            }
+            delta.pos = body.position;
+            mat.setPosition(body.position);
+         }
+      }
+      else {
+         delta.warpTicks = 0;
+         delta.posVec.set(0,0,0);
+         delta.pos = body.position;
+         delta.dt = 0;
+         mat.setPosition(body.position);
+      }
+   }
+
+   Parent::setTransform(mat);
+}
+
+
+//----------------------------------------------------------------------------
+
 void Item::setTransform(const MatrixF& mat)
 {
    Point3F pos;
