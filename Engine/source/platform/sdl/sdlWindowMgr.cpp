@@ -10,12 +10,12 @@ static U32 sdlModifiers()
    const SDL_Keymod mod = SDL_GetModState();
    U32 out = 0;
 
-   if( mod & SDL_KMOD_LSHIFT ) out |= SI_LSHIFT;
-   if( mod & SDL_KMOD_RSHIFT ) out |= SI_RSHIFT;
-   if( mod & SDL_KMOD_LCTRL )  out |= SI_LCTRL;
-   if( mod & SDL_KMOD_RCTRL )  out |= SI_RCTRL;
-   if( mod & SDL_KMOD_LALT )   out |= SI_LALT;
-   if( mod & SDL_KMOD_RALT )   out |= SI_RALT;
+   if( mod & SDL_KMOD_LSHIFT ) out |= IM_LSHIFT;
+   if( mod & SDL_KMOD_RSHIFT ) out |= IM_RSHIFT;
+   if( mod & SDL_KMOD_LCTRL )  out |= IM_LCTRL;
+   if( mod & SDL_KMOD_RCTRL )  out |= IM_RCTRL;
+   if( mod & SDL_KMOD_LALT )   out |= IM_LALT;
+   if( mod & SDL_KMOD_RALT )   out |= IM_RALT;
 
    return out;
 }
@@ -27,6 +27,8 @@ static U16 sdlToTorqueKey( SDL_Scancode code )
    static_assert( KEY_Z - KEY_A == 25, "KEY_A..KEY_Z must stay contiguous" );
    static_assert( KEY_9 - KEY_1 ==  8, "KEY_1..KEY_9 must stay contiguous" );
    static_assert( KEY_F12 - KEY_F1 == 11, "KEY_F1..KEY_F12 must stay contiguous" );
+   static_assert( KEY_F24 - KEY_F13 == 11, "KEY_F13..KEY_F24 must stay contiguous" );
+   static_assert( KEY_NUMPAD9 - KEY_NUMPAD1 == 8, "KEY_NUMPAD1..KEY_NUMPAD9 must stay contiguous" );
 
    if( code >= SDL_SCANCODE_A && code <= SDL_SCANCODE_Z )
       return U16( KEY_A + ( code - SDL_SCANCODE_A ) );
@@ -36,6 +38,12 @@ static U16 sdlToTorqueKey( SDL_Scancode code )
 
    if( code >= SDL_SCANCODE_F1 && code <= SDL_SCANCODE_F12 )
       return U16( KEY_F1 + ( code - SDL_SCANCODE_F1 ) );
+
+   if( code >= SDL_SCANCODE_F13 && code <= SDL_SCANCODE_F24 )
+      return U16( KEY_F13 + ( code - SDL_SCANCODE_F13 ) );
+
+   if( code >= SDL_SCANCODE_KP_1 && code <= SDL_SCANCODE_KP_9 )
+      return U16( KEY_NUMPAD1 + ( code - SDL_SCANCODE_KP_1 ) );
 
    switch( code )
    {
@@ -63,6 +71,21 @@ static U16 sdlToTorqueKey( SDL_Scancode code )
       case SDL_SCANCODE_RALT:         return KEY_ALT;
       case SDL_SCANCODE_CAPSLOCK:     return KEY_CAPSLOCK;
       case SDL_SCANCODE_PAUSE:        return KEY_PAUSE;
+      case SDL_SCANCODE_PRINTSCREEN:  return KEY_PRINT;
+      case SDL_SCANCODE_HELP:         return KEY_HELP;
+      case SDL_SCANCODE_NUMLOCKCLEAR: return KEY_NUMLOCK;
+      case SDL_SCANCODE_SCROLLLOCK:   return KEY_SCROLLLOCK;
+      case SDL_SCANCODE_KP_0:         return KEY_NUMPAD0;
+      case SDL_SCANCODE_KP_ENTER:     return KEY_NUMPADENTER;
+      case SDL_SCANCODE_KP_MULTIPLY:  return KEY_MULTIPLY;
+      case SDL_SCANCODE_KP_PLUS:      return KEY_ADD;
+      case SDL_SCANCODE_KP_MINUS:     return KEY_SUBTRACT;
+      case SDL_SCANCODE_KP_PERIOD:    return KEY_DECIMAL;
+      case SDL_SCANCODE_KP_DIVIDE:    return KEY_DIVIDE;
+      case SDL_SCANCODE_LGUI:         return KEY_WIN_LWINDOW;
+      case SDL_SCANCODE_RGUI:         return KEY_WIN_RWINDOW;
+      case SDL_SCANCODE_APPLICATION:  return KEY_WIN_APPS;
+      case SDL_SCANCODE_NONUSBACKSLASH: return KEY_OEM_102;
       case SDL_SCANCODE_MINUS:        return KEY_MINUS;
       case SDL_SCANCODE_EQUALS:       return KEY_EQUALS;
       case SDL_SCANCODE_LEFTBRACKET:  return KEY_LBRACKET;
