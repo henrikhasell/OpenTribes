@@ -154,6 +154,9 @@ class InteriorInstance : public SceneZoneSpace
       virtual bool onSceneAdd();
       virtual void onSceneRemove();
 
+      // SceneZoneSpace.
+      virtual void _disconnectAllZoneSpaces();
+
    public:
 
       InteriorInstance();

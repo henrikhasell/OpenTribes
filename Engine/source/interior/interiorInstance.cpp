@@ -485,13 +485,32 @@ bool InteriorInstance::onSceneAdd()
 
 void InteriorInstance::onSceneRemove()
 {
-   // Disconnect from root zone in case we have connected.
+   Parent::onSceneRemove();
+
+   // Disconnect from the outdoor zone in case we have connected.  This has to
+   // come after the parent call, which goes through _disconnectAllZoneSpaces().
 
    SceneZoneSpaceManager* zoneManager = getSceneManager()->getZoneManager();
    if( zoneManager )
+   {
       zoneManager->getRootZone()->disconnectZoneSpace( this );
+      disconnectZoneSpace( zoneManager->getRootZone() );
+   }
+}
 
-   Parent::onSceneRemove();
+//-----------------------------------------------------------------------------
+
+void InteriorInstance::_disconnectAllZoneSpaces()
+{
+   Parent::_disconnectAllZoneSpaces();
+
+   // Rezoning wipes our connections and then only restores the ones the zone
+   // manager's queries turn up.  The outdoor zone is never one of those, so
+   // reconnect to it here.  getContainer() tells a rezone apart from
+   // unregisterZones(), which runs once we are out of the container.
+
+   if( mManager && getContainer() )
+      connectZoneSpace( mManager->getRootZone() );
 }
 
 //-----------------------------------------------------------------------------
@@ -800,6 +819,11 @@ void InteriorInstance::traverseZones( SceneTraversalState* state, U32 startZoneI
 
    for( U32 i = getZoneRangeStart(); i < ( getZoneRangeStart() + getZoneRange() ); ++ i )
       cullingState->addCullingVolumeToZone( i, state->getCurrentCullingVolume() );
+
+   // Merge our zones into the traversal area.  Without this the area stays at
+   // its initial degenerate box whenever a traversal starts in here.
+
+   state->addToTraversedArea( getWorldBox() );
 
 #if 0
    U32 baseZoneForPrep = getCurrZone( 0 );
