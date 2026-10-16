@@ -59,6 +59,9 @@
 #ifndef _SCENEDATA_H_
 #include "materials/sceneData.h"
 #endif
+#ifndef _SCENECULLINGVOLUME_H_
+#include "scene/culling/sceneCullingVolume.h"
+#endif
 
 //-------------------------------------- Forward declarations
 class MatInstance;
@@ -219,15 +222,16 @@ public:
    // Rendering
    bool prepForRendering(const char* path);
 
-   bool traverseZones(  SceneCullingState*    state,
-                        const Frustum& frustum,
-                        S32            containingZone,
+   static SceneCullingVolume buildCullingVolume( SceneCullingState* state,
+                                                 const PlaneSetF& incoming,
+                                                 const Frustum& frustum );
+
+   bool traverseZones(  SceneCullingState* state,
+                        const PlaneSetF& incoming,
                         S32            baseZone,
                         U32            zoneOffset,
                         const MatrixF& OSToWS,
                         const Point3F& objScale,
-                        const bool     dontRestrictOutside,
-                        const bool     flipClipPlanes,
                         Frustum&       outFrustum );
 
    void prepBatchRender(  InteriorInstance *intInst, SceneRenderState *state );

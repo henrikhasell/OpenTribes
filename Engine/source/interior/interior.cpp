@@ -244,6 +244,20 @@ void convertToFrustum(PortalRenderInfo& zrInfo, const RectD& finalRect)
    fixupViewport(zrInfo);
 }
 
+Frustum sgZoneFrustum(const Frustum& frustum, const PortalRenderInfo& zrInfo)
+{
+   return Frustum(
+      frustum.isOrtho(),
+      zrInfo.frustum[ 0 ],
+      zrInfo.frustum[ 1 ],
+      zrInfo.frustum[ 3 ],
+      zrInfo.frustum[ 2 ],
+      frustum.getNearDist(),
+      frustum.getFarDist(),
+      frustum.getTransform()
+   );
+}
+
 } // namespace {}
 
 
@@ -469,45 +483,57 @@ void Interior::setupAveTexGenLength()
 }
 
 
+SceneCullingVolume Interior::buildCullingVolume(SceneCullingState* state,
+                                                const PlaneSetF& incoming,
+                                                const Frustum& frustum)
+{
+   const U32 numIncoming = incoming.getNumPlanes();
+   PlaneF* planes = state->allocateData< PlaneF >( 4 + numIncoming );
+
+   planes[ 0 ] = frustum.getPlanes()[ Frustum::PlaneLeft ];
+   planes[ 1 ] = frustum.getPlanes()[ Frustum::PlaneRight ];
+   planes[ 2 ] = frustum.getPlanes()[ Frustum::PlaneTop ];
+   planes[ 3 ] = frustum.getPlanes()[ Frustum::PlaneBottom ];
+
+   dMemcpy( &planes[ 4 ], incoming.getPlanes(), numIncoming * sizeof( planes[ 0 ] ) );
+
+   return SceneCullingVolume(
+      SceneCullingVolume::Includer,
+      PlaneSetF( planes, 4 + numIncoming )
+   );
+}
+
+
 //--------------------------------------------------------------------------
 bool Interior::traverseZones(SceneCullingState*    state,
-                             const Frustum& frustum,
-                             S32            containingZone,
+                             const PlaneSetF& incoming,
                              S32            baseZone,
                              U32            zoneOffset,
                              const MatrixF& OSToWS,
                              const Point3F& objScale,
-                             const bool     dontRestrictOutside,
-                             const bool     flipClipPlanes,
                              Frustum&       outFrustum)
 {
+   const Frustum& frustum = state->getFrustum();
+
    // Store off the viewport and frustum
    sgStoredViewport = state->getCameraState().getViewport();
-   if( dontRestrictOutside )
-   {
-      sgStoredFrustum[0] = state->getFrustum().getNearLeft();
-      sgStoredFrustum[1] = state->getFrustum().getNearRight();
-      sgStoredFrustum[2] = state->getFrustum().getNearBottom();
-      sgStoredFrustum[3] = state->getFrustum().getNearTop();
-      sgStoredFrustum[4] = state->getFrustum().getNearDist();
-      sgStoredFrustum[5] = state->getFrustum().getFarDist();
-   }
-   else
-   {
-      sgStoredFrustum[0] = frustum.getNearLeft();
-      sgStoredFrustum[1] = frustum.getNearRight();
-      sgStoredFrustum[2] = frustum.getNearBottom();
-      sgStoredFrustum[3] = frustum.getNearTop();
-      sgStoredFrustum[4] = frustum.getNearDist();
-      sgStoredFrustum[5] = frustum.getFarDist();
-   }
-   
+
+   sgStoredFrustum[0] = frustum.getNearLeft();
+   sgStoredFrustum[1] = frustum.getNearRight();
+   sgStoredFrustum[2] = frustum.getNearBottom();
+   sgStoredFrustum[3] = frustum.getNearTop();
+   sgStoredFrustum[4] = frustum.getNearDist();
+   sgStoredFrustum[5] = frustum.getFarDist();
+
    sgProjMatrix = state->getCameraState().getProjectionMatrix();
 
    MatrixF finalModelView = state->getCameraState().getWorldViewMatrix();
    finalModelView.mul(OSToWS);
    finalModelView.scale(Point3F(objScale.x, objScale.y, objScale.z));
    sgProjMatrix.mul(finalModelView);
+
+
+   const bool flipClipPlanes = ( m_matF_determinant( finalModelView ) < 0.f );
 
    finalModelView.inverse();
    finalModelView.mulP(Point3F(0, 0, 0), &sgCamPoint);
@@ -527,16 +553,10 @@ bool Interior::traverseZones(SceneCullingState*    state,
       {
          state->addCullingVolumeToZone(
             globalIndex,
-            SceneCullingVolume::Includer,
-            Frustum(
-               frustum.isOrtho(),
-               sgZoneRenderInfo[ i ].frustum[ 0 ],
-               sgZoneRenderInfo[ i ].frustum[ 1 ],
-               sgZoneRenderInfo[ i ].frustum[ 3 ],
-               sgZoneRenderInfo[ i ].frustum[ 2 ],
-               frustum.getNearDist(),
-               frustum.getFarDist(),
-               frustum.getTransform()
+            buildCullingVolume(
+               state,
+               incoming,
+               sgZoneFrustum( frustum, sgZoneRenderInfo[ i ] )
             )
          );
       }
@@ -547,18 +567,9 @@ bool Interior::traverseZones(SceneCullingState*    state,
    // If zone 0 is rendered, then we return true...
    bool continueOut = sgZoneRenderInfo[ 0 ].render;
    if( continueOut )
-      outFrustum = Frustum(
-         frustum.isOrtho(),
-         sgZoneRenderInfo[ 0 ].frustum[ 0 ],
-         sgZoneRenderInfo[ 0 ].frustum[ 1 ],
-         sgZoneRenderInfo[ 0 ].frustum[ 3 ],
-         sgZoneRenderInfo[ 0 ].frustum[ 2 ],
-         frustum.getNearDist(),
-         frustum.getFarDist(),
-         frustum.getTransform()
-      );
+      outFrustum = sgZoneFrustum( frustum, sgZoneRenderInfo[ 0 ] );
 
-   return sgZoneRenderInfo[0].render;
+   return continueOut;
 }
 
 

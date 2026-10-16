@@ -181,6 +181,7 @@ enum SceneObjectTypeMasks
 
    /// Mask for objects that should be specifically excluded from zone culling.
    CULLING_EXCLUDE_TYPEMASK = (  TerrainObjectType |
+                                 InteriorObjectType |
                                  EnvironmentObjectType ),
 
    /// Default object type mask to use for render queries.

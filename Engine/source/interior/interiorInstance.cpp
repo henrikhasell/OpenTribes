@@ -31,6 +31,7 @@
 #include "scene/sceneRenderState.h"
 #include "scene/zones/sceneTraversalState.h"
 #include "scene/zones/sceneRootZone.h"
+#include "scene/culling/sceneCullingState.h"
 #include "core/stream/bitStream.h"
 #include "core/stream/fileStream.h"
 #include "gfx/bitmap/gBitmap.h"
@@ -485,13 +486,25 @@ bool InteriorInstance::onSceneAdd()
 
 void InteriorInstance::onSceneRemove()
 {
-   // Disconnect from root zone in case we have connected.
+   Parent::onSceneRemove();
+
 
    SceneZoneSpaceManager* zoneManager = getSceneManager()->getZoneManager();
    if( zoneManager )
+   {
       zoneManager->getRootZone()->disconnectZoneSpace( this );
+      disconnectZoneSpace( zoneManager->getRootZone() );
+   }
+}
 
-   Parent::onSceneRemove();
+
+void InteriorInstance::_disconnectAllZoneSpaces()
+{
+   Parent::_disconnectAllZoneSpaces();
+
+
+   if( mManager && getContainer() )
+      connectZoneSpace( mManager->getRootZone() );
 }
 
 //-----------------------------------------------------------------------------
@@ -775,13 +788,10 @@ U32 InteriorInstance::_calcDetailLevel(SceneRenderState* state, const Point3F& w
 
 void InteriorInstance::traverseZones( SceneTraversalState* state )
 {
-   U32 startZone = getPointZone( state->getCullingState()->getCameraState().getViewPosition() );
-   if( startZone != SceneZoneSpaceManager::InvalidZoneId )
-      startZone = startZone - mZoneRangeStart + 1;
-   else
-      startZone = SceneZoneSpaceManager::RootZoneId;
-
-   traverseZones( state, startZone );
+   traverseZones(
+      state,
+      getPointZone( state->getCullingState()->getCameraState().getViewPosition() )
+   );
 }
 
 //-----------------------------------------------------------------------------
@@ -792,43 +802,52 @@ void InteriorInstance::traverseZones( SceneTraversalState* state, U32 startZoneI
 
    SceneCullingState* cullingState = state->getCullingState();
 
-   // [rene, 23-Mar-11] This is a really gross hack.  It effectively renders all zoning in interiors
-   //    ineffective and just lets them render with the root frustum.  It's just that after untangling
-   //    DMM's mess in the sceneGraph system, I just don't have the energy anymore to also dig through
-   //    the ungodly mess that is the interior code and since this is all quasi-deprecated-and-soon-to-die
-   //    anyway it would just be wasted effort.
 
-   for( U32 i = getZoneRangeStart(); i < ( getZoneRangeStart() + getZoneRange() ); ++ i )
-      cullingState->addCullingVolumeToZone( i, state->getCurrentCullingVolume() );
+   const bool haveStartZone = ( startZoneId != SceneZoneSpaceManager::InvalidZoneId );
+   const S32 baseZone = haveStartZone ? ( startZoneId - getZoneRangeStart() + 1 ) : 0;
 
-#if 0
-   U32 baseZoneForPrep = getCurrZone( 0 );
-   bool multipleZones = ( getNumCurrZones() > 1 );
+
+   const U32 stackZoneId = haveStartZone ? startZoneId : getZoneRangeStart();
+
+
+   if( state->getTraversalDepth() > 0 )
+   {
+      if( state->haveVisitedZone( stackZoneId ) )
+         return;
+
+      if( !state->getCurrentCullingVolume().test( getWorldBox() ) )
+         return;
+   }
+
+   const PlaneSetF& incoming = state->getCurrentCullingVolume().getPlanes();
 
    Frustum outFrustum;
-   bool continueOut = mInteriorRes->getDetailLevel( 0 )->traverseZones(
-      renderState,
-      frustum,
-      baseZoneForPrep,
-      startZoneId,
+   const bool continueOut = mInteriorRes->getDetailLevel( 0 )->traverseZones(
+      cullingState,
+      incoming,
+      baseZone,
       mZoneRangeStart,
       mRenderObjToWorld,
       mObjScale,
-      smDontRestrictOutside | multipleZones,
-      renderState->isInvertedWorld(),
       outFrustum
    );
 
-   if( smDontRestrictOutside )
-      continueOut = true;
-#endif
 
-   if( true )// continueOut )
-   {
-      state->pushZone( startZoneId );
-      _traverseConnectedZoneSpaces( state );
-      state->popZone();
-   }
+   state->addToTraversedArea( getWorldBox() );
+
+   if( !continueOut && !smDontRestrictOutside )
+      return;
+
+
+   const Frustum& handover = continueOut ? outFrustum : cullingState->getFrustum();
+
+   state->pushZone( stackZoneId );
+   state->pushCullingVolume( Interior::buildCullingVolume( cullingState, incoming, handover ) );
+
+   _traverseConnectedZoneSpaces( state );
+
+   state->popCullingVolume();
+   state->popZone();
 }
 
 //-----------------------------------------------------------------------------
