@@ -807,8 +807,17 @@ void InteriorInstance::traverseZones( SceneTraversalState* state, U32 startZoneI
    const S32 baseZone = haveStartZone ? ( startZoneId - getZoneRangeStart() + 1 ) : 0;
 
 
-   if( haveStartZone && state->haveVisitedZone( startZoneId ) )
-      return;
+   const U32 stackZoneId = haveStartZone ? startZoneId : getZoneRangeStart();
+
+
+   if( state->getTraversalDepth() > 0 )
+   {
+      if( state->haveVisitedZone( stackZoneId ) )
+         return;
+
+      if( !state->getCurrentCullingVolume().test( getWorldBox() ) )
+         return;
+   }
 
    const PlaneSetF& incoming = state->getCurrentCullingVolume().getPlanes();
 
@@ -832,15 +841,13 @@ void InteriorInstance::traverseZones( SceneTraversalState* state, U32 startZoneI
 
    const Frustum& handover = continueOut ? outFrustum : cullingState->getFrustum();
 
-   if( haveStartZone )
-      state->pushZone( startZoneId );
+   state->pushZone( stackZoneId );
    state->pushCullingVolume( Interior::buildCullingVolume( cullingState, incoming, handover ) );
 
    _traverseConnectedZoneSpaces( state );
 
    state->popCullingVolume();
-   if( haveStartZone )
-      state->popZone();
+   state->popZone();
 }
 
 //-----------------------------------------------------------------------------
