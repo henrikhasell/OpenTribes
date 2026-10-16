@@ -17,8 +17,6 @@ namespace T2Protocol
       T2FieldZAngle,                ///< a raw float of radians about that
                                     ///< axis, which is a heading either way
       T2FieldScale,                 ///< the first of a Point3F's three floats
-      T2FieldDamage,                ///< readFloat(bits) of the object's
-                                    ///< maxDamage
       T2FieldJetting,               ///< the flag that lights a jet pack
       T2FieldRotate,                ///< the flag that spins an item
       T2FieldStatic,                ///< the flag that says it never moves
@@ -31,6 +29,15 @@ namespace T2Protocol
       T2FieldImpactTheta,
       T2FieldPointWords,
       T2FieldVelocityWords,
+      T2FieldExplodeWords,          ///< the first of three raw floats, where
+                                    ///< a projectile ended
+      T2FieldImpactWords,           ///< the first of three, the surface it
+                                    ///< ended against
+      T2FieldCurrTick,              ///< readInt(bits) ticks since it was made
+      T2FieldSourceObject,          ///< readInt(bits), a ghost index
+      T2FieldSourceSlot,
+      T2FieldVehicleObject,
+      T2FieldQuickSplash,
    };
 
    inline U32 t2FieldWords(U32 field)
@@ -42,6 +49,8 @@ namespace T2Protocol
          case T2FieldScale:         return 3;
          case T2FieldPointWords:    return 3;
          case T2FieldVelocityWords: return 3;
+         case T2FieldExplodeWords:  return 3;
+         case T2FieldImpactWords:   return 3;
          default:                   return 0;
       }
    }
@@ -65,13 +74,9 @@ namespace T2Protocol
 
       { "Player", 26, OpFlag,  1,  T2FieldJetting      },
 
-   // ShapeBase::unpackUpdate reads the damage at 0x005ef194 as readFloat(6) of
-   // the datablock's maxDamage, followed by two bits of state.
-      { "Player",         223, OpRaw, 6, T2FieldDamage },
-      { "Vehicle",        214, OpRaw, 6, T2FieldDamage },
-      { "FlyingVehicle",  217, OpRaw, 6, T2FieldDamage },
-      { "HoverVehicle",   215, OpRaw, 6, T2FieldDamage },
-      { "WheeledVehicle", 234, OpRaw, 6, T2FieldDamage },
+   // The damage block is not bound here: it is the same five reads in every
+   // ShapeBase-derived graph and `resolveDamage` finds it by that shape, which
+   // the walked graphs and the described ones both match.
 
    // The tail Item::unpackUpdate adds to ShapeBase's body: what the item is,
    // where it is, and whether it is still moving.
@@ -161,10 +166,32 @@ namespace T2Protocol
 
 #undef T2_LINEAR_PROJECTILE_FIELDS
 
-      { "EnergyProjectile",      34, OpRaw,  32, T2FieldPointWords    },
-      { "EnergyProjectile",      31, OpRaw,  32, T2FieldVelocityWords },
-      { "EnergyProjectile",      13, OpRaw,  32, T2FieldPointWords    },
-      { "EnergyProjectile",      10, OpRaw,  32, T2FieldVelocityWords },
+   // GrenadeProjectile::unpackUpdate (0x00636050), which BombProjectile reads
+   // through and which EnergyProjectile's and FlareProjectile's own copies
+   // read the same bits as -- one table, so one set of rows. An initial body
+   // is where it was thrown from and how fast; a later one is a bounce the
+   // sender corrected, or the end of it.
+#define T2_GRENADE_PROJECTILE_FIELDS( cls )                            \
+      { cls, 34, OpRaw, 32, T2FieldPointWords    },                    \
+      { cls, 31, OpRaw, 32, T2FieldVelocityWords },                    \
+      { cls, 28, OpInt, 12, T2FieldCurrTick      },                    \
+      { cls, 27, OpFlag, 1, T2FieldQuickSplash   },                    \
+      { cls, 25, OpRaw, 32, T2FieldExplodeWords  },                    \
+      { cls, 22, OpRaw, 32, T2FieldImpactWords   },                    \
+      { cls, 18, OpInt, 11, T2FieldSourceObject  },                    \
+      { cls, 17, OpInt,  3, T2FieldSourceSlot    },                    \
+      { cls, 15, OpInt, 11, T2FieldVehicleObject },                    \
+      { cls, 13, OpRaw, 32, T2FieldPointWords    },                    \
+      { cls, 10, OpRaw, 32, T2FieldVelocityWords },                    \
+      { cls,  6, OpRaw, 32, T2FieldExplodeWords  },                    \
+      { cls,  3, OpRaw, 32, T2FieldImpactWords   },
+
+      T2_GRENADE_PROJECTILE_FIELDS( "GrenadeProjectile" )
+      T2_GRENADE_PROJECTILE_FIELDS( "EnergyProjectile"  )
+      T2_GRENADE_PROJECTILE_FIELDS( "FlareProjectile"   )
+      T2_GRENADE_PROJECTILE_FIELDS( "BombProjectile"    )
+
+#undef T2_GRENADE_PROJECTILE_FIELDS
    };
 }
 

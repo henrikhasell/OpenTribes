@@ -26,6 +26,9 @@ namespace T2Layout
    /// backpack and flag.
    enum { MaxImages = 8 };
 
+   /// Four animation threads, which is what a script's playThread can reach.
+   enum { MaxThreads = 4 };
+
    struct Body
    {
       bool    hasPosition;
@@ -44,6 +47,25 @@ namespace T2Layout
       Point3F impactNormal;
       bool    hasDamage;
       F32     damage;               ///< share of the object's maxDamage
+      bool    hasDamageState;
+      U32     damageState;          ///< Enabled, Disabled or Destroyed
+      bool    blowApart;            ///< it comes apart rather than just dies
+      bool    hasDamageDir;
+      Point3F damageDir;            ///< the way the blow came from, which is
+                                    ///< the way its debris leaves
+      bool    hasExplodePoint;
+      Point3F explodePoint;         ///< where a projectile ended, which is
+                                    ///< not where it last was
+      bool    hasCurrTick;
+      U32     currTick;             ///< ticks since the sender created it, so
+                                    ///< a late arrival can be caught up
+      bool    hasSourceObject;
+      U32     sourceObject;         ///< the ghost that fired it
+      U32     sourceSlot;           ///< and the image slot it came out of
+      bool    hasVehicleObject;
+      U32     vehicleObject;        ///< the ghost that was carrying it
+      bool    quickSplash;          ///< it was already in water when it
+                                    ///< arrived
       bool    hasJetting;
       bool    jetting;              ///< the jet pack is lit
       bool    hasRotate;
@@ -79,6 +101,19 @@ namespace T2Layout
          U32    fireCount;
       };
       Image   images[MaxImages];
+
+      /// What a body said about one of its object's animation threads -- the
+      /// mine's deploy, the station's activate.
+      struct Thread
+      {
+         bool   present;            ///< the body carried this thread at all
+         U32    sequence;           ///< an index into the shape's sequences
+         U32    state;              ///< ShapeBase::Thread::State
+         bool   forward;            ///< play it forwards
+         bool   atEnd;              ///< it has run to its last frame and
+                                    ///< stays there
+      };
+      Thread  threads[MaxThreads];
    };
 
    const Body &lastBody();
@@ -108,6 +143,8 @@ namespace T2Layout
       T2DbElasticity,
       T2DbFriction,
       T2DbGravityMod,
+      T2DbProjectileDrag,
+      T2DbProjectileDensity,
       T2DbArmingDelay,
       T2DbBlurLifetime,
       T2DbBlurWidth,
@@ -147,6 +184,26 @@ namespace T2Layout
       T2DbDrag,
       T2DbDensity,
       T2DbMaxEnergy,
+
+   // The three ShapeBaseData names every ShapeBase comes apart into, which is
+   // what a destroyed one is seen and heard as.
+      T2DbShapeExplosion,
+      T2DbShapeUnderwaterExplosion,
+      T2DbShapeDebris,
+
+      T2DbItemFriction,
+      T2DbItemElasticity,
+      T2DbItemSticky,
+      T2DbItemGravityMod,
+      T2DbItemMaxVelocity,
+      T2DbItemLightType,
+      T2DbItemLightColorR,
+      T2DbItemLightColorG,
+      T2DbItemLightColorB,
+      T2DbItemLightColorA,
+      T2DbItemLightTime,
+      T2DbItemLightRadius,
+      T2DbItemLightOnlyStatic,
 
       T2DbMinLookAngle,
       T2DbMaxLookAngle,

@@ -155,7 +155,12 @@ public:
    void pack(NetConnection *, BitStream *stream) { stream->write(mGravity); }
    void write(NetConnection *, BitStream *stream) { stream->write(mGravity); }
    void unpack(NetConnection *, BitStream *stream) { stream->read(&mGravity); }
-   void process(NetConnection *) {}
+
+      // What retail's own process does (0x005ff5e0): the mission's gravity
+      // into the one global every falling thing reads. Classic's server.cs
+      // runs at -26.9 rather than the engine's own -20, and a client that
+      // ignored this predicts its own fall against the wrong number.
+   void process(NetConnection *) { Player::mGravity = mGravity; }
 
    DECLARE_CONOBJECT(GravityEvent);
 };

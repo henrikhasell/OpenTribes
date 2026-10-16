@@ -251,6 +251,23 @@ bool ShapeBaseData::unpackData(BitStream *stream, U32 classId)
          this->*sFields[i].member = value;
    }
 
+      // The three names a destroyed one comes apart into. They arrive as ids
+      // and preload below is what turns each into its datablock.
+   static const struct { U32 field; S32 ShapeBaseData::*member; } sIds[] =
+   {
+      { T2Layout::T2DbShapeExplosion,           &ShapeBaseData::explosionID  },
+      { T2Layout::T2DbShapeUnderwaterExplosion,
+                                      &ShapeBaseData::underwaterExplosionID },
+      { T2Layout::T2DbShapeDebris,              &ShapeBaseData::debrisID     },
+   };
+
+   for (U32 i = 0; i < sizeof(sIds) / sizeof(sIds[0]); i++)
+   {
+      U32 id;
+      if (T2Layout::lastDataBlockWord(sIds[i].field, &id))
+         this->*sIds[i].member = S32(id);
+   }
+
    return true;
 }
 
@@ -1530,11 +1547,78 @@ F32 ShapeBase::getDamageValue()
 }
 
 // HH: Added for Tribes 2 compatibility.
-// A ghost body carries damage as readFloat(6) of the datablock's maxDamage.
+// What ShapeBase::unpackUpdate does with the damage block (0x005ef194): the
+// level, the state, the way the blow came from, and then the explosion -- the
+// client is the only thing that plays one, because the server says nothing
+// more than "destroyed".
 void ShapeBase::readT2Damage(const T2Layout::Body &body)
 {
-   if (body.hasDamage && mDataBlock && mDataBlock->maxDamage > 0.0f)
+   if (!body.hasDamage)
+      return;
+
+   if (mDataBlock && mDataBlock->maxDamage > 0.0f)
       setDamageLevel(body.damage * mDataBlock->maxDamage);
+
+   if (body.hasDamageDir)
+      damageDir = body.damageDir;
+
+   const DamageState was = mDamageState;
+   if (body.hasDamageState && body.damageState < NumDamageStates)
+      mDamageState = DamageState(body.damageState);
+
+   if ((was != Destroyed && mDamageState == Destroyed) || body.blowApart)
+   {
+      if (isProperlyAdded())
+         blowUp();
+   }
+
+   updateDamageLevel();
+   updateDamageState();
+}
+
+// HH: Added for Tribes 2 compatibility.
+// The four threads a script's playThread reaches (0x005ef42b). A sequence is
+// an index into the shape, not a name: the server and the client agree on the
+// order because they loaded the same .dts.
+void ShapeBase::readT2Threads(const T2Layout::Body &body)
+{
+   const bool trace = Con::getBoolVariable("$pref::Net::traceGhostThreads",
+                                           false);
+
+   const U32 slots = getMin((U32)MaxScriptThreads, (U32)T2Layout::MaxThreads);
+   for (U32 i = 0; i < slots; i++)
+   {
+      const T2Layout::Body::Thread &slot = body.threads[i];
+      if (!slot.present)
+         continue;
+
+      Thread &st = mScriptThread[i];
+
+      if (trace)
+         Con::printf("T2 thread: %s %d slot %d sequence %d (%s) state %d "
+                     "forward %d atEnd %d", getClassName(), getId(), i,
+                     slot.sequence,
+                     mShapeInstance && S32(slot.sequence) <
+                        mShapeInstance->getShape()->sequences.size()
+                        ? mShapeInstance->getShape()->getName(
+                             mShapeInstance->getShape()
+                                ->sequences[slot.sequence].nameIndex).c_str()
+                        : "?",
+                     slot.state, slot.forward, slot.atEnd);
+
+         // Retail asks for the sequence only where it changed, so a thread
+         // that is still playing the same one keeps the position it is at.
+      if (st.sequence != S32(slot.sequence))
+         setThreadSequence(i, S32(slot.sequence), false);
+
+      st.state = slot.state;
+      st.atEnd = slot.atEnd;
+      st.timescale = slot.forward ? 1.0f : -1.0f;
+      st.position = -1.0f;
+
+      if (mShapeInstance && st.thread)
+         updateThread(st);
+   }
 }
 
 void ShapeBase::onT2BodyRead(const T2Layout::Body &body)
@@ -1646,6 +1730,7 @@ bool ShapeBase::unpackUpdate(BitStream *stream, bool isInitial)
       return false;
 
    readT2Images(T2Layout::lastBody());
+   readT2Threads(T2Layout::lastBody());
    return true;
 }
 

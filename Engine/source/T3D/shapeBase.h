@@ -1337,6 +1337,9 @@ public:
    /// Mount what a Tribes 2 ghost body said is in this object's image slots.
    void readT2Images(const T2Layout::Body &body);
 
+   /// Play what a Tribes 2 ghost body said its animation threads are doing.
+   void readT2Threads(const T2Layout::Body &body);
+
    void onT2BodyRead(const T2Layout::Body &body) override;
 
    bool unpackUpdate(BitStream *stream, bool isInitial) override;
