@@ -40,6 +40,7 @@
 #include "materials/baseMatInstance.h"
 #include "materials/sceneData.h"
 #include "math/util/matrixSet.h"
+#include "T3D/gameBase/t2Layout.h"
 
 
 IMPLEMENT_CO_NETOBJECT_V1(Sun);
@@ -65,6 +66,9 @@ Sun::Sun()
    mSunAzimuth = 0.0f;
    mSunElevation = 35.0f;
    mCastShadows = true;
+
+   mDirection.set( 0.0f, 0.0f, -1.0f );
+   mHasDirection = false;
 
    mAnimateSun = false;
    mTotalTime = 0.0f;
@@ -210,6 +214,38 @@ void Sun::inspectPostApply()
 
 
 
+// HH: Added for Tribes 2 compatibility.
+// Tribes 2's Sun has no azimuth or elevation, only the three fields a mission
+// states: `Sun::packUpdate` (0x5b13d0) writes the direction, the colour and
+// the ambient as raw floats, then the lens flare's scale, intensity, front
+// and back sizes and colour. Without them the client lit its terrain from
+// Torque's default sun.
+bool Sun::unpackUpdate(BitStream *stream, bool isInitial)
+{
+   if(!Parent::unpackUpdate(stream, isInitial))
+      return false;
+
+   const Vector<U32> &words = T2Layout::lastWords();
+   if(words.size() < 11)
+      return true;
+
+   F32 values[11];
+   dMemcpy(values, words.address(), sizeof(values));
+
+   mDirection.set(values[0], values[1], values[2]);
+   mHasDirection = !mDirection.isZero();
+   if(mHasDirection)
+      mDirection.normalize();
+
+   mLightColor.set(values[3], values[4], values[5], values[6]);
+   mLightAmbient.set(values[7], values[8], values[9], values[10]);
+
+   if(isProperlyAdded())
+      _conformLights();
+
+   return true;
+}
+
 void Sun::submitLights( LightManager *lm, bool staticLighting )
 {
    // The sun is a special light and needs special registration.
@@ -335,6 +371,12 @@ void Sun::_conformLights()
    VectorF lightDirection;
    MathUtils::getVectorFromAngles(lightDirection, yaw, pitch);
    lightDirection.normalize();
+
+   // HH: Modified for Tribes 2 compatibility.
+   // A Tribes 2 sun names the way its light travels outright.
+   if ( mHasDirection )
+      lightDirection = -mDirection;
+
    mLight->setDirection( -lightDirection );
    mLight->setBrightness( mBrightness );
 

@@ -611,6 +611,13 @@ bool blTerrainProxy::setPersistInfo(PersistInfo::PersistChunk * info)
    if(!terrain || !terrain->getLightMap())
       return(false);
 
+   // HH: Added for Tribes 2 compatibility.
+   // A cache lit at another lightmap size is a cache for some other terrain
+   // setup; relight rather than stretch it over this one.
+   if(!chunk->mLightmap || chunk->mLightmap->getWidth() != mLightMapSize ||
+      chunk->mLightmap->getHeight() != mLightMapSize)
+      return(false);
+
    terrain->setLightMap( new GBitmap( *chunk->mLightmap) );
 
    return(true);

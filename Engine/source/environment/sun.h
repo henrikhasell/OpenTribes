@@ -50,6 +50,12 @@ protected:
    
    F32 mSunElevation;
 
+   // HH: Added for Tribes 2 compatibility.
+   // The way the light travels, as a Tribes 2 sun sends it in place of an
+   // azimuth and an elevation.
+   VectorF mDirection;
+   bool mHasDirection;
+
    ColorF mLightColor;
 
    ColorF mLightAmbient;
@@ -114,6 +120,7 @@ public:
    void inspectPostApply();
 
    // NetObject
+   bool unpackUpdate(BitStream *stream, bool isInitial);
 
    // ISceneLight
    virtual void submitLights( LightManager *lm, bool staticLighting );
