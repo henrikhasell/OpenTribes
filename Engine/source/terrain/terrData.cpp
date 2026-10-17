@@ -969,6 +969,12 @@ bool TerrainBlock::onAdd()
       setPosition( Point3F( half, half, 0.0f ) );
 
       terr->_setEmptySquares( mEmptySquareRuns );
+
+      // Tribes 2 lights a block into 512 by 512 lexels whatever its size --
+      // `TerrainProxy::init` (0x57b840) allocates 0x40000 colours and
+      // `TerrainChunk::read` (0x575da0) packs that many back out of the
+      // cache -- which is two to a square, where Torque's default is one.
+      mLightMapSize = 512;
    }
 
    if ( terr->hasLayerAlpha() )
