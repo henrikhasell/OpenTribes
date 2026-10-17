@@ -26,6 +26,10 @@
 #ifndef _TSMESH_H_
 #include "ts/tsMesh.h"
 #endif
+// HH: Added for Tribes 2 compatibility.
+#ifndef _TSDECAL_H_
+#include "ts/tsDecal.h"
+#endif
 #ifndef _TSINTEGERSET_H_
 #include "ts/tsIntegerSet.h"
 #endif
@@ -155,6 +159,8 @@ class TSShape
       TSIntegerSet matFrameMatters;     ///< Set of objects
       // HH: Added for Tribes 2 compatibility.
       TSIntegerSet iflMatters;          ///< Set of ifl materials
+      // HH: Added for Tribes 2 compatibility.
+      TSIntegerSet decalMatters;        ///< Set of decals
       /// @}
 
       S32 priority;
@@ -270,6 +276,17 @@ class TSShape
       S32 numFrames;
    };
 
+   // HH: Added for Tribes 2 compatibility.
+   /// Marks drawn over one object's mesh, one decal mesh per detail level.
+   struct Decal
+   {
+      S32 nameIndex;
+      S32 numMeshes;
+      S32 startMeshIndex;        ///< into decalMeshes
+      S32 objectIndex;           ///< the object whose mesh it marks
+      S32 nextSibling;
+   };
+
    /// @name Collision Accelerators
    ///
    /// For speeding up buildpolylist and support calls.
@@ -300,6 +317,9 @@ class TSShape
    Vector<Point3F> defaultTranslations;
    // HH: Added for Tribes 2 compatibility.
    Vector<IflMaterial> iflMaterials;
+   // HH: Added for Tribes 2 compatibility.
+   Vector<Decal> decals;
+   Vector<S32> decalStates;          ///< a decal mesh frame, or -1 for none
 
    /// @}
 
@@ -308,6 +328,9 @@ class TSShape
 
    Vector<S32> subShapeFirstTranslucentObject;
    Vector<TSMesh*> meshes;
+   // HH: Added for Tribes 2 compatibility.
+   /// The decal meshes, in the slots of meshes they would have had.
+   Vector<TSDecalMesh*> decalMeshes;
 
    /// @}
 
@@ -453,6 +476,8 @@ class TSShape
    const Point3F & getAlignedScale(const Sequence & seq, S32 keyframeNum, S32 scaleNum) const;
    TSScale & getArbitraryScale(const Sequence & seq, S32 keyframeNum, S32 scaleNum, TSScale *) const;
    const ObjectState & getObjectState(const Sequence & seq, S32 keyframeNum, S32 objectNum) const;
+   // HH: Added for Tribes 2 compatibility.
+   S32 getDecalState(const Sequence & seq, S32 keyframeNum, S32 decalNum) const;
    /// @}
 
    /// build LOS collision detail
@@ -713,6 +738,12 @@ inline TSScale & TSShape::getArbitraryScale(const Sequence & seq, S32 keyframeNu
    nodeArbitraryScaleRots[seq.baseScale + scaleNum*seq.numKeyframes + keyframeNum].getQuatF(&scale->mRotate);
    scale->mScale = nodeArbitraryScaleFactors[seq.baseScale + scaleNum*seq.numKeyframes + keyframeNum];
    return *scale;
+}
+
+// HH: Added for Tribes 2 compatibility.
+inline S32 TSShape::getDecalState(const Sequence & seq, S32 keyframeNum, S32 decalNum) const
+{
+   return decalStates[seq.baseDecalState + decalNum*seq.numKeyframes + keyframeNum];
 }
 
 inline const TSShape::ObjectState & TSShape::getObjectState(const Sequence & seq, S32 keyframeNum, S32 objectNum) const

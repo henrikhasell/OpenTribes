@@ -126,6 +126,11 @@ TSShape::~TSShape()
          delete meshes[i];
    }
 
+   // HH: Added for Tribes 2 compatibility.
+   for (i=0; i<decalMeshes.size(); i++)
+      if (decalMeshes[i])
+         destructInPlace(decalMeshes[i]);
+
    for (i=0; i<billboardDetails.size(); i++)
    {
       delete billboardDetails[i];
@@ -1047,8 +1052,9 @@ void TSShape::assembleShape()
 
    tsalloc.checkGuard();
 
-   // DEPRECATED decals
+   // HH: Modified for Tribes 2 compatibility.
    ptr32 = tsalloc.getPointer32(numDecals*5);
+   decals.set(ptr32,numDecals);
 
    tsalloc.checkGuard();
 
@@ -1180,8 +1186,9 @@ void TSShape::assembleShape()
 
    tsalloc.checkGuard();
 
-   // DEPRECATED decal states
+   // HH: Modified for Tribes 2 compatibility.
    ptr32 = tsalloc.getPointer32(numDecalStates);
+   decalStates.set(ptr32,numDecalStates);
 
    tsalloc.checkGuard();
 
@@ -1315,14 +1322,24 @@ void TSShape::assembleShape()
    // read in the meshes (sans skins)...straightforward read one at a time
    TSMesh **ptrmesh = (TSMesh**)tsalloc.allocShape32((numMeshes + numSkins*numDetails) * (sizeof(TSMesh*) / 4)); // leave room for skins on old shapes
    S32 curObject = 0; // for tracking skipped meshes
+   // HH: Added for Tribes 2 compatibility.
+   decalMeshes.setSize(numMeshes);
+   for (i=0; i<numMeshes; i++)
+      decalMeshes[i] = NULL;
    for (i=0; i<numMeshes; i++)
    {
       bool skip = checkSkip(i,curObject,skipDL); // skip this mesh?
       S32 meshType = tsalloc.get32();
-      if (meshType == TSMesh::DecalMeshType)
-         // decal mesh deprecated
-         skip = true;
       TSMesh * mesh = TSMesh::assembleMesh(meshType,skip);
+      // HH: Modified for Tribes 2 compatibility.
+      // A decal mesh is not a TSMesh, so it is kept beside the list.
+      if (meshType == TSMesh::DecalMeshType)
+      {
+         if (ptrmesh && !skip)
+            decalMeshes[i] = (TSDecalMesh*)mesh;
+         mesh = NULL;
+         skip = true;
+      }
       if (ptrmesh)
          ptrmesh[i] = skip ?  0 : mesh;
 
@@ -1348,6 +1365,24 @@ void TSShape::assembleShape()
       }
    }
    meshes.set(ptrmesh,numMeshes);
+
+   // HH: Added for Tribes 2 compatibility.
+   // A decal marks its object's mesh of the same detail level.
+   for (i=0; i<decals.size(); i++)
+   {
+      const Decal &decal = decals[i];
+      if (decal.objectIndex < 0 || decal.objectIndex >= objects.size())
+         continue;
+      const Object &obj = objects[decal.objectIndex];
+      for (j=0; j<decal.numMeshes; j++)
+      {
+         const S32 at = decal.startMeshIndex + j;
+         if (at < 0 || at >= decalMeshes.size() || !decalMeshes[at])
+            continue;
+         decalMeshes[at]->targetMesh = j < obj.numMeshes && meshes.address()
+                                       ? meshes[obj.startMeshIndex + j] : NULL;
+      }
+   }
 
    tsalloc.checkGuard();
 

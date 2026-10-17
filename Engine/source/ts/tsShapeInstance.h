@@ -165,6 +165,11 @@ class TSShapeInstance
       /// was last rendered.
       U32 mLastTime;
 
+      // HH: Added for Tribes 2 compatibility.
+      /// Bumped each time a render skins the mesh, which is when its vertex
+      /// data is this instance's own.
+      U32 mSkinCount;
+
       MeshObjectInstance();
       virtual ~MeshObjectInstance() {}
 
@@ -201,9 +206,28 @@ class TSShapeInstance
 // Lists used for storage of transforms, nodes, objects, etc...
 //-------------------------------------------------------------------------------------
 
+   // HH: Added for Tribes 2 compatibility.
+   /// A decal drawn over its object's mesh: the frame of it that is showing,
+   /// and the triangles of that frame built from the mesh as last skinned.
+   struct DecalObjectInstance
+   {
+      S32 decal;
+      S32 frame;
+
+      TSVertexBufferHandle mVertexBuffer;
+      GFXPrimitiveBufferHandle mPrimitiveBuffer;
+      S32 mBuiltFrame;
+      S32 mBuiltDetail;
+      U32 mBuiltSkinCount;
+
+      DecalObjectInstance();
+   };
+
    public:
 
    Vector<MeshObjectInstance> mMeshObjects;
+   // HH: Added for Tribes 2 compatibility.
+   Vector<DecalObjectInstance> mDecalObjects;
 
    /// storage space for node transforms
    Vector<MatrixF> mNodeTransforms;
@@ -494,6 +518,9 @@ protected:
    void animateVisibility(S32 ss);
    void animateFrame(S32 ss);
    void animateMatFrame(S32 ss);
+   // HH: Added for Tribes 2 compatibility.
+   void animateDecals();
+   void renderDecals( const TSRenderState &rdata, S32 objectDetail, F32 alpha );
    void animateSubtrees(bool forceFull = true);
    void animateNodeSubtrees(bool forceFull = true);
 
@@ -560,7 +587,9 @@ protected:
       FrameDirty =      BIT(2),
       MatFrameDirty =   BIT(3),
       ThreadDirty =     BIT(4),
-      AllDirtyMask = TransformDirty | VisDirty | FrameDirty | MatFrameDirty | ThreadDirty
+      // HH: Added for Tribes 2 compatibility.
+      DecalDirty =      BIT(5),
+      AllDirtyMask = TransformDirty | VisDirty | FrameDirty | MatFrameDirty | ThreadDirty | DecalDirty
    };
    U32 * mDirtyFlags;
    void setDirty(U32 dirty);
