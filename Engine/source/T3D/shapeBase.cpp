@@ -1072,7 +1072,12 @@ bool ShapeBase::onNewDataBlock( GameBaseData *dptr, bool reload )
    updateDamageLevel();
    updateDamageState();
 
-   mDrag = mDataBlock->drag;
+   // HH: Modified for Tribes 2 compatibility.
+   // Retail's drag is the container's to set and nobody else's: its
+   // constructor (0x005e6e30) zeroes it and only updateContainer writes it
+   // again. Seeding it from the datablock here cost a thrown item the first
+   // tick of its flight, which is a flat one and a half per cent off the
+   // speed the server gave it for as long as it flies.
    mCameraFov = mDataBlock->cameraDefaultFov;
    updateMass();
 
@@ -1486,35 +1491,35 @@ void ShapeBase::updateContainer()
 
    // Update container drag and buoyancy properties
 
-   // Set default values.
-   mDrag = mDataBlock->drag;
-   mBuoyancy = 0.0f;      
+   // HH: Modified for Tribes 2 compatibility.
+   // Retail's own (0x005ea600): a body out of the water is not dragged at
+   // all, and `drag` is a water coefficient rather than an air one -- fifteen
+   // times the datablock's figure, by the share of the box the water covers,
+   // past a tenth of it. Torque starts the drag at the datablock's value
+   // whatever the body is in, which had a thrown item shedding one and a half
+   // per cent of its speed every tick while the server flew it in a straight
+   // line, and a client cannot predict an arc it is braking and the server is
+   // not.
+   mDrag = 0.0f;
+   mBuoyancy = 0.0f;
    mGravityMod = 1.0;
    mAppliedForce.set(0,0,0);
-   
+
    ContainerQueryInfo info;
    info.box = getWorldBox();
    info.mass = getMass();
 
    mContainer->findObjects(info.box, WaterObjectType|PhysicalZoneObjectType,findRouter,&info);
-      
-   mWaterCoverage = info.waterCoverage;
+
+   mWaterCoverage = mClampF(info.waterCoverage, 0.0f, 1.0f);
    mLiquidType    = info.liquidType;
-   mLiquidHeight  = info.waterHeight;   
+   mLiquidHeight  = info.waterHeight;
    setCurrentWaterObject( info.waterObject );
-   
-   // This value might be useful as a datablock value,
-   // This is what allows the player to stand in shallow water (below this coverage)
-   // without jiggling from buoyancy
-   if (mWaterCoverage >= 0.25f) 
-   {      
-      // water viscosity is used as drag for in water.
-      // ShapeBaseData drag is used for drag outside of water.
-      // Combine these two components to calculate this ShapeBase object's 
-      // current drag.
-      mDrag = ( info.waterCoverage * info.waterViscosity ) + 
-              ( 1.0f - info.waterCoverage ) * mDataBlock->drag;
-      mBuoyancy = (info.waterDensity / mDataBlock->density) * info.waterCoverage;
+
+   if (mWaterCoverage > 0.1f)
+   {
+      mDrag = mDataBlock->drag * 15.0f * mWaterCoverage;
+      mBuoyancy = mWaterCoverage / mDataBlock->density;
    }
 
    mAppliedForce = info.appliedForce;
