@@ -727,8 +727,6 @@ void Debris::computeNewState( Point3F &newPos, Point3F &newVel, F32 dt )
 {
    // apply gravity
    // HH: Modified for Tribes 2 compatibility.
-   // Retail's debris takes the world's gravity through the fixed share
-   // projectiles do (0x006860d2), which is this 9.81 at the default -20.
    Point3F force = Point3F(0, 0, gWorldGravity * WorldGravityScale * mDataBlock->gravModifier );
 
    if( mDataBlock->terminalVelocity > 0.0001 )

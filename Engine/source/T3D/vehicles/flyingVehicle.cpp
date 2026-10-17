@@ -52,8 +52,6 @@ static U32 sServerCollisionMask = sCollisionMoveMask; // ItemObjectType
 static U32 sClientCollisionMask = sCollisionMoveMask;
 
 // HH: Modified for Tribes 2 compatibility.
-// Retail's flying vehicle falls at the world's gravity (0x00610560), not at a
-// -20 of its own.
 static F32 &sFlyingVehicleGravity = gWorldGravity;
 
 //

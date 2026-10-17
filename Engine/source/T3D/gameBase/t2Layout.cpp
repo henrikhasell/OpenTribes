@@ -432,11 +432,9 @@ static const T2ImageMap *resolveImages(const T2DataBlockLayout *layout)
    return map;
 }
 
-/// The nodes of one animation thread, in the order the walk reaches them.
 enum T2ThreadPart
 {
-   T2ThreadMask,                    ///< the flag that says the body carried
-                                    ///< this thread
+   T2ThreadMask,
    T2ThreadSequence,
    T2ThreadState,
    T2ThreadForward,
@@ -449,16 +447,12 @@ struct T2ThreadMap
 {
    const T2DataBlockLayout *layout;
    U32                      slots;
-   Vector<S16>              part;   ///< node -> slot * T2ThreadParts + part,
-                                    ///< or -1
+   Vector<S16>              part;
 };
 
 static Vector<T2ThreadMap *> sThreadMaps(__FILE__, __LINE__);
 static const T2ThreadMap *sThreads = NULL;
 
-/// A node that carries a value of a given width, whatever the walk called the
-/// read: the described graphs say OpInt and OpFloat where the walked ones say
-/// OpRaw, and a field is the bits either way.
 static bool isValue(const T2DataNode *n, U32 bits)
 {
    return n && n->bits == bits &&
@@ -466,8 +460,6 @@ static bool isValue(const T2DataNode *n, U32 bits)
            n->op == OpSignedFloat);
 }
 
-   /// One of ShapeBase::unpackUpdate's four threads (0x005ef42b): a mask, five
-   /// bits of sequence, two of state, then the direction and the end flag.
 static bool matchThreadSlot(const T2DataBlockLayout *layout, S32 top,
                             S16 *parts)
 {
@@ -501,8 +493,6 @@ static bool matchThreadSlot(const T2DataBlockLayout *layout, S32 top,
    return true;
 }
 
-   /// The threads run one into the next, the way the image slots do, and there
-   /// is exactly one such run in each of the thirteen ShapeBase-derived graphs.
 static const T2ThreadMap *resolveThreads(const T2DataBlockLayout *layout)
 {
    for(U32 i = 0; i < sThreadMaps.size(); i++)
@@ -556,15 +546,13 @@ static const T2ThreadMap *resolveThreads(const T2DataBlockLayout *layout)
    return map;
 }
 
-/// The nodes of ShapeBase's damage block, which is one block rather than a run.
 enum T2DamagePart
 {
    T2DamageLevel,
    T2DamageState,
    T2DamageBlowApart,
    T2DamageDirPhi,
-   T2DamageDirTheta,                ///< -1 where the walk read the whole
-                                    ///< normal as one word
+   T2DamageDirTheta,
 
    T2DamageParts
 };
@@ -579,12 +567,6 @@ struct T2DamageMap
 static Vector<T2DamageMap *> sDamageMaps(__FILE__, __LINE__);
 static const T2DamageMap *sDamage = NULL;
 
-   /// ShapeBase::unpackUpdate reads the damage at 0x005ef194: readFloat(6) of
-   /// the datablock's maxDamage, two bits of state, the blow-apart flag and
-   /// then readNormalVector(8). The described graphs split that normal into a
-   /// signed float of nine bits and one of eight; the walked ones read all
-   /// seventeen as one word. Exactly one such block exists in each graph that
-   /// has one, which is what identifies it with no node named.
 static bool matchDamage(const T2DataBlockLayout *layout, S32 top, S16 *parts)
 {
    const T2DataNode *level = nodeAt(layout, top);
@@ -659,7 +641,6 @@ static const T2DamageMap *resolveDamage(const T2DataBlockLayout *layout)
    return map;
 }
 
-/// Which part of the damage block this node is, where it is one of its.
 static bool damageAt(const T2DataBlockLayout *layout, S32 at, U32 *part)
 {
    if(!sDamage || sDamage->layout != layout || !sDamage->found || at < 0)
@@ -677,7 +658,6 @@ static bool damageAt(const T2DataBlockLayout *layout, S32 at, U32 *part)
 
 static F32 sDamagePhi = 0.0f;
 
-/// What one node of the damage block read, under the width that node has.
 static void noteDamage(U32 part, U32 word, U32 bits)
 {
    switch(part)
@@ -695,8 +675,6 @@ static void noteDamage(U32 part, U32 word, U32 bits)
       case T2DamageDirPhi:
          if(bits == 17)
          {
-               // readNormalVector(8) as the walk saw it: both halves in one
-               // word, nine bits of phi under eight of theta.
             sBody.hasDamageDir = true;
             sBody.damageDir = normalVector(word, 8);
          }
@@ -718,7 +696,6 @@ static void noteDamage(U32 part, U32 word, U32 bits)
    }
 }
 
-/// Which slot and field this node is, where it is one of a thread's.
 static bool threadAt(const T2DataBlockLayout *layout, S32 at, U32 *slot,
                      U32 *part)
 {
@@ -1813,8 +1790,6 @@ static void assembleBody()
       sBody.hasScale = true;
    }
 
-      // Where a projectile ended is not where it last was, so it is kept
-      // apart from the position: an initial body can carry both.
    if(sExplodeAt >= 0 && sWords.size() >= U32(sExplodeAt) + 3)
    {
       sBody.explodePoint.set(wordFloat(sExplodeAt), wordFloat(sExplodeAt + 1),

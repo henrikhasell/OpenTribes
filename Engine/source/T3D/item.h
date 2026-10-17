@@ -94,7 +94,6 @@ class Item: public ShapeBase
    // Static attributes
    ItemData* mDataBlock;
    // HH: Modified for Tribes 2 compatibility.
-   // The world's gravity, which setGravity and GravityEvent write.
    static F32 &mGravity;
    bool mStatic;
    bool mRotate;

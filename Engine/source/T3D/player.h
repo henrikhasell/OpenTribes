@@ -680,7 +680,6 @@ protected:
 
 public:
    // HH: Modified for Tribes 2 compatibility.
-   // The world's gravity, which setGravity and GravityEvent write.
    static F32 &mGravity;            ///< Gravity
 
    DECLARE_CONOBJECT(Player);

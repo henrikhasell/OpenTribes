@@ -388,8 +388,6 @@ void GameConnection::onConnectionEstablished(bool isInitiator)
       mMoveList->init();
 
       // HH: Added for Tribes 2 compatibility.
-      // Retail tells every client the world's gravity as its connection is
-      // set up (0x005faf30), so one that joins after setGravity still hears it.
       postWorldGravity(this);
 
       const char *argv[MaxConnectArgs + 2];

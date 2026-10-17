@@ -246,9 +246,6 @@ namespace T2Protocol
       { "EnergyProjectileData",      66, OpRaw, 32, T2DbScaleZ             },
       { "EnergyProjectileData",      60, OpDataBlockId, 11, T2DbExplosion   },
 
-   // GrenadeProjectileData::unpackData (0x00633cf0) reads eight bare words
-   // after ProjectileData's body, in this order, and the layout's unbroken run
-   // of nine 32-bit nodes is depthTolerance then those eight.
       { "GrenadeProjectileData", 24, OpRaw, 32, T2DbArmingDelay        },
       { "GrenadeProjectileData", 25, OpRaw, 32, T2DbProjectileVelocity },
       { "GrenadeProjectileData", 26, OpRaw, 32, T2DbElasticity         },
@@ -258,23 +255,13 @@ namespace T2Protocol
       { "GrenadeProjectileData", 30, OpRaw, 32, T2DbGravityMod         },
       { "GrenadeProjectileData", 31, OpRaw, 32, T2DbProjectileLifetime },
 
-   // ProjectileData's own tail, which every projectile shares: the flags at
-   // nodes 5 to 19 gate the fifteen datablock ids, in the order the pointers
-   // sit in the class -- baseEmitter, delayEmitter, bubbleEmitter, explosion,
-   // underwaterExplosion, splash, sound, wetFireSound, fireSound, then the six
-   // decals.
       { "GrenadeProjectileData", 51, OpDataBlockId, 11, T2DbExplosion   },
 
-   // ItemData::unpackData (0x00603750) on ShapeBaseData's body (0x005e63e0).
-   // Every one of these is flag-gated, so each is named by the node its own
-   // flag reaches rather than by its place in a run.
       { "ItemData", 141, OpRaw, 32, T2DbMass      },
       { "ItemData", 140, OpRaw, 32, T2DbDrag      },
       { "ItemData", 139, OpRaw, 32, T2DbDensity   },
       { "ItemData", 138, OpRaw, 32, T2DbMaxEnergy },
 
-   // The four ids are cmdIcon, explosion, underwaterExplosion and debris --
-   // ShapeBaseData::preload (0x005e42b0) is what pairs each with its pointer.
       { "ItemData", 125, OpDataBlockId, 11, T2DbShapeExplosion            },
       { "ItemData", 124, OpDataBlockId, 11, T2DbShapeUnderwaterExplosion  },
       { "ItemData", 123, OpDataBlockId, 11, T2DbShapeDebris               },

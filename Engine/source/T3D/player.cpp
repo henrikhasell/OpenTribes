@@ -1355,9 +1355,6 @@ ConsoleDocClass( Player,
 );
 
 // HH: Modified for Tribes 2 compatibility.
-// Retail's player falls at the world's gravity (0x007a1a20), which starts at
-// -20 and is raised by the server's own setGravity -- Classic's server.cs
-// asks for -26.9 -- and reaches a client as a GravityEvent.
 F32 &Player::mGravity = gWorldGravity;
 
 //----------------------------------------------------------------------------

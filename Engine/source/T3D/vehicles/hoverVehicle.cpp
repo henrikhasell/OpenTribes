@@ -73,8 +73,6 @@ namespace {
 
 const U32 sIntergrationsPerTick = 1;
 // HH: Modified for Tribes 2 compatibility.
-// Retail's hover vehicle falls at the world's gravity (0x00618be9), not at a
-// -20 of its own.
 F32 &sHoverVehicleGravity = gWorldGravity;
 
 const U32 sCollisionMoveMask = (TerrainObjectType        | InteriorObjectType   |

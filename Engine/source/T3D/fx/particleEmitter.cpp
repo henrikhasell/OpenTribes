@@ -1075,7 +1075,6 @@ void ParticleEmitter::emitParticles(const Point3F& start,
               a -= last_part->vel * last_part->dataBlock->dragCoefficient;
               a -= mWindVelocity * last_part->dataBlock->windCoefficient;
               // HH: Modified for Tribes 2 compatibility.
-              // The world's gravity, as update() below takes it.
               a += Point3F(0.0f, 0.0f, gWorldGravity * WorldGravityScale) * last_part->dataBlock->gravityCoefficient;
 
               last_part->vel += a * t;
@@ -1391,8 +1390,6 @@ void ParticleEmitter::update( U32 ms )
       a -= part->vel        * part->dataBlock->dragCoefficient;
       a -= mWindVelocity * part->dataBlock->windCoefficient;
       // HH: Modified for Tribes 2 compatibility.
-      // Retail's particles take the world's gravity through the fixed share
-      // projectiles do (0x0062592a), which is this 9.81 at the default -20.
       a += Point3F(0.0f, 0.0f, gWorldGravity * WorldGravityScale) * part->dataBlock->gravityCoefficient;
 
       part->vel += a * t;

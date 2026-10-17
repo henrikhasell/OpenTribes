@@ -29,12 +29,10 @@ namespace T2Protocol
       T2FieldImpactTheta,
       T2FieldPointWords,
       T2FieldVelocityWords,
-      T2FieldExplodeWords,          ///< the first of three raw floats, where
-                                    ///< a projectile ended
-      T2FieldImpactWords,           ///< the first of three, the surface it
-                                    ///< ended against
-      T2FieldCurrTick,              ///< readInt(bits) ticks since it was made
-      T2FieldSourceObject,          ///< readInt(bits), a ghost index
+      T2FieldExplodeWords,
+      T2FieldImpactWords,
+      T2FieldCurrTick,
+      T2FieldSourceObject,
       T2FieldSourceSlot,
       T2FieldVehicleObject,
       T2FieldQuickSplash,
@@ -74,13 +72,7 @@ namespace T2Protocol
 
       { "Player", 26, OpFlag,  1,  T2FieldJetting      },
 
-   // The damage block is not bound here: it is the same five reads in every
-   // ShapeBase-derived graph and `resolveDamage` finds it by that shape, which
-   // the walked graphs and the described ones both match.
-
    // The tail Item::unpackUpdate adds to ShapeBase's body: what the item is,
-   // where it is, whether it is still moving, and who threw it -- the ghost
-   // index at node 13 is the one retail hands to setCollisionTimeout.
       { "Item", 21, OpFlag,  1, T2FieldRotate        },
       { "Item", 20, OpFlag,  1, T2FieldStatic        },
       { "Item", 17, OpRaw,  32, T2FieldScale         },
@@ -151,11 +143,6 @@ namespace T2Protocol
       { "AudioEmitter",         150, OpRaw,  32, T2FieldAffine   },
       { "AudioEmitter",         156, OpFlag,  1, T2FieldQuatSign },
 
-   // LinearProjectile::unpackUpdate (0x0062f190), which TracerProjectile reads
-   // through and which LinearFlareProjectile's own copy reads the same bits as.
-   // A live body is the muzzle it left, the way it is going, how many ticks of
-   // that flight the sender has already run, and the two objects it must not
-   // hit: whoever fired it and whatever they were riding.
 #define T2_LINEAR_PROJECTILE_FIELDS( cls )                             \
       { cls, 17, OpPoint,        0,  T2FieldPosition     },            \
       { cls, 16, OpSignedFloat, 15,  T2FieldNormalPhi    },            \
@@ -177,11 +164,6 @@ namespace T2Protocol
 
 #undef T2_LINEAR_PROJECTILE_FIELDS
 
-   // GrenadeProjectile::unpackUpdate (0x00636050), which BombProjectile reads
-   // through and which EnergyProjectile's and FlareProjectile's own copies
-   // read the same bits as -- one table, so one set of rows. An initial body
-   // is where it was thrown from and how fast; a later one is a bounce the
-   // sender corrected, or the end of it.
 #define T2_GRENADE_PROJECTILE_FIELDS( cls )                            \
       { cls, 34, OpRaw, 32, T2FieldPointWords    },                    \
       { cls, 31, OpRaw, 32, T2FieldVelocityWords },                    \

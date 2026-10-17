@@ -52,10 +52,6 @@ static F32 sMinWarpTicks = 0.5 ;        // Fraction of tick at which instant war
 static S32 sMaxWarpTicks = 3;           // Max warp duration in ticks
 
 // HH: Modified for Tribes 2 compatibility.
-// Retail has one gravity, the global at 0x007a1a20 that setGravity writes and
-// that Item's own velocity update (0x00604860) reads, so a thrown grenade and
-// the player who threw it fall at the same rate. Keeping a second -20 here had
-// every thrown item floating: Classic runs at -26.9.
 F32 &Item::mGravity = gWorldGravity;
 
 const U32 sClientCollisionMask = (TerrainObjectType     |
@@ -185,18 +181,11 @@ void ItemData::initPersistFields()
 }
 
 // HH: Added for Tribes 2 compatibility.
-// What ItemData::unpackData (0x00603750) tells a client about an item: how it
-// bounces, how heavily it falls, what it comes apart into, and the light it
-// carries. A thrown grenade and a deployed mine are both Items, so this is
-// what decides the arc they take and the explosion they end as.
 bool ItemData::unpackData(BitStream *stream, U32 classId)
 {
    if (!Parent::unpackData(stream, classId))
       return false;
 
-      // Ten bits of unit float each, so a bounce arrives as a fraction and
-      // not as a word: an item that kept the bits would be unbuildably
-      // springy.
    static const struct { U32 field; U32 bits; F32 ItemData::*member; } sUnit[] =
    {
       { T2Layout::T2DbItemFriction,   10, &ItemData::friction   },
@@ -624,8 +613,6 @@ void Item::interpolateTick(F32 dt)
 void Item::onT2BodyRead(const T2Layout::Body &body)
 {
    // HH: Added for Tribes 2 compatibility.
-   // A mine and a thrown grenade are both Items, and both are nothing but a
-   // damage state until the moment they go off.
    readT2Damage(body);
 
    if (body.hasRotate)
@@ -639,12 +626,6 @@ void Item::onT2BodyRead(const T2Layout::Body &body)
       mObjScale.set(1.0f, 1.0f, 1.0f);
 
    // HH: Added for Tribes 2 compatibility.
-   // Who threw it. A throw starts the item at the thrower's own box centre
-   // (inventory.cs throwObject), so a client that does not read this ghost
-   // index predicts the item straight back into the player it came from and
-   // sticks it there, which is nothing like the arc the server flies. Retail
-   // hands the resolved ghost to setCollisionTimeout (0x00606815), and both
-   // ends then ignore the thrower for the same fifteen ticks.
    if (body.hasSourceObject)
    {
       NetConnection *conn = NetConnection::getConnectionToServer();

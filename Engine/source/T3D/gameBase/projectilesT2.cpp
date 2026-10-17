@@ -43,8 +43,8 @@ public:
    F32    elasticity;      ///< what a bounce keeps of its speed
    F32    friction;        ///< what a bounce takes off along the surface
    F32    gravityMod;      ///< a share of gravity, and zero for a bolt
-   F32    drag;            ///< what the water it is in takes off its speed
-   F32    density;         ///< and whether it is light enough to be slowed
+   F32    drag;
+   F32    density;
    U32    armingDelayMS;   ///< it bounces until this, and goes off after
    U32    explosionId;     ///< the ExplosionData it ends as
    U32    soundId;         ///< the AudioProfile it flies to
@@ -206,18 +206,16 @@ class ProjectileT2 : public GameBase
    bool    mNeedsSpeed;       ///< the body gave a direction and the datablock
                               ///< the speed, and it arrives after the body
    bool    mBounces;          ///< a grenade's family does; a disc goes off
-   F32     mAge;              ///< seconds since the sender created it, which
-                              ///< the body says rather than implies
-   F32     mCatchUp;          ///< of that age, the part of the flight still
-                              ///< to be made up, and zero once it has been
+   F32     mAge;
+   F32     mCatchUp;
    bool    mFlying;
    bool    mExploded;         ///< it only goes off once
    VectorF mImpactNormal;
    SFXSource *mSound;         ///< what it is heard as on the way
 
-   SimObjectId mSourceObject;  ///< who fired it, and the vehicle they were
-   SimObjectId mVehicleObject; ///< in; neither can be hit by their own shot
-   F32     mNoSourceHit;       ///< seconds of that left to run
+   SimObjectId mSourceObject;
+   SimObjectId mVehicleObject;
+   F32     mNoSourceHit;
 
    GFXStateBlockRef boltStateBlock();
    TSThread *startThread(const char *name);
@@ -383,10 +381,6 @@ void ProjectileT2::onT2BodyRead(const T2Layout::Body &body)
 {
    Parent::onT2BodyRead(body);
 
-      // Who fired it, which is the one object the flight must not hit: the
-      // muzzle is inside the shooter's own box. Retail keeps the shooter's
-      // collision off for seven ticks (Projectile::onAdd 0x00632190) and
-      // counts them down with the flight.
    if(body.hasSourceObject)
    {
       NetConnection *conn = NetConnection::getConnectionToServer();
@@ -404,18 +398,11 @@ void ProjectileT2::onT2BodyRead(const T2Layout::Body &body)
       mVehicleObject = obj ? obj->getId() : 0;
    }
 
-      // A grenade's family is told how old it is, so a client that heard of
-      // it late arms it and runs its fuse out on the sender's clock rather
-      // than on its own (GrenadeProjectile::onAdd 0x00634160 divides both the
-      // arming delay and the lifetime into ticks and compares them to this).
    if(body.hasCurrTick)
       mAge = F32(body.currTick) * TickSec;
 
    if(body.hasPosition)
    {
-         // A bounce is a correction to a flight already under way, and its
-         // age is what decides whether the next thing it touches sets it off:
-         // only the body that creates it starts the clock again.
       if(!mFlying && !body.hasCurrTick)
          mAge = 0.0f;
 
@@ -423,12 +410,6 @@ void ProjectileT2::onT2BodyRead(const T2Layout::Body &body)
       if(mTrail.empty())
          mTrailAt = body.position;
 
-         // A grenade's family is told its velocity; a disc's is told the way
-         // it is going and takes the speed off its datablock. Either way the
-         // client flies it from here, tests it against the world itself, and
-         // sets it off where it lands -- which is what retail's own simulate
-         // does (LinearProjectile at 0x0062e010, GrenadeProjectile at
-         // 0x00634910).
       if(body.hasVelocity)
       {
          mVelocity = body.velocity;
@@ -438,31 +419,15 @@ void ProjectileT2::onT2BodyRead(const T2Layout::Body &body)
       }
       else if(body.hasDirection)
       {
-            // The datablock arrives after the body it belongs to, so the speed
-            // cannot be applied here, and neither can the catching up it is
-            // needed for.
          mVelocity = body.direction;
          mNeedsSpeed = true;
          mBounces = false;
          mFlying = true;
 
-            // A bullet is never drawn at the muzzle it left. Retail asks for
-            // its position by tick (LinearProjectile::getPositionAtTick
-            // 0x0062f790 -- start plus velocity times the tick count, where a
-            // tick is the thirty-two milliseconds it shifts into rather than
-            // the thirty-second of a second TickSec is), so a body three ticks
-            // old is drawn three ticks downrange. A client that started it at
-            // the muzzle has every shot leaving the shooter's chest and
-            // arriving late, which at a chaingun's three hundred metres a
-            // second is tens of metres of it.
          mCatchUp = body.hasCurrTick ? F32(body.currTick) * 0.032f : 0.0f;
       }
       else if(!body.hasExplodePoint)
       {
-            // A body that says where it is without saying which way it is
-            // going is the one that says it has gone off. Retail draws nothing
-            // of the projectile from here, and plays the explosion its
-            // datablock names.
          mFlying = false;
          if(body.hasImpactNormal)
             mImpactNormal = body.impactNormal;
@@ -470,10 +435,6 @@ void ProjectileT2::onT2BodyRead(const T2Layout::Body &body)
       }
    }
 
-      // The grenade family says where it ended in its own two points rather
-      // than in the position, so an initial body can carry a flight and the
-      // end of it at once -- a projectile thrown and gone before the client
-      // was told of either.
    if(body.hasExplodePoint)
    {
       mPosition = body.explodePoint;
@@ -549,11 +510,6 @@ void ProjectileT2::advanceTime(F32 dt)
       mVelocity *= mData->velocity;
       mNeedsSpeed = false;
 
-         // Straight to where the sender's clock has it: a linear flight is a
-         // closed form of its tick count, so the part already flown is not
-         // walked and nothing along it is tested. Retail tests nothing either
-         // -- the server is the one that explodes a bullet, and it says where
-         // in a body of its own.
       if(mCatchUp > 0.0f)
       {
          mPosition = mStart + mVelocity * mCatchUp;
@@ -606,11 +562,6 @@ void ProjectileT2::advanceTime(F32 dt)
    mShapeInstance->advanceTime(dt);
 }
 
-/// What a projectile collides with: the two masks retail ors together at
-/// 0x00634dc0, which are Static|Terrain|Interior|ForceField and
-/// Player|Vehicle|Turret|DamagableItem|Sensor|Station|Generator. The second
-/// half is why a grenade goes off against a person rather than through them,
-/// and it is only safe to ask for because the body says who fired it.
 static const U32 sProjectileCollisionMask =
    StaticObjectType | TerrainObjectType | InteriorObjectType |
    StaticShapeObjectType | PlayerObjectType | VehicleObjectType |
@@ -642,17 +593,12 @@ void ProjectileT2::ageTrail(F32 dt)
 /// arming delay and goes off on the first thing it touches after that.
 void ProjectileT2::step(F32 dt)
 {
-      // Retail's integrator (0x00636670) takes the mission's gravity, the
-      // engine's own -20 raised to Classic's -26.9 by setGravity, through a
-      // fixed 0.4905 and then the datablock's share of it. A projectile with
       // no gravity of its own holds its line.
    mVelocity.z += gWorldGravity * WorldGravityScale * mData->gravityMod * dt;
 
    const Point3F from = mPosition;
    const Point3F to = from + mVelocity * dt;
 
-      // The shooter and the vehicle they fired from, for as long as retail
-      // keeps them out of the way.
    SceneObject *source = NULL;
    SceneObject *vehicle = NULL;
    if(mNoSourceHit > 0.0f)

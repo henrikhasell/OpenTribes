@@ -251,8 +251,6 @@ bool ShapeBaseData::unpackData(BitStream *stream, U32 classId)
          this->*sFields[i].member = value;
    }
 
-      // The three names a destroyed one comes apart into. They arrive as ids
-      // and preload below is what turns each into its datablock.
    static const struct { U32 field; S32 ShapeBaseData::*member; } sIds[] =
    {
       { T2Layout::T2DbShapeExplosion,           &ShapeBaseData::explosionID  },
@@ -1073,11 +1071,6 @@ bool ShapeBase::onNewDataBlock( GameBaseData *dptr, bool reload )
    updateDamageState();
 
    // HH: Modified for Tribes 2 compatibility.
-   // Retail's drag is the container's to set and nobody else's: its
-   // constructor (0x005e6e30) zeroes it and only updateContainer writes it
-   // again. Seeding it from the datablock here cost a thrown item the first
-   // tick of its flight, which is a flat one and a half per cent off the
-   // speed the server gave it for as long as it flies.
    mCameraFov = mDataBlock->cameraDefaultFov;
    updateMass();
 
@@ -1492,14 +1485,6 @@ void ShapeBase::updateContainer()
    // Update container drag and buoyancy properties
 
    // HH: Modified for Tribes 2 compatibility.
-   // Retail's own (0x005ea600): a body out of the water is not dragged at
-   // all, and `drag` is a water coefficient rather than an air one -- fifteen
-   // times the datablock's figure, by the share of the box the water covers,
-   // past a tenth of it. Torque starts the drag at the datablock's value
-   // whatever the body is in, which had a thrown item shedding one and a half
-   // per cent of its speed every tick while the server flew it in a straight
-   // line, and a client cannot predict an arc it is braking and the server is
-   // not.
    mDrag = 0.0f;
    mBuoyancy = 0.0f;
    mGravityMod = 1.0;
@@ -1552,10 +1537,6 @@ F32 ShapeBase::getDamageValue()
 }
 
 // HH: Added for Tribes 2 compatibility.
-// What ShapeBase::unpackUpdate does with the damage block (0x005ef194): the
-// level, the state, the way the blow came from, and then the explosion -- the
-// client is the only thing that plays one, because the server says nothing
-// more than "destroyed".
 void ShapeBase::readT2Damage(const T2Layout::Body &body)
 {
    if (!body.hasDamage)
@@ -1582,9 +1563,6 @@ void ShapeBase::readT2Damage(const T2Layout::Body &body)
 }
 
 // HH: Added for Tribes 2 compatibility.
-// The four threads a script's playThread reaches (0x005ef42b). A sequence is
-// an index into the shape, not a name: the server and the client agree on the
-// order because they loaded the same .dts.
 void ShapeBase::readT2Threads(const T2Layout::Body &body)
 {
    const bool trace = Con::getBoolVariable("$pref::Net::traceGhostThreads",
@@ -1611,8 +1589,6 @@ void ShapeBase::readT2Threads(const T2Layout::Body &body)
                         : "?",
                      slot.state, slot.forward, slot.atEnd);
 
-         // Retail asks for the sequence only where it changed, so a thread
-         // that is still playing the same one keeps the position it is at.
       if (st.sequence != S32(slot.sequence))
          setThreadSequence(i, S32(slot.sequence), false);
 

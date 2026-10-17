@@ -57,8 +57,6 @@ static U32 sClientCollisionMask =
 
 // Gravity constant
 // HH: Modified for Tribes 2 compatibility.
-// Retail's wheeled vehicle falls at the world's gravity (0x0061412f), not at a
-// -20 of its own.
 static F32 &sWheeledVehicleGravity = gWorldGravity;
 
 // Misc. sound constants
