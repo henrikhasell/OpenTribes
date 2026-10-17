@@ -312,6 +312,9 @@ struct PlayerData: public ShapeBaseData {
    S32 jetEmitterID;
    S32 jetNode[MaxJetNodes];
 
+   SFXTrack* jetSound;        ///< heard while the pack thrusts
+   SFXTrack* wetJetSound;     ///< ...and while it thrusts under water
+
    SplashData* splash;
    S32 splashId;
    F32 splashVelocity;
@@ -472,6 +475,8 @@ protected:
 
    SFXSource* mMoveBubbleSound;   ///< Sound for moving bubbles
    SFXSource* mWaterBreathSound;  ///< Sound for underwater breath
+   SFXSource* mJetSound;          ///< the pack thrusting
+   SFXSource* mWetJetSound;       ///< the pack thrusting under water
 
    SimObjectPtr<ShapeBase> mControlObject; ///< Controlling object
 

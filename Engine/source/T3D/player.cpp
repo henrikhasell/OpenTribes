@@ -382,6 +382,9 @@ PlayerData::PlayerData()
    for (S32 i = 0; i < MaxJetNodes; i++)
       jetNode[i] = -1;
 
+   jetSound = NULL;
+   wetJetSound = NULL;
+
    splash = NULL;
    splashId = 0;
    splashVelocity = 1.0f;
@@ -545,6 +548,20 @@ bool PlayerData::unpackData(BitStream *stream, U32 classId)
          this->*sEmitters[i].member = S32(word);
    }
 
+   static const struct { U32 field; SFXTrack* PlayerData::*member; } sSounds[] =
+   {
+      { T2Layout::T2DbJetSound,    &PlayerData::jetSound    },
+      { T2Layout::T2DbWetJetSound, &PlayerData::wetJetSound },
+   };
+
+   for (U32 i = 0; i < sizeof(sSounds) / sizeof(sSounds[0]); i++)
+   {
+      U32 word;
+      if (T2Layout::lastDataBlockWord(sSounds[i].field, &word))
+         *reinterpret_cast<U32 *>(&(this->*sSounds[i].member)) =
+            ((word + DataBlockObjectIdFirst) << 1) | 0x1;
+   }
+
    if (Con::getBoolVariable("$pref::Net::traceDataBlockFields", false))
       Con::printf("T2 PlayerData %d: mass %.4f drag %.4f jetForce %.4f "
                   "drain %.4f minEnergy %.4f maxFwd %.4f maxHoriz %.4f "
@@ -570,6 +587,14 @@ bool PlayerData::preload(bool server, String &errorStr)
       {
          String errorStr;
          if( !sfxResolve( &sound[ i ], errorStr ) )
+            Con::errorf( "PlayerData::preload: %s", errorStr.c_str() );
+      }
+
+      SFXTrack** jetSounds[] = { &jetSound, &wetJetSound };
+      for( U32 i = 0; i < sizeof( jetSounds ) / sizeof( jetSounds[ 0 ] ); ++ i )
+      {
+         String errorStr;
+         if( !sfxResolve( jetSounds[ i ], errorStr ) )
             Con::errorf( "PlayerData::preload: %s", errorStr.c_str() );
       }
    }
@@ -913,6 +938,13 @@ void PlayerData::initPersistFields()
          "One emitter is created per `jetNozzle%d` node the shape carries, so "
          "a heavy armour flames from two and the lighter ones from one.\n"
          "@see dustEmitter\n" );
+      addField( "jetSound", TypeSFXTrackName, Offset(jetSound, PlayerData),
+         "@brief Looping sound the pack makes while it thrusts.\n\n"
+         "@see wetJetSound\n" );
+      addField( "wetJetSound", TypeSFXTrackName, Offset(wetJetSound, PlayerData),
+         "@brief Looping sound the pack makes while it thrusts with the player "
+         "wholly under water.\n\n"
+         "@see jetSound\n" );
       addField( "heatIncreasePerSec", TypeF32, Offset(heatIncreasePerSec, PlayerData),
          "@brief Heat a second of thrust adds to the player's signature.\n\n"
          "@see heatDecayPerSec\n" );
@@ -1419,6 +1451,8 @@ Player::Player()
 
    mMoveBubbleSound = 0;
    mWaterBreathSound = 0;   
+   mJetSound = 0;
+   mWetJetSound = 0;
 
    mConvex.init(this);
    mWorkingQueryBox.minExtents.set(-1e9f, -1e9f, -1e9f);
@@ -1587,6 +1621,9 @@ void Player::onRemove()
       mDustEmitter = NULL;
    }
 
+   SFX_DELETE( mJetSound );
+   SFX_DELETE( mWetJetSound );
+
    mWorkingQueryBox.minExtents.set(-1e9f, -1e9f, -1e9f);
    mWorkingQueryBox.maxExtents.set(-1e9f, -1e9f, -1e9f);
 
@@ -1721,6 +1758,8 @@ bool Player::onNewDataBlock( GameBaseData *dptr, bool reload )
 
       SFX_DELETE( mMoveBubbleSound );
       SFX_DELETE( mWaterBreathSound );
+      SFX_DELETE( mJetSound );
+      SFX_DELETE( mWetJetSound );
 
       if ( mDataBlock->sound[PlayerData::MoveBubbles] )
          mMoveBubbleSound = SFX->createSource( mDataBlock->sound[PlayerData::MoveBubbles] );
@@ -6320,6 +6359,9 @@ void Player::updateJetEffect(F32 dt)
 {
    if (!mJetting)
    {
+      SFX_DELETE(mJetSound);
+      SFX_DELETE(mWetJetSound);
+
       for (U32 i = 0; i < PlayerData::MaxJetNodes; i++)
          if (mJetEmitter[i])
          {
@@ -6327,6 +6369,28 @@ void Player::updateJetEffect(F32 dt)
             mJetEmitter[i] = NULL;
          }
       return;
+   }
+
+   // Retail's Player::updateJetEffect (0x005d65e0) takes the wet sound only
+   // once the water covers the player whole, and leaves whatever is playing
+   // alone when the armour names no sound for the medium it is in.
+   const bool wet = mWaterCoverage >= 1.0f;
+   SFXTrack *track = wet ? mDataBlock->wetJetSound : mDataBlock->jetSound;
+   if (track)
+   {
+      SFXSource *&playing = wet ? mWetJetSound : mJetSound;
+      SFXSource *&other = wet ? mJetSound : mWetJetSound;
+      SFX_DELETE(other);
+
+      if (!playing)
+      {
+         playing = SFX->createSource(track, &getTransform());
+         if (playing)
+            playing->play();
+      }
+
+      if (playing)
+         playing->setTransform(getTransform());
    }
 
    if (!mDataBlock->jetEmitter)
