@@ -240,6 +240,7 @@ namespace T2Layout
       T2DbBoxSizeX,
       T2DbBoxSizeY,
       T2DbBoxSizeZ,
+      T2DbFootPuffEmitter,
       T2DbFootPuffNumParts,
       T2DbFootPuffRadius,
       T2DbDecalOffset,

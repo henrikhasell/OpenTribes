@@ -29,6 +29,10 @@
 #ifndef _BOXCONVEX_H_
 #include "collision/boxConvex.h"
 #endif
+// HH: Added for Tribes 2 compatibility.
+#ifndef _MATERIALPROPERTYMAP_H_
+#include "materials/materialPropertyMap.h"
+#endif
 
 #include "T3D/gameBase/gameProcess.h"
 
@@ -672,6 +676,10 @@ protected:
    /// @param sound The surface's sound: 0 soft, 1 hard, 2 metal, 3 snow, or
    ///              -1 for none, which Tribes 2 plays as hard.
    void playFootstepSound( bool triggeredLeft, S32 sound );
+
+   /// Puff dust where a foot came down, in the colours of the terrain's
+   /// property map entry.
+   void emitFootPuff( const Point3F &pos, const MaterialPropertyMap::Entry *e );
    
    /// Play an impact sound.
    void playImpactSound();
