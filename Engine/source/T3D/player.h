@@ -182,16 +182,27 @@ struct PlayerData: public ShapeBaseData {
    F32 groundImpactShakeDuration; ///< How long to shake
    F32 groundImpactShakeFalloff;  ///< How fast the shake disapates
 
-   /// Zounds!
+   // HH: Modified for Tribes 2 compatibility.
+   // Tribes 2's own order, which is the order packData writes them in.
    enum Sounds {
-      FootSoft,
-      FootHard,
-      FootMetal,
-      FootSnow,
-      FootShallowSplash,
-      FootWading,
-      FootUnderWater,
-      FootBubbles,
+      JetSound,
+      WetJetSound,
+      LFootSoft,
+      RFootSoft,
+      LFootHard,
+      RFootHard,
+      LFootMetal,
+      RFootMetal,
+      LFootSnow,
+      RFootSnow,
+      LFootShallowSplash,
+      RFootShallowSplash,
+      LFootWading,
+      RFootWading,
+      LFootUnderWater,
+      RFootUnderWater,
+      LFootBubbles,
+      RFootBubbles,
       MoveBubbles,
       WaterBreath,
       ImpactSoft,
@@ -202,6 +213,10 @@ struct PlayerData: public ShapeBaseData {
       ImpactWaterMedium,
       ImpactWaterHard,
       ExitWater,
+      SkiSoft,
+      SkiHard,
+      SkiMetal,
+      SkiSnow,
       MaxSounds
    };
    SFXTrack* sound[MaxSounds];
@@ -311,9 +326,6 @@ struct PlayerData: public ShapeBaseData {
    ParticleEmitterData * jetEmitter;
    S32 jetEmitterID;
    S32 jetNode[MaxJetNodes];
-
-   SFXTrack* jetSound;        ///< heard while the pack thrusts
-   SFXTrack* wetJetSound;     ///< ...and while it thrusts under water
 
    SplashData* splash;
    S32 splashId;
@@ -657,9 +669,9 @@ protected:
    /// Play sound for foot contact.
    ///
    /// @param triggeredLeft If true, left foot hit; right otherwise.
-   /// @param contactMaterial Material onto which the player stepped; may be NULL.
-   /// @param contactObject Object onto which the player stepped; may be NULL.
-   void playFootstepSound( bool triggeredLeft, Material* contactMaterial, SceneObject* contactObject );
+   /// @param sound The surface's sound: 0 soft, 1 hard, 2 metal, 3 snow, or
+   ///              -1 for none, which Tribes 2 plays as hard.
+   void playFootstepSound( bool triggeredLeft, S32 sound );
    
    /// Play an impact sound.
    void playImpactSound();
