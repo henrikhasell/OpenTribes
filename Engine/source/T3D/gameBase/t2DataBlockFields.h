@@ -170,6 +170,69 @@ namespace T2Protocol
 
    // The file name opens the body, then the sound and the emitter it names.
       { "ExplosionData", 109, OpDataBlockId, 11, T2DbExplosionSound },
+      { "ExplosionData", 108, OpDataBlockId, 11, T2DbExplosionParticleEmitter },
+      { "ExplosionData",   3, OpInt,   14, T2DbExplosionParticleDensity   },
+      { "ExplosionData",   4, OpRaw,   32, T2DbExplosionParticleRadius    },
+
+   // The debris spread, as ExplosionData::packData writes it after playSpeed.
+      { "ExplosionData",   8, OpInt,    8, T2DbExplosionDebrisThetaMin         },
+      { "ExplosionData",   9, OpInt,    8, T2DbExplosionDebrisThetaMax         },
+      { "ExplosionData",  10, OpInt,    9, T2DbExplosionDebrisPhiMin           },
+      { "ExplosionData",  11, OpInt,    9, T2DbExplosionDebrisPhiMax           },
+      { "ExplosionData",  12, OpInt,   10, T2DbExplosionDebrisNum              },
+      { "ExplosionData",  13, OpInt,   10, T2DbExplosionDebrisNumVariance      },
+      { "ExplosionData",  14, OpInt,   14, T2DbExplosionDebrisVelocity         },
+      { "ExplosionData",  15, OpInt,   14, T2DbExplosionDebrisVelocityVariance },
+
+   // Node 21 is shockwaveOnTerrain, which only a shockwave reads.
+      { "ExplosionData",  22, OpFlag,   1, T2DbExplosionShakeCamera   },
+      { "ExplosionData",  23, OpRaw,   32, T2DbExplosionShakeFreqX    },
+      { "ExplosionData",  24, OpRaw,   32, T2DbExplosionShakeFreqY    },
+      { "ExplosionData",  25, OpRaw,   32, T2DbExplosionShakeFreqZ    },
+      { "ExplosionData",  26, OpRaw,   32, T2DbExplosionShakeAmpX     },
+      { "ExplosionData",  27, OpRaw,   32, T2DbExplosionShakeAmpY     },
+      { "ExplosionData",  28, OpRaw,   32, T2DbExplosionShakeAmpZ     },
+      { "ExplosionData",  29, OpRaw,   32, T2DbExplosionShakeDuration },
+      { "ExplosionData",  30, OpRaw,   32, T2DbExplosionShakeRadius   },
+      { "ExplosionData",  31, OpRaw,   32, T2DbExplosionShakeFalloff  },
+
+   // Eleven flagged ids follow, read from node 104 down: the shockwave, the
+   // debris, the four emitters and the five sub-explosions.
+      { "ExplosionData", 103, OpDataBlockId, 11, T2DbExplosionDebris   },
+      { "ExplosionData", 102, OpDataBlockId, 11, T2DbExplosionEmitter0 },
+      { "ExplosionData", 101, OpDataBlockId, 11, T2DbExplosionEmitter1 },
+      { "ExplosionData", 100, OpDataBlockId, 11, T2DbExplosionEmitter2 },
+      { "ExplosionData",  99, OpDataBlockId, 11, T2DbExplosionEmitter3 },
+      { "ExplosionData",  98, OpDataBlockId, 11, T2DbSubExplosion0     },
+      { "ExplosionData",  97, OpDataBlockId, 11, T2DbSubExplosion1     },
+      { "ExplosionData",  96, OpDataBlockId, 11, T2DbSubExplosion2     },
+      { "ExplosionData",  95, OpDataBlockId, 11, T2DbSubExplosion3     },
+      { "ExplosionData",  94, OpDataBlockId, 11, T2DbSubExplosion4     },
+
+   // DebrisData::packData, field for field; nodes 6 and 12 to 13 are render2D
+   // and a second pair of spin speeds, which nothing here draws with.
+      { "DebrisData",  0, OpRaw, 32, T2DbDebrisElasticity         },
+      { "DebrisData",  1, OpRaw, 32, T2DbDebrisFriction           },
+      { "DebrisData",  2, OpRaw, 32, T2DbDebrisNumBounces         },
+      { "DebrisData",  3, OpRaw, 32, T2DbDebrisBounceVariance     },
+      { "DebrisData",  4, OpRaw, 32, T2DbDebrisMinSpinSpeed       },
+      { "DebrisData",  5, OpRaw, 32, T2DbDebrisMaxSpinSpeed       },
+      { "DebrisData",  7, OpRaw,  8, T2DbDebrisExplodeOnMaxBounce },
+      { "DebrisData",  8, OpRaw,  8, T2DbDebrisStaticOnMaxBounce  },
+      { "DebrisData",  9, OpRaw,  8, T2DbDebrisSnapOnMaxBounce    },
+      { "DebrisData", 10, OpRaw, 32, T2DbDebrisLifetime           },
+      { "DebrisData", 11, OpRaw, 32, T2DbDebrisLifetimeVariance   },
+      { "DebrisData", 14, OpRaw, 32, T2DbDebrisVelocity           },
+      { "DebrisData", 15, OpRaw, 32, T2DbDebrisVelocityVariance   },
+      { "DebrisData", 16, OpRaw,  8, T2DbDebrisFade               },
+      { "DebrisData", 17, OpRaw,  8, T2DbDebrisUseRadiusMass      },
+      { "DebrisData", 18, OpRaw, 32, T2DbDebrisBaseRadius         },
+      { "DebrisData", 19, OpRaw, 32, T2DbDebrisGravModifier       },
+      { "DebrisData", 20, OpRaw, 32, T2DbDebrisTerminalVelocity   },
+      { "DebrisData", 21, OpRaw,  8, T2DbDebrisIgnoreWater        },
+      { "DebrisData", 30, OpDataBlockId, 11, T2DbDebrisEmitter0   },
+      { "DebrisData", 29, OpDataBlockId, 11, T2DbDebrisEmitter1   },
+      { "DebrisData", 28, OpDataBlockId, 11, T2DbDebrisExplosion  },
 
       { "AudioProfile", 7, OpDataBlockId, 11, T2DbAudioDescription },
 
