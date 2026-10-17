@@ -60,6 +60,8 @@ namespace T2Layout
       U32     sourceSlot;
       bool    hasVehicleObject;
       U32     vehicleObject;
+      bool    hasTarget;
+      S32     target;               ///< the target manager's id, or -1
       bool    quickSplash;
       bool    hasJetting;
       bool    jetting;              ///< the jet pack is lit

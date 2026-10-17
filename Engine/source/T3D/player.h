@@ -588,6 +588,9 @@ protected:
    // Jetting
    bool mJetting;
 
+   // HH: Added for Tribes 2 compatibility.
+   S32 mT2Target;                   ///< the target manager's id, or -1
+
    ///Update the movement
    virtual void updateMove(const Move *move);
 
@@ -687,6 +690,9 @@ public:
    Player();
    ~Player();
    static void consoleInit();
+
+   // HH: Added for Tribes 2 compatibility.
+   S32 getT2Target() const { return mT2Target; }
 
    /// @name Transforms
    /// @{

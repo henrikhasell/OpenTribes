@@ -24,7 +24,5 @@
                                "its layout.\n\n@internal" )
 
 IMPLEMENT_EVENT_T2( SetServerTargetEvent );
-IMPLEMENT_EVENT_T2( SimTargetAudioEvent );
 IMPLEMENT_EVENT_T2( SimVoiceStreamEvent );
-IMPLEMENT_EVENT_T2( TargetInfoEvent );
 IMPLEMENT_EVENT_T2( TargetToEvent );
