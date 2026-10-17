@@ -208,6 +208,8 @@ class ProjectileT2 : public GameBase
    bool    mBounces;          ///< a grenade's family does; a disc goes off
    F32     mAge;              ///< seconds since the sender created it, which
                               ///< the body says rather than implies
+   F32     mCatchUp;          ///< of that age, the part of the flight still
+                              ///< to be made up, and zero once it has been
    bool    mFlying;
    bool    mExploded;         ///< it only goes off once
    VectorF mImpactNormal;
@@ -267,6 +269,7 @@ ProjectileT2::ProjectileT2()
      mBoxReach(0.0f),
      mSinceTrail(0.0f),
      mAge(0.0f),
+     mCatchUp(0.0f),
      mFlying(false),
      mExploded(false),
      mImpactNormal(0.0f, 0.0f, 1.0f),
@@ -436,11 +439,23 @@ void ProjectileT2::onT2BodyRead(const T2Layout::Body &body)
       else if(body.hasDirection)
       {
             // The datablock arrives after the body it belongs to, so the speed
-            // cannot be applied here.
+            // cannot be applied here, and neither can the catching up it is
+            // needed for.
          mVelocity = body.direction;
          mNeedsSpeed = true;
          mBounces = false;
          mFlying = true;
+
+            // A bullet is never drawn at the muzzle it left. Retail asks for
+            // its position by tick (LinearProjectile::getPositionAtTick
+            // 0x0062f790 -- start plus velocity times the tick count, where a
+            // tick is the thirty-two milliseconds it shifts into rather than
+            // the thirty-second of a second TickSec is), so a body three ticks
+            // old is drawn three ticks downrange. A client that started it at
+            // the muzzle has every shot leaving the shooter's chest and
+            // arriving late, which at a chaingun's three hundred metres a
+            // second is tens of metres of it.
+         mCatchUp = body.hasCurrTick ? F32(body.currTick) * 0.032f : 0.0f;
       }
       else if(!body.hasExplodePoint)
       {
@@ -533,6 +548,18 @@ void ProjectileT2::advanceTime(F32 dt)
    {
       mVelocity *= mData->velocity;
       mNeedsSpeed = false;
+
+         // Straight to where the sender's clock has it: a linear flight is a
+         // closed form of its tick count, so the part already flown is not
+         // walked and nothing along it is tested. Retail tests nothing either
+         // -- the server is the one that explodes a bullet, and it says where
+         // in a body of its own.
+      if(mCatchUp > 0.0f)
+      {
+         mPosition = mStart + mVelocity * mCatchUp;
+         mTrailAt = mPosition;
+         mCatchUp = 0.0f;
+      }
    }
 
    mAge += dt;

@@ -79,10 +79,12 @@ namespace T2Protocol
    // the walked graphs and the described ones both match.
 
    // The tail Item::unpackUpdate adds to ShapeBase's body: what the item is,
-   // where it is, and whether it is still moving.
+   // where it is, whether it is still moving, and who threw it -- the ghost
+   // index at node 13 is the one retail hands to setCollisionTimeout.
       { "Item", 21, OpFlag,  1, T2FieldRotate        },
       { "Item", 20, OpFlag,  1, T2FieldStatic        },
       { "Item", 17, OpRaw,  32, T2FieldScale         },
+      { "Item", 13, OpInt,  10, T2FieldSourceObject  },
       { "Item", 11, OpFlag,  1, T2FieldAxisZSign     },
       { "Item", 10, OpRaw,  32, T2FieldZAngle        },
       { "Item",  8, OpRaw,  32, T2FieldPointWords    },
@@ -149,10 +151,19 @@ namespace T2Protocol
       { "AudioEmitter",         150, OpRaw,  32, T2FieldAffine   },
       { "AudioEmitter",         156, OpFlag,  1, T2FieldQuatSign },
 
+   // LinearProjectile::unpackUpdate (0x0062f190), which TracerProjectile reads
+   // through and which LinearFlareProjectile's own copy reads the same bits as.
+   // A live body is the muzzle it left, the way it is going, how many ticks of
+   // that flight the sender has already run, and the two objects it must not
+   // hit: whoever fired it and whatever they were riding.
 #define T2_LINEAR_PROJECTILE_FIELDS( cls )                             \
-      { cls, 17, OpPoint,        0,  T2FieldPosition    },             \
-      { cls, 16, OpSignedFloat, 15,  T2FieldNormalPhi   },             \
-      { cls, 15, OpSignedFloat, 14,  T2FieldNormalTheta },             \
+      { cls, 17, OpPoint,        0,  T2FieldPosition     },            \
+      { cls, 16, OpSignedFloat, 15,  T2FieldNormalPhi    },            \
+      { cls, 15, OpSignedFloat, 14,  T2FieldNormalTheta  },            \
+      { cls, 14, OpInt,          9,  T2FieldCurrTick     },            \
+      { cls, 12, OpInt,         10,  T2FieldSourceObject },            \
+      { cls, 11, OpInt,          3,  T2FieldSourceSlot   },            \
+      { cls,  5, OpInt,         10,  T2FieldVehicleObject},            \
       { cls, 21, OpPoint,        0,  T2FieldPosition     },            \
       { cls, 20, OpSignedFloat, 15,  T2FieldImpactPhi    },            \
       { cls, 19, OpSignedFloat, 14,  T2FieldImpactTheta  },            \

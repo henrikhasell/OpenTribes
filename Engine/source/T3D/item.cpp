@@ -638,6 +638,21 @@ void Item::onT2BodyRead(const T2Layout::Body &body)
    else if (body.hasStatic)
       mObjScale.set(1.0f, 1.0f, 1.0f);
 
+   // HH: Added for Tribes 2 compatibility.
+   // Who threw it. A throw starts the item at the thrower's own box centre
+   // (inventory.cs throwObject), so a client that does not read this ghost
+   // index predicts the item straight back into the player it came from and
+   // sticks it there, which is nothing like the arc the server flies. Retail
+   // hands the resolved ghost to setCollisionTimeout (0x00606815), and both
+   // ends then ignore the thrower for the same fifteen ticks.
+   if (body.hasSourceObject)
+   {
+      NetConnection *conn = NetConnection::getConnectionToServer();
+      NetObject *obj = conn ? conn->resolveGhost(S32(body.sourceObject)) : NULL;
+      if (ShapeBase *source = dynamic_cast<ShapeBase *>(obj))
+         setCollisionTimeout(source);
+   }
+
    MatrixF mat = mObjToWorld;
 
    if (body.hasYaw) {
