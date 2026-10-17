@@ -696,6 +696,48 @@ static void noteDamage(U32 part, U32 word, U32 bits)
    }
 }
 
+   /// GameBase::unpackUpdate reads the datablock and then the target, so both
+   /// open every GameBase-derived graph.
+struct T2TargetMap
+{
+   const T2DataBlockLayout *layout;
+   S16                      mask;
+   S16                      value;
+};
+
+static Vector<T2TargetMap *> sTargetMaps(__FILE__, __LINE__);
+static const T2TargetMap *sTarget = NULL;
+
+static const T2TargetMap *resolveTarget(const T2DataBlockLayout *layout)
+{
+   for(U32 i = 0; i < sTargetMaps.size(); i++)
+      if(sTargetMaps[i]->layout == layout)
+         return sTargetMaps[i];
+
+   T2TargetMap *map = new T2TargetMap;
+   map->layout = layout;
+   map->mask = -1;
+   map->value = -1;
+
+   const T2DataNode *root = nodeAt(layout, layout->root);
+   const T2DataNode *db = root && root->op == OpFlag ? nodeAt(layout, root->b)
+                                                     : NULL;
+   const T2DataNode *mask = db && db->op == OpDataBlockId && db->a == root->a
+                            ? nodeAt(layout, root->a) : NULL;
+   const T2DataNode *has = mask && mask->op == OpFlag && mask->a != mask->b
+                           ? nodeAt(layout, mask->b) : NULL;
+   const T2DataNode *id = has && has->op == OpFlag && has->a == mask->a
+                          ? nodeAt(layout, has->b) : NULL;
+   if(isValue(id, 9) && id->a == mask->a)
+   {
+      map->mask = S16(root->a);
+      map->value = S16(has->b);
+   }
+
+   sTargetMaps.push_back(map);
+   return map;
+}
+
 static bool threadAt(const T2DataBlockLayout *layout, S32 at, U32 *slot,
                      U32 *part)
 {
@@ -1087,6 +1129,13 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
                if(damageAt(layout, at, &partOf) && partOf == T2DamageBlowApart)
                   sBody.blowApart = set;
 
+               if(set && sTarget && sTarget->layout == layout &&
+                  at == sTarget->mask)
+               {
+                  sBody.hasTarget = true;
+                  sBody.target = -1;
+               }
+
                U32 state, part;
                if(stateAt(layout, at, &state, &part))
                {
@@ -1423,6 +1472,9 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
                if(damageAt(layout, at, &part))
                   noteDamage(part, word, n.bits);
 
+               if(sTarget && sTarget->layout == layout && at == sTarget->value)
+                  sBody.target = S32(word);
+
                U32 state;
                if(stateAt(layout, at, &state, &part) && part == T2StateTimeout)
                   dMemcpy(&sImageStates[state].timeout, &word, sizeof(F32));
@@ -1676,6 +1728,7 @@ static void resolveGhostFields(const char *className)
    sImages = NULL;
    sThreads = NULL;
    sDamage = NULL;
+   sTarget = NULL;
 
    const T2DataBlockLayout *layout =
       findNamed(className, sT2GhostsRecovered, ELEMENTS(sT2GhostsRecovered));
@@ -1686,6 +1739,7 @@ static void resolveGhostFields(const char *className)
    sImages = resolveImages(layout);
    sThreads = resolveThreads(layout);
    sDamage = resolveDamage(layout);
+   sTarget = resolveTarget(layout);
 
    for(U32 i = 0; i < ELEMENTS(sT2GhostFields); i++)
    {
@@ -1841,6 +1895,8 @@ static bool runGhost(BitStream *stream, const char *className,
    sBody.atRest = false;
    sBody.hasWarp = false;
    sBody.warp = false;
+   sBody.hasTarget = false;
+   sBody.target = -1;
    for(U32 i = 0; i < MaxImages; i++)
    {
       Body::Image &image = sBody.images[i];

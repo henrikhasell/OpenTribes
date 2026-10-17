@@ -24,6 +24,7 @@
 #include "T3D/gameBase/gameBase.h"
 // HH: Added for Tribes 2 compatibility.
 #include "T3D/gameBase/t2Layout.h"
+#include "T3D/gameBase/targetsT2.h"
 #include "console/consoleTypes.h"
 #include "console/engineAPI.h"
 #include "console/consoleInternal.h"
@@ -223,7 +224,8 @@ ConsoleDocClass( GameBase,
 GameBase::GameBase()
 : mDataBlock( NULL ),  
   mControllingClient( NULL ),
-  mCurrentWaterObject( NULL )
+  mCurrentWaterObject( NULL ),
+  mT2Target( -1 )
 {
    mNetFlags.set(Ghostable);
    mTypeMask |= GameBaseObjectType;
@@ -266,6 +268,9 @@ void GameBase::onRemove()
    // EDITOR FEATURE: Remove us from the reload signal of our datablock.
    if ( mDataBlock )
       mDataBlock->mReloadSignal.remove( this, &GameBase::_onDatablockModified );
+
+   // HH: Added for Tribes 2 compatibility.
+   TargetsT2::setObjectTarget( this, mT2Target, -1 );
 
    Parent::onRemove();
 }
@@ -442,6 +447,13 @@ bool GameBase::unpackUpdate(BitStream *stream, bool isInitial)
 {
    if(!Parent::unpackUpdate(stream, isInitial))
       return false;
+
+   const T2Layout::Body &body = T2Layout::lastBody();
+   if(body.hasTarget && body.target != mT2Target)
+   {
+      TargetsT2::setObjectTarget(this, mT2Target, body.target);
+      mT2Target = body.target;
+   }
 
    const U32 id = T2Layout::firstDataBlockId();
    if(!id || mDataBlock)

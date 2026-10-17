@@ -423,6 +423,12 @@ public:
    // HH: Added for Tribes 2 compatibility.
    bool unpackUpdate(BitStream *stream, bool isInitial);
 
+private:
+   // HH: Added for Tribes 2 compatibility.
+   S32 mT2Target;
+
+public:
+
    DECLARE_CONOBJECT (GameBase );
 
    /// @name Callbacks

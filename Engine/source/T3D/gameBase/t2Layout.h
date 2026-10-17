@@ -73,6 +73,8 @@ namespace T2Layout
       bool    hasWarp;
       bool    warp;                 ///< interpolate to the position rather
                                     ///< than snap to it
+      bool    hasTarget;
+      S32     target;               ///< the target manager's slot, or -1
 
       /// What a body said about one of its object's image slots -- the
       /// weapon in the hand, the pack on the back.
