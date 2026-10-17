@@ -140,38 +140,6 @@ ConsoleDocClass( SensorGroupColorEvent,
 
 //----------------------------------------------------------------------------
 
-class GravityEvent : public NetEvent
-{
-   typedef NetEvent Parent;
-   F32 mGravity;
-
-public:
-   GravityEvent(F32 gravity = 0.0f)
-   {
-      mGuaranteeType = GuaranteedOrdered;
-      mGravity = gravity;
-   }
-
-   void pack(NetConnection *, BitStream *stream) { stream->write(mGravity); }
-   void write(NetConnection *, BitStream *stream) { stream->write(mGravity); }
-   void unpack(NetConnection *, BitStream *stream) { stream->read(&mGravity); }
-
-      // What retail's own process does (0x005ff5e0): the mission's gravity
-      // into the one global every falling thing reads. Classic's server.cs
-      // runs at -26.9 rather than the engine's own -20, and a client that
-      // ignored this predicts its own fall against the wrong number.
-   void process(NetConnection *) { Player::mGravity = mGravity; }
-
-   DECLARE_CONOBJECT(GravityEvent);
-};
-
-IMPLEMENT_CO_CLIENTEVENT_V1(GravityEvent);
-
-ConsoleDocClass( GravityEvent,
-   "@brief Gives a client the mission's gravity.\n\n@internal" );
-
-//----------------------------------------------------------------------------
-
 class TargetFreeEvent : public NetEvent
 {
    typedef NetEvent Parent;

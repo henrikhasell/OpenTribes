@@ -45,6 +45,7 @@
 #include "materials/materialDefinition.h"
 #include "materials/baseMatInstance.h"
 #include "lighting/lightQuery.h"
+#include "T3D/gameBase/gravityT2.h"   // HH: Added for Tribes 2 compatibility.
 
 
 // Collision masks are used to determin what type of objects the
@@ -55,7 +56,10 @@ static U32 sClientCollisionMask =
       VehicleObjectType    | VehicleBlockerObjectType;
 
 // Gravity constant
-static F32 sWheeledVehicleGravity = -20;
+// HH: Modified for Tribes 2 compatibility.
+// Retail's wheeled vehicle falls at the world's gravity (0x0061412f), not at a
+// -20 of its own.
+static F32 &sWheeledVehicleGravity = gWorldGravity;
 
 // Misc. sound constants
 static F32 sMinSquealVolume = 0.05f;

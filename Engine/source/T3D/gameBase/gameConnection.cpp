@@ -24,6 +24,7 @@
 #include "T3D/gameBase/gameConnection.h"
 #include "T3D/gameBase/t2Layout.h"      // HH: Added for Tribes 2 compatibility.
 #include "T3D/gameBase/demoT2.h"        // HH: Added for Tribes 2 compatibility.
+#include "T3D/gameBase/gravityT2.h"     // HH: Added for Tribes 2 compatibility.
 
 #include "platform/profiler.h"
 #include "core/dnet.h"
@@ -385,6 +386,11 @@ void GameConnection::onConnectionEstablished(bool isInitiator)
       setTranslatesStrings(true);
       Sim::getClientGroup()->addObject(this);
       mMoveList->init();
+
+      // HH: Added for Tribes 2 compatibility.
+      // Retail tells every client the world's gravity as its connection is
+      // set up (0x005faf30), so one that joins after setGravity still hears it.
+      postWorldGravity(this);
 
       const char *argv[MaxConnectArgs + 2];
       argv[0] = "onConnect";

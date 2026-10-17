@@ -24,7 +24,7 @@
 #include "T3D/fx/explosion.h"
 #include "T3D/gameBase/t2Layout.h"
 #include "T3D/objectTypes.h"
-#include "T3D/player.h"
+#include "T3D/gameBase/gravityT2.h"
 #include "sim/netConnection.h"
 #include "ts/tsShapeInstance.h"
 
@@ -646,7 +646,7 @@ void ProjectileT2::step(F32 dt)
       // engine's own -20 raised to Classic's -26.9 by setGravity, through a
       // fixed 0.4905 and then the datablock's share of it. A projectile with
       // no gravity of its own holds its line.
-   mVelocity.z += Player::mGravity * 0.4905f * mData->gravityMod * dt;
+   mVelocity.z += gWorldGravity * WorldGravityScale * mData->gravityMod * dt;
 
    const Point3F from = mPosition;
    const Point3F to = from + mVelocity * dt;

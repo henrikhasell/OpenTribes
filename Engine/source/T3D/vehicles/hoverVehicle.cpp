@@ -36,6 +36,7 @@
 #include "sfx/sfxSource.h"
 #include "T3D/fx/particleEmitter.h"
 #include "math/mathIO.h"
+#include "T3D/gameBase/gravityT2.h"   // HH: Added for Tribes 2 compatibility.
 
 
 IMPLEMENT_CO_DATABLOCK_V1(HoverVehicleData);
@@ -71,7 +72,10 @@ ConsoleDocClass( HoverVehicle,
 namespace {
 
 const U32 sIntergrationsPerTick = 1;
-const F32 sHoverVehicleGravity  = -20;
+// HH: Modified for Tribes 2 compatibility.
+// Retail's hover vehicle falls at the world's gravity (0x00618be9), not at a
+// -20 of its own.
+F32 &sHoverVehicleGravity = gWorldGravity;
 
 const U32 sCollisionMoveMask = (TerrainObjectType        | InteriorObjectType   |
                                 PlayerObjectType         | StaticShapeObjectType |

@@ -40,6 +40,7 @@
 #include "sfx/sfxProfile.h"
 #include "sfx/sfxSource.h"
 #include "T3D/missionArea.h"
+#include "T3D/gameBase/gravityT2.h"   // HH: Added for Tribes 2 compatibility.
 
 //----------------------------------------------------------------------------
 
@@ -50,7 +51,10 @@ const static U32 sCollisionMoveMask = ( TerrainObjectType        | InteriorObjec
 static U32 sServerCollisionMask = sCollisionMoveMask; // ItemObjectType
 static U32 sClientCollisionMask = sCollisionMoveMask;
 
-static F32 sFlyingVehicleGravity = -20.0f;
+// HH: Modified for Tribes 2 compatibility.
+// Retail's flying vehicle falls at the world's gravity (0x00610560), not at a
+// -20 of its own.
+static F32 &sFlyingVehicleGravity = gWorldGravity;
 
 //
 const char* FlyingVehicle::sJetSequence[FlyingVehicle::JetAnimCount] =

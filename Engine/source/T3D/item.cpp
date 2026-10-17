@@ -35,7 +35,7 @@
 #include "math/mathIO.h"
 #include "lighting/lightInfo.h"
 #include "lighting/lightManager.h"
-#include "T3D/player.h"
+#include "T3D/gameBase/gravityT2.h"
 #include "T3D/physics/physicsPlugin.h"
 #include "T3D/physics/physicsBody.h"
 #include "T3D/physics/physicsCollision.h"
@@ -56,7 +56,7 @@ static S32 sMaxWarpTicks = 3;           // Max warp duration in ticks
 // that Item's own velocity update (0x00604860) reads, so a thrown grenade and
 // the player who threw it fall at the same rate. Keeping a second -20 here had
 // every thrown item floating: Classic runs at -26.9.
-F32 &Item::mGravity = Player::mGravity;
+F32 &Item::mGravity = gWorldGravity;
 
 const U32 sClientCollisionMask = (TerrainObjectType     |
                                   InteriorObjectType    |  StaticShapeObjectType |
