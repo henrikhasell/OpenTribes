@@ -1067,6 +1067,21 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
                      case T2FieldQuickSplash:
                         sBody.quickSplash = set;
                         break;
+                     case T2FieldActionHere:
+                        sBody.hasAction = set;
+                        break;
+                     case T2FieldActionHold:
+                        sBody.actionHold = set;
+                        break;
+                     case T2FieldActionAtEnd:
+                        sBody.actionAtEnd = set;
+                        break;
+                     case T2FieldActionFirstPerson:
+                        sBody.actionFirstPerson = set;
+                        break;
+                     case T2FieldActionPosHere:
+                        sBody.hasActionPos = set;
+                        break;
                      default:
                         break;
                   }
@@ -1393,6 +1408,12 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
                   case T2FieldVehicleObject:
                      sBody.hasVehicleObject = true;
                      sBody.vehicleObject = word;
+                     break;
+                  case T2FieldAction:
+                     sBody.action = word;
+                     break;
+                  case T2FieldActionPos:
+                     sBody.actionPos = t2SignedFloat(word, n.bits);
                      break;
                   default:
                      break;
@@ -1841,6 +1862,13 @@ static bool runGhost(BitStream *stream, const char *className,
    sBody.atRest = false;
    sBody.hasWarp = false;
    sBody.warp = false;
+   sBody.hasAction = false;
+   sBody.action = 0;
+   sBody.actionHold = false;
+   sBody.actionAtEnd = false;
+   sBody.actionFirstPerson = false;
+   sBody.hasActionPos = false;
+   sBody.actionPos = 0.0f;
    for(U32 i = 0; i < MaxImages; i++)
    {
       Body::Image &image = sBody.images[i];

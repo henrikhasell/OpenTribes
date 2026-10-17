@@ -379,6 +379,8 @@ PlayerData::PlayerData()
 
    jetEmitter = NULL;
    jetEmitterID = 0;
+   for (U32 i = 0; i < NumT2Actions; i++)
+      t2ActionMap[i] = NullAnimation;
    for (S32 i = 0; i < MaxJetNodes; i++)
       jetNode[i] = -1;
 
@@ -649,6 +651,15 @@ bool PlayerData::preload(bool server, String &errorStr)
       AssertFatal(actionCount <= NumActionAnims, "Too many action animations!");
       delete si;
 
+      for (U32 i = 0; i < NumT2Actions; i++)
+         t2ActionMap[i] = NullAnimation;
+      for (U32 c = actionCount; c-- > 0; )
+      {
+         const S32 seq = actionList[c].sequence;
+         if (seq >= 0 && seq < NumT2Actions)
+            t2ActionMap[seq] = c;
+      }
+
       // Resolve lookAction index
       dp = &actionList[0];
       String lookName("look");
@@ -795,6 +806,11 @@ void PlayerData::getGroundInfo(TSShapeInstance* si, TSThread* thread,ActionAnima
       else
          dp->dir *= 1.0f / dp->speed;
    }
+}
+
+U32 PlayerData::actionFromT2(U32 t2Action) const
+{
+   return t2Action < NumT2Actions ? t2ActionMap[t2Action] : U32(NullAnimation);
 }
 
 bool PlayerData::isTableSequence(S32 seq)
@@ -5088,12 +5104,55 @@ bool Player::displaceObject(const Point3F& displacement)
 
 //----------------------------------------------------------------------------
 
+void Player::readT2Action(const T2Layout::Body &body)
+{
+   const U32 action = mDataBlock->actionFromT2(body.action);
+   if (action == PlayerData::NullAnimation)
+      return;
+
+   const bool hold = body.actionHold;
+   const bool atEnd = body.actionAtEnd;
+   const bool fsp = body.actionFirstPerson;
+   const F32 animPos = (!atEnd && body.hasActionPos) ? body.actionPos : -1.0f;
+
+   if (!isProperlyAdded())
+   {
+      mActionAnimation.action = action;
+      mActionAnimation.holdAtEnd = hold;
+      mActionAnimation.atEnd = atEnd;
+      mActionAnimation.firstPerson = fsp;
+      return;
+   }
+
+   setActionThread(action, true, hold, true, fsp);
+   const bool inDeath = inDeathAnim();
+   if (atEnd)
+   {
+      mShapeInstance->clearTransition(mActionAnimation.thread);
+      mShapeInstance->setPos(mActionAnimation.thread,
+                             mActionAnimation.forward ? 1 : 0);
+      if (inDeath)
+         mDeath.lastPos = 1.0f;
+   }
+   else if (animPos > 0)
+   {
+      mShapeInstance->setPos(mActionAnimation.thread, animPos);
+      if (inDeath)
+         mDeath.lastPos = animPos;
+   }
+
+   mMountPending = (S32) (inSittingAnim() ? sMountPendingTickWait : 0);
+}
+
 void Player::onT2BodyRead(const T2Layout::Body &body)
 {
    readT2Damage(body);
 
    if (body.hasJetting)
       mJetting = body.jetting;
+
+   if (body.hasAction && mDataBlock)
+      readT2Action(body);
 
    if (!body.hasPosition)
       return;
