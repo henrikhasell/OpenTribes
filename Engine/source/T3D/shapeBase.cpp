@@ -251,6 +251,21 @@ bool ShapeBaseData::unpackData(BitStream *stream, U32 classId)
          this->*sFields[i].member = value;
    }
 
+   static const struct { U32 field; S32 ShapeBaseData::*member; } sIds[] =
+   {
+      { T2Layout::T2DbShapeExplosion,           &ShapeBaseData::explosionID  },
+      { T2Layout::T2DbShapeUnderwaterExplosion,
+                                      &ShapeBaseData::underwaterExplosionID },
+      { T2Layout::T2DbShapeDebris,              &ShapeBaseData::debrisID     },
+   };
+
+   for (U32 i = 0; i < sizeof(sIds) / sizeof(sIds[0]); i++)
+   {
+      U32 id;
+      if (T2Layout::lastDataBlockWord(sIds[i].field, &id))
+         this->*sIds[i].member = S32(id);
+   }
+
    return true;
 }
 
@@ -1055,7 +1070,7 @@ bool ShapeBase::onNewDataBlock( GameBaseData *dptr, bool reload )
    updateDamageLevel();
    updateDamageState();
 
-   mDrag = mDataBlock->drag;
+   // HH: Modified for Tribes 2 compatibility.
    mCameraFov = mDataBlock->cameraDefaultFov;
    updateMass();
 
@@ -1469,35 +1484,27 @@ void ShapeBase::updateContainer()
 
    // Update container drag and buoyancy properties
 
-   // Set default values.
-   mDrag = mDataBlock->drag;
-   mBuoyancy = 0.0f;      
+   // HH: Modified for Tribes 2 compatibility.
+   mDrag = 0.0f;
+   mBuoyancy = 0.0f;
    mGravityMod = 1.0;
    mAppliedForce.set(0,0,0);
-   
+
    ContainerQueryInfo info;
    info.box = getWorldBox();
    info.mass = getMass();
 
    mContainer->findObjects(info.box, WaterObjectType|PhysicalZoneObjectType,findRouter,&info);
-      
-   mWaterCoverage = info.waterCoverage;
+
+   mWaterCoverage = mClampF(info.waterCoverage, 0.0f, 1.0f);
    mLiquidType    = info.liquidType;
-   mLiquidHeight  = info.waterHeight;   
+   mLiquidHeight  = info.waterHeight;
    setCurrentWaterObject( info.waterObject );
-   
-   // This value might be useful as a datablock value,
-   // This is what allows the player to stand in shallow water (below this coverage)
-   // without jiggling from buoyancy
-   if (mWaterCoverage >= 0.25f) 
-   {      
-      // water viscosity is used as drag for in water.
-      // ShapeBaseData drag is used for drag outside of water.
-      // Combine these two components to calculate this ShapeBase object's 
-      // current drag.
-      mDrag = ( info.waterCoverage * info.waterViscosity ) + 
-              ( 1.0f - info.waterCoverage ) * mDataBlock->drag;
-      mBuoyancy = (info.waterDensity / mDataBlock->density) * info.waterCoverage;
+
+   if (mWaterCoverage > 0.1f)
+   {
+      mDrag = mDataBlock->drag * 15.0f * mWaterCoverage;
+      mBuoyancy = mWaterCoverage / mDataBlock->density;
    }
 
    mAppliedForce = info.appliedForce;
@@ -1530,11 +1537,69 @@ F32 ShapeBase::getDamageValue()
 }
 
 // HH: Added for Tribes 2 compatibility.
-// A ghost body carries damage as readFloat(6) of the datablock's maxDamage.
 void ShapeBase::readT2Damage(const T2Layout::Body &body)
 {
-   if (body.hasDamage && mDataBlock && mDataBlock->maxDamage > 0.0f)
+   if (!body.hasDamage)
+      return;
+
+   if (mDataBlock && mDataBlock->maxDamage > 0.0f)
       setDamageLevel(body.damage * mDataBlock->maxDamage);
+
+   if (body.hasDamageDir)
+      damageDir = body.damageDir;
+
+   const DamageState was = mDamageState;
+   if (body.hasDamageState && body.damageState < NumDamageStates)
+      mDamageState = DamageState(body.damageState);
+
+   if ((was != Destroyed && mDamageState == Destroyed) || body.blowApart)
+   {
+      if (isProperlyAdded())
+         blowUp();
+   }
+
+   updateDamageLevel();
+   updateDamageState();
+}
+
+// HH: Added for Tribes 2 compatibility.
+void ShapeBase::readT2Threads(const T2Layout::Body &body)
+{
+   const bool trace = Con::getBoolVariable("$pref::Net::traceGhostThreads",
+                                           false);
+
+   const U32 slots = getMin((U32)MaxScriptThreads, (U32)T2Layout::MaxThreads);
+   for (U32 i = 0; i < slots; i++)
+   {
+      const T2Layout::Body::Thread &slot = body.threads[i];
+      if (!slot.present)
+         continue;
+
+      Thread &st = mScriptThread[i];
+
+      if (trace)
+         Con::printf("T2 thread: %s %d slot %d sequence %d (%s) state %d "
+                     "forward %d atEnd %d", getClassName(), getId(), i,
+                     slot.sequence,
+                     mShapeInstance && S32(slot.sequence) <
+                        mShapeInstance->getShape()->sequences.size()
+                        ? mShapeInstance->getShape()->getName(
+                             mShapeInstance->getShape()
+                                ->sequences[slot.sequence].nameIndex).c_str()
+                        : "?",
+                     slot.state, slot.forward, slot.atEnd);
+
+      if (st.sequence != S32(slot.sequence))
+         setThreadSequence(i, S32(slot.sequence), false);
+
+      st.state = slot.state;
+      st.atEnd = slot.atEnd;
+      st.timescale = slot.forward ? 1.0f : -1.0f;
+      st.position = -1.0f;
+
+      if (mShapeInstance && st.thread)
+         updateThread(st);
+   }
 }
 
 void ShapeBase::onT2BodyRead(const T2Layout::Body &body)
@@ -1646,6 +1711,7 @@ bool ShapeBase::unpackUpdate(BitStream *stream, bool isInitial)
       return false;
 
    readT2Images(T2Layout::lastBody());
+   readT2Threads(T2Layout::lastBody());
    return true;
 }
 

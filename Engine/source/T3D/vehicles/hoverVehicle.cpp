@@ -36,6 +36,7 @@
 #include "sfx/sfxSource.h"
 #include "T3D/fx/particleEmitter.h"
 #include "math/mathIO.h"
+#include "T3D/gameBase/gravityT2.h"   // HH: Added for Tribes 2 compatibility.
 
 
 IMPLEMENT_CO_DATABLOCK_V1(HoverVehicleData);
@@ -71,7 +72,8 @@ ConsoleDocClass( HoverVehicle,
 namespace {
 
 const U32 sIntergrationsPerTick = 1;
-const F32 sHoverVehicleGravity  = -20;
+// HH: Modified for Tribes 2 compatibility.
+F32 &sHoverVehicleGravity = gWorldGravity;
 
 const U32 sCollisionMoveMask = (TerrainObjectType        | InteriorObjectType   |
                                 PlayerObjectType         | StaticShapeObjectType |

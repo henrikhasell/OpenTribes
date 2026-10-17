@@ -140,33 +140,6 @@ ConsoleDocClass( SensorGroupColorEvent,
 
 //----------------------------------------------------------------------------
 
-class GravityEvent : public NetEvent
-{
-   typedef NetEvent Parent;
-   F32 mGravity;
-
-public:
-   GravityEvent(F32 gravity = 0.0f)
-   {
-      mGuaranteeType = GuaranteedOrdered;
-      mGravity = gravity;
-   }
-
-   void pack(NetConnection *, BitStream *stream) { stream->write(mGravity); }
-   void write(NetConnection *, BitStream *stream) { stream->write(mGravity); }
-   void unpack(NetConnection *, BitStream *stream) { stream->read(&mGravity); }
-   void process(NetConnection *) {}
-
-   DECLARE_CONOBJECT(GravityEvent);
-};
-
-IMPLEMENT_CO_CLIENTEVENT_V1(GravityEvent);
-
-ConsoleDocClass( GravityEvent,
-   "@brief Gives a client the mission's gravity.\n\n@internal" );
-
-//----------------------------------------------------------------------------
-
 class TargetFreeEvent : public NetEvent
 {
    typedef NetEvent Parent;

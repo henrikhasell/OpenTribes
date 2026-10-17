@@ -58,6 +58,7 @@
 #include "materials/baseMatInstance.h"
 #include "materials/materialPropertyMap.h"
 #include "terrain/terrData.h"
+#include "T3D/gameBase/gravityT2.h"   // HH: Added for Tribes 2 compatibility.
 
 // Amount of time if takes to transition to a new action sequence.
 static F32 sAnimationTransitionTime = 0.25f;
@@ -1354,12 +1355,7 @@ ConsoleDocClass( Player,
 );
 
 // HH: Modified for Tribes 2 compatibility.
-// Retail's static starts at -20 (0x007a1a20) and base/scripts/TR2Physics.cs
-// raises it through setGravity before a mission runs; a stock server answers
-// getGravity() with -26.9.  Those scripts ship compiled, so we cannot exec
-// them to be told, and a client that simulates on -20 falls at three quarters
-// of the rate the server it is predicting against does.
-F32 Player::mGravity = -26.9f;
+F32 &Player::mGravity = gWorldGravity;
 
 //----------------------------------------------------------------------------
 
@@ -6158,23 +6154,6 @@ void Player::consoleInit()
    Con::addVariable("$player::vehicleDismountTrigger", TypeS32, &sVehicleDismountTrigger,
       "@brief The move trigger index used to dismount player.\n\n"
 	   "@ingroup GameObjects\n");
-}
-
-// HH: Added for Tribes 2 compatibility.
-// The pair retail exposes over one static (0x005f9df0 and 0x005f9ec0), so a
-// mission can say what it falls at and a probe can read the answer back.
-DefineEngineFunction( setGravity, void, ( F32 gravity ),,
-   "@brief Set the acceleration gravity pulls a player down with.\n\n"
-   "@ingroup GameObjects\n")
-{
-   Player::mGravity = gravity;
-}
-
-DefineEngineFunction( getGravity, F32, (),,
-   "@brief Get the acceleration gravity pulls a player down with.\n\n"
-   "@ingroup GameObjects\n")
-{
-   return Player::mGravity;
 }
 
 //--------------------------------------------------------------------------

@@ -52,6 +52,8 @@ static S32 sAffineAt = -1;
 static S32 sScaleAt = -1;
 static S32 sPointAt = -1;
 static S32 sVelocityAt = -1;
+static S32 sExplodeAt = -1;
+static S32 sImpactAt = -1;
 static bool sQuatNegative = false;
 static bool sAxisNegative = false;
 static F32 sSpeed = 0.0f;
@@ -430,6 +432,286 @@ static const T2ImageMap *resolveImages(const T2DataBlockLayout *layout)
    return map;
 }
 
+enum T2ThreadPart
+{
+   T2ThreadMask,
+   T2ThreadSequence,
+   T2ThreadState,
+   T2ThreadForward,
+   T2ThreadAtEnd,
+
+   T2ThreadParts
+};
+
+struct T2ThreadMap
+{
+   const T2DataBlockLayout *layout;
+   U32                      slots;
+   Vector<S16>              part;
+};
+
+static Vector<T2ThreadMap *> sThreadMaps(__FILE__, __LINE__);
+static const T2ThreadMap *sThreads = NULL;
+
+static bool isValue(const T2DataNode *n, U32 bits)
+{
+   return n && n->bits == bits &&
+          (n->op == OpInt || n->op == OpRaw || n->op == OpFloat ||
+           n->op == OpSignedFloat);
+}
+
+static bool matchThreadSlot(const T2DataBlockLayout *layout, S32 top,
+                            S16 *parts)
+{
+   const T2DataNode *mask = nodeAt(layout, top);
+   if(!mask || mask->op != OpFlag || mask->bits != 1 || mask->a == mask->b)
+      return false;
+
+   const S32 after = mask->a;
+
+   const T2DataNode *sequence = nodeAt(layout, mask->b);
+   if(!isValue(sequence, 5))
+      return false;
+
+   const T2DataNode *state = nodeAt(layout, sequence->a);
+   if(!isValue(state, 2))
+      return false;
+
+   const T2DataNode *forward = nodeAt(layout, state->a);
+   if(!isBareFlag(forward))
+      return false;
+
+   const T2DataNode *atEnd = nodeAt(layout, forward->a);
+   if(!isBareFlag(atEnd) || atEnd->a != after)
+      return false;
+
+   parts[T2ThreadMask]     = S16(top);
+   parts[T2ThreadSequence] = S16(mask->b);
+   parts[T2ThreadState]    = S16(sequence->a);
+   parts[T2ThreadForward]  = S16(state->a);
+   parts[T2ThreadAtEnd]    = S16(forward->a);
+   return true;
+}
+
+static const T2ThreadMap *resolveThreads(const T2DataBlockLayout *layout)
+{
+   for(U32 i = 0; i < sThreadMaps.size(); i++)
+      if(sThreadMaps[i]->layout == layout)
+         return sThreadMaps[i];
+
+   T2ThreadMap *map = new T2ThreadMap;
+   map->layout = layout;
+   map->slots = 0;
+   map->part.setSize(layout->count);
+   for(U32 i = 0; i < layout->count; i++)
+      map->part[i] = -1;
+
+   Vector<S16> parts(__FILE__, __LINE__);
+   parts.setSize(layout->count * T2ThreadParts);
+
+   Vector<bool> isSlot(__FILE__, __LINE__);
+   isSlot.setSize(layout->count);
+   for(U32 i = 0; i < layout->count; i++)
+      isSlot[i] = matchThreadSlot(layout, S32(i), &parts[i * T2ThreadParts]);
+
+   for(U32 i = 0; i < layout->count; i++)
+   {
+      if(!isSlot[i])
+         continue;
+
+      bool head = true;
+      for(U32 j = 0; j < layout->count && head; j++)
+         if(isSlot[j] && layout->nodes[j].a == S32(i))
+            head = false;
+      if(!head)
+         continue;
+
+      U32 slot = 0;
+      for(S32 at = S32(i);
+          slot < MaxThreads && at >= 0 && U32(at) < layout->count && isSlot[at];
+          at = layout->nodes[at].a, slot++)
+         for(U32 p = 0; p < T2ThreadParts; p++)
+            map->part[parts[at * T2ThreadParts + p]] =
+               S16(slot * T2ThreadParts + p);
+
+      if(slot > map->slots)
+         map->slots = slot;
+   }
+
+   if(map->slots)
+      Con::printf("T2 layout: %s carries %d animation threads", layout->name,
+                  map->slots);
+
+   sThreadMaps.push_back(map);
+   return map;
+}
+
+enum T2DamagePart
+{
+   T2DamageLevel,
+   T2DamageState,
+   T2DamageBlowApart,
+   T2DamageDirPhi,
+   T2DamageDirTheta,
+
+   T2DamageParts
+};
+
+struct T2DamageMap
+{
+   const T2DataBlockLayout *layout;
+   bool                     found;
+   S16                      part[T2DamageParts];
+};
+
+static Vector<T2DamageMap *> sDamageMaps(__FILE__, __LINE__);
+static const T2DamageMap *sDamage = NULL;
+
+static bool matchDamage(const T2DataBlockLayout *layout, S32 top, S16 *parts)
+{
+   const T2DataNode *level = nodeAt(layout, top);
+   if(!isValue(level, 6))
+      return false;
+
+   const T2DataNode *state = nodeAt(layout, level->a);
+   if(!isValue(state, 2))
+      return false;
+
+   const T2DataNode *blowApart = nodeAt(layout, state->a);
+   if(!isBareFlag(blowApart))
+      return false;
+
+   const T2DataNode *phi = nodeAt(layout, blowApart->a);
+   if(!phi)
+      return false;
+
+   S16 theta = -1;
+   if(isValue(phi, 17))
+      ;
+   else if(isValue(phi, 9))
+   {
+      const T2DataNode *rest = nodeAt(layout, phi->a);
+      if(!isValue(rest, 8))
+         return false;
+      theta = S16(phi->a);
+   }
+   else
+      return false;
+
+   parts[T2DamageLevel]     = S16(top);
+   parts[T2DamageState]     = S16(level->a);
+   parts[T2DamageBlowApart] = S16(state->a);
+   parts[T2DamageDirPhi]    = S16(blowApart->a);
+   parts[T2DamageDirTheta]  = theta;
+
+   return true;
+}
+
+static const T2DamageMap *resolveDamage(const T2DataBlockLayout *layout)
+{
+   for(U32 i = 0; i < sDamageMaps.size(); i++)
+      if(sDamageMaps[i]->layout == layout)
+         return sDamageMaps[i];
+
+   T2DamageMap *map = new T2DamageMap;
+   map->layout = layout;
+   map->found = false;
+   for(U32 p = 0; p < T2DamageParts; p++)
+      map->part[p] = -1;
+
+   S16 parts[T2DamageParts];
+   U32 blocks = 0;
+   for(U32 i = 0; i < layout->count; i++)
+      if(matchDamage(layout, S32(i), parts))
+      {
+         blocks++;
+         if(!map->found)
+         {
+            map->found = true;
+            for(U32 p = 0; p < T2DamageParts; p++)
+               map->part[p] = parts[p];
+         }
+      }
+
+   if(blocks > 1)
+      Con::warnf("T2 layout: %s has %d blocks shaped like ShapeBase's damage; "
+                 "the first is being taken", layout->name, blocks);
+
+   sDamageMaps.push_back(map);
+   return map;
+}
+
+static bool damageAt(const T2DataBlockLayout *layout, S32 at, U32 *part)
+{
+   if(!sDamage || sDamage->layout != layout || !sDamage->found || at < 0)
+      return false;
+
+   for(U32 p = 0; p < T2DamageParts; p++)
+      if(sDamage->part[p] == S16(at))
+      {
+         *part = p;
+         return true;
+      }
+
+   return false;
+}
+
+static F32 sDamagePhi = 0.0f;
+
+static void noteDamage(U32 part, U32 word, U32 bits)
+{
+   switch(part)
+   {
+      case T2DamageLevel:
+         sBody.hasDamage = true;
+         sBody.damage = t2Float(word, bits);
+         break;
+
+      case T2DamageState:
+         sBody.hasDamageState = true;
+         sBody.damageState = word;
+         break;
+
+      case T2DamageDirPhi:
+         if(bits == 17)
+         {
+            sBody.hasDamageDir = true;
+            sBody.damageDir = normalVector(word, 8);
+         }
+         else
+            sDamagePhi = signedFloatOf(word, bits) * M_PI_F;
+         break;
+
+      case T2DamageDirTheta:
+      {
+         const F32 theta = signedFloatOf(word, bits) * M_HALFPI_F;
+         sBody.hasDamageDir = true;
+         sBody.damageDir.set(mSin(sDamagePhi) * mCos(theta),
+                             mCos(sDamagePhi) * mCos(theta), mSin(theta));
+         break;
+      }
+
+      default:
+         break;
+   }
+}
+
+static bool threadAt(const T2DataBlockLayout *layout, S32 at, U32 *slot,
+                     U32 *part)
+{
+   if(!sThreads || sThreads->layout != layout || at < 0 ||
+      U32(at) >= sThreads->part.size())
+      return false;
+
+   const S16 what = sThreads->part[at];
+   if(what < 0)
+      return false;
+
+   *slot = U32(what) / T2ThreadParts;
+   *part = U32(what) % T2ThreadParts;
+   return true;
+}
+
 /// The nodes of one image state, in the order the walk reaches them.
 enum T2StatePart
 {
@@ -782,9 +1064,28 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
                         sBody.hasWarp = true;
                         sBody.warp = set;
                         break;
+                     case T2FieldQuickSplash:
+                        sBody.quickSplash = set;
+                        break;
                      default:
                         break;
                   }
+
+               U32 slotOf, partOf;
+               if(threadAt(layout, at, &slotOf, &partOf))
+               {
+                  Body::Thread &thread = sBody.threads[slotOf];
+                  switch(partOf)
+                  {
+                     case T2ThreadMask:    thread.present = set; break;
+                     case T2ThreadForward: thread.forward = set; break;
+                     case T2ThreadAtEnd:   thread.atEnd   = set; break;
+                     default:                                    break;
+                  }
+               }
+
+               if(damageAt(layout, at, &partOf) && partOf == T2DamageBlowApart)
+                  sBody.blowApart = set;
 
                U32 state, part;
                if(stateAt(layout, at, &state, &part))
@@ -999,6 +1300,10 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
                   sBody.hasImpactNormal = true;
                }
             }
+
+            U32 part;
+            if(!write && damageAt(layout, at, &part))
+               noteDamage(part, word, n.bits);
             break;
          }
 
@@ -1012,6 +1317,10 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
                                                      : dbFieldAt(layout, at);
             if(dbRow)
                noteDbField(dbRow, word);
+
+            U32 part;
+            if(!write && damageAt(layout, at, &part))
+               noteDamage(part, word, n.bits);
             break;
          }
 
@@ -1028,6 +1337,8 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
                   case T2FieldScale:         sScaleAt     = sWords.size(); break;
                   case T2FieldPointWords:    sPointAt     = sWords.size(); break;
                   case T2FieldVelocityWords: sVelocityAt  = sWords.size(); break;
+                  case T2FieldExplodeWords:  sExplodeAt   = sWords.size(); break;
+                  case T2FieldImpactWords:   sImpactAt    = sWords.size(); break;
                   default:                                                 break;
                }
 
@@ -1061,16 +1372,31 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
                sBody.hasYaw = true;
                sBody.yaw = sAxisNegative ? -angle : angle;
             }
-            if(row && row->field == T2FieldDamage && n.bits)
-            {
-               // readFloat(n) again: the share of the object's maxDamage.
-               sBody.hasDamage = true;
-               sBody.damage = (F32)word / (F32)((1 << n.bits) - 1);
-            }
             if(row && row->field == T2FieldSpeed)
                sSpeed = (F32)word / 32.0f;
             if(row && row->field == T2FieldDirection)
                sBody.velocity = normalVector(word, 10) * sSpeed;
+            if(row)
+               switch(row->field)
+               {
+                  case T2FieldCurrTick:
+                     sBody.hasCurrTick = true;
+                     sBody.currTick = word;
+                     break;
+                  case T2FieldSourceObject:
+                     sBody.hasSourceObject = true;
+                     sBody.sourceObject = word;
+                     break;
+                  case T2FieldSourceSlot:
+                     sBody.sourceSlot = word;
+                     break;
+                  case T2FieldVehicleObject:
+                     sBody.hasVehicleObject = true;
+                     sBody.vehicleObject = word;
+                     break;
+                  default:
+                     break;
+               }
 
             if(!write)
             {
@@ -1085,6 +1411,17 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
                   else if(part == T2ImageFireCount)
                      sBody.images[slot].fireCount = word;
                }
+
+               if(threadAt(layout, at, &slot, &part))
+               {
+                  if(part == T2ThreadSequence)
+                     sBody.threads[slot].sequence = word;
+                  else if(part == T2ThreadState)
+                     sBody.threads[slot].state = word;
+               }
+
+               if(damageAt(layout, at, &part))
+                  noteDamage(part, word, n.bits);
 
                U32 state;
                if(stateAt(layout, at, &state, &part) && part == T2StateTimeout)
@@ -1337,6 +1674,8 @@ static void resolveGhostFields(const char *className)
    sRowCount = 0;
    sFieldsLayout = NULL;
    sImages = NULL;
+   sThreads = NULL;
+   sDamage = NULL;
 
    const T2DataBlockLayout *layout =
       findNamed(className, sT2GhostsRecovered, ELEMENTS(sT2GhostsRecovered));
@@ -1345,6 +1684,8 @@ static void resolveGhostFields(const char *className)
 
    sFieldsLayout = layout;
    sImages = resolveImages(layout);
+   sThreads = resolveThreads(layout);
+   sDamage = resolveDamage(layout);
 
    for(U32 i = 0; i < ELEMENTS(sT2GhostFields); i++)
    {
@@ -1448,6 +1789,20 @@ static void assembleBody()
                       wordFloat(sScaleAt + 2));
       sBody.hasScale = true;
    }
+
+   if(sExplodeAt >= 0 && sWords.size() >= U32(sExplodeAt) + 3)
+   {
+      sBody.explodePoint.set(wordFloat(sExplodeAt), wordFloat(sExplodeAt + 1),
+                             wordFloat(sExplodeAt + 2));
+      sBody.hasExplodePoint = true;
+   }
+
+   if(sImpactAt >= 0 && sWords.size() >= U32(sImpactAt) + 3)
+   {
+      sBody.impactNormal.set(wordFloat(sImpactAt), wordFloat(sImpactAt + 1),
+                             wordFloat(sImpactAt + 2));
+      sBody.hasImpactNormal = true;
+   }
 }
 
 static bool runGhost(BitStream *stream, const char *className,
@@ -1467,6 +1822,15 @@ static bool runGhost(BitStream *stream, const char *className,
    sBody.hasDirection = false;
    sBody.hasImpactNormal = false;
    sBody.hasDamage = false;
+   sBody.hasDamageState = false;
+   sBody.blowApart = false;
+   sBody.hasDamageDir = false;
+   sBody.hasExplodePoint = false;
+   sBody.hasCurrTick = false;
+   sBody.hasSourceObject = false;
+   sBody.sourceSlot = 0;
+   sBody.hasVehicleObject = false;
+   sBody.quickSplash = false;
    sBody.hasJetting = false;
    sBody.jetting = false;
    sBody.hasRotate = false;
@@ -1494,15 +1858,27 @@ static bool runGhost(BitStream *stream, const char *className,
       image.target = false;
       image.fireCount = 0;
    }
+   for(U32 i = 0; i < MaxThreads; i++)
+   {
+      Body::Thread &thread = sBody.threads[i];
+      thread.present = false;
+      thread.sequence = 0;
+      thread.state = 0;
+      thread.forward = false;
+      thread.atEnd = false;
+   }
    sTransformAt = -1;
    sAffineAt = -1;
    sScaleAt = -1;
    sPointAt = -1;
    sVelocityAt = -1;
+   sExplodeAt = -1;
+   sImpactAt = -1;
    sQuatNegative = false;
    sAxisNegative = false;
    sSpeed = 0.0f;
    sPhi = 0.0f;
+   sDamagePhi = 0.0f;
    resolveGhostFields(className);
    bool found = false;
    const bool ok = runNamed(stream, className, sT2GhostsRecovered,

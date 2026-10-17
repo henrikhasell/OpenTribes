@@ -680,8 +680,7 @@ protected:
 
 public:
    // HH: Modified for Tribes 2 compatibility.
-   // setGravity and getGravity reach this.
-   static F32 mGravity;             ///< Gravity
+   static F32 &mGravity;            ///< Gravity
 
    DECLARE_CONOBJECT(Player);
 

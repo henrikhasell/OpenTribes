@@ -37,6 +37,7 @@
 #include "lighting/lightInfo.h"
 #include "console/engineAPI.h"
 #include "T3D/gameBase/t2Layout.h"
+#include "T3D/gameBase/gravityT2.h"   // HH: Added for Tribes 2 compatibility.
 
 #if defined(TORQUE_OS_XENON)
 #  include "gfx/D3D9/360/gfx360MemVertexBuffer.h"
@@ -1073,7 +1074,8 @@ void ParticleEmitter::emitParticles(const Point3F& start,
               Point3F a = last_part->acc;
               a -= last_part->vel * last_part->dataBlock->dragCoefficient;
               a -= mWindVelocity * last_part->dataBlock->windCoefficient;
-              a += Point3F(0.0f, 0.0f, -9.81f) * last_part->dataBlock->gravityCoefficient;
+              // HH: Modified for Tribes 2 compatibility.
+              a += Point3F(0.0f, 0.0f, gWorldGravity * WorldGravityScale) * last_part->dataBlock->gravityCoefficient;
 
               last_part->vel += a * t;
               last_part->pos += last_part->vel * t;
@@ -1387,7 +1389,8 @@ void ParticleEmitter::update( U32 ms )
       Point3F a = part->acc;
       a -= part->vel        * part->dataBlock->dragCoefficient;
       a -= mWindVelocity * part->dataBlock->windCoefficient;
-      a += Point3F(0.0f, 0.0f, -9.81f) * part->dataBlock->gravityCoefficient;
+      // HH: Modified for Tribes 2 compatibility.
+      a += Point3F(0.0f, 0.0f, gWorldGravity * WorldGravityScale) * part->dataBlock->gravityCoefficient;
 
       part->vel += a * t;
       part->pos += part->vel * t;

@@ -26,6 +26,8 @@ namespace T2Layout
    /// backpack and flag.
    enum { MaxImages = 8 };
 
+   enum { MaxThreads = 4 };
+
    struct Body
    {
       bool    hasPosition;
@@ -44,6 +46,21 @@ namespace T2Layout
       Point3F impactNormal;
       bool    hasDamage;
       F32     damage;               ///< share of the object's maxDamage
+      bool    hasDamageState;
+      U32     damageState;
+      bool    blowApart;
+      bool    hasDamageDir;
+      Point3F damageDir;
+      bool    hasExplodePoint;
+      Point3F explodePoint;
+      bool    hasCurrTick;
+      U32     currTick;
+      bool    hasSourceObject;
+      U32     sourceObject;
+      U32     sourceSlot;
+      bool    hasVehicleObject;
+      U32     vehicleObject;
+      bool    quickSplash;
       bool    hasJetting;
       bool    jetting;              ///< the jet pack is lit
       bool    hasRotate;
@@ -79,6 +96,16 @@ namespace T2Layout
          U32    fireCount;
       };
       Image   images[MaxImages];
+
+      struct Thread
+      {
+         bool   present;
+         U32    sequence;
+         U32    state;
+         bool   forward;
+         bool   atEnd;
+      };
+      Thread  threads[MaxThreads];
    };
 
    const Body &lastBody();
@@ -108,6 +135,8 @@ namespace T2Layout
       T2DbElasticity,
       T2DbFriction,
       T2DbGravityMod,
+      T2DbProjectileDrag,
+      T2DbProjectileDensity,
       T2DbArmingDelay,
       T2DbBlurLifetime,
       T2DbBlurWidth,
@@ -147,6 +176,24 @@ namespace T2Layout
       T2DbDrag,
       T2DbDensity,
       T2DbMaxEnergy,
+
+      T2DbShapeExplosion,
+      T2DbShapeUnderwaterExplosion,
+      T2DbShapeDebris,
+
+      T2DbItemFriction,
+      T2DbItemElasticity,
+      T2DbItemSticky,
+      T2DbItemGravityMod,
+      T2DbItemMaxVelocity,
+      T2DbItemLightType,
+      T2DbItemLightColorR,
+      T2DbItemLightColorG,
+      T2DbItemLightColorB,
+      T2DbItemLightColorA,
+      T2DbItemLightTime,
+      T2DbItemLightRadius,
+      T2DbItemLightOnlyStatic,
 
       T2DbMinLookAngle,
       T2DbMaxLookAngle,

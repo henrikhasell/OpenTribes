@@ -60,6 +60,9 @@ struct ItemData: public ShapeBaseData {
    ItemData();
    DECLARE_CONOBJECT(ItemData);
    static void initPersistFields();
+
+   // HH: Added for Tribes 2 compatibility.
+   bool unpackData(BitStream *stream, U32 classId) override;
 };
 
 
@@ -90,7 +93,8 @@ class Item: public ShapeBase
 
    // Static attributes
    ItemData* mDataBlock;
-   static F32 mGravity;
+   // HH: Modified for Tribes 2 compatibility.
+   static F32 &mGravity;
    bool mStatic;
    bool mRotate;
 

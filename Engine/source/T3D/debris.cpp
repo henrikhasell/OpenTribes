@@ -39,6 +39,7 @@
 #include "gfx/gfxTransformSaver.h"
 #include "console/engineAPI.h"
 #include "lighting/lightQuery.h"
+#include "T3D/gameBase/gravityT2.h"   // HH: Added for Tribes 2 compatibility.
 
 
 const U32 csmStaticCollisionMask =  TerrainObjectType  |
@@ -725,7 +726,8 @@ void Debris::explode()
 void Debris::computeNewState( Point3F &newPos, Point3F &newVel, F32 dt )
 {
    // apply gravity
-   Point3F force = Point3F(0, 0, -9.81 * mDataBlock->gravModifier );
+   // HH: Modified for Tribes 2 compatibility.
+   Point3F force = Point3F(0, 0, gWorldGravity * WorldGravityScale * mDataBlock->gravModifier );
 
    if( mDataBlock->terminalVelocity > 0.0001 )
    {

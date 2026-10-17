@@ -17,8 +17,6 @@ namespace T2Protocol
       T2FieldZAngle,                ///< a raw float of radians about that
                                     ///< axis, which is a heading either way
       T2FieldScale,                 ///< the first of a Point3F's three floats
-      T2FieldDamage,                ///< readFloat(bits) of the object's
-                                    ///< maxDamage
       T2FieldJetting,               ///< the flag that lights a jet pack
       T2FieldRotate,                ///< the flag that spins an item
       T2FieldStatic,                ///< the flag that says it never moves
@@ -31,6 +29,13 @@ namespace T2Protocol
       T2FieldImpactTheta,
       T2FieldPointWords,
       T2FieldVelocityWords,
+      T2FieldExplodeWords,
+      T2FieldImpactWords,
+      T2FieldCurrTick,
+      T2FieldSourceObject,
+      T2FieldSourceSlot,
+      T2FieldVehicleObject,
+      T2FieldQuickSplash,
    };
 
    inline U32 t2FieldWords(U32 field)
@@ -42,6 +47,8 @@ namespace T2Protocol
          case T2FieldScale:         return 3;
          case T2FieldPointWords:    return 3;
          case T2FieldVelocityWords: return 3;
+         case T2FieldExplodeWords:  return 3;
+         case T2FieldImpactWords:   return 3;
          default:                   return 0;
       }
    }
@@ -65,19 +72,11 @@ namespace T2Protocol
 
       { "Player", 26, OpFlag,  1,  T2FieldJetting      },
 
-   // ShapeBase::unpackUpdate reads the damage at 0x005ef194 as readFloat(6) of
-   // the datablock's maxDamage, followed by two bits of state.
-      { "Player",         223, OpRaw, 6, T2FieldDamage },
-      { "Vehicle",        214, OpRaw, 6, T2FieldDamage },
-      { "FlyingVehicle",  217, OpRaw, 6, T2FieldDamage },
-      { "HoverVehicle",   215, OpRaw, 6, T2FieldDamage },
-      { "WheeledVehicle", 234, OpRaw, 6, T2FieldDamage },
-
    // The tail Item::unpackUpdate adds to ShapeBase's body: what the item is,
-   // where it is, and whether it is still moving.
       { "Item", 21, OpFlag,  1, T2FieldRotate        },
       { "Item", 20, OpFlag,  1, T2FieldStatic        },
       { "Item", 17, OpRaw,  32, T2FieldScale         },
+      { "Item", 13, OpInt,  10, T2FieldSourceObject  },
       { "Item", 11, OpFlag,  1, T2FieldAxisZSign     },
       { "Item", 10, OpRaw,  32, T2FieldZAngle        },
       { "Item",  8, OpRaw,  32, T2FieldPointWords    },
@@ -145,9 +144,13 @@ namespace T2Protocol
       { "AudioEmitter",         156, OpFlag,  1, T2FieldQuatSign },
 
 #define T2_LINEAR_PROJECTILE_FIELDS( cls )                             \
-      { cls, 17, OpPoint,        0,  T2FieldPosition    },             \
-      { cls, 16, OpSignedFloat, 15,  T2FieldNormalPhi   },             \
-      { cls, 15, OpSignedFloat, 14,  T2FieldNormalTheta },             \
+      { cls, 17, OpPoint,        0,  T2FieldPosition     },            \
+      { cls, 16, OpSignedFloat, 15,  T2FieldNormalPhi    },            \
+      { cls, 15, OpSignedFloat, 14,  T2FieldNormalTheta  },            \
+      { cls, 14, OpInt,          9,  T2FieldCurrTick     },            \
+      { cls, 12, OpInt,         10,  T2FieldSourceObject },            \
+      { cls, 11, OpInt,          3,  T2FieldSourceSlot   },            \
+      { cls,  5, OpInt,         10,  T2FieldVehicleObject},            \
       { cls, 21, OpPoint,        0,  T2FieldPosition     },            \
       { cls, 20, OpSignedFloat, 15,  T2FieldImpactPhi    },            \
       { cls, 19, OpSignedFloat, 14,  T2FieldImpactTheta  },            \
@@ -161,10 +164,27 @@ namespace T2Protocol
 
 #undef T2_LINEAR_PROJECTILE_FIELDS
 
-      { "EnergyProjectile",      34, OpRaw,  32, T2FieldPointWords    },
-      { "EnergyProjectile",      31, OpRaw,  32, T2FieldVelocityWords },
-      { "EnergyProjectile",      13, OpRaw,  32, T2FieldPointWords    },
-      { "EnergyProjectile",      10, OpRaw,  32, T2FieldVelocityWords },
+#define T2_GRENADE_PROJECTILE_FIELDS( cls )                            \
+      { cls, 34, OpRaw, 32, T2FieldPointWords    },                    \
+      { cls, 31, OpRaw, 32, T2FieldVelocityWords },                    \
+      { cls, 28, OpInt, 12, T2FieldCurrTick      },                    \
+      { cls, 27, OpFlag, 1, T2FieldQuickSplash   },                    \
+      { cls, 25, OpRaw, 32, T2FieldExplodeWords  },                    \
+      { cls, 22, OpRaw, 32, T2FieldImpactWords   },                    \
+      { cls, 18, OpInt, 11, T2FieldSourceObject  },                    \
+      { cls, 17, OpInt,  3, T2FieldSourceSlot    },                    \
+      { cls, 15, OpInt, 11, T2FieldVehicleObject },                    \
+      { cls, 13, OpRaw, 32, T2FieldPointWords    },                    \
+      { cls, 10, OpRaw, 32, T2FieldVelocityWords },                    \
+      { cls,  6, OpRaw, 32, T2FieldExplodeWords  },                    \
+      { cls,  3, OpRaw, 32, T2FieldImpactWords   },
+
+      T2_GRENADE_PROJECTILE_FIELDS( "GrenadeProjectile" )
+      T2_GRENADE_PROJECTILE_FIELDS( "EnergyProjectile"  )
+      T2_GRENADE_PROJECTILE_FIELDS( "FlareProjectile"   )
+      T2_GRENADE_PROJECTILE_FIELDS( "BombProjectile"    )
+
+#undef T2_GRENADE_PROJECTILE_FIELDS
    };
 }
 

@@ -35,6 +35,7 @@
 #include "math/mathIO.h"
 #include "lighting/lightInfo.h"
 #include "lighting/lightManager.h"
+#include "T3D/gameBase/gravityT2.h"
 #include "T3D/physics/physicsPlugin.h"
 #include "T3D/physics/physicsBody.h"
 #include "T3D/physics/physicsCollision.h"
@@ -50,7 +51,8 @@ const S32 sCollisionTimeout = 15;       // Timout value in ticks
 static F32 sMinWarpTicks = 0.5 ;        // Fraction of tick at which instant warp occures
 static S32 sMaxWarpTicks = 3;           // Max warp duration in ticks
 
-F32 Item::mGravity = -20.0f;
+// HH: Modified for Tribes 2 compatibility.
+F32 &Item::mGravity = gWorldGravity;
 
 const U32 sClientCollisionMask = (TerrainObjectType     |
                                   InteriorObjectType    |  StaticShapeObjectType |
@@ -176,6 +178,55 @@ void ItemData::initPersistFields()
       "shot by projectiles.\n");
 
    Parent::initPersistFields();
+}
+
+// HH: Added for Tribes 2 compatibility.
+bool ItemData::unpackData(BitStream *stream, U32 classId)
+{
+   if (!Parent::unpackData(stream, classId))
+      return false;
+
+   static const struct { U32 field; U32 bits; F32 ItemData::*member; } sUnit[] =
+   {
+      { T2Layout::T2DbItemFriction,   10, &ItemData::friction   },
+      { T2Layout::T2DbItemElasticity, 10, &ItemData::elasticity },
+      { T2Layout::T2DbItemGravityMod, 10, &ItemData::gravityMod },
+   };
+
+   U32 word;
+   for (U32 i = 0; i < sizeof(sUnit) / sizeof(sUnit[0]); i++)
+      if (T2Layout::lastDataBlockWord(sUnit[i].field, &word))
+         this->*sUnit[i].member = T2Layout::t2Float(word, sUnit[i].bits);
+
+   F32 value;
+   if (T2Layout::lastDataBlockField(T2Layout::T2DbItemMaxVelocity, &value))
+      maxVelocity = value;
+   if (T2Layout::lastDataBlockField(T2Layout::T2DbItemLightRadius, &value))
+      lightRadius = value;
+
+   if (T2Layout::lastDataBlockWord(T2Layout::T2DbItemSticky, &word))
+      sticky = word != 0;
+   if (T2Layout::lastDataBlockWord(T2Layout::T2DbItemLightType, &word) &&
+       word < Item::NumLightTypes)
+      lightType = S32(word);
+   if (T2Layout::lastDataBlockWord(T2Layout::T2DbItemLightTime, &word))
+      lightTime = S32(word);
+   if (T2Layout::lastDataBlockWord(T2Layout::T2DbItemLightOnlyStatic, &word))
+      lightOnlyStatic = word != 0;
+
+   static const struct { U32 field; F32 ColorF::*channel; } sLight[] =
+   {
+      { T2Layout::T2DbItemLightColorR, &ColorF::red   },
+      { T2Layout::T2DbItemLightColorG, &ColorF::green },
+      { T2Layout::T2DbItemLightColorB, &ColorF::blue  },
+      { T2Layout::T2DbItemLightColorA, &ColorF::alpha },
+   };
+
+   for (U32 i = 0; i < sizeof(sLight) / sizeof(sLight[0]); i++)
+      if (T2Layout::lastDataBlockWord(sLight[i].field, &word))
+         lightColor.*sLight[i].channel = T2Layout::t2Float(word, 7);
+
+   return true;
 }
 
 
@@ -561,6 +612,9 @@ void Item::interpolateTick(F32 dt)
 
 void Item::onT2BodyRead(const T2Layout::Body &body)
 {
+   // HH: Added for Tribes 2 compatibility.
+   readT2Damage(body);
+
    if (body.hasRotate)
       mRotate = body.rotate;
    if (body.hasStatic)
@@ -570,6 +624,15 @@ void Item::onT2BodyRead(const T2Layout::Body &body)
       mObjScale = body.scale;
    else if (body.hasStatic)
       mObjScale.set(1.0f, 1.0f, 1.0f);
+
+   // HH: Added for Tribes 2 compatibility.
+   if (body.hasSourceObject)
+   {
+      NetConnection *conn = NetConnection::getConnectionToServer();
+      NetObject *obj = conn ? conn->resolveGhost(S32(body.sourceObject)) : NULL;
+      if (ShapeBase *source = dynamic_cast<ShapeBase *>(obj))
+         setCollisionTimeout(source);
+   }
 
    MatrixF mat = mObjToWorld;
 
