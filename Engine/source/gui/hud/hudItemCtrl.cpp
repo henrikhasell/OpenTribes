@@ -132,11 +132,11 @@ void HudItemCtrl::setSlotBitmap(const char *name, const char *bitmap)
    setUpdate();
 }
 
-void HudItemCtrl::setSlotAmount(const char *name, S32 amount, bool infinite)
+void HudItemCtrl::setSlotAmount(const char *name, S32 amount)
 {
    const S32 at = addSlot(name);
    mSlots[at].amount = amount;
-   mSlots[at].infinite = infinite;
+   mSlots[at].infinite = amount < 0;
    setUpdate();
 }
 
@@ -236,23 +236,42 @@ void HudItemCtrl::onRender(Point2I offset, const RectI &updateRect)
             draw->drawBitmap(icon, slot.point + mIconOffset);
       }
 
-      // A count of -1 is "this slot has no number", which is how a pack
-      // differs from a magazine.
-      if(mSlots[i].infinite && mInfinite)
-         draw->drawBitmap(mInfinite, slot.point + mAmmoOffset);
-      else if(mSlots[i].amount >= 0 && mProfile->mFont)
-      {
-         char buf[16];
-         dSprintf(buf, sizeof(buf), "%d", mSlots[i].amount);
-
-         draw->setBitmapModulation(mProfile->mFontColor);
-         draw->drawText(mProfile->mFont, slot.point + mAmmoOffset, buf);
-      }
-
-      draw->clearBitmapModulation();
+      renderAmount(mSlots[i], slot.point);
    }
 
+   draw->clearBitmapModulation();
    renderChildControls(offset, updateRect);
+}
+
+void HudItemCtrl::renderAmount(const Slot &slot, const Point2I &at)
+{
+   GFXDrawUtil *draw = GFX->getDrawUtil();
+   const U8 alpha = U8(mClampF(mOpacity, 0.f, 1.f) * 255.f);
+
+   if(slot.infinite)
+   {
+      if(mInfinite)
+         draw->drawBitmap(mInfinite, at + mAmmoOffset);
+      return;
+   }
+
+   // A slot no amount was ever given for is one script has only named.
+   if(slot.amount < 0 || !mProfile->mFont)
+      return;
+
+   char buf[10];
+   dSprintf(buf, sizeof(buf), "%d", slot.amount);
+
+   // Centred on a field three digits wide, measured in zeroes, and pale blue
+   // whatever the profile says: GuiHudCounterProfile's font colour is black.
+   GFont *font = mProfile->mFont;
+   const S32 digits = dStrlen(buf);
+   const F32 shift = digits == 1 ? 1.f : 3.f / F32(digits) - 1.f;
+   const Point2I centre(S32(F32(font->getStrWidth((const UTF8 *)"0")) * shift), 0);
+
+   draw->setBitmapModulation(ColorI(161, 211, 254, alpha));
+   draw->drawText(font, at + mAmmoOffset + centre, buf);
+   draw->setBitmapModulation(ColorI(255, 255, 255, alpha));
 }
 
 //-----------------------------------------------------------------------------
@@ -463,27 +482,19 @@ DefineEngineMethod(HudItemCtrl, reset, void, (), ,
    object->clearAll();
 }
 
-// The amount is optional because Tribes 2 sends both forms:
-// clientCmdSetWeaponsHudItem and clientCmdSetInventoryHudItem pass the slot
-// *and* what is in it, while the screens that only lay a row out name the slot
-// alone.  A slot that is already there keeps its count when it is named again,
-// which is why this adds first and only then sets.
-DefineEngineMethod(HudItemCtrl, addInventory, void,
-   (const char *item, S32 amount), (-1),
-   "@brief Add an inventory slot, optionally with a count.\n\n@ingroup GuiHud")
+// A negative amount is how the server says a slot never runs out --
+// setWeaponsHudItem sends -1 for a weapon with no ammo datablock -- so it is
+// passed on as given rather than read as "no amount".
+DefineEngineMethod(HudItemCtrl, addInventory, void, (const char *item, S32 amount), ,
+   "@brief Add an inventory slot with its count.\n\n@ingroup GuiHud")
 {
-   object->addSlot(item);
-   if(amount != -1)
-      object->setSlotAmount(item, amount);
+   object->setSlotAmount(item, amount);
 }
 
-DefineEngineMethod(HudItemCtrl, addWeapon, void,
-   (const char *weapon, S32 ammo), (-1),
-   "@brief Add a weapon slot, optionally with an ammo count.\n\n@ingroup GuiHud")
+DefineEngineMethod(HudItemCtrl, addWeapon, void, (const char *weapon, S32 ammo), ,
+   "@brief Add a weapon slot with its ammo count.\n\n@ingroup GuiHud")
 {
-   object->addSlot(weapon);
-   if(ammo != -1)
-      object->setSlotAmount(weapon, ammo);
+   object->setSlotAmount(weapon, ammo);
 }
 
 DefineEngineMethod(HudItemCtrl, removeInventory, void, (const char *item), ,
@@ -518,11 +529,10 @@ DefineEngineMethod(HudItemCtrl, setAmount, void, (const char *item, S32 amount),
    object->setSlotAmount(item, amount);
 }
 
-DefineEngineMethod(HudItemCtrl, setAmmo, void,
-   (const char *weapon, S32 amount, bool infinite), (false),
+DefineEngineMethod(HudItemCtrl, setAmmo, void, (const char *weapon, S32 amount), ,
    "@brief Set the ammo under a slot.\n\n@ingroup GuiHud")
 {
-   object->setSlotAmount(weapon, amount, infinite);
+   object->setSlotAmount(weapon, amount);
 }
 
 DefineEngineMethod(HudItemCtrl, setActiveInventory, void, (const char *item), ,

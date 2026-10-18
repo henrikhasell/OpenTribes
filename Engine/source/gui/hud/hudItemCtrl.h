@@ -37,8 +37,8 @@ protected:
    {
       StringTableEntry name;      ///< What script calls this slot.
       StringTableEntry bitmap;
-      S32 amount;                 ///< -1 for "do not draw a number".
-      bool infinite;
+      S32 amount;
+      bool infinite;              ///< Script gave it a negative amount.
    };
 
    Vector<Slot> mSlots;
@@ -69,6 +69,9 @@ protected:
 
    S32 findSlot(const char *name) const;
 
+   /// The count under a slot, or the infinity mark in place of one.
+   void renderAmount(const Slot &slot, const Point2I &at);
+
 public:
    HudItemCtrl();
 
@@ -83,7 +86,7 @@ public:
    void clearAll();
 
    void setSlotBitmap(const char *name, const char *bitmap);
-   void setSlotAmount(const char *name, S32 amount, bool infinite = false);
+   void setSlotAmount(const char *name, S32 amount);
    void setActive(const char *name);
 
    S32 getSlotCount() const { return mSlots.size(); }
