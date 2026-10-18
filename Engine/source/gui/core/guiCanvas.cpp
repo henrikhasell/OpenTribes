@@ -91,7 +91,9 @@ ConsoleDocClass( GuiCanvas,
 
 	"@ingroup GuiCore\n");
 
-ColorI gCanvasClearColor( 255, 0, 255 ); ///< For GFX->clear
+// Black, as what the exe leaves undrawn shows black: its shell background
+// stops a row short of the screen at some heights.
+ColorI gCanvasClearColor( 0, 0, 0 ); ///< For GFX->clear
 
 extern InputModifiers convertModifierBits(const U32 in);
 

@@ -30,17 +30,26 @@
 #include "gfx/gfxTextureHandle.h"
 #include "gfx/gfxDrawUtil.h"
 #include "console/engineAPI.h"
+#include "math/mMathFn.h"
+#include "core/resource.h"
 
 
 class GuiChunkedBitmapCtrl : public GuiControl
 {
 private:
    typedef GuiControl Parent;
+   enum { ChunkSize = 256 };
+
+   void loadChunks(const char *name);
    void renderRegion(const Point2I &offset, const Point2I &extent);
 
 protected:
    StringTableEntry mBitmapName;
-   GFXTexHandle mTexHandle;
+
+   /// The bitmap cut into the exe's chunks, each a texture of its own.
+   Vector<GFXTexHandle> mChunks;
+   Point2I mBitmapSize;
+
    bool  mUseVariable;
    bool  mTile;
 
@@ -116,6 +125,7 @@ GuiChunkedBitmapCtrl::GuiChunkedBitmapCtrl()
    mBitmapName = StringTable->insert("");
    mUseVariable = false;
    mTile = false;
+   mBitmapSize.set( 0, 0 );
 }
 
 void GuiChunkedBitmapCtrl::setBitmap(const char *name)
@@ -135,14 +145,12 @@ bool GuiChunkedBitmapCtrl::onWake()
    if(!Parent::onWake())
       return false;
 
-   if( !mTexHandle
-       && ( ( mBitmapName && mBitmapName[ 0 ] )
-            || ( mUseVariable && mConsoleVariable && mConsoleVariable[ 0 ] ) ) )
+   if ( mChunks.empty() )
    {
       if ( mUseVariable )
-         mTexHandle.set( Con::getVariable( mConsoleVariable ), &GFXDefaultGUIProfile, avar("%s() - mTexHandle (line %d)", __FUNCTION__, __LINE__) );
+         loadChunks( mConsoleVariable && mConsoleVariable[ 0 ] ? Con::getVariable( mConsoleVariable ) : NULL );
       else
-         mTexHandle.set( mBitmapName, &GFXDefaultGUIProfile, avar("%s() - mTexHandle (line %d)", __FUNCTION__, __LINE__) );
+         loadChunks( mBitmapName );
    }
 
    return true;
@@ -150,52 +158,102 @@ bool GuiChunkedBitmapCtrl::onWake()
 
 void GuiChunkedBitmapCtrl::onSleep()
 {
-   mTexHandle = NULL;
+   mChunks.clear();
+   mBitmapSize.set( 0, 0 );
    Parent::onSleep();
+}
+
+void GuiChunkedBitmapCtrl::loadChunks(const char *name)
+{
+   mChunks.clear();
+   mBitmapSize.set( 0, 0 );
+
+   if ( !name || !name[ 0 ] )
+      return;
+
+   // Tribes 2 names its bitmaps from beneath textures/.
+   Torque::Path path( name );
+   if ( !path.getPath().startsWith( "textures" ) )
+      path.setPath( Torque::Path::Join( "textures", '/', path.getPath() ) );
+
+   Resource<GBitmap> bitmap = GBitmap::load( path );
+   if ( bitmap == NULL )
+      return;
+
+   const U32 width = bitmap->getWidth();
+   const U32 height = bitmap->getHeight();
+   const U32 bpp = bitmap->getBytesPerPixel();
+
+   // The exe cuts the bitmap into chunks of up to 256 pixels and pads each
+   // out to a power of two with white. A chunk's far edges are filtered
+   // against that white, which is why they come out lighter than the art.
+   for ( U32 y = 0; y < height; y += ChunkSize )
+   {
+      for ( U32 x = 0; x < width; x += ChunkSize )
+      {
+         const U32 chunkWidth = getMin( U32( ChunkSize ), width - x );
+         const U32 chunkHeight = getMin( U32( ChunkSize ), height - y );
+
+         GBitmap *chunk = new GBitmap( getNextPow2( chunkWidth ), getNextPow2( chunkHeight ), false, bitmap->getFormat() );
+         dMemset( chunk->getWritableBits(), 0xFF, chunk->getWidth() * chunk->getHeight() * bpp );
+
+         for ( U32 row = 0; row < chunkHeight; row++ )
+            dMemcpy( chunk->getAddress( 0, row ), bitmap->getAddress( x, y + row ), chunkWidth * bpp );
+
+         mChunks.push_back( GFXTexHandle( chunk, &GFXDefaultGUIProfile, true,
+            avar( "%s() - chunk (line %d)", __FUNCTION__, __LINE__ ) ) );
+      }
+   }
+
+   mBitmapSize.set( width, height );
 }
 
 void GuiChunkedBitmapCtrl::renderRegion(const Point2I &offset, const Point2I &extent)
 {
-/*
-   U32 widthCount = mTexHandle.getTextureCountWidth();
-   U32 heightCount = mTexHandle.getTextureCountHeight();
-   if(!widthCount || !heightCount)
+   const U32 width = mBitmapSize.x;
+   const U32 height = mBitmapSize.y;
+   if ( !width || !height )
       return;
 
-   F32 widthScale = F32(extent.x) / F32(mTexHandle.getWidth());
-   F32 heightScale = F32(extent.y) / F32(mTexHandle.getHeight());
-   GFX->setBitmapModulation(ColorF(1,1,1));
-   for(U32 i = 0; i < widthCount; i++)
+   // The exe places each chunk by truncating its scaled edges, in double
+   // precision from a float scale. The last chunk gets no special case, so a
+   // scale that lands a hair under the extent leaves the last column undrawn.
+   const F32 widthScale = F32( extent.x ) / F32( width );
+   const F32 heightScale = F32( extent.y ) / F32( height );
+
+   GFXDrawUtil *draw = GFX->getDrawUtil();
+   draw->clearBitmapModulation();
+
+   U32 chunk = 0;
+   for ( U32 y = 0; y < height; y += ChunkSize )
    {
-      for(U32 j = 0; j < heightCount; j++)
+      const U32 chunkHeight = getMin( U32( ChunkSize ), height - y );
+      const S32 top = S32( F64( y ) * heightScale + offset.y );
+      const S32 tall = S32( F64( y + chunkHeight ) * heightScale + offset.y - top );
+
+      for ( U32 x = 0; x < width; x += ChunkSize )
       {
-         GFXTexHandle t = mTexHandle.getSubTexture(i, j);
-         RectI stretchRegion;
-         stretchRegion.point.x = (S32)(i * 256 * widthScale  + offset.x);
-         stretchRegion.point.y = (S32)(j * 256 * heightScale + offset.y);
-         if(i == widthCount - 1)
-            stretchRegion.extent.x = extent.x + offset.x - stretchRegion.point.x;
-         else
-            stretchRegion.extent.x = (S32)((i * 256 + t.getWidth() ) * widthScale  + offset.x - stretchRegion.point.x);
-         if(j == heightCount - 1)
-            stretchRegion.extent.y = extent.y + offset.y - stretchRegion.point.y;
-         else
-            stretchRegion.extent.y = (S32)((j * 256 + t.getHeight()) * heightScale + offset.y - stretchRegion.point.y);
-         GFX->drawBitmapStretch(t, stretchRegion);
+         const U32 chunkWidth = getMin( U32( ChunkSize ), width - x );
+         const S32 left = S32( F64( x ) * widthScale + offset.x );
+         const S32 wide = S32( F64( x + chunkWidth ) * widthScale + offset.x - left );
+
+         // Clamped, as the exe clamps its chunks.
+         draw->drawBitmapStretchSR( mChunks[ chunk++ ], RectI( left, top, wide, tall ),
+            RectI( 0, 0, chunkWidth, chunkHeight ), GFXBitmapFlip_None, GFXTextureFilterLinear, false );
       }
    }
-*/
 }
 
 
 void GuiChunkedBitmapCtrl::onRender(Point2I offset, const RectI &updateRect)
 {
-
-   if( mTexHandle )
+   // With no bitmap the exe draws the control as a plain one, fill and all.
+   if ( mChunks.empty() )
    {
-      RectI boundsRect( offset, getExtent());
-      GFX->getDrawUtil()->drawBitmapStretch( mTexHandle, boundsRect, GFXBitmapFlip_None, GFXTextureFilterLinear );
+      Parent::onRender( offset, updateRect );
+      return;
    }
 
+   renderRegion( offset, getExtent() );
    renderChildControls(offset, updateRect);
 }
