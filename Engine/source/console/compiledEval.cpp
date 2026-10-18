@@ -719,14 +719,6 @@ breakContinue:
                         else
                            objectName = StringTable->insert( newName );
                      }
-                     else
-                     {
-                        Con::errorf(ConsoleLogEntry::General, "%s: Cannot re-declare object [%s].",
-                           getFileLine(ip), objectName);
-                        ip = failJump;
-                        STR.popFrame();
-                        break;
-                     }
                   }
                }
             }

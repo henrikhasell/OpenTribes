@@ -841,6 +841,9 @@ bool GuiControl::onWake()
    if (! mFirstResponder)
       mFirstResponder = findFirstTabable();
 
+   if ( mProfile->mTabable && mProfile->mCanKeyFocus )
+      setFirstResponder();
+
    //increment the profile
    mProfile->incLoadCount();
    // HH: Modified for Tribes 2 compatibility.
@@ -2011,10 +2014,6 @@ bool GuiControl::findHitControls( const RectI& rect, Vector< GuiControl* >& outR
 
 GuiControl* GuiControl::findFirstTabable()
 {
-   // No tabbing if the control is disabled or hidden.
-   if ( !mAwake || !mVisible )
-      return NULL;
-
    GuiControl *tabCtrl = NULL;
    iterator i;
    for (i = begin(); i != end(); i++)
