@@ -157,9 +157,9 @@ bool GuiPopupTextListCtrl::onKeyDown(const GuiEvent &event)
    return Parent::onKeyDown(event);
 }
 
-void GuiPopupTextListCtrl::onMouseUp(const GuiEvent &event)
+void GuiPopupTextListCtrl::onMouseDown(const GuiEvent &event)
 {
-   Parent::onMouseUp( event );
+   Parent::onMouseDown( event );
    mPopUpCtrl->closePopUp();
 }
 
