@@ -304,7 +304,11 @@ void TSMesh::innerRender( TSMaterialList *materials, const TSRenderState &rdata,
       BaseMatInstance *matInst = materials->getMaterialInst( matIndex );
 
       // HH: Added for Tribes 2 compatibility.
-      if ( rdata.getMaterialOverride() )
+      // Tribes 2 laid its override texture only over materials the shape
+      // does not flag translucent (0x006a689d), so a cloaked armour's jet
+      // flare still shows as itself, thinned with the rest.
+      if ( rdata.getMaterialOverride() &&
+           !( materials->getFlags( matIndex ) & TSMaterialList::Translucent ) )
          matInst = getOverrideMatInstance( rdata.getMaterialOverride(), mVertexFormat );
       else if ( rdata.isBlendAlways() && matInst )
          matInst = TSGetBlendedMatInstance( matInst, mVertexFormat );
