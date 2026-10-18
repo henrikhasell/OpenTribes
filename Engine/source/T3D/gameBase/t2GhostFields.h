@@ -50,6 +50,10 @@ namespace T2Protocol
       T2FieldInvincibleHere,
       T2FieldInvincibleTime,
       T2FieldInvincibleSpeed,
+      T2FieldFieldState,            ///< a force field's select of its four
+                                    ///< states
+      T2FieldFieldFade,             ///< a raw word of milliseconds into the
+                                    ///< fade, sent only while it fades
    };
 
    inline U32 t2FieldWords(U32 field)
@@ -170,6 +174,13 @@ namespace T2Protocol
       { "ForceFieldBare",         8, OpRaw,  32, T2FieldAffine   },
       { "ForceFieldBare",        14, OpFlag,  1, T2FieldQuatSign },
       { "ForceFieldBare",        15, OpRaw,  32, T2FieldScale    },
+
+   // GameBase's target, which is the team the field lets through, and the
+   // state ForceFieldBare::packUpdate (0x00676bf0) sends under its 0x10 mask.
+      { "ForceFieldBare",        18, OpFlag,  1, T2FieldTargetHere },
+      { "ForceFieldBare",        19, OpReadBr, 9, T2FieldTarget    },
+      { "ForceFieldBare",         6, OpSelect, 2, T2FieldFieldState },
+      { "ForceFieldBare",         7, OpRaw,  32, T2FieldFieldFade  },
 
       { "WaterBlock",             0, OpRaw,  32, T2FieldAffine   },
       { "WaterBlock",             6, OpFlag,  1, T2FieldQuatSign },

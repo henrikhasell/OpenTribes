@@ -151,6 +151,11 @@ enum SceneObjectTypes
    /// @see PhysicalZone
    PhysicalZoneObjectType = BIT( 23 ),
 
+   // HH: Added for Tribes 2 compatibility.
+   /// A Tribes 2 force field, which a player passes or not by its team.
+   /// @see ForceFieldBare
+   ForceFieldObjectType = BIT( 24 ),
+
    /// @}
 };
 
