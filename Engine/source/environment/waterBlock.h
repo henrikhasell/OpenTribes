@@ -38,6 +38,9 @@
 #ifndef _GFXPRIMITIVEBUFFER_H_
 #include "gfx/gfxPrimitiveBuffer.h"
 #endif
+#ifndef _GFXTEXTUREHANDLE_H_
+#include "gfx/gfxTextureHandle.h"
+#endif
 #ifndef _RENDERPASSMANAGER_H_
 #include "renderInstance/renderPassManager.h"
 #endif
@@ -45,17 +48,26 @@
 #include "waterObject.h"
 #endif
 
+class TerrainBlock;
 
 //*****************************************************************************
 // WaterBlock
 //*****************************************************************************
+
+// HH: Modified for Tribes 2 compatibility.
+/// Tribes 2's WaterBlock: a box whose corner is its position and whose top
+/// face is the surface, drawn as the fluid the binary draws -- two drifting
+/// layers of one tiled texture, an additive environment map and the scene's
+/// fog, over an 8 m grid clipped to where the terrain is below the surface.
+/// Torque 3D's own water rendering is not used.
 class WaterBlock : public WaterObject
 {
    typedef WaterObject Parent;
 
 public:
 
-   // LEGACY support
+   /// The binary's liquid types, in its order: the scripts' onEnterLiquid
+   /// handlers switch on the number.
    enum EWaterType
    {
       eWater            = 0,
@@ -68,42 +80,75 @@ public:
       eQuicksand        = 7,
    };
 
+   enum
+   {
+      NumSubmergeTextures = 2,
+   };
+
+   static bool isWater( S32 type ) { return type >= eWater && type <= eStagnantWater; }
+   static bool isLava( S32 type ) { return type >= eLava && type <= eCrustyLava; }
+
 private:
 
    enum MaskBits {
       UpdateMask =   Parent::NextFreeMask,
       NextFreeMask = Parent::NextFreeMask << 1
    };
-   
-   // vertex / index buffers
-   Vector< GFXVertexBufferHandle<GFXWaterVertex>* > mVertBuffList;
-   Vector<GFXPrimitiveBufferHandle*> mPrimBuffList;
-   GFXVertexBufferHandle<GFXVertexPC> mRadialVertBuff;
-   GFXPrimitiveBufferHandle mRadialPrimBuff;
 
-   // misc
-   F32            mGridElementSize;
-   U32            mWidth;
-   U32            mHeight;
-   F32            mElapsedTime;   
-   GFXTexHandle   mBumpTex;
-   bool           mGenerateVB;
+   // The fields the binary registers, in its order.
+   EWaterType        mT2LiquidType;
+   F32               mWaveAmplitude;
+   StringTableEntry  mSurfaceName;
+   F32               mSurfaceOpacity;
+   StringTableEntry  mEnvMapName;
+   F32               mEnvMapIntensity;
+   StringTableEntry  mSubmergeName[NumSubmergeTextures];
+   bool              mRemoveWetEdges;
+   SimObject        *mAudioEnvironment;
 
-   // reflect plane
-   //ReflectPlane   mReflectPlane;
-   //Point3F        mReflectPlaneWorldPos;
+   // The fluid, in the binary's 8 m squares.
+   F32   mSurfaceZ;
+   S32   mSquareX0;
+   S32   mSquareY0;
+   S32   mSquaresInX;
+   S32   mSquaresInY;
+   bool  mHighRes;
+   S32   mBlocksInX;
+   S32   mBlocksInY;
 
-   GFXTexHandle   mReflectTex;
+   /// One entry per block, true where some corner of it is below the
+   /// surface. Empty until a terrain has been found to test against.
+   Vector<bool>   mWetBlocks;
+   bool           mWetBlocksBuilt;
+   SimObjectPtr<TerrainBlock> mTerrain;
 
-   // Stateblocks
-   GFXStateBlockRef mUnderwaterSB;
-   
-   void setupVertexBlock( U32 width, U32 height, U32 rowOffset );
-   void setupPrimitiveBlock( U32 width, U32 height );
-   void setMultiPassProjection();
-   void clearVertBuffers();
+   GFXTexHandle      mSurfaceTex;
+   GFXTexHandle      mEnvMapTex;
+   GFXTexHandle      mLocalSubmergeTex[NumSubmergeTextures];
+   GFXStateBlockRef  mBlendSB;
+   GFXStateBlockRef  mAddSB;
+   GFXStateBlockRef  mFogSB;
 
-   static bool setGridSizeProperty( void *object, const char *index, const char *data );
+   /// The submerge textures of the last block added, which the binary keeps
+   /// in a static for the screen filter.
+   static GFXTexHandle smSubmergeTex[NumSubmergeTextures];
+
+   /// The liquid the camera was found in while the fluid drew, -1 for none.
+   /// The screen filter reads it once a frame and clears it.
+   static S32 smEyeSubmergedType;
+
+   void updateFluidRegion();
+   void setFluidInfo( F32 &x0, F32 &y0, F32 &sizeX, F32 &sizeY );
+   void buildWetBlocks();
+   bool findTerrain();
+   bool isFluidAtXY( F32 x, F32 y ) const;
+   F32  getWaveHeight( F32 x, F32 y, F32 seconds ) const;
+   void loadTextures();
+   GFXTexHandle loadTexture( StringTableEntry name ) const;
+   void initStateBlocks();
+
+   void renderFluid( ObjectRenderInst *ri, SceneRenderState *state, BaseMatInstance *overrideMat );
+
 protected:
 
    //-------------------------------------------------------
@@ -118,33 +163,39 @@ public:
    WaterBlock();
    virtual ~WaterBlock();
 
-   DECLARE_CONOBJECT(WaterBlock);   
+   DECLARE_CONOBJECT(WaterBlock);
 
    static void initPersistFields();
-   void onStaticModified( const char* slotName, const char*newValue = NULL );
    virtual void inspectPostApply();
    virtual void setTransform( const MatrixF & mat );
    virtual void setScale( const Point3F &scale );
+
+   // NetObject
+   U32  packUpdate( NetConnection *conn, U32 mask, BitStream *stream, bool isInitial );
+   bool unpackUpdate( BitStream *stream, bool isInitial );
+
+   // SceneObject
+   virtual void prepRenderImage( SceneRenderState *state );
 
    // WaterObject
    virtual F32 getWaterCoverage( const Box3F &worldBox ) const;
    virtual F32 getSurfaceHeight( const Point2F &pos ) const;
    virtual bool isUnderwater( const Point3F &pnt ) const;
+   virtual const char* getLiquidType() const;
 
-   // WaterBlock   
+   // WaterBlock
    bool isPointSubmerged ( const Point3F &pos, bool worldSpace = true ) const{ return true; }
-   
+
    // SceneObject.
    virtual F32 distanceTo( const Point3F& pos ) const;
 
-protected:
-
-   // WaterObject
-   virtual void setShaderParams( SceneRenderState *state, BaseMatInstance *mat, const WaterMatParams &paramHandles );
-   virtual SceneData setupSceneGraphInfo( SceneRenderState *state );   
-   virtual void setupVBIB();
-   virtual void innerRender( SceneRenderState *state );
-   virtual void _getWaterPlane( const Point3F &camPos, PlaneF &outPlane, Point3F &outPos );
+   /// The binary's lava filter, the last thing GameRenderFilters draws: the
+   /// two submerge textures swimming over the whole view while the camera
+   /// is in lava.
+   static void renderSubmergeFilter();
 };
+
+typedef WaterBlock::EWaterType WaterBlockLiquidType;
+DefineEnumType( WaterBlockLiquidType );
 
 #endif // _WATERBLOCK_H_
