@@ -34,7 +34,7 @@ static Vector<String> sStrings(__FILE__, __LINE__);
 static Vector<U32> sWords(__FILE__, __LINE__);
 static Body sBody;
 
-static const T2GhostFieldRow *sRows[16] = { NULL };
+static const T2GhostFieldRow *sRows[32] = { NULL };
 static U32 sRowCount = 0;
 static const char *sFieldsFor = NULL;
 
@@ -1086,6 +1086,9 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
                      case T2FieldActionPosHere:
                         sBody.hasActionPos = set;
                         break;
+                     case T2FieldInvincibleHere:
+                        sBody.hasInvincible = set;
+                        break;
                      default:
                         break;
                   }
@@ -1421,6 +1424,12 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
                      break;
                   case T2FieldActionPos:
                      sBody.actionPos = t2SignedFloat(word, n.bits);
+                     break;
+                  case T2FieldInvincibleTime:
+                     dMemcpy(&sBody.invincibleTime, &word, sizeof(F32));
+                     break;
+                  case T2FieldInvincibleSpeed:
+                     dMemcpy(&sBody.invincibleSpeed, &word, sizeof(F32));
                      break;
                   default:
                      break;
@@ -1878,6 +1887,9 @@ static bool runGhost(BitStream *stream, const char *className,
    sBody.actionFirstPerson = false;
    sBody.hasActionPos = false;
    sBody.actionPos = 0.0f;
+   sBody.hasInvincible = false;
+   sBody.invincibleTime = 0.0f;
+   sBody.invincibleSpeed = 0.0f;
    for(U32 i = 0; i < MaxImages; i++)
    {
       Body::Image &image = sBody.images[i];

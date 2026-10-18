@@ -51,6 +51,11 @@ private:
 
    void makeScriptCall(const char *func, const GuiEvent &evt) const;
 
+   // HH: Added for Tribes 2 compatibility.
+   /// Whether this frame's camera query found a camera; the filters are
+   /// drawn only over a view that has one.
+   bool mHaveCamera;
+
 public:
    GameTSCtrl();
 

@@ -82,6 +82,9 @@ namespace T2Layout
       bool    actionFirstPerson;
       bool    hasActionPos;
       F32     actionPos;            ///< how far through the thread, -1..1
+      bool    hasInvincible;
+      F32     invincibleTime;       ///< seconds the effect lasts
+      F32     invincibleSpeed;      ///< what it pulses by each frame
 
       /// What a body said about one of its object's image slots -- the
       /// weapon in the hand, the pack on the back.

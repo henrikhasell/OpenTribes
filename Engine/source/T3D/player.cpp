@@ -5151,6 +5151,7 @@ void Player::onT2BodyRead(const T2Layout::Body &body)
       mT2Target = body.target;
 
    readT2Damage(body);
+   readT2Invincible(body);
 
    if (body.hasJetting)
       mJetting = body.jetting;

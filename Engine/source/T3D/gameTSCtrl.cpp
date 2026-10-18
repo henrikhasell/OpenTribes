@@ -27,6 +27,7 @@
 #include "T3D/shapeBase.h"
 #include "T3D/gameFunctions.h"
 #include "console/engineAPI.h"
+#include "gfx/gfxDevice.h"
 
 //---------------------------------------------------------------------------
 // Debug stuff:
@@ -46,6 +47,7 @@ ConsoleDocClass( GameTSCtrl,
 	"@ingroup Gui3D\n");
 
 GameTSCtrl::GameTSCtrl()
+   : mHaveCamera(false)
 {
 }
 
@@ -66,7 +68,8 @@ bool GameTSCtrl::onAdd()
 bool GameTSCtrl::processCameraQuery(CameraQuery *camq)
 {
    GameUpdateCameraFov();
-   return GameProcessCameraQuery(camq);
+   mHaveCamera = GameProcessCameraQuery(camq);
+   return mHaveCamera;
 }
 
 //---------------------------------------------------------------------------
@@ -166,12 +169,24 @@ void GameTSCtrl::onMouseMove(const GuiEvent &evt)
 
 void GameTSCtrl::onRender(Point2I offset, const RectI &updateRect)
 {
-   // check if should bother with a render
+   // HH: Modified for Tribes 2 compatibility.
+   // Retail's GameTSCtrl::onRender (0x0068a450): the view and its HUD are left
+   // out only once a filter is past opaque, since the filters then cover all
+   // of it, and the filters go over the HUD as well as the world.
    GameConnection * con = GameConnection::getConnectionToServer();
-   bool skipRender = !con || (con->getWhiteOut() >= 1.f) || (con->getDamageFlash() >= 1.f) || (con->getBlackOut() >= 1.f);
+   bool skipRender = con && ((con->getWhiteOut() > 1.f) || (con->getDamageFlash() > 1.f) || (con->getBlackOut() > 1.f));
 
-   if(!skipRender || true)
+   mHaveCamera = false;
+   if(!skipRender)
       Parent::onRender(offset, updateRect);
+   else
+      processCameraQuery(&mLastCameraQuery);
+
+   if(mHaveCamera)
+   {
+      GFX->setClipRect(updateRect);
+      GameRenderFilters(mLastCameraQuery);
+   }
 
 #ifdef TORQUE_DEMO_WATERMARK
    mWatermark.render(getExtent());
