@@ -10,14 +10,19 @@
 #endif
 
 /// @file
-/// The column of weapons down the right of a Tribes 2 screen, and the class
-/// Tribes 2 builds it on.
+/// The three rows of icons a Tribes 2 player reads mid-fight -- the weapons
+/// down the right, the inventory across the bottom, a vehicle gunner's
+/// weapons beside it -- and the class Tribes 2 builds all three on.
 ///
 /// The control holds two things script fills separately.  When a mission
-/// starts the server sends an icon for every weapon the game knows, by index
-/// into $WeaponsHudData; that is a table, and none of it is shown.  What is
-/// shown is the list addWeapon builds as the player picks weapons up -- one
-/// index and one ammo count per entry, drawn in the order they arrived.
+/// starts the server sends an icon for every weapon or pack the game knows,
+/// by index into $WeaponsHudData or $InventoryHudData; that is a table, and
+/// none of it is shown.  What is shown is the list addWeapon or addInventory
+/// builds as the player picks things up -- one index and one count per entry,
+/// drawn in the order they arrived.
+///
+/// A subclass says only which way the row runs and what nine names script
+/// drives it by.
 
 //-----------------------------------------------------------------------------
 /// HudWeaponInvBase (Tribes2.exe 0x004ff070): the table, the list, and how an
@@ -129,6 +134,38 @@ protected:
 
 public:
    DECLARE_CONOBJECT(HudWeapons);
+};
+
+//-----------------------------------------------------------------------------
+/// The inventory row across the bottom: entries side by side, one
+/// background's width and backGroundSpace apart.
+class HudInventory : public HudWeaponInvBase
+{
+   typedef HudWeaponInvBase Parent;
+
+protected:
+   void advance(Point2I &cursor);
+   Point2I itemsExtent() const;
+
+public:
+   DECLARE_CONOBJECT(HudInventory);
+};
+
+/// The row a vehicle's gunner sees.  Laid out like the inventory -- its
+/// 0x00500530 and 0x00500560 are byte for byte 0x00500330 and 0x00500360 --
+/// but a sibling of it rather than a subclass, because the two rows take
+/// different names for the same nine calls.  No script ever gives this one an
+/// icon, so nothing is drawn in it.
+class HudVehicleWeapon : public HudWeaponInvBase
+{
+   typedef HudWeaponInvBase Parent;
+
+protected:
+   void advance(Point2I &cursor);
+   Point2I itemsExtent() const;
+
+public:
+   DECLARE_CONOBJECT(HudVehicleWeapon);
 };
 
 #endif // _HUDWEAPONINVBASE_H_
