@@ -1,5 +1,7 @@
 #include "gui/hud/hudCtrl.h"
 
+#include "T3D/camera.h"
+#include "T3D/gameBase/gameConnection.h"
 #include "console/consoleTypes.h"
 #include "console/engineAPI.h"
 #include "gfx/gfxDevice.h"
@@ -237,6 +239,33 @@ void HudPulsingBitmap::onRender(Point2I offset, const RectI &updateRect)
 HudCrosshair::HudCrosshair()
 {
       // PlayGui sets autoCenter here, overriding retail's default of false.
+}
+
+/// HudCrosshair::onRender at 0x00509bf0.  Retail's scripts only hide the ammo
+/// count when the view leaves first person (hudFirstPersonToggled); the
+/// reticle hides itself, here, because only the engine knows where the
+/// camera is.
+void HudCrosshair::onRender(Point2I offset, const RectI &updateRect)
+{
+      // Without art it draws nothing, not HudCtrl's fill and frame.
+   if(!mTexture || !getParent())
+      return;
+
+   GameConnection *conn = GameConnection::getConnectionToServer();
+   if(!conn)
+      return;
+
+      // mCameraPos, not $firstPerson: the reticle goes as soon as the camera
+      // starts pulling back and returns only once it is fully in again
+      // (0x00509c50).
+   if(!conn->isFirstPerson())
+      return;
+
+      // An observer's camera aims nothing (0x00509c8b).
+   if(dynamic_cast<Camera*>(conn->getControlObject()))
+      return;
+
+   Parent::onRender(offset, updateRect);
 }
 
 //-----------------------------------------------------------------------------
