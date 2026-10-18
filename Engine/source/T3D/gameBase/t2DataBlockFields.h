@@ -38,11 +38,6 @@ namespace T2Protocol
 
       { "PlayerData", 187, OpDataBlockId, 11, T2DbJetEmitter },
 
-   // PlayerData::packData (0x005cf783) writes its 32 sounds in a loop from the
-   // jet's, which is the layout's only run of 32 flags, at nodes 90 to 121.
-      { "PlayerData", 185, OpDataBlockId, 11, T2DbJetSound    },
-      { "PlayerData", 184, OpDataBlockId, 11, T2DbWetJetSound },
-
       { "PlayerData", 55, OpRaw, 32, T2DbRunForce                   },
       { "PlayerData", 56, OpRaw, 32, T2DbRunEnergyDrain             },
       { "PlayerData", 57, OpRaw, 32, T2DbMinRunEnergy               },
@@ -83,6 +78,42 @@ namespace T2Protocol
       { "PlayerData", 87, OpRaw, 32, T2DbExitSplashSoundVel },
       { "PlayerData", 88, OpRaw, 32, T2DbFootSplashHeight   },
       { "PlayerData", 89, OpRaw, 32, T2DbMinImpactSpeed     },
+
+   // PlayerData::packData (0x005cf783) writes its 32 sounds in turn, each a
+   // flag and an id: the flags are nodes 90 to 121, and each id is the node
+   // its flag's set arm names, counting down from 185.
+      { "PlayerData", 185, OpDataBlockId, 11, T2DataBlockField(T2DbPlayerSound +  0) },
+      { "PlayerData", 184, OpDataBlockId, 11, T2DataBlockField(T2DbPlayerSound +  1) },
+      { "PlayerData", 183, OpDataBlockId, 11, T2DataBlockField(T2DbPlayerSound +  2) },
+      { "PlayerData", 182, OpDataBlockId, 11, T2DataBlockField(T2DbPlayerSound +  3) },
+      { "PlayerData", 181, OpDataBlockId, 11, T2DataBlockField(T2DbPlayerSound +  4) },
+      { "PlayerData", 180, OpDataBlockId, 11, T2DataBlockField(T2DbPlayerSound +  5) },
+      { "PlayerData", 179, OpDataBlockId, 11, T2DataBlockField(T2DbPlayerSound +  6) },
+      { "PlayerData", 178, OpDataBlockId, 11, T2DataBlockField(T2DbPlayerSound +  7) },
+      { "PlayerData", 177, OpDataBlockId, 11, T2DataBlockField(T2DbPlayerSound +  8) },
+      { "PlayerData", 176, OpDataBlockId, 11, T2DataBlockField(T2DbPlayerSound +  9) },
+      { "PlayerData", 175, OpDataBlockId, 11, T2DataBlockField(T2DbPlayerSound + 10) },
+      { "PlayerData", 174, OpDataBlockId, 11, T2DataBlockField(T2DbPlayerSound + 11) },
+      { "PlayerData", 173, OpDataBlockId, 11, T2DataBlockField(T2DbPlayerSound + 12) },
+      { "PlayerData", 172, OpDataBlockId, 11, T2DataBlockField(T2DbPlayerSound + 13) },
+      { "PlayerData", 171, OpDataBlockId, 11, T2DataBlockField(T2DbPlayerSound + 14) },
+      { "PlayerData", 170, OpDataBlockId, 11, T2DataBlockField(T2DbPlayerSound + 15) },
+      { "PlayerData", 169, OpDataBlockId, 11, T2DataBlockField(T2DbPlayerSound + 16) },
+      { "PlayerData", 168, OpDataBlockId, 11, T2DataBlockField(T2DbPlayerSound + 17) },
+      { "PlayerData", 167, OpDataBlockId, 11, T2DataBlockField(T2DbPlayerSound + 18) },
+      { "PlayerData", 166, OpDataBlockId, 11, T2DataBlockField(T2DbPlayerSound + 19) },
+      { "PlayerData", 165, OpDataBlockId, 11, T2DataBlockField(T2DbPlayerSound + 20) },
+      { "PlayerData", 164, OpDataBlockId, 11, T2DataBlockField(T2DbPlayerSound + 21) },
+      { "PlayerData", 163, OpDataBlockId, 11, T2DataBlockField(T2DbPlayerSound + 22) },
+      { "PlayerData", 162, OpDataBlockId, 11, T2DataBlockField(T2DbPlayerSound + 23) },
+      { "PlayerData", 161, OpDataBlockId, 11, T2DataBlockField(T2DbPlayerSound + 24) },
+      { "PlayerData", 160, OpDataBlockId, 11, T2DataBlockField(T2DbPlayerSound + 25) },
+      { "PlayerData", 159, OpDataBlockId, 11, T2DataBlockField(T2DbPlayerSound + 26) },
+      { "PlayerData", 158, OpDataBlockId, 11, T2DataBlockField(T2DbPlayerSound + 27) },
+      { "PlayerData", 157, OpDataBlockId, 11, T2DataBlockField(T2DbPlayerSound + 28) },
+      { "PlayerData", 156, OpDataBlockId, 11, T2DataBlockField(T2DbPlayerSound + 29) },
+      { "PlayerData", 155, OpDataBlockId, 11, T2DataBlockField(T2DbPlayerSound + 30) },
+      { "PlayerData", 154, OpDataBlockId, 11, T2DataBlockField(T2DbPlayerSound + 31) },
 
       { "PlayerData", 122, OpRaw, 32, T2DbBoxSizeX },
       { "PlayerData", 123, OpRaw, 32, T2DbBoxSizeY },

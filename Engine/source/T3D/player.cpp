@@ -382,9 +382,6 @@ PlayerData::PlayerData()
    for (S32 i = 0; i < MaxJetNodes; i++)
       jetNode[i] = -1;
 
-   jetSound = NULL;
-   wetJetSound = NULL;
-
    splash = NULL;
    splashId = 0;
    splashVelocity = 1.0f;
@@ -548,18 +545,15 @@ bool PlayerData::unpackData(BitStream *stream, U32 classId)
          this->*sEmitters[i].member = S32(word);
    }
 
-   static const struct { U32 field; SFXTrack* PlayerData::*member; } sSounds[] =
-   {
-      { T2Layout::T2DbJetSound,    &PlayerData::jetSound    },
-      { T2Layout::T2DbWetJetSound, &PlayerData::wetJetSound },
-   };
-
-   for (U32 i = 0; i < sizeof(sSounds) / sizeof(sSounds[0]); i++)
+   // HH: Added for Tribes 2 compatibility.
+   // Parked as an id, the way an image state's sound is, for preload to
+   // resolve.  A sound the wire did not carry keeps what it had.
+   for (U32 i = 0; i < MaxSounds; i++)
    {
       U32 word;
-      if (T2Layout::lastDataBlockWord(sSounds[i].field, &word))
-         *reinterpret_cast<U32 *>(&(this->*sSounds[i].member)) =
-            ((word + DataBlockObjectIdFirst) << 1) | 0x1;
+      if (T2Layout::lastDataBlockWord(T2Layout::T2DbPlayerSound + i, &word))
+         sound[i] = reinterpret_cast<SFXTrack *>(
+            uintptr_t(((word + DataBlockObjectIdFirst) << 1) | 0x1));
    }
 
    if (Con::getBoolVariable("$pref::Net::traceDataBlockFields", false))
@@ -587,14 +581,6 @@ bool PlayerData::preload(bool server, String &errorStr)
       {
          String errorStr;
          if( !sfxResolve( &sound[ i ], errorStr ) )
-            Con::errorf( "PlayerData::preload: %s", errorStr.c_str() );
-      }
-
-      SFXTrack** jetSounds[] = { &jetSound, &wetJetSound };
-      for( U32 i = 0; i < sizeof( jetSounds ) / sizeof( jetSounds[ 0 ] ); ++ i )
-      {
-         String errorStr;
-         if( !sfxResolve( jetSounds[ i ], errorStr ) )
             Con::errorf( "PlayerData::preload: %s", errorStr.c_str() );
       }
    }
@@ -938,13 +924,6 @@ void PlayerData::initPersistFields()
          "One emitter is created per `jetNozzle%d` node the shape carries, so "
          "a heavy armour flames from two and the lighter ones from one.\n"
          "@see dustEmitter\n" );
-      addField( "jetSound", TypeSFXTrackName, Offset(jetSound, PlayerData),
-         "@brief Looping sound the pack makes while it thrusts.\n\n"
-         "@see wetJetSound\n" );
-      addField( "wetJetSound", TypeSFXTrackName, Offset(wetJetSound, PlayerData),
-         "@brief Looping sound the pack makes while it thrusts with the player "
-         "wholly under water.\n\n"
-         "@see jetSound\n" );
       addField( "heatIncreasePerSec", TypeF32, Offset(heatIncreasePerSec, PlayerData),
          "@brief Heat a second of thrust adds to the player's signature.\n\n"
          "@see heatDecayPerSec\n" );
@@ -1189,29 +1168,58 @@ void PlayerData::initPersistFields()
 
    addGroup( "Interaction: Sounds" );
 
-      addField( "FootSoftSound", TypeSFXTrackName, Offset(sound[FootSoft], PlayerData),
-         "@brief Sound to play when walking on a surface with Material footstepSoundId 0.\n\n" );
-      addField( "FootHardSound", TypeSFXTrackName, Offset(sound[FootHard], PlayerData),
-         "@brief Sound to play when walking on a surface with Material footstepSoundId 1.\n\n" );
-      addField( "FootMetalSound", TypeSFXTrackName, Offset(sound[FootMetal], PlayerData),
-         "@brief Sound to play when walking on a surface with Material footstepSoundId 2.\n\n" );
-      addField( "FootSnowSound", TypeSFXTrackName, Offset(sound[FootSnow], PlayerData),
-         "@brief Sound to play when walking on a surface with Material footstepSoundId 3.\n\n" );
+      // HH: Modified for Tribes 2 compatibility.
+      // Tribes 2's names, which its scripts set, and a sound for each foot.
+      addField( "jetSound", TypeSFXTrackName, Offset(sound[JetSound], PlayerData),
+         "@brief Sound to play while the jet pack is lit.\n\n" );
+      addField( "wetJetSound", TypeSFXTrackName, Offset(sound[WetJetSound], PlayerData),
+         "@brief Sound to play while the jet pack is lit underwater.\n\n" );
 
-      addField( "FootShallowSound", TypeSFXTrackName, Offset(sound[FootShallowSplash], PlayerData),
-         "@brief Sound to play when walking in water and coverage is less than "
+      addField( "LFootSoftSound", TypeSFXTrackName, Offset(sound[LFootSoft], PlayerData),
+         "@brief Left foot on a surface whose material property sound is 0.\n\n" );
+      addField( "RFootSoftSound", TypeSFXTrackName, Offset(sound[RFootSoft], PlayerData),
+         "@brief Right foot on a surface whose material property sound is 0.\n\n" );
+      addField( "LFootHardSound", TypeSFXTrackName, Offset(sound[LFootHard], PlayerData),
+         "@brief Left foot on a surface whose material property sound is 1, "
+         "or that has none.\n\n" );
+      addField( "RFootHardSound", TypeSFXTrackName, Offset(sound[RFootHard], PlayerData),
+         "@brief Right foot on a surface whose material property sound is 1, "
+         "or that has none.\n\n" );
+      addField( "LFootMetalSound", TypeSFXTrackName, Offset(sound[LFootMetal], PlayerData),
+         "@brief Left foot on a surface whose material property sound is 2, "
+         "or on a vehicle.\n\n" );
+      addField( "RFootMetalSound", TypeSFXTrackName, Offset(sound[RFootMetal], PlayerData),
+         "@brief Right foot on a surface whose material property sound is 2, "
+         "or on a vehicle.\n\n" );
+      addField( "LFootSnowSound", TypeSFXTrackName, Offset(sound[LFootSnow], PlayerData),
+         "@brief Left foot on a surface whose material property sound is 3.\n\n" );
+      addField( "RFootSnowSound", TypeSFXTrackName, Offset(sound[RFootSnow], PlayerData),
+         "@brief Right foot on a surface whose material property sound is 3.\n\n" );
+
+      addField( "LFootShallowSound", TypeSFXTrackName, Offset(sound[LFootShallowSplash], PlayerData),
+         "@brief Left foot in water whose coverage is less than "
          "footSplashHeight.\n\n"
          "@see footSplashHeight\n" );
-      addField( "FootWadingSound", TypeSFXTrackName, Offset(sound[FootWading], PlayerData),
-         "@brief Sound to play when walking in water and coverage is less than 1, "
+      addField( "RFootShallowSound", TypeSFXTrackName, Offset(sound[RFootShallowSplash], PlayerData),
+         "@brief Right foot in water whose coverage is less than "
+         "footSplashHeight.\n\n"
+         "@see footSplashHeight\n" );
+      addField( "LFootWadingSound", TypeSFXTrackName, Offset(sound[LFootWading], PlayerData),
+         "@brief Left foot in water whose coverage is less than 1, "
          "but > footSplashHeight.\n\n"
          "@see footSplashHeight\n" );
-      addField( "FootUnderwaterSound", TypeSFXTrackName, Offset(sound[FootUnderWater], PlayerData),
-         "@brief Sound to play when walking in water and coverage equals 1.0 "
-         "(fully underwater).\n\n" );
-      addField( "FootBubblesSound", TypeSFXTrackName, Offset(sound[FootBubbles], PlayerData),
-         "@brief Sound to play when walking in water and coverage equals 1.0 "
-         "(fully underwater).\n\n" );
+      addField( "RFootWadingSound", TypeSFXTrackName, Offset(sound[RFootWading], PlayerData),
+         "@brief Right foot in water whose coverage is less than 1, "
+         "but > footSplashHeight.\n\n"
+         "@see footSplashHeight\n" );
+      addField( "LFootUnderwaterSound", TypeSFXTrackName, Offset(sound[LFootUnderWater], PlayerData),
+         "@brief Left foot fully underwater.\n\n" );
+      addField( "RFootUnderwaterSound", TypeSFXTrackName, Offset(sound[RFootUnderWater], PlayerData),
+         "@brief Right foot fully underwater.\n\n" );
+      addField( "LFootBubblesSound", TypeSFXTrackName, Offset(sound[LFootBubbles], PlayerData),
+         "@brief Played with LFootUnderwaterSound.\n\n" );
+      addField( "RFootBubblesSound", TypeSFXTrackName, Offset(sound[RFootBubbles], PlayerData),
+         "@brief Played with RFootUnderwaterSound.\n\n" );
       addField( "movingBubblesSound", TypeSFXTrackName, Offset(sound[MoveBubbles], PlayerData),
          "@brief Sound to play when in water and coverage equals 1.0 (fully underwater).\n\n"
          "Note that unlike FootUnderwaterSound, this sound plays even if the "
@@ -1246,6 +1254,15 @@ void PlayerData::initPersistFields()
       addField( "exitingWater", TypeSFXTrackName, Offset(sound[ExitWater], PlayerData),
          "@brief Sound to play when exiting the water with velocity >= exitSplashSoundVelocity.\n\n"
          "@see exitSplashSoundVelocity\n");
+
+      addField( "skiSoftSound", TypeSFXTrackName, Offset(sound[SkiSoft], PlayerData),
+         "@brief Sound to play skiing on a surface whose material property sound is 0.\n\n" );
+      addField( "skiHardSound", TypeSFXTrackName, Offset(sound[SkiHard], PlayerData),
+         "@brief Sound to play skiing on a surface whose material property sound is 1.\n\n" );
+      addField( "skiMetalSound", TypeSFXTrackName, Offset(sound[SkiMetal], PlayerData),
+         "@brief Sound to play skiing on a surface whose material property sound is 2.\n\n" );
+      addField( "skiSnowSound", TypeSFXTrackName, Offset(sound[SkiSnow], PlayerData),
+         "@brief Sound to play skiing on a surface whose material property sound is 3.\n\n" );
 
    endGroup( "Interaction: Sounds" );
 
@@ -3515,6 +3532,22 @@ void Player::setActionThread(U32 action,bool forward,bool hold,bool wait,bool fs
    }
 }
 
+static const MaterialPropertyMap::Entry *groundDustProperties(SceneObject *hit)
+{
+   TerrainBlock *terrain = dynamic_cast<TerrainBlock *>(hit);
+   if (!terrain)
+      return NULL;
+
+   const char *name = terrain->getMaterialName(0);
+   if (!name || !name[0])
+      return NULL;
+
+   if (!dStrnicmp(name, "terrain.", 8))
+      name += 8;
+
+   return MaterialPropertyMap::get()->find(avar("terrain/%s", name));
+}
+
 void Player::updateActionThread()
 {
    PROFILE_START(UpdateActionThread);
@@ -3553,11 +3586,26 @@ void Player::updateActionThread()
          mat.getColumn( 1, &rot );
          mat.mulP( Point3F( offset, 0.0f, 0.0f), &pos );
 
+         // HH: Modified for Tribes 2 compatibility.
+         // Player::updateActionThread (0x005d5dd3) asks only for terrain,
+         // interiors and vehicles.
          if( gClientContainer.castRay( Point3F( pos.x, pos.y, pos.z + 0.01f ),
                Point3F( pos.x, pos.y, pos.z - 2.0f ),
-               STATIC_COLLISION_TYPEMASK | VehicleObjectType, &rInfo ) )
+               TerrainObjectType | InteriorObjectType | VehicleObjectType, &rInfo ) )
          {
             Material* material = ( rInfo.material ? dynamic_cast< Material* >( rInfo.material->getMaterial() ) : 0 );
+
+            // HH: Added for Tribes 2 compatibility.
+            // The sound is the terrain's property map entry's, a vehicle is
+            // metal, and anything else has none.
+            S32 sound = -1;
+            if( rInfo.object->getTypeMask() & TerrainObjectType )
+            {
+               if( const MaterialPropertyMap::Entry *e = groundDustProperties( rInfo.object ) )
+                  sound = e->sound;
+            }
+            else if( rInfo.object->getTypeMask() & VehicleObjectType )
+               sound = 2;
 
             // Put footprints on surface, if appropriate for material.
 
@@ -3607,7 +3655,7 @@ void Player::updateActionThread()
 
             // Play footstep sound.
             
-            playFootstepSound( triggeredLeft, material, rInfo.object );
+            playFootstepSound( triggeredLeft, sound );
          }
       }
    }
@@ -6235,65 +6283,35 @@ void Player::calcClassRenderData()
 
 //-----------------------------------------------------------------------------
 
-void Player::playFootstepSound( bool triggeredLeft, Material* contactMaterial, SceneObject* contactObject )
+// HH: Modified for Tribes 2 compatibility.
+// Player::playFootstepSound (0x005dd550): a sound for each foot, and hard for
+// a surface with no sound of its own.
+void Player::playFootstepSound( bool triggeredLeft, S32 sound )
 {
    MatrixF footMat = getTransform();
-   if( mWaterCoverage > 0.0 )
+   const U32 foot = triggeredLeft ? 0 : 1;
+
+   if( mWaterCoverage == 0.0f )
    {
-      // Treading water.
-
-      if ( mWaterCoverage < mDataBlock->footSplashHeight )
-         SFX->playOnce( mDataBlock->sound[ PlayerData::FootShallowSplash ], &footMat );
-      else
-      {
-         if ( mWaterCoverage < 1.0 )
-            SFX->playOnce( mDataBlock->sound[ PlayerData::FootWading ], &footMat );
-         else
-         {
-            if ( triggeredLeft )
-            {
-               SFX->playOnce( mDataBlock->sound[ PlayerData::FootUnderWater ], &footMat );
-               SFX->playOnce( mDataBlock->sound[ PlayerData::FootBubbles ], &footMat );
-            }
-         }
-      }
-   }
-   else if( contactMaterial && contactMaterial->mFootstepSoundCustom )
-   {
-      // Footstep sound defined on material.
-
-      SFX->playOnce( contactMaterial->mFootstepSoundCustom, &footMat );
-   }
-   else
-   {
-      // Play default sound.
-
-      S32 sound = -1;
-      if( contactMaterial && contactMaterial->mFootstepSoundId != -1 )
-         sound = contactMaterial->mFootstepSoundId;
-      else if( contactObject && contactObject->getTypeMask() & VehicleObjectType )
-         sound = 2;
-
+      U32 which;
       switch ( sound )
       {
-      case 0: // Soft
-         SFX->playOnce( mDataBlock->sound[PlayerData::FootSoft], &footMat );
-         break;
-      case 1: // Hard
-         SFX->playOnce( mDataBlock->sound[PlayerData::FootHard], &footMat );
-         break;
-      case 2: // Metal
-         SFX->playOnce( mDataBlock->sound[PlayerData::FootMetal], &footMat );
-         break;
-      case 3: // Snow
-         SFX->playOnce( mDataBlock->sound[PlayerData::FootSnow], &footMat );
-         break;
-      /*
-      default: //Hard
-         SFX->playOnce( mDataBlock->sound[PlayerData::FootHard], &footMat );
-         break;
-      */
+      case 0:  which = PlayerData::LFootSoft;  break;
+      case 2:  which = PlayerData::LFootMetal; break;
+      case 3:  which = PlayerData::LFootSnow;  break;
+      default: which = PlayerData::LFootHard;  break;
       }
+
+      SFX->playOnce( mDataBlock->sound[ which + foot ], &footMat );
+   }
+   else if ( mWaterCoverage < mDataBlock->footSplashHeight )
+      SFX->playOnce( mDataBlock->sound[ PlayerData::LFootShallowSplash + foot ], &footMat );
+   else if ( mWaterCoverage < 1.0f )
+      SFX->playOnce( mDataBlock->sound[ PlayerData::LFootWading + foot ], &footMat );
+   else
+   {
+      SFX->playOnce( mDataBlock->sound[ PlayerData::LFootUnderWater + foot ], &footMat );
+      SFX->playOnce( mDataBlock->sound[ PlayerData::LFootBubbles + foot ], &footMat );
    }
 }
 
@@ -6375,7 +6393,8 @@ void Player::updateJetEffect(F32 dt)
    // once the water covers the player whole, and leaves whatever is playing
    // alone when the armour names no sound for the medium it is in.
    const bool wet = mWaterCoverage >= 1.0f;
-   SFXTrack *track = wet ? mDataBlock->wetJetSound : mDataBlock->jetSound;
+   SFXTrack *track = wet ? mDataBlock->sound[PlayerData::WetJetSound]
+                       : mDataBlock->sound[PlayerData::JetSound];
    if (track)
    {
       SFXSource *&playing = wet ? mWetJetSound : mJetSound;
@@ -6426,22 +6445,6 @@ void Player::updateJetEffect(F32 dt)
       mJetEmitter[i]->emitParticles(nozzle.getPosition(), true, axis,
                                     getVelocity(), numMilliseconds);
    }
-}
-
-static const MaterialPropertyMap::Entry *groundDustProperties(SceneObject *hit)
-{
-   TerrainBlock *terrain = dynamic_cast<TerrainBlock *>(hit);
-   if (!terrain)
-      return NULL;
-
-   const char *name = terrain->getMaterialName(0);
-   if (!name || !name[0])
-      return NULL;
-
-   if (!dStrnicmp(name, "terrain.", 8))
-      name += 8;
-
-   return MaterialPropertyMap::get()->find(avar("terrain/%s", name));
 }
 
 void Player::updateDustEffect(F32 dt)
