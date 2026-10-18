@@ -58,8 +58,13 @@ public:
    void render(ShapeBase *owner, SceneRenderState *state);
 
    /// The material the hi-res effect draws a shape over with: blended while
-   /// it fades, solid while it is still near full strength.
-   static BaseMatInstance *getRedrawMaterial(bool blended);
+   /// it fades, solid while it is still near full strength, and unlit over a
+   /// self-illuminating material.
+   static BaseMatInstance *getRedrawMaterial(bool blended, bool selfIllum);
+
+   /// Free the instances while the materials and the material manager they
+   /// came from are still there.
+   static void freeRedrawMaterials();
 
 private:
    GFXTexHandle      mTexture;

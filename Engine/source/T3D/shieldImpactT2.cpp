@@ -317,7 +317,7 @@ namespace
    /// by the base's alpha, and that alpha is the effect's own once it is
    /// drawn translucent (0x006a5bbd, 0x006a63b2). Torque 3D has no fixed
    /// function to set up, so its shaders do the texture units' sums.
-   CustomMaterial *createRedrawMaterial(bool blended)
+   CustomMaterial *createRedrawMaterial(bool blended, bool selfIllum)
    {
       GFXSamplerStateData *sampler = new GFXSamplerStateData;
       setField(sampler, "textureColorOp", "GFXTOPModulate");
@@ -330,12 +330,17 @@ namespace
       if(!findOrRegister(sampler, "ShieldImpactT2Sampler"))
          return NULL;
 
+      // A self-illuminating material is drawn with lighting off
+      // (0x006a6bc9), so it takes no lights.
       ShaderData *shader = new ShaderData;
       setField(shader, "OGLVertexShaderFile", "shaders/common/gl/shieldImpactV.glsl");
       setField(shader, "OGLPixelShaderFile", "shaders/common/gl/shieldImpactP.glsl");
       setField(shader, "samplerNames", "$shieldMap", "0");
       setField(shader, "pixVersion", "2.0");
-      if(!findOrRegister(shader, "ShieldImpactT2Shader"))
+      if(selfIllum)
+         setField(shader, "defines", "SHIELD_SELF_ILLUM");
+      if(!(shader = findOrRegister(shader, selfIllum ? "ShieldImpactT2SelfIllumShader"
+                                                     : "ShieldImpactT2Shader")))
          return NULL;
 
       // While the effect is near full strength retail draws it solid
@@ -354,36 +359,56 @@ namespace
                                                  : "ShieldImpactT2SolidSB")))
          return NULL;
 
+      static const char *sNames[2][2] =
+      {
+         { "ShieldImpactT2SolidMaterial", "ShieldImpactT2SolidSelfIllumMaterial" },
+         { "ShieldImpactT2BlendMaterial", "ShieldImpactT2BlendSelfIllumMaterial" },
+      };
+
       CustomMaterial *mat = new CustomMaterial;
       mat->setDataField(StringTable->insert("sampler"), "shieldMap",
                         "textures/special/shieldmap");
-      setField(mat, "shader", "ShieldImpactT2Shader");
+      setField(mat, "shader", shader->getName());
       setField(mat, "stateBlock", state->getName());
       setField(mat, "version", "2.0");
-      setField(mat, "forwardLit", "1");
+      setField(mat, "forwardLit", selfIllum ? "0" : "1");
       setField(mat, "translucent", blended ? "1" : "0");
-      return findOrRegister(mat, blended ? "ShieldImpactT2BlendMaterial"
-                                         : "ShieldImpactT2SolidMaterial");
+      return findOrRegister(mat, sNames[blended][selfIllum]);
    }
+
+   /// Indexed by blended, then self-illuminating.
+   BaseMatInstance *sRedrawMatInst[2][2];
+   bool sRedrawTried[2][2];
 }
 
-BaseMatInstance *ShieldImpactT2::getRedrawMaterial(bool blended)
+BaseMatInstance *ShieldImpactT2::getRedrawMaterial(bool blended, bool selfIllum)
 {
-   static BaseMatInstance *sMatInst[2] = { NULL, NULL };
-   static bool sTried[2] = { false, false };
+   // A material that cannot be registered once will not be the next time
+   // either, and asking every frame would fill the console.
+   if(sRedrawTried[blended][selfIllum])
+      return sRedrawMatInst[blended][selfIllum];
+   sRedrawTried[blended][selfIllum] = true;
 
-   const U32 i = blended ? 1 : 0;
-   if(sTried[i])
-      return sMatInst[i];
-   sTried[i] = true;
-
-   CustomMaterial *mat = createRedrawMaterial(blended);
+   CustomMaterial *mat = createRedrawMaterial(blended, selfIllum);
    if(!mat)
       return NULL;
 
    // A custom material reads no vertex format, so any will do.
-   sMatInst[i] = mat->createMatInstance();
-   sMatInst[i]->init(MATMGR->getDefaultFeatures(),
-                     getGFXVertexFormat<GFXVertexPNTT>());
-   return sMatInst[i];
+   BaseMatInstance *matInst = mat->createMatInstance();
+   matInst->init(MATMGR->getDefaultFeatures(),
+                 getGFXVertexFormat<GFXVertexPNTT>());
+   sRedrawMatInst[blended][selfIllum] = matInst;
+   return matInst;
+}
+
+void ShieldImpactT2::freeRedrawMaterials()
+{
+   for(U32 i = 0; i < 2; i++)
+   {
+      for(U32 j = 0; j < 2; j++)
+      {
+         SAFE_DELETE(sRedrawMatInst[i][j]);
+         sRedrawTried[i][j] = false;
+      }
+   }
 }

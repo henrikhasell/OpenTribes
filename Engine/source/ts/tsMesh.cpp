@@ -257,8 +257,10 @@ void TSMesh::innerRender( TSMaterialList *materials, const TSRenderState &rdata,
 
       // HH: Added for Tribes 2 compatibility.
       // Tribes 2's override texture takes the place of a material the shape
-      // does not mark translucent (0x006a68ae), and the map over it comes in
-      // by the material's reflectance unless it never takes one (0x006a6f6a).
+      // does not mark translucent (0x006a689d, 0x006a68d7), and the map over
+      // it comes in by the material's reflectance unless it never takes one
+      // (0x006a6f6a). A self-illuminating one is drawn with lighting off
+      // (0x006a6bc9), which leaves it the white of its colour (0x006a7013).
       F32 visibility = meshVisibility;
       if ( matInst && rdata.getOverrideMaterial() )
       {
@@ -266,7 +268,9 @@ void TSMesh::innerRender( TSMaterialList *materials, const TSRenderState &rdata,
          if ( flags & TSMaterialList::Translucent )
             continue;
 
-         matInst = rdata.getOverrideMaterial();
+         matInst = ( flags & TSMaterialList::SelfIlluminating )
+                   ? rdata.getSelfIllumOverrideMaterial()
+                   : rdata.getOverrideMaterial();
          if ( !( flags & TSMaterialList::NeverEnvMap ) )
             visibility *= materials->getReflectionAmount( matIndex );
       }

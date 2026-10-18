@@ -35,7 +35,8 @@ TSRenderState::TSRenderState()
       mLightQuery( NULL ),
       mUseOriginSort( false ),
       // HH: Added for Tribes 2 compatibility.
-      mOverrideMaterial( NULL )
+      mOverrideMaterial( NULL ),
+      mSelfIllumOverrideMaterial( NULL )
 {
 }
 
@@ -50,6 +51,7 @@ TSRenderState::TSRenderState( const TSRenderState &state )
       mLightQuery( state.mLightQuery ),
       mUseOriginSort( state.mUseOriginSort ),
       // HH: Added for Tribes 2 compatibility.
-      mOverrideMaterial( state.mOverrideMaterial )
+      mOverrideMaterial( state.mOverrideMaterial ),
+      mSelfIllumOverrideMaterial( state.mSelfIllumOverrideMaterial )
 {
 }

@@ -34,12 +34,18 @@ void main()
    float m = 2.0 * sqrt( r.x * r.x + r.y * r.y + ( r.z + 1.0 ) * ( r.z + 1.0 ) );
    shieldCoord = vec2( r.x / m + 0.5, r.y / m + 0.5 );
 
+#ifdef SHIELD_SELF_ILLUM
+   // Lighting is off for a self-illuminating material (0x006a6bc9), which
+   // leaves the white of the current colour (0x006a7013).
+   vec3 lit = vec3( 1.0 );
+#else
    // A white material under the scene's lights, clamped as GL clamps a
    // vertex's colour.
    vec3 wsPosition = ( objTrans * vec4( vPosition.xyz, 1.0 ) ).xyz;
    vec4 diffuse;
    vec4 specular;
    compute4Lights( vec3( 0.0 ), wsPosition, wsNormal, diffuse, specular );
-   shieldColor = vec4( clamp( diffuse.rgb + ambient.rgb, 0.0, 1.0 ),
-                       clamp( visibility, 0.0, 1.0 ) );
+   vec3 lit = clamp( diffuse.rgb + ambient.rgb, 0.0, 1.0 );
+#endif
+   shieldColor = vec4( lit, clamp( visibility, 0.0, 1.0 ) );
 }

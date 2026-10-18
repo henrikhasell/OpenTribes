@@ -1179,7 +1179,11 @@ protected:
    /// Submit the images, and the shape when asked, drawn over grown and
    /// faded with the flash's material (0x00694210).
    void _prepShieldRedraw( SceneRenderState *state, BaseMatInstance *matInst,
+                           BaseMatInstance *selfIllumMatInst,
                            F32 fade, F32 growth, bool drawShape );
+
+   /// Pick the detail this shape and its images are drawn at from here.
+   void _selectRenderDetail( SceneRenderState *state );
 
    void emitDust( ParticleEmitter* emitter, F32 triggerHeight, const Point3F& offset, U32 numMilliseconds, const Point3F& axis = Point3F::Zero );
 

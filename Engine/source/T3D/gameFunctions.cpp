@@ -64,6 +64,10 @@ MODULE_BEGIN( 3D )
       GameConnection::smFovUpdate.remove(GameSetCameraFov);
 
       Process::remove(Process3D);
+
+      // HH: Added for Tribes 2 compatibility.
+      // Ahead of Sim, which deletes the materials they were made from.
+      ShieldImpactT2::freeRedrawMaterials();
    }
 
 MODULE_END;

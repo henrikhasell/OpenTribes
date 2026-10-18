@@ -109,6 +109,10 @@ protected:
    /// translucent, as Tribes 2 draws a shape over with an override texture.
    BaseMatInstance *mOverrideMaterial;
 
+   /// Drawn in place of a self-illuminating one, which Tribes 2 draws with
+   /// lighting off.
+   BaseMatInstance *mSelfIllumOverrideMaterial;
+
 public:
 
    TSRenderState();
@@ -155,8 +159,13 @@ public:
 
    // HH: Added for Tribes 2 compatibility.
    ///@see mOverrideMaterial
-   void setOverrideMaterial( BaseMatInstance *matInst ) { mOverrideMaterial = matInst; }
+   void setOverrideMaterial( BaseMatInstance *matInst, BaseMatInstance *selfIllumMatInst )
+   {
+      mOverrideMaterial = matInst;
+      mSelfIllumOverrideMaterial = selfIllumMatInst;
+   }
    BaseMatInstance* getOverrideMaterial() const { return mOverrideMaterial; }
+   BaseMatInstance* getSelfIllumOverrideMaterial() const { return mSelfIllumOverrideMaterial; }
 
    /// @}
 };

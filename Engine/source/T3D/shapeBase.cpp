@@ -2752,38 +2752,14 @@ void ShapeBase::_prepRenderImage(   SceneRenderState *state,
    if ( mCubeReflector.isRendering() )
       return;
 
-   // We force all the shapes to use the highest detail
-   // if we're the control object or mounted.
-   bool forceHighestDetail = false;
-   {
-      GameConnection *con = GameConnection::getConnectionToServer();
-      ShapeBase *co = NULL;
-      if(con && ( (co = dynamic_cast<ShapeBase*>(con->getControlObject())) != NULL) )
-      {
-         if(co == this || co->getObjectMount() == this)
-            forceHighestDetail = true;
-      }
-   }
-
    mLastRenderFrame = sLastRenderFrame;
 
-   // get shape detail...we might not even need to be drawn
-   Point3F cameraOffset = getWorldBox().getClosestPoint( state->getDiffuseCameraPosition() ) - state->getDiffuseCameraPosition();
-   F32 dist = cameraOffset.len();
-   if (dist < 0.01f)
-      dist = 0.01f;
-
-   F32 invScale = (1.0f/getMax(getMax(mObjScale.x,mObjScale.y),mObjScale.z));
+   // HH: Added for Tribes 2 compatibility.
+   // Split out for the shield's redraw.
+   _selectRenderDetail( state );
 
    if (mShapeInstance)
-   {
-      if ( forceHighestDetail )         
-         mShapeInstance->setCurrentDetail( 0 );
-      else
-         mShapeInstance->setDetailFromDistance( state, dist * invScale );
-                              
       mShapeInstance->animate();
-   }
    
    if (  ( mShapeInstance && mShapeInstance->getCurrentDetail() < 0 ) ||
          ( !mShapeInstance && !gShowBoundingBox ) ) 
@@ -2800,13 +2776,6 @@ void ShapeBase::_prepRenderImage(   SceneRenderState *state,
          U32 imageShapeIndex = getImageShapeIndex(image);
          if (image.dataBlock && image.shapeInstance[imageShapeIndex])
          {
-            // Select detail levels on mounted items but... always 
-            // draw the control object's mounted images in high detail.
-            if ( forceHighestDetail )
-               image.shapeInstance[imageShapeIndex]->setCurrentDetail( 0 );
-            else
-               image.shapeInstance[imageShapeIndex]->setDetailFromDistance( state, dist * invScale );
-
             if (!mIsZero( (1.0f - mCloakLevel) * mFadeVal))
             {
                prepBatchRender( state, i );
@@ -2863,6 +2832,54 @@ void ShapeBase::_prepRenderImage(   SceneRenderState *state,
 }
 
 // HH: Added for Tribes 2 compatibility.
+void ShapeBase::_selectRenderDetail( SceneRenderState *state )
+{
+   // We force all the shapes to use the highest detail
+   // if we're the control object or mounted.
+   bool forceHighestDetail = false;
+   {
+      GameConnection *con = GameConnection::getConnectionToServer();
+      ShapeBase *co = NULL;
+      if(con && ( (co = dynamic_cast<ShapeBase*>(con->getControlObject())) != NULL) )
+      {
+         if(co == this || co->getObjectMount() == this)
+            forceHighestDetail = true;
+      }
+   }
+
+   // get shape detail...we might not even need to be drawn
+   Point3F cameraOffset = getWorldBox().getClosestPoint( state->getDiffuseCameraPosition() ) - state->getDiffuseCameraPosition();
+   F32 dist = cameraOffset.len();
+   if (dist < 0.01f)
+      dist = 0.01f;
+
+   F32 invScale = (1.0f/getMax(getMax(mObjScale.x,mObjScale.y),mObjScale.z));
+
+   if (mShapeInstance)
+   {
+      if ( forceHighestDetail )         
+         mShapeInstance->setCurrentDetail( 0 );
+      else
+         mShapeInstance->setDetailFromDistance( state, dist * invScale );
+   }
+
+   for (U32 i = 0; i < MaxMountedImages; i++)
+   {
+      MountedImage& image = mMountedImageList[i];
+      U32 imageShapeIndex = getImageShapeIndex(image);
+      if (image.dataBlock && image.shapeInstance[imageShapeIndex])
+      {
+         // Select detail levels on mounted items but... always 
+         // draw the control object's mounted images in high detail.
+         if ( forceHighestDetail )
+            image.shapeInstance[imageShapeIndex]->setCurrentDetail( 0 );
+         else
+            image.shapeInstance[imageShapeIndex]->setDetailFromDistance( state, dist * invScale );
+      }
+   }
+}
+
+// HH: Added for Tribes 2 compatibility.
 void ShapeBase::_renderShieldImpact( ObjectRenderInst *ri, SceneRenderState *state, BaseMatInstance *overrideMat )
 {
    if ( overrideMat )
@@ -2880,28 +2897,59 @@ void ShapeBase::_prepShieldImpactRedraw( SceneRenderState *state )
    // (0x0069442c).
    const F32 alpha = mShieldImpact.getAlpha();
    const bool blended = alpha < 0.99f;
-   BaseMatInstance *matInst = ShieldImpactT2::getRedrawMaterial( blended );
-   if ( !matInst )
+   BaseMatInstance *matInst = ShieldImpactT2::getRedrawMaterial( blended, false );
+   BaseMatInstance *selfIllumMatInst = ShieldImpactT2::getRedrawMaterial( blended, true );
+   if ( !matInst || !selfIllumMatInst )
       return;
 
    const F32 fade = blended ? alpha : 1.0f;
    const F32 growth = mShieldImpact.getGrowth();
 
-   _prepShieldRedraw( state, matInst, fade, growth, true );
+   _prepShieldRedraw( state, matInst, selfIllumMatInst, fade, growth, true );
 
    for ( SceneObject *obj = getMountList(); obj; obj = obj->getMountLink() )
    {
       ShapeBase *shape = dynamic_cast<ShapeBase*>( obj );
-      if ( shape )
-         shape->_prepShieldRedraw( state, matInst, fade, growth, true );
+      if ( !shape )
+         continue;
+
+      // The scene may not have reached it yet this frame. Drawn at the
+      // detail it is about to pick, its own draw can share the skin this
+      // one leaves.
+      shape->_selectRenderDetail( state );
+      shape->_prepShieldRedraw( state, matInst, selfIllumMatInst, fade, growth, true );
    }
 
-   _prepShieldRedraw( state, matInst, fade, growth, false );
+   _prepShieldRedraw( state, matInst, selfIllumMatInst, fade, growth, false );
+}
+
+namespace
+{
+   /// Retail draws every part at the top detail (0x006944f8). A part the
+   /// scene draws at another detail this frame stays at it, as its meshes
+   /// share one skin between details; one it does not draw at all takes the
+   /// top one just for this.
+   void renderShieldRedraw( TSShapeInstance *shapeInst, const TSRenderState &rdata )
+   {
+      const S32 detail = shapeInst->getCurrentDetail();
+      const F32 intraDetail = shapeInst->getCurrentIntraDetail();
+      if ( detail < 0 )
+         shapeInst->setCurrentDetail( 0 );
+
+      // The scene may not have animated it yet this frame, and this draw
+      // marks its skin up to date.
+      shapeInst->animate();
+      shapeInst->render( rdata );
+
+      if ( detail < 0 )
+         shapeInst->setCurrentDetail( detail, intraDetail );
+   }
 }
 
 // HH: Added for Tribes 2 compatibility.
 void ShapeBase::_prepShieldRedraw( SceneRenderState *state,
                                    BaseMatInstance *matInst,
+                                   BaseMatInstance *selfIllumMatInst,
                                    F32 fade, F32 growth, bool drawShape )
 {
    GFXTransformSaver saver;
@@ -2909,7 +2957,7 @@ void ShapeBase::_prepShieldRedraw( SceneRenderState *state,
    TSRenderState rdata;
    rdata.setSceneState( state );
    rdata.setFadeOverride( fade );
-   rdata.setOverrideMaterial( matInst );
+   rdata.setOverrideMaterial( matInst, selfIllumMatInst );
 
    LightQuery query;
    query.init( getWorldSphere() );
@@ -2925,22 +2973,22 @@ void ShapeBase::_prepShieldRedraw( SceneRenderState *state,
          continue;
 
       TSShapeInstance *shapeInst = image.shapeInstance[ getImageShapeIndex( image ) ];
-      if ( !shapeInst || shapeInst->getCurrentDetail() < 0 )
+      if ( !shapeInst )
          continue;
 
       MatrixF mat;
       getRenderImageTransform( i, &mat );
       mat.scale( scale );
       GFX->setWorldMatrix( mat );
-      shapeInst->render( rdata );
+      renderShieldRedraw( shapeInst, rdata );
    }
 
-   if ( drawShape && mShapeInstance && mShapeInstance->getCurrentDetail() >= 0 )
+   if ( drawShape && mShapeInstance )
    {
       MatrixF mat = getRenderTransform();
       mat.scale( scale );
       GFX->setWorldMatrix( mat );
-      mShapeInstance->render( rdata );
+      renderShieldRedraw( mShapeInstance, rdata );
    }
 }
 
