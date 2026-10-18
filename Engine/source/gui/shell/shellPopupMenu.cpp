@@ -259,10 +259,9 @@ void ShellPopupMenu::onRender( Point2I offset, const RectI &updateRect )
    GFont *font = mProfile->mFont;
 
    const S32 plate = cell( Middle, state ).extent.y;
-   const S32 descent = S32( font->getHeight() ) - S32( font->getBaseline() );
 
    Point2I where( offset.x + left,
-                  offset.y + ( plate - S32( font->getHeight() ) ) / 2 - descent / 2 );
+                  offset.y + ( plate - S32( font->getHeight() ) ) / 2 );
 
    const S32 width = font->getStrWidth( text );
 

@@ -386,17 +386,6 @@ void GuiArrayCtrl::onMouseDown( const GuiEvent &event )
 {
    if ( !mActive || !mAwake || !mVisible )
       return;
-}
-
-//-----------------------------------------------------------------------------
-
-void GuiArrayCtrl::onMouseUp( const GuiEvent &event )
-{
-   if ( !mActive || !mAwake || !mVisible )
-      return;
-
-   //let the guiControl method take care of the rest
-   Parent::onMouseUp(event);
 
    Point2I pt = globalToLocalCoord(event.mousePoint);
    pt.x -= mHeaderDim.x; pt.y -= mHeaderDim.y;
