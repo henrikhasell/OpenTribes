@@ -28,8 +28,8 @@
 #endif
 
 /// Decals!  The lovely detailing thingies, e.g. bullet hole marks.
-/// DEPRECATED: This class is here for compatibility with old files only.
-/// Performs no actual rendering.
+// HH: Modified for Tribes 2 compatibility.
+/// Tribes 2 draws an armour's damage with these; TSShapeInstance renders them.
 class TSDecalMesh
 {
 public:
@@ -53,9 +53,6 @@ public:
 
    /// We only allow 1 material per decal...
    S32 materialIndex;
-
-   /// DEPRECATED
-   // void render(S32 frame, S32 decalFrame, TSMaterialList *);
 
    void disassemble();
    void assemble(bool skip);

@@ -42,15 +42,22 @@ void TSDecalMesh::assemble(bool)
       tsalloc.getPointer32(15);
    }
 
+   // HH: Modified for Tribes 2 compatibility.
+   // A primitive is two 16 bit words and a 32 bit one, each from its own run.
    S32 sz = tsalloc.get32();
-   S32 * ptr32 = tsalloc.copyToShape32(0); // get current shape address w/o doing anything
+   primitives.setSize(sz);
    for (S32 i=0; i<sz; i++)
    {
-      tsalloc.getPointer16(2);
-      tsalloc.getPointer32(1);
+      S16 * prim16 = tsalloc.getPointer16(2);
+      S32 * prim32 = tsalloc.getPointer32(1);
+      if (prim16 && prim32)
+      {
+         primitives[i].start = (U16)prim16[0];
+         primitives[i].numElements = (U16)prim16[1];
+         primitives[i].matIndex = prim32[0];
+      }
    }
    tsalloc.align32();
-   primitives.set(ptr32,sz);
 
    sz = tsalloc.get32();
    S16 * ptr16 = tsalloc.getPointer16(sz);
@@ -65,7 +72,7 @@ void TSDecalMesh::assemble(bool)
    }
 
    sz = tsalloc.get32();
-   ptr32 = tsalloc.getPointer32(sz);
+   S32 * ptr32 = tsalloc.getPointer32(sz);
    startPrimitive.set(ptr32,sz);
 
    if (TSShape::smReadVersion>=19)
@@ -82,6 +89,9 @@ void TSDecalMesh::assemble(bool)
    }
 
    materialIndex = tsalloc.get32();
+
+   // HH: Added for Tribes 2 compatibility.
+   targetMesh = NULL;
 
    tsalloc.checkGuard();
 }

@@ -231,6 +231,8 @@ class TSMesh
 
    TSMeshVertexArray mVertexData;
    dsize_t mNumVerts;
+   // HH: Added for Tribes 2 compatibility.
+   const GFXVertexFormat *getVertexFormat() const { return mVertexFormat; }
    virtual void convertToAlignedMeshData();
    /// @}
 

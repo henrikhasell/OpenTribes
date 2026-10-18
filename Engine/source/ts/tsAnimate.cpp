@@ -828,6 +828,50 @@ void TSShapeInstance::animateMatFrame(S32 ss)
    }
 }
 
+// HH: Added for Tribes 2 compatibility.
+void TSShapeInstance::animateDecals()
+{
+   PROFILE_SCOPE( TSShapeInstance_animateDecals );
+
+   S32 i;
+   if (!mDecalObjects.size())
+      return;
+
+   // find out who needs default values set
+   TSIntegerSet beenSet;
+   beenSet.setAll(mDecalObjects.size());
+   for (i=0; i<mThreadList.size(); i++)
+      beenSet.takeAway(mThreadList[i]->getSequence()->decalMatters);
+
+   // set defaults
+   for (i=0; i<mDecalObjects.size(); i++)
+      if (beenSet.test(i))
+         mDecalObjects[i].frame = mShape->decalStates[i];
+
+   // go through each thread and set the frame on those decals that are not
+   // set yet and are controlled by that thread
+   for (i=0; i<mThreadList.size(); i++)
+   {
+      TSThread * th = mThreadList[i];
+      const TSShape::Sequence * seq = th->getSequence();
+
+      S32 j=0;
+      S32 start = seq->decalMatters.start();
+      S32 end = mDecalObjects.size();
+      for (S32 decalIndex = start; decalIndex<end; seq->decalMatters.next(decalIndex), j++)
+      {
+         if (!beenSet.test(decalIndex))
+         {
+            S32 key = (th->keyPos<0.5f) ? th->keyNum1 : th->keyNum2;
+            mDecalObjects[decalIndex].frame = mShape->getDecalState(*seq,key,j);
+
+            // record change so that later threads don't over-write us...
+            beenSet.set(decalIndex);
+         }
+      }
+   }
+}
+
 //-------------------------------------------------------------------------------------
 // Animate (and initialize detail levels)
 //-------------------------------------------------------------------------------------
@@ -868,6 +912,10 @@ void TSShapeInstance::animate(S32 dl)
 
    if (dirtyFlags & MatFrameDirty)
       animateMatFrame(ss);
+
+   // HH: Added for Tribes 2 compatibility.
+   if (dirtyFlags & DecalDirty)
+      animateDecals();
 
    mDirtyFlags[ss] = 0;
 }

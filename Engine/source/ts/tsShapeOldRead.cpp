@@ -1314,10 +1314,9 @@ void TSShape::Sequence::read(Stream * s, bool readNameIndex)
    // HH: Modified for Tribes 2 compatibility.
    // The ifl set says which of the shape's ifl materials this sequence runs.
    if (TSShape::smReadVersion>10)
-   {
-      TSIntegerSet decalMatters;
       decalMatters.read(s);
-   }
+   else
+      decalMatters.clearAll();
    if (TSShape::smReadVersion>5)
       iflMatters.read(s);
    else
@@ -1341,6 +1340,9 @@ void TSShape::Sequence::read(Stream * s, bool readNameIndex)
       dirtyFlags |= TSShapeInstance::FrameDirty;
    if (matFrameMatters.testAll())
       dirtyFlags |= TSShapeInstance::MatFrameDirty;
+   // HH: Added for Tribes 2 compatibility.
+   if (decalMatters.testAll())
+      dirtyFlags |= TSShapeInstance::DecalDirty;
 }
 
 void TSShape::Sequence::write(Stream * s, bool writeNameIndex) const
