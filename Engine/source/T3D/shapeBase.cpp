@@ -2840,17 +2840,23 @@ void ShapeBase::_prepRenderImage(   SceneRenderState *state,
 
    // HH: Added for Tribes 2 compatibility.
    // Retail's prepRenderImage (0x005ec95e) adds this without asking whether
-   // the shape itself is drawn. A first-person eye is inside it, where every
-   // face it could see is a back face.
+   // the shape itself is drawn. A first-person eye is inside the bubble,
+   // where every face it could see is a back face. Which of the two it
+   // draws is asked each time it draws (0x00694040).
    if ( mShieldImpact.isActive() && state->isDiffusePass() )
    {
-      ObjectRenderInst *ri = state->getRenderPass()->allocInst<ObjectRenderInst>();
-      ri->renderDelegate.bind( this, &ShapeBase::_renderShieldImpact );
-      // The bin the port's other immediate-mode effects draw in. The
-      // translucent object type is taken by two bins of the default pass,
-      // which would add the flash in twice.
-      ri->type = RenderPassManager::RIT_Foliage;
-      state->getRenderPass()->addInst( ri );
+      if ( ShieldImpactT2::smUseOldShieldEffect )
+         _prepShieldImpactRedraw( state );
+      else
+      {
+         ObjectRenderInst *ri = state->getRenderPass()->allocInst<ObjectRenderInst>();
+         ri->renderDelegate.bind( this, &ShapeBase::_renderShieldImpact );
+         // The bin the port's other immediate-mode effects draw in. The
+         // translucent object type is taken by two bins of the default
+         // pass, which would add the flash in twice.
+         ri->type = RenderPassManager::RIT_Foliage;
+         state->getRenderPass()->addInst( ri );
+      }
    }
 
    calcClassRenderData();
@@ -2863,6 +2869,79 @@ void ShapeBase::_renderShieldImpact( ObjectRenderInst *ri, SceneRenderState *sta
       return;
 
    mShieldImpact.render( this, state );
+}
+
+// HH: Added for Tribes 2 compatibility.
+// Retail's hi-res effect (0x00694060) draws this shape and its images, each
+// shape mounted on it and its images, then this shape's images once more.
+void ShapeBase::_prepShieldImpactRedraw( SceneRenderState *state )
+{
+   // Near full strength it is drawn solid and lerps by reflectance alone
+   // (0x0069442c).
+   const F32 alpha = mShieldImpact.getAlpha();
+   const bool blended = alpha < 0.99f;
+   BaseMatInstance *matInst = ShieldImpactT2::getRedrawMaterial( blended );
+   if ( !matInst )
+      return;
+
+   const F32 fade = blended ? alpha : 1.0f;
+   const F32 growth = mShieldImpact.getGrowth();
+
+   _prepShieldRedraw( state, matInst, fade, growth, true );
+
+   for ( SceneObject *obj = getMountList(); obj; obj = obj->getMountLink() )
+   {
+      ShapeBase *shape = dynamic_cast<ShapeBase*>( obj );
+      if ( shape )
+         shape->_prepShieldRedraw( state, matInst, fade, growth, true );
+   }
+
+   _prepShieldRedraw( state, matInst, fade, growth, false );
+}
+
+// HH: Added for Tribes 2 compatibility.
+void ShapeBase::_prepShieldRedraw( SceneRenderState *state,
+                                   BaseMatInstance *matInst,
+                                   F32 fade, F32 growth, bool drawShape )
+{
+   GFXTransformSaver saver;
+
+   TSRenderState rdata;
+   rdata.setSceneState( state );
+   rdata.setFadeOverride( fade );
+   rdata.setOverrideMaterial( matInst );
+
+   LightQuery query;
+   query.init( getWorldSphere() );
+   rdata.setLightQuery( &query );
+
+   // Each grows about its own origin, over the object's own scale.
+   const Point3F scale = mObjScale * growth;
+
+   for ( U32 i = 0; i < MaxMountedImages; i++ )
+   {
+      MountedImage &image = mMountedImageList[i];
+      if ( !image.dataBlock )
+         continue;
+
+      TSShapeInstance *shapeInst = image.shapeInstance[ getImageShapeIndex( image ) ];
+      if ( !shapeInst || shapeInst->getCurrentDetail() < 0 )
+         continue;
+
+      MatrixF mat;
+      getRenderImageTransform( i, &mat );
+      mat.scale( scale );
+      GFX->setWorldMatrix( mat );
+      shapeInst->render( rdata );
+   }
+
+   if ( drawShape && mShapeInstance && mShapeInstance->getCurrentDetail() >= 0 )
+   {
+      MatrixF mat = getRenderTransform();
+      mat.scale( scale );
+      GFX->setWorldMatrix( mat );
+      mShapeInstance->render( rdata );
+   }
 }
 
 //----------------------------------------------------------------------------

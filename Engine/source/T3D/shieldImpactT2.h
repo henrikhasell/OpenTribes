@@ -16,6 +16,7 @@
 
 class ShapeBase;
 class SceneRenderState;
+class BaseMatInstance;
 
 /// The flash a shield puts round a shape it turns a hit away from: retail's
 /// ShieldImpactRenderImage, which every ShapeBase carries at this+0x284 and
@@ -26,6 +27,10 @@ class ShieldImpactT2
 {
 public:
    ShieldImpactT2();
+
+   /// $pref::useOldShieldEffect, the options dialog's "HI-RES SHIELD
+   /// EFFECTS", at 0x009ecec3. Retail reads it each time it draws.
+   static bool smUseOldShieldEffect;
 
    /// Load the map, which retail does in ShapeBase::onAdd (0x005e75db) for
    /// a ghost only.
@@ -42,7 +47,19 @@ public:
 
    void advance(F32 dt);
 
+   /// One less the square of the share of its life gone, times the energy
+   /// the server sent, which both effects fade by.
+   F32 getAlpha() const;
+
+   /// How far the hi-res effect has grown the shape, from 1 to 1.1 over its
+   /// life.
+   F32 getGrowth() const { return mGrowth; }
+
    void render(ShapeBase *owner, SceneRenderState *state);
+
+   /// The material the hi-res effect draws a shape over with: blended while
+   /// it fades, solid while it is still near full strength.
+   static BaseMatInstance *getRedrawMaterial(bool blended);
 
 private:
    GFXTexHandle      mTexture;

@@ -33,6 +33,7 @@ class SceneRenderState;
 class GFXCubemap;
 class Frustum;
 class LightQuery;
+class BaseMatInstance;
 
 
 /// A simple class for passing render state through the pre-render pipeline.
@@ -103,6 +104,11 @@ protected:
    /// are forward lit and need lights.
    LightQuery *mLightQuery;
 
+   // HH: Added for Tribes 2 compatibility.
+   /// Drawn in place of every material the shape does not itself mark
+   /// translucent, as Tribes 2 draws a shape over with an override texture.
+   BaseMatInstance *mOverrideMaterial;
+
 public:
 
    TSRenderState();
@@ -146,6 +152,11 @@ public:
    ///@see mLightQuery
    void setLightQuery( LightQuery *query ) { mLightQuery = query; }
    LightQuery* getLightQuery() const { return mLightQuery; }
+
+   // HH: Added for Tribes 2 compatibility.
+   ///@see mOverrideMaterial
+   void setOverrideMaterial( BaseMatInstance *matInst ) { mOverrideMaterial = matInst; }
+   BaseMatInstance* getOverrideMaterial() const { return mOverrideMaterial; }
 
    /// @}
 };

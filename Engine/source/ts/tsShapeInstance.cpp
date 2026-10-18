@@ -670,7 +670,9 @@ void TSShapeInstance::render( const TSRenderState &rdata, S32 dl, F32 intraDL )
    }
 
    // HH: Added for Tribes 2 compatibility.
-   renderDecals( rdata, od, mAlphaAlways ? mAlphaAlwaysValue : 1.0f );
+   // Tribes 2 turns decals off for a shape it draws over (0x00694493).
+   if ( !rdata.getOverrideMaterial() )
+      renderDecals( rdata, od, mAlphaAlways ? mAlphaAlwaysValue : 1.0f );
 }
 
 // HH: Added for Tribes 2 compatibility.

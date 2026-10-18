@@ -1171,6 +1171,16 @@ protected:
    // HH: Added for Tribes 2 compatibility.
    void _renderShieldImpact( ObjectRenderInst *ri, SceneRenderState *state, BaseMatInstance *overrideMat );
 
+   // HH: Added for Tribes 2 compatibility.
+   /// The shield flash $pref::useOldShieldEffect asks for, which draws this
+   /// shape over instead of a bubble round it.
+   void _prepShieldImpactRedraw( SceneRenderState *state );
+
+   /// Submit the images, and the shape when asked, drawn over grown and
+   /// faded with the flash's material (0x00694210).
+   void _prepShieldRedraw( SceneRenderState *state, BaseMatInstance *matInst,
+                           F32 fade, F32 growth, bool drawShape );
+
    void emitDust( ParticleEmitter* emitter, F32 triggerHeight, const Point3F& offset, U32 numMilliseconds, const Point3F& axis = Point3F::Zero );
 
 public:

@@ -254,6 +254,23 @@ void TSMesh::innerRender( TSMaterialList *materials, const TSRenderState &rdata,
       // If we don't have a material instance after the overload then
       // there is nothing to render... skip this primitive.
       matInst = state->getOverrideMaterial( matInst );
+
+      // HH: Added for Tribes 2 compatibility.
+      // Tribes 2's override texture takes the place of a material the shape
+      // does not mark translucent (0x006a68ae), and the map over it comes in
+      // by the material's reflectance unless it never takes one (0x006a6f6a).
+      F32 visibility = meshVisibility;
+      if ( matInst && rdata.getOverrideMaterial() )
+      {
+         const U32 flags = materials->getShapeFlags( matIndex );
+         if ( flags & TSMaterialList::Translucent )
+            continue;
+
+         matInst = rdata.getOverrideMaterial();
+         if ( !( flags & TSMaterialList::NeverEnvMap ) )
+            visibility *= materials->getReflectionAmount( matIndex );
+      }
+
       if ( !matInst || !matInst->isValid())
          continue;
 
@@ -268,6 +285,8 @@ void TSMesh::innerRender( TSMaterialList *materials, const TSRenderState &rdata,
       ri->matInst = matInst;
       ri->defaultKey = matInst->getStateHint();
       ri->primBuffIndex = run + i;
+      // HH: Added for Tribes 2 compatibility.
+      ri->visibility = visibility;
 
       // Translucent materials need the translucent type.
       if ( matInst->getMaterial()->isTranslucent() )
