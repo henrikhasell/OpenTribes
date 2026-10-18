@@ -1064,6 +1064,10 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
                         sBody.hasWarp = true;
                         sBody.warp = set;
                         break;
+                     case T2FieldTargetHere:
+                        sBody.hasTarget = true;
+                        sBody.target = -1;
+                        break;
                      case T2FieldQuickSplash:
                         sBody.quickSplash = set;
                         break;
@@ -1389,6 +1393,9 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
                      break;
                   case T2FieldSourceSlot:
                      sBody.sourceSlot = word;
+                     break;
+                  case T2FieldTarget:
+                     sBody.target = S32(word);
                      break;
                   case T2FieldVehicleObject:
                      sBody.hasVehicleObject = true;
@@ -1830,6 +1837,8 @@ static bool runGhost(BitStream *stream, const char *className,
    sBody.hasSourceObject = false;
    sBody.sourceSlot = 0;
    sBody.hasVehicleObject = false;
+   sBody.hasTarget = false;
+   sBody.target = -1;
    sBody.quickSplash = false;
    sBody.hasJetting = false;
    sBody.jetting = false;

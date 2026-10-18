@@ -15,6 +15,10 @@
 #include "ts/tsShape.h"
 #include "ts/tsMaterialList.h"
 #include "T3D/gameBase/dataBlocksT2.h"
+#include "sfx/sfxDescription.h"
+#include "sfx/sfxProfile.h"
+#include "sfx/sfxSource.h"
+#include "sfx/sfxSystem.h"
 
 
 //----------------------------------------------------------------------------
@@ -376,3 +380,207 @@ IMPLEMENT_CO_CLIENTEVENT_V1(FogChallengeEvent);
 
 ConsoleDocClass( FogChallengeEvent,
    "@brief Asks a client how far it can see through fog.\n\n@internal" );
+
+//----------------------------------------------------------------------------
+
+namespace
+{
+   /// What a client keeps of one target: the strings the server tagged for
+   /// it, which TargetInfoEvent sends in this order, and its voice's pitch.
+   struct ClientTarget
+   {
+      enum Tag { Name, Skin, PrefSkin, Voice, Type, NumTags };
+
+      NetStringHandle tags[NumTags];
+      F32 voicePitch;
+
+      ClientTarget() : voicePitch(1.0f) {}
+   };
+
+   enum { TargetBits = 9, NumTargets = 1 << TargetBits };
+
+   ClientTarget sClientTargets[NumTargets];
+}
+
+class TargetInfoEvent : public NetEvent
+{
+   typedef NetEvent Parent;
+
+   enum
+   {
+      SensorGroupBits = 5,
+      DataBlockBits = 11,
+      RenderMaskBits = 9,
+      VoicePitchBits = 7,
+   };
+
+   U32 mTarget;
+   bool mTagHere[ClientTarget::NumTags];
+   U32 mTag[ClientTarget::NumTags];
+   bool mVoicePitchHere;
+   U32 mVoicePitch;
+
+public:
+   TargetInfoEvent()
+   {
+      mGuaranteeType = GuaranteedOrdered;
+      mTarget = 0;
+      for (U32 i = 0; i < ClientTarget::NumTags; i++)
+      {
+         mTagHere[i] = false;
+         mTag[i] = 0;
+      }
+      mVoicePitchHere = false;
+      mVoicePitch = 0;
+   }
+
+   void pack(NetConnection *, BitStream *) {}
+   void write(NetConnection *, BitStream *) {}
+   void unpack(NetConnection *, BitStream *stream)
+   {
+      mTarget = stream->readInt(TargetBits);
+
+      // Each tag is a flag for a change, then a flag for a string at all.
+      for (U32 i = 0; i < ClientTarget::NumTags; i++)
+         if ((mTagHere[i] = stream->readFlag()))
+            mTag[i] = stream->readFlag()
+                    ? stream->readInt(ConnectionStringTable::EntryBitSize) + 1
+                    : 0;
+
+      if (stream->readFlag())
+         stream->readInt(SensorGroupBits);
+      if (stream->readFlag() && stream->readFlag())
+         stream->readInt(DataBlockBits);
+      if (stream->readFlag())
+         stream->readInt(RenderMaskBits);
+      if ((mVoicePitchHere = stream->readFlag()))
+         mVoicePitch = stream->readInt(VoicePitchBits);
+   }
+   void process(NetConnection *conn)
+   {
+      ClientTarget &target = sClientTargets[mTarget];
+      for (U32 i = 0; i < ClientTarget::NumTags; i++)
+         if (mTagHere[i])
+            target.tags[i] = mTag[i] ? conn->translateRemoteStringId(mTag[i] - 1)
+                                     : NetStringHandle();
+
+      // allocTarget takes a pitch from 0.5 to 2, sent as a share of that.
+      if (mVoicePitchHere)
+         target.voicePitch = 0.5f + 1.5f * F32(mVoicePitch) /
+                                    F32((1 << VoicePitchBits) - 1);
+   }
+
+   DECLARE_CONOBJECT(TargetInfoEvent);
+};
+
+IMPLEMENT_CO_CLIENTEVENT_V1(TargetInfoEvent);
+
+ConsoleDocClass( TargetInfoEvent,
+   "@brief Tells a client what one target is called and how it "
+   "sounds.\n\n@internal" );
+
+//----------------------------------------------------------------------------
+
+class SimTargetAudioEvent : public NetEvent
+{
+   typedef NetEvent Parent;
+
+   enum { DataBlockBits = 11 };
+
+   U32 mTarget;
+   U32 mFile;
+   bool mDescriptionHere;
+   U32 mDescription;
+   bool mPositionHere;
+   Point3F mPosition;
+
+public:
+   SimTargetAudioEvent()
+   {
+      mGuaranteeType = Unguaranteed;
+      mTarget = 0;
+      mFile = 0;
+      mDescriptionHere = false;
+      mDescription = 0;
+      mPositionHere = false;
+      mPosition.set(0.0f, 0.0f, 0.0f);
+   }
+
+   void pack(NetConnection *, BitStream *) {}
+   void write(NetConnection *, BitStream *) {}
+   void unpack(NetConnection *, BitStream *stream)
+   {
+      mTarget = stream->readInt(TargetBits);
+      mFile = stream->readInt(ConnectionStringTable::EntryBitSize);
+      if ((mDescriptionHere = stream->readFlag()))
+         mDescription = stream->readInt(DataBlockBits);
+      if ((mPositionHere = stream->readFlag()))
+         stream->readCompressedPoint(&mPosition, 0.01f);
+
+      // playTargetAudio's last argument, which says nothing about the sound.
+      stream->readFlag();
+   }
+   void process(NetConnection *conn)
+   {
+      const ClientTarget &target = sClientTargets[mTarget];
+      const char *voice = target.tags[ClientTarget::Voice].getString();
+      const char *file = conn->translateRemoteStringId(mFile).getString();
+      if (!voice || !voice[0] || !file || !file[0])
+         return;
+
+      SFXDescription *description = NULL;
+      if (mDescriptionHere)
+         Sim::findObject(DataBlockObjectIdFirst + mDescription, description);
+      if (!description)
+         return;
+
+      char path[256];
+      dSprintf(path, sizeof(path), "voice/%s/%s.wav", voice, file);
+
+      SFXProfile *profile = new SFXProfile(description,
+                                           StringTable->insert(path), true);
+      if (!profile->registerObject())
+      {
+         delete profile;
+         return;
+      }
+      profile->setAutoDelete(true);
+
+      // Without a position the sound comes from wherever the target is.
+      MatrixF transform(true);
+      if (mPositionHere)
+         transform.setColumn(3, mPosition);
+      else if (Player *player = findPlayer(conn))
+         transform = player->getRenderTransform();
+
+      SFXSource *source = SFX->createSource(profile, &transform);
+      if (!source)
+         return;
+
+      source->setPitch(target.voicePitch);
+      source->play();
+      SFX->deleteWhenStopped(source);
+   }
+
+   DECLARE_CONOBJECT(SimTargetAudioEvent);
+
+private:
+   Player *findPlayer(NetConnection *conn) const
+   {
+      if (!conn->isGhostingTo())
+         return NULL;
+
+      for (S32 i = 0; i < NetConnection::MaxGhostCount; i++)
+      {
+         Player *player = dynamic_cast<Player *>(conn->resolveGhost(i));
+         if (player && player->getT2Target() == S32(mTarget))
+            return player;
+      }
+      return NULL;
+   }
+};
+
+IMPLEMENT_CO_CLIENTEVENT_V1(SimTargetAudioEvent);
+
+ConsoleDocClass( SimTargetAudioEvent,
+   "@brief Plays a line from a target's own voice pack.\n\n@internal" );

@@ -1443,6 +1443,7 @@ Player::Player()
    mActionAnimation.atEnd = false;
    mState = MoveState;
    mJetting = false;
+   mT2Target = -1;
    mFalling = false;
    mSwimming = false;
    mInWater = false;
@@ -5090,6 +5091,9 @@ bool Player::displaceObject(const Point3F& displacement)
 
 void Player::onT2BodyRead(const T2Layout::Body &body)
 {
+   if (body.hasTarget)
+      mT2Target = body.target;
+
    readT2Damage(body);
 
    if (body.hasJetting)

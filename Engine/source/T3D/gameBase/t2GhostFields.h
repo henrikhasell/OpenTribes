@@ -35,6 +35,9 @@ namespace T2Protocol
       T2FieldSourceObject,
       T2FieldSourceSlot,
       T2FieldVehicleObject,
+      T2FieldTargetHere,            ///< the flag a target id follows
+      T2FieldTarget,                ///< readInt(bits), the target manager's
+                                    ///< id for the object
       T2FieldQuickSplash,
    };
 
@@ -69,6 +72,11 @@ namespace T2Protocol
       { "Player", 23, OpRaw,   13, T2FieldSpeed        },
       { "Player", 22, OpRaw,   21, T2FieldDirection    },
       { "Player", 19, OpRaw,   7,  T2FieldYaw          },
+
+   // ShapeBase's target: a flag for a change, a flag for having one at all,
+   // then its id.
+      { "Player", 227, OpFlag, 1,  T2FieldTargetHere        },
+      { "Player", 226, OpRaw,  9,  T2FieldTarget            },
 
       { "Player", 26, OpFlag,  1,  T2FieldJetting      },
 
