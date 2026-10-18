@@ -59,6 +59,7 @@
 #include "materials/materialPropertyMap.h"
 #include "terrain/terrData.h"
 #include "T3D/gameBase/gravityT2.h"   // HH: Added for Tribes 2 compatibility.
+#include "T3D/gameBase/forceFieldBareT2.h"   // HH: Added for Tribes 2 compatibility.
 
 // Amount of time if takes to transition to a new action sequence.
 static F32 sAnimationTransitionTime = 0.25f;
@@ -111,7 +112,20 @@ static U32 sCollisionMoveMask =  TerrainObjectType       |
                                  PlayerObjectType        |
                                  StaticShapeObjectType   | 
                                  VehicleObjectType       |
-                                 PhysicalZoneObjectType;
+                                 PhysicalZoneObjectType  |
+                                 ForceFieldObjectType;   // HH: Added for Tribes 2 compatibility.
+
+// HH: Added for Tribes 2 compatibility.
+/// Retail's player leaves a force field out of each polygon list it builds
+/// when the field lets it through (0x005d7caa, 0x005d81aa, 0x005d9275).
+static bool passesThrough(Player *player, SceneObject *obj)
+{
+   if(!(obj->getTypeMask() & ForceFieldObjectType))
+      return false;
+
+   ForceFieldBare *field = dynamic_cast<ForceFieldBare *>(obj);
+   return field && field->isPermeableTo(player);
+}
 
 static U32 sServerCollisionContactMask = sCollisionMoveMask |
                                          ItemObjectType     |
@@ -4487,7 +4501,8 @@ Point3F Player::_move( const F32 travelTime, Collision *outCol )
          CollisionWorkingList* pList = rList.wLink.mNext;
          while (pList != &rList) {
             Convex* pConvex = pList->mConvex;
-            if (pConvex->getObject()->getTypeMask() & sCollisionMoveMask) {
+            if ((pConvex->getObject()->getTypeMask() & sCollisionMoveMask) &&
+                !passesThrough(this, pConvex->getObject())) {   // HH: Added for Tribes 2 compatibility.
                Box3F convexBox = pConvex->getBoundingBox();
                if (wBox.isOverlapped(convexBox))
                {
@@ -4533,7 +4548,8 @@ Point3F Player::_move( const F32 travelTime, Collision *outCol )
       CollisionWorkingList* pList = rList.wLink.mNext;
       while (pList != &rList) {
          Convex* pConvex = pList->mConvex;
-         if (pConvex->getObject()->getTypeMask() & sCollisionMoveMask) {
+         if ((pConvex->getObject()->getTypeMask() & sCollisionMoveMask) &&
+             !passesThrough(this, pConvex->getObject())) {   // HH: Added for Tribes 2 compatibility.
             Box3F convexBox = pConvex->getBoundingBox();
             if (plistBox.isOverlapped(convexBox))
             {
@@ -4919,9 +4935,13 @@ void Player::_findContact( SceneObject **contactObject,
       if (  ( objectMask & sCollisionMoveMask ) &&
             !( objectMask & PhysicalZoneObjectType ) )
       {
-         Box3F convexBox = pConvex->getBoundingBox();
-         if (plistBox.isOverlapped(convexBox))
-            pConvex->getPolyList(&polyList);
+         // HH: Added for Tribes 2 compatibility.
+         if (!passesThrough(this, pConvex->getObject()))
+         {
+            Box3F convexBox = pConvex->getBoundingBox();
+            if (plistBox.isOverlapped(convexBox))
+               pConvex->getPolyList(&polyList);
+         }
       }
       else
          outOverlapObjects->push_back( pConvex->getObject() );

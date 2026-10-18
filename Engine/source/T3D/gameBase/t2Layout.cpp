@@ -1203,6 +1203,13 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
                const T2DataBlockFieldRow *dbRow = dbFieldAt(layout, at);
                if(dbRow)
                   noteDbField(dbRow, v);
+
+               const T2GhostFieldRow *row = fieldAt(layout, at);
+               if(row && row->field == T2FieldFieldState)
+               {
+                  sBody.hasFieldState = true;
+                  sBody.fieldState = v;
+               }
             }
             if(!layout->select || v >= (1U << n.bits))
             {
@@ -1222,6 +1229,10 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
                const T2DataBlockFieldRow *dbRow = dbFieldAt(layout, at);
                if(dbRow)
                   noteDbField(dbRow, v);
+
+               const T2GhostFieldRow *row = fieldAt(layout, at);
+               if(row && row->field == T2FieldTarget)
+                  sBody.target = S32(v);
             }
             if(!layout->select)
             {
@@ -1432,6 +1443,9 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
                      break;
                   case T2FieldInvincibleSpeed:
                      dMemcpy(&sBody.invincibleSpeed, &word, sizeof(F32));
+                     break;
+                  case T2FieldFieldFade:
+                     sBody.fieldFade = word;
                      break;
                   default:
                      break;
@@ -1893,6 +1907,9 @@ static bool runGhost(BitStream *stream, const char *className,
    sBody.hasInvincible = false;
    sBody.invincibleTime = 0.0f;
    sBody.invincibleSpeed = 0.0f;
+   sBody.hasFieldState = false;
+   sBody.fieldState = 0;
+   sBody.fieldFade = 0;
    for(U32 i = 0; i < MaxImages; i++)
    {
       Body::Image &image = sBody.images[i];

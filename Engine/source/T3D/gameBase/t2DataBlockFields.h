@@ -442,6 +442,21 @@ namespace T2Protocol
       { "ParticleData",  14, OpFloat,  7, T2DbParticleColorA },
       { "ParticleData",  15, OpFloat, 14, T2DbParticleSize   },
       { "ParticleData",  16, OpFloat,  8, T2DbParticleTime   },
+
+   // ForceFieldBareData::packData (0x00675450) in its order; the five
+   // textures that end it are strings.
+      { "ForceFieldBareData",  0, OpRaw,   32, T2DbFieldFadeMS               },
+      { "ForceFieldBareData",  1, OpRaw,   32, T2DbFieldBaseTranslucency     },
+      { "ForceFieldBareData",  2, OpRaw,   32, T2DbFieldPowerOffTranslucency },
+      { "ForceFieldBareData",  3, OpFlag,   1, T2DbFieldTeamPermiable        },
+      { "ForceFieldBareData",  4, OpFlag,   1, T2DbFieldOtherPermiable       },
+      { "ForceFieldBareData",  5, OpColor, 32, T2DbFieldColor                },
+      { "ForceFieldBareData",  6, OpColor, 32, T2DbFieldPowerOffColor        },
+      { "ForceFieldBareData",  7, OpRaw,   32, T2DbFieldFramesPerSec         },
+      { "ForceFieldBareData",  8, OpRaw,   32, T2DbFieldNumFrames            },
+      { "ForceFieldBareData",  9, OpRaw,   32, T2DbFieldScrollSpeed          },
+      { "ForceFieldBareData", 10, OpRaw,   32, T2DbFieldUMapping             },
+      { "ForceFieldBareData", 11, OpRaw,   32, T2DbFieldVMapping             },
    };
 }
 
