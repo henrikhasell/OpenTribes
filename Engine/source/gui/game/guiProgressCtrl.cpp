@@ -104,13 +104,22 @@ void GuiProgressCtrl::onRender(Point2I offset, const RectI &updateRect)
       GFX->getDrawUtil()->drawRectFill(progressRect, mProfile->mFillColor);
    }
 
-   //now draw the border
+   // The exe frames the bar twice, the second time inside the first at three
+   // quarters of the border colour. It draws its children once and its own
+   // text never, so the parent's render is not called.
    if (mProfile->mBorder)
+   {
       GFX->getDrawUtil()->drawRect(ctrlRect, mProfile->mBorderColor);
 
-   Parent::onRender( offset, updateRect );
+      const ColorI &edge = mProfile->mBorderColor;
+      const ColorI inner( U8( edge.red * 0.75f + 0.5f ),
+                          U8( edge.green * 0.75f + 0.5f ),
+                          U8( edge.blue * 0.75f + 0.5f ), 255 );
 
-   //render the children
+      RectI innerRect( ctrlRect.point + Point2I( 1, 1 ), ctrlRect.extent - Point2I( 2, 2 ) );
+      GFX->getDrawUtil()->drawRect(innerRect, inner);
+   }
+
    renderChildControls(offset, updateRect);
 }
 
