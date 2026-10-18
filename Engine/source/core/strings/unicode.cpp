@@ -331,9 +331,9 @@ UTF32 oneUTF8toUTF32( const UTF8* codepoint, U32 *unitsWalked)
          else
          {
             // found a bad codepoint - did not get a medial where we wanted one.
-            // Dump the replacement, and claim to have parsed only 1 char,
-            // so that we'll dump a slew of replacements, instead of eating the next char.            
-            ret = kReplacementChar;
+            // Tribes 2's text is single byte, so the byte is the character the
+            // exe would draw; claim to have parsed only it, to keep the next.
+            ret = (U8)codepoint[0];
             expectedByteCount = 1;
             break;
          }
@@ -342,9 +342,9 @@ UTF32 oneUTF8toUTF32( const UTF8* codepoint, U32 *unitsWalked)
    else 
    {
       // found a bad codepoint - got a medial or an illegal codeunit. 
-      // Dump the replacement, and claim to have parsed only 1 char,
-      // so that we'll dump a slew of replacements, instead of eating the next char.
-      ret = kReplacementChar;
+      // Tribes 2's text is single byte, so the byte is the character the
+      // exe would draw, as the 0x92 apostrophes in its mission quotes.
+      ret = (U8)codepoint[0];
       expectedByteCount = 1;
    }
    
