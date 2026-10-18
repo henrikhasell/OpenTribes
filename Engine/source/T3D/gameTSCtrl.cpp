@@ -27,6 +27,8 @@
 #include "T3D/shapeBase.h"
 #include "T3D/gameFunctions.h"
 #include "console/engineAPI.h"
+// HH: Added for Tribes 2 compatibility.
+#include "environment/waterBlock.h"
 #include "gfx/gfxDevice.h"
 
 //---------------------------------------------------------------------------
@@ -187,6 +189,12 @@ void GameTSCtrl::onRender(Point2I offset, const RectI &updateRect)
       GFX->setClipRect(updateRect);
       GameRenderFilters(mLastCameraQuery);
    }
+
+   // HH: Added for Tribes 2 compatibility. The lava filter is the tail of
+   // retail's GameRenderFilters (0x5bc257), so it goes over the flashes as
+   // well as the HUD. It runs every frame to clear the submerged flag.
+   GFX->setClipRect(updateRect);
+   WaterBlock::renderSubmergeFilter();
 
 #ifdef TORQUE_DEMO_WATERMARK
    mWatermark.render(getExtent());
