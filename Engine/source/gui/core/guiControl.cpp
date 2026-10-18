@@ -1412,11 +1412,12 @@ void GuiControl::parentResized(const RectI &oldParentRect, const RectI &newParen
       newPosition.x += deltaX;
    else if (mHorizSizing == horizResizeRelative && layoutParentExtent.x != 0)
    {
-      S32 newLeft = mRoundToNearest( ( F32( newPosition.x ) / F32( layoutParentExtent.x ) ) * F32( newParentRect.extent.x ) );
-      S32 newWidth = mRoundToNearest( ( F32( newExtent.x ) / F32( layoutParentExtent.x ) ) * F32( newParentRect.extent.x ) );
+      // The exe scales both edges in integers, truncating, and spans them.
+      S32 newLeft = ( newPosition.x * newParentRect.extent.x ) / layoutParentExtent.x;
+      S32 newRight = ( ( newPosition.x + newExtent.x ) * newParentRect.extent.x ) / layoutParentExtent.x;
 
       newPosition.x = newLeft;
-      newExtent.x = newWidth;
+      newExtent.x = newRight - newLeft;
    }
 
 	if (mVertSizing == vertResizeCenter)
@@ -1427,11 +1428,11 @@ void GuiControl::parentResized(const RectI &oldParentRect, const RectI &newParen
       newPosition.y += deltaY;
    else if(mVertSizing == vertResizeRelative && layoutParentExtent.y != 0)
    {
-      S32 newTop = mRoundToNearest( ( F32( newPosition.y ) / F32( layoutParentExtent.y ) ) * F32( newParentRect.extent.y ) );
-      S32 newHeight = mRoundToNearest( ( F32( newExtent.y ) / F32( layoutParentExtent.y ) ) * F32( newParentRect.extent.y ) );
+      S32 newTop = ( newPosition.y * newParentRect.extent.y ) / layoutParentExtent.y;
+      S32 newBottom = ( ( newPosition.y + newExtent.y ) * newParentRect.extent.y ) / layoutParentExtent.y;
 
       newPosition.y = newTop;
-      newExtent.y = newHeight;
+      newExtent.y = newBottom - newTop;
    }
 
    resize(newPosition, newExtent);
