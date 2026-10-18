@@ -840,19 +840,18 @@ S32 TSShape::getIflFrame(const IflMaterial &ifl, F32 time) const
    if (ifl.numFrames < 2)
       return 0;
 
+   // Tribes 2 wraps only a time past the end, by whole passes, and a frame
+   // holds until the time is beyond its off time, not merely at it.
    const F32 total = getIflDuration(ifl);
-   if (total <= 0.0f)
-      return 0;
+   if (time > total && total > 0.0f)
+      time -= total * (F32)(S32)(time / total);
 
-   F32 at = mFmod(time, total);
-   if (at < 0.0f)
-      at += total;
+   S32 i = 0;
+   while (i < ifl.numFrames - 1 &&
+          time > iflFrameOffTimes[ifl.firstFrameOffTimeIndex + i])
+      i++;
 
-   for (S32 i = 0; i < ifl.numFrames; i++)
-      if (at < iflFrameOffTimes[ifl.firstFrameOffTimeIndex + i])
-         return i;
-
-   return ifl.numFrames - 1;
+   return i;
 }
 
 bool TSShape::buildConvexHull(S32 dl) const

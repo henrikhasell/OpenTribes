@@ -376,19 +376,18 @@ void TSShapeInstance::animateIfls()
 
       const TSShape::IflMaterial &ifl = ifls[i];
 
-            // A sequence runs the whole of an ifl over one pass of itself; every
-            // weapon's artwork is two and a half to seven times longer than it.
+      // An ifl is timed on the exporter's timeline, which a sequence occupies
+      // from toolBegin for its own duration, so it plays at the file's rate.
       S32 frame = -1;
       for ( S32 j = 0; j < mThreadList.size(); j++ )
       {
          TSThread *th = mThreadList[j];
-         if ( !th->getSequence()->iflMatters.test( i ) )
+         const TSShape::Sequence *seq = th->getSequence();
+         if ( !seq->iflMatters.test( i ) )
             continue;
 
-         const F32 pos = mClampF( th->getPos(), 0.0f, 1.0f );
-         frame = pos < 1.0f
-            ? mShape->getIflFrame( ifl, pos * mShape->getIflDuration( ifl ) )
-            : ifl.numFrames - 1;
+         frame = mShape->getIflFrame(
+            ifl, th->getPos() * seq->duration + seq->toolBegin );
          break;
       }
 
