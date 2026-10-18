@@ -122,6 +122,8 @@ public:
    HudCrosshair();
 
    DECLARE_CONOBJECT(HudCrosshair);
+
+   void onRender(Point2I offset, const RectI &updateRect);
 };
 
 //-----------------------------------------------------------------------------
