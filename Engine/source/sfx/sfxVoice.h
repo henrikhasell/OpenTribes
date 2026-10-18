@@ -221,6 +221,10 @@ class SFXVoice :  public StrongRefBase,
       /// Returns true if the voice is virtualized on the device.
       /// @note Always false on devices that do not support voice management.
       virtual bool isVirtual() const { return false; }
+
+      // HH: Added for Tribes 2 compatibility.
+      /// Returns true if the voice is playing but not yet audible.
+      virtual bool isStartPending() const { return false; }
 };
 
 #endif // _SFXVOICE_H_

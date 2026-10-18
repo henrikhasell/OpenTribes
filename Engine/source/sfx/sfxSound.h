@@ -126,6 +126,10 @@ class SFXSound : public SFXSource,
       /// voice for playback.
       bool hasVoice() const { return mVoice != NULL; }
 
+      // HH: Added for Tribes 2 compatibility.
+      /// Returns true if the voice is playing but not yet audible.
+      bool isStartPending() const { return mVoice && mVoice->isStartPending(); }
+
       /// Return the current playback position in milliseconds.
       /// @note For looping sources, this returns the position in the current cycle.
       U32 getPosition() const;

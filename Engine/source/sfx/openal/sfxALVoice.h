@@ -47,9 +47,12 @@ class SFXALVoice : public SFXVoice
 
    protected:
 
-      SFXALVoice( const OPENALFNTABLE &oalft,
+      SFXALVoice( SFXALDevice *device,
                   SFXALBuffer *buffer, 
                   ALuint sourceName );
+
+      // HH: Added for Tribes 2 compatibility.
+      SFXALDevice *mDevice;
 
       ALuint mSourceName;
 
@@ -102,6 +105,7 @@ class SFXALVoice : public SFXVoice
       void setPitch( F32 pitch );
       void setCone( F32 innerAngle, F32 outerAngle, F32 outerVolume );
       void setRolloffFactor( F32 factor );
+      bool isStartPending() const;
 };
 
 #endif // _SFXALVOICE_H_

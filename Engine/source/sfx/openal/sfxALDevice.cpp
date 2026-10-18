@@ -24,6 +24,8 @@
 #include "sfx/openal/sfxALBuffer.h"
 #include "platform/async/asyncUpdate.h"
 
+#include <chrono>
+
 
 //-----------------------------------------------------------------------------
 
@@ -35,7 +37,8 @@ SFXALDevice::SFXALDevice(  SFXProvider *provider,
    :  Parent( name, provider, useHardware, maxBuffers ),
       mOpenAL( openal ), 
       mDevice( NULL ), 
-      mContext( NULL )
+      mContext( NULL ),
+      mFeeder( NULL )
 {
    mMaxBuffers = getMax( maxBuffers, 8 );
 
@@ -68,17 +71,80 @@ SFXALDevice::SFXALDevice(  SFXProvider *provider,
            Con::getIntVariable( "$pref::SFX::updateInterval", SFXInternal::DEFAULT_UPDATE_INTERVAL ) );
       SFXInternal::gUpdateThread->start();
    }
+
+   // HH: Added for Tribes 2 compatibility.
+   mFeeder = new Feeder( this );
+   mFeeder->start();
 }
 
 //-----------------------------------------------------------------------------
 
 SFXALDevice::~SFXALDevice()
 {
+   // HH: Added for Tribes 2 compatibility.
+   if( mFeeder )
+   {
+      mFeeder->stop();
+      mFeeder->join();
+      SAFE_DELETE( mFeeder );
+   }
+
    _releaseAllResources();
 
    mOpenAL.alcMakeContextCurrent( NULL );
 	mOpenAL.alcDestroyContext( mContext );
 	mOpenAL.alcCloseDevice( mDevice );
+}
+
+//-----------------------------------------------------------------------------
+
+// HH: Added for Tribes 2 compatibility.
+// Retail's provider, Miles Fast 2D, only flags a started 3D sample. Its own
+// 30 Hz timer loads the first buffer, and the mixer takes the sample up on its
+// next fragment, but a stop is immediate. So the tick-long jet pulses on empty
+// energy lose their fronts, or vanish, whatever the frame rate.
+void SFXALDevice::Feeder::run( void* arg )
+{
+   using namespace std::chrono;
+   while( !checkForStop() )
+   {
+      const S64 now = duration_cast< nanoseconds >( steady_clock::now().time_since_epoch() ).count();
+      const S64 next = ( now * 30 / 1000000000 + 1 ) * 1000000000 / 30;
+      Platform::sleep( U32( ( next - now + 999999 ) / 1000000 ) );
+      mDevice->_feed();
+   }
+}
+
+void SFXALDevice::_holdStart( SFXALVoice* voice )
+{
+   mFeedMutex.lock();
+   if( !mFeedQueue.contains( voice ) )
+      mFeedQueue.push_back( voice );
+   mFeedMutex.unlock();
+}
+
+void SFXALDevice::_dropStart( SFXALVoice* voice )
+{
+   mFeedMutex.lock();
+   mFeedQueue.remove( voice );
+   mFeedMutex.unlock();
+}
+
+bool SFXALDevice::_isStartHeld( const SFXALVoice* voice )
+{
+   mFeedMutex.lock();
+   const bool held = mFeedQueue.contains( const_cast< SFXALVoice* >( voice ) );
+   mFeedMutex.unlock();
+   return held;
+}
+
+void SFXALDevice::_feed()
+{
+   mFeedMutex.lock();
+   for( U32 i = 0; i < mFeedQueue.size(); ++ i )
+      mOpenAL.alSourcePlay( mFeedQueue[ i ]->mSourceName );
+   mFeedQueue.clear();
+   mFeedMutex.unlock();
 }
 
 //-----------------------------------------------------------------------------
