@@ -60,6 +60,7 @@ const RenderInstType RenderPassManager::RIT_Custom("Custom");
 const RenderInstType RenderPassManager::RIT_Particle("Particle");
 const RenderInstType RenderPassManager::RIT_Occluder("Occluder");
 const RenderInstType RenderPassManager::RIT_Editor("Editor");
+const RenderInstType RenderPassManager::RIT_MeshFade("MeshFade");
 
 
 //*****************************************************************************
@@ -206,6 +207,12 @@ void RenderPassManager::addInst( RenderInst *inst )
       return;
 
    iter->value.trigger( inst );
+}
+
+bool RenderPassManager::hasBinFor( const RenderInstType &type ) const
+{
+   AddInstTable::ConstIterator iter = mAddInstSignals.find( type );
+   return iter != mAddInstSignals.end() && !iter->value.isEmpty();
 }
 
 void RenderPassManager::sort()

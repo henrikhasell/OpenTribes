@@ -658,6 +658,12 @@ static RenderPassManager *createDefaultRenderPass()
    addDefaultBin( rpm, new RenderMeshMgr( RenderPassManager::RIT_Mesh,
       0.5f, 0.5f ), 0.5f );
    addDefaultBin( rpm, new RenderImposterMgr, 0.56f );
+
+   // HH: Added for Tribes 2 compatibility.
+   // Tribes 2 draws a fading mesh of a shape's opaque objects with the
+   // shape's opaque pass, after the world and before anything translucent.
+   addDefaultBin( rpm, new RenderMeshMgr( RenderPassManager::RIT_MeshFade,
+      0.57f, 0.57f ), 0.57f );
    addDefaultBin( rpm, new RenderObjectMgr( RenderPassManager::RIT_Object,
       0.6f, 0.6f ), 0.6f );
    addDefaultBin( rpm, new RenderObjectMgr( RenderPassManager::RIT_Shadow,

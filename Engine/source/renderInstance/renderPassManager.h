@@ -113,6 +113,10 @@ public:
    static const RenderInstType RIT_Occluder;
    static const RenderInstType RIT_Editor;
 
+   // HH: Added for Tribes 2 compatibility.
+   // An opaque mesh fading in a shape's opaque pass.
+   static const RenderInstType RIT_MeshFade;
+
 public:
 
    RenderPassManager();
@@ -197,6 +201,10 @@ public:
 
    /// Get the render manager at i
    RenderBinManager* getManager( S32 i ) const;
+
+   // HH: Added for Tribes 2 compatibility.
+   // Whether a bin takes this type, so that one can fall back when not.
+   bool hasBinFor( const RenderInstType &type ) const;
 
    /// @}
 
