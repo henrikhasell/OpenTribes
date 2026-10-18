@@ -2035,10 +2035,6 @@ GuiControl* GuiControl::findFirstTabable()
 
 GuiControl* GuiControl::findLastTabable(bool firstCall)
 {
-   // No tabbing if the control is disabled or hidden.
-   if ( !mAwake || !mVisible )
-      return NULL;
-
    //if this is the first call, clear the global
    if (firstCall)
       smPrevResponder = NULL;
@@ -2063,10 +2059,6 @@ GuiControl* GuiControl::findLastTabable(bool firstCall)
 
 GuiControl *GuiControl::findNextTabable(GuiControl *curResponder, bool firstCall)
 {
-   // No tabbing if the control is disabled or hidden.
-   if ( !mAwake || !mVisible )
-      return NULL;
-
    //if this is the first call, clear the global
    if (firstCall)
       smCurResponder = NULL;
@@ -2096,10 +2088,6 @@ GuiControl *GuiControl::findNextTabable(GuiControl *curResponder, bool firstCall
 
 GuiControl *GuiControl::findPrevTabable(GuiControl *curResponder, bool firstCall)
 {
-   // No tabbing if the control is disabled or hidden.
-   if ( !mAwake || !mVisible )
-      return NULL;
-
    if (firstCall)
       smPrevResponder = NULL;
 
