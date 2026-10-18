@@ -45,6 +45,10 @@ class SFXProvider;
 #  include "sfx/openal/LoadOAL.h"
 #endif
 
+#ifndef _PLATFORM_THREADS_THREAD_H_
+#  include "platform/threads/thread.h"
+#endif
+
 
 class SFXALDevice : public SFXDevice
 {
@@ -75,6 +79,29 @@ class SFXALDevice : public SFXDevice
       F32 mUserRolloffFactor;
       
       void _setRolloffFactor( F32 factor );
+
+      // HH: Added for Tribes 2 compatibility.
+      /// Starts held 3D voices on its own 30 Hz clock.
+      class Feeder : public Thread
+      {
+         public:
+            Feeder( SFXALDevice* device ) : mDevice( device ) {}
+            virtual void run( void* arg );
+         protected:
+            SFXALDevice* mDevice;
+      };
+
+      // HH: Added for Tribes 2 compatibility.
+      Feeder* mFeeder;
+      Mutex mFeedMutex;
+      Vector< SFXALVoice* > mFeedQueue;
+
+      // HH: Added for Tribes 2 compatibility.
+      /// Hold a 3D start for the feeder, or drop one.
+      void _holdStart( SFXALVoice* voice );
+      void _dropStart( SFXALVoice* voice );
+      bool _isStartHeld( const SFXALVoice* voice );
+      void _feed();
 
    public:
 
