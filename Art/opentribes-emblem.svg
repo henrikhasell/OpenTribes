@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="66.1 7.4 891.8 1009.2">
+<title>OpenTribes emblem</title>
+<defs>
+
+    <linearGradient id="emb-ot-gold" x1="0" y1="972" x2="0" y2="56" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#d88919"/>
+      <stop offset="0.45" stop-color="#cc9437"/>
+      <stop offset="1" stop-color="#f3db83"/>
+    </linearGradient>
+    <radialGradient id="emb-ot-rivet" cx="0.35" cy="0.35" r="0.75">
+      <stop offset="0" stop-color="#eaeaea"/>
+      <stop offset="0.55" stop-color="#a9a9a7"/>
+      <stop offset="1" stop-color="#6f6f6d"/>
+    </radialGradient>
+    <path id="emb-ot-half" d="M300 56C221 97 163 181 137 251 101 348 112 470 112 470L250 470 250 432 331 432 331 972 491 972 491 752 471 752 471 332 268 332C256 314 302 172 386 170L310 52Z"/>
+    <path id="emb-ot-bevel" d="M299 57C248 121 182 180 156 260L262 250C274 194 325 185 358 154L308 70ZM266 333H468L450 352H249Z"/>
+  
+</defs>
+
+  <g fill="#000" stroke="#000" stroke-width="40" stroke-linejoin="round">
+    <use href="#emb-ot-half"/>
+    <use href="#emb-ot-half" transform="translate(1024,0) scale(-1,1)"/>
+  </g>
+  <g fill="url(#emb-ot-gold)">
+    <use href="#emb-ot-half"/>
+    <use href="#emb-ot-half" transform="translate(1024,0) scale(-1,1)"/>
+  </g>
+  <g fill="#f8e286">
+    <use href="#emb-ot-bevel"/>
+    <use href="#emb-ot-bevel" transform="translate(1024,0) scale(-1,1)"/>
+  </g>
+  <g fill="url(#emb-ot-rivet)">
+    <circle cx="183" cy="385" r="32"/>
+    <circle cx="841" cy="385" r="32"/>
+  </g>
+
+</svg>

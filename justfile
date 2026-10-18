@@ -15,13 +15,16 @@ debug: (build "debug")
 
 release: (build "release")
 
-opentribes config="debug" dir=gamedata telnet_port=telnet_port: (build config)
-    cp "{{justfile_directory() / builddir / config / "game"}}/OpenTribes" "{{dir}}/OpenTribes"
-    ln -sfn "{{shaders}}" "{{dir}}/shaders"
-    cd "{{dir}}" && ./OpenTribes -nologin -telnetParams {{telnet_port}} '{{telnet_rw}}' '{{telnet_ro}}' -mod Classic
+opentribes config="debug" telnet_port=telnet_port: (build config)
+    cp "{{justfile_directory() / builddir / config / "game"}}/OpenTribes" "{{gamedata}}/OpenTribes"
+    ln -sfn "{{shaders}}" "{{gamedata}}/shaders"
+    cd "{{gamedata}}" && ./OpenTribes -nologin -telnetParams {{telnet_port}} '{{telnet_rw}}' '{{telnet_ro}}' -mod Classic
 
-stock dir=gamedata telnet_port=telnet_port:
-    cd "{{dir}}" && WINEPREFIX="{{home_directory()}}/.wine" /usr/bin/wine Tribes2.exe -nologin -telnetParams {{telnet_port}} '{{telnet_rw}}' '{{telnet_ro}}' -mod Classic
+stock telnet_port=telnet_port:
+    cd "{{gamedata}}" && /usr/bin/wine Tribes2.exe -nologin -telnetParams {{telnet_port}} '{{telnet_rw}}' '{{telnet_ro}}' -mod Classic
+
+dedicated telnet_port=telnet_port:
+    cd "{{gamedata}}" && /usr/bin/wine Tribes2.exe -nologin -dedicated -telnetParams {{telnet_port}} '{{telnet_rw}}' '{{telnet_ro}}' -mod Classic
 
 telnet telnet_port=telnet_port:
     { printf '%s\n' '{{telnet_rw}}'; cat; } | socat - TCP:127.0.0.1:{{telnet_port}},crnl

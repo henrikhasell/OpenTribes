@@ -194,3 +194,14 @@ My Projects/*/game/fonts/
 My Projects/*/game/console.log
 My Projects/*/game/OpenTribes
 My Projects/*/game/tools/settings.xml
+
+# Brand artwork.  Only the sources the README and the game need are tracked;
+# the rest is working material.  Art/** rather than Art/, so git still
+# descends and the negations below can take effect.
+Art/**
+!Art/**/
+!Art/fonts/RussoOne-Regular.ttf
+!Art/fonts/RussoOne-OFL.txt
+!Art/opentribes-emblem.svg
+!Art/opentribes-lockup.svg
+!Art/export/opentribes-lockup-256.png
