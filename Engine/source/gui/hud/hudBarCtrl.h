@@ -99,7 +99,9 @@ public:
 };
 
 //-----------------------------------------------------------------------------
-/// The frame drawn around the view while a weapon is zoomed.
+/// The corners that show how much of the view the next zoom level will fill.
+/// calcZoomFOV sizes it and shows it for five seconds each time the level is
+/// cycled while not zoomed in.
 class HudZoom : public HudCtrl
 {
    typedef HudCtrl Parent;
@@ -108,6 +110,8 @@ public:
    HudZoom();
 
    DECLARE_CONOBJECT(HudZoom);
+
+   void onRender(Point2I offset, const RectI &updateRect);
 };
 
 #endif // _HUDBARCTRL_H_

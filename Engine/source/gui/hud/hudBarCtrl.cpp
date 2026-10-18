@@ -236,6 +236,46 @@ HudZoom::HudZoom()
 {
 }
 
+/// HudZoom::onRender at 0x0050c2d0.  With no art it draws four corners, not
+/// HudCtrl's fill and frame, in the profile's border colour, its alpha
+/// included, whatever the control's opacity says.  The corners are built at
+/// 0x0050c3f0 from the same vertices as these, each leg a quarter of its side
+/// and rounded towards zero.
+void HudZoom::onRender(Point2I offset, const RectI &updateRect)
+{
+   if(mTexture || !mProfile)
+   {
+      Parent::onRender(offset, updateRect);
+      return;
+   }
+
+   const Point2I extent = getExtent();
+   const S32 legX = extent.x / 4;
+   const S32 legY = extent.y / 4;
+
+   const S32 left   = offset.x + 1;
+   const S32 top    = offset.y + 1;
+   const S32 right  = offset.x - 1 + extent.x;
+   const S32 bottom = offset.y - 1 + extent.y;
+
+   const Point2I corners[4][3] =
+   {
+      { Point2I(left, top + legY),     Point2I(left, top),     Point2I(left + legX, top) },
+      { Point2I(right - legX, top),    Point2I(right, top),    Point2I(right, top + legY) },
+      { Point2I(right, bottom - legY), Point2I(right, bottom), Point2I(right - legX, bottom) },
+      { Point2I(left + legX, bottom),  Point2I(left, bottom),  Point2I(left, bottom - legY) },
+   };
+
+   GFXDrawUtil *draw = GFX->getDrawUtil();
+   const ColorI colour = mProfile->mBorderColor;
+
+   for(U32 c = 0; c < 4; c++)
+   {
+      draw->drawLine(corners[c][0], corners[c][1], colour);
+      draw->drawLine(corners[c][1], corners[c][2], colour);
+   }
+}
+
 //-----------------------------------------------------------------------------
 DefineEngineMethod(HudBarBaseCtrl, setValue, void, (F32 value), ,
    "@brief How full the bar is, 0 to 1.\n\n@ingroup GuiHud")
