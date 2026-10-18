@@ -409,8 +409,6 @@ void GameRenderFilters(const CameraQuery &camq)
    F32 red = 0.0f, green = 0.0f, blue = 0.0f, through = 1.0f;
    for (U32 i = 0; i < sizeof(filters) / sizeof(filters[0]); i++)
    {
-      // Retail's glColor4f clamps the colour it is given, which is the
-      // ceiling the whiteout's 1.5 meets.
       const Filter &f = filters[i];
       const F32 alpha = mClampF(f.alpha, 0.0f, 1.0f);
       red   = red   * (1.0f - alpha) + f.red   * alpha;
@@ -422,15 +420,11 @@ void GameRenderFilters(const CameraQuery &camq)
    if (through >= 0.99f)
       return;
 
-   // The device hands back the block it already made for a description it
-   // has seen, so asking each frame costs a hash.
    GFXStateBlockDesc desc;
    desc.setBlend(true, GFXBlendOne, GFXBlendSrcAlpha);
    desc.setCullMode(GFXCullNone);
    desc.setZReadWrite(false);
 
-   // Retail loads identity into both matrices and draws the quad corner to
-   // corner of the viewport.
    GFXTransformSaver saver;
    GFX->setProjectionMatrix(MatrixF::Identity);
    GFX->setViewMatrix(MatrixF::Identity);
@@ -445,7 +439,6 @@ void GameRenderFilters(const CameraQuery &camq)
    PrimBuild::vertex3f( 1.0f, -1.0f, 0.0f);
    PrimBuild::vertex3f( 1.0f,  1.0f, 0.0f);
    PrimBuild::vertex3f(-1.0f,  1.0f, 0.0f);
-   // Its own shaders would modulate by whatever texture is still bound.
    PrimBuild::end(false);
 }
 

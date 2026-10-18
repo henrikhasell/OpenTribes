@@ -1334,8 +1334,6 @@ public:
    /// Take the damage a Tribes 2 ghost body carried, where it carried one.
    void readT2Damage(const T2Layout::Body &body);
 
-   /// Start the invincible effect a Tribes 2 ghost body carried, where it
-   /// carried one.
    void readT2Invincible(const T2Layout::Body &body);
 
    /// Mount what a Tribes 2 ghost body said is in this object's image slots.
