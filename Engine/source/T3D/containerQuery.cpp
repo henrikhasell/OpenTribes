@@ -86,7 +86,13 @@ void physicalZoneFind(SceneObject* obj, void *key)
    ContainerQueryInfo *info = static_cast<ContainerQueryInfo*>(key);
    PhysicalZone* pz = dynamic_cast<PhysicalZone*>(obj);
    AssertFatal(pz != NULL, "Error, not a physical zone!");
-   if (pz == NULL || pz->testBox(info->box) == false)
+   // HH: Modified for Tribes 2 compatibility.
+   // Retail (0x005ea520) asks the zone whether the object's own polygons
+   // fall inside it (testObject, 0x0068bdb0). Only Torque 3D's own queries
+   // name no object, and they have only the box to go on.
+   if (pz == NULL)
+      return;
+   if (info->object ? !pz->testObject(info->object) : !pz->testBox(info->box))
       return;
 
    if (pz->isActive()) {

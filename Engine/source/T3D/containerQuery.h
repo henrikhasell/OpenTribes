@@ -47,7 +47,8 @@ struct ContainerQueryInfo
         appliedForce(0,0,0),
         box(-1,-1,-1,1,1,1),
         mass(1.0f),
-        waterObject(NULL)
+        waterObject(NULL),
+        object(NULL)   // HH: Added for Tribes 2 compatibility.
    {        
    }
 
@@ -62,6 +63,9 @@ struct ContainerQueryInfo
    F32 gravityScale;
    Point3F appliedForce;
    WaterObject *waterObject;
+
+   // HH: Added for Tribes 2 compatibility.
+   SceneObject *object;
 };
 
 extern void findRouter( SceneObject *obj, void *key );

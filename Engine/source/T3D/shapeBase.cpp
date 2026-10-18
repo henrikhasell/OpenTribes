@@ -1493,6 +1493,7 @@ void ShapeBase::updateContainer()
    ContainerQueryInfo info;
    info.box = getWorldBox();
    info.mass = getMass();
+   info.object = this;   // HH: Added for Tribes 2 compatibility.
 
    mContainer->findObjects(info.box, WaterObjectType|PhysicalZoneObjectType,findRouter,&info);
 
