@@ -10,14 +10,13 @@
 #endif
 
 /// @file
-/// The two rows of icons a Tribes 2 player reads mid-fight.
+/// The inventory row a Tribes 2 player reads mid-fight, and the vehicle
+/// weapons beside it.  The weapons column is HudWeapons, in
+/// hudWeaponInvBase.h.
 ///
-/// The inventory along one edge and the weapons along another are the same
-/// control: a row of slots, each an icon with a count under it, one of them
-/// lit as the one in hand.  What script does with them is identical too --
-/// clear the row, add a slot, give it a bitmap, set its number, say which is
-/// active -- so they are one class with two names and two vocabularies for
-/// the same calls, because the scripts use both.
+/// A row of slots, each an icon with a count under it, one of them lit as the
+/// one in hand: clear the row, add a slot, give it a bitmap, set its number,
+/// say which is active.
 
 //-----------------------------------------------------------------------------
 class HudItemCtrl : public HudCtrl
@@ -112,14 +111,6 @@ class HudInventory : public HudItemCtrl
    typedef HudItemCtrl Parent;
 public:
    DECLARE_CONOBJECT(HudInventory);
-};
-
-/// The weapons row.
-class HudWeapons : public HudItemCtrl
-{
-   typedef HudItemCtrl Parent;
-public:
-   DECLARE_CONOBJECT(HudWeapons);
 };
 
 /// The weapons row a vehicle's gunner sees.
