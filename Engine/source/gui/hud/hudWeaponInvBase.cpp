@@ -9,6 +9,8 @@
 
 IMPLEMENT_CONOBJECT(HudWeaponInvBase);
 IMPLEMENT_CONOBJECT(HudWeapons);
+IMPLEMENT_CONOBJECT(HudInventory);
+IMPLEMENT_CONOBJECT(HudVehicleWeapon);
 
 /// $WeaponsHudData's TargetingLaser, which Tribes 2 keeps at the bottom of
 /// the column however late it arrives (0x004ff624).
@@ -295,6 +297,29 @@ Point2I HudWeapons::itemsExtent() const
 }
 
 //-----------------------------------------------------------------------------
+/// 0x00500330, and 0x00500530 is the same code again for the vehicle row.
+void HudInventory::advance(Point2I &cursor)
+{
+   cursor.x += mBackGroundSpace + (mBackground ? S32(mBackground->getBitmapWidth()) : 0);
+}
+
+/// 0x00500360, and 0x00500560 likewise.
+Point2I HudInventory::itemsExtent() const
+{
+   return Point2I((mCellSize.x + mBackGroundSpace) * S32(mSlots.size()), mCellSize.y);
+}
+
+void HudVehicleWeapon::advance(Point2I &cursor)
+{
+   cursor.x += mBackGroundSpace + (mBackground ? S32(mBackground->getBitmapWidth()) : 0);
+}
+
+Point2I HudVehicleWeapon::itemsExtent() const
+{
+   return Point2I((mCellSize.x + mBackGroundSpace) * S32(mSlots.size()), mCellSize.y);
+}
+
+//-----------------------------------------------------------------------------
 // The script interface, registered where Tribes 2 registers it: the queries
 // recordings.cs saves a demo's HUD with on the base, and what hud.cs drives
 // the column with on HudWeapons.
@@ -410,6 +435,123 @@ DefineEngineMethod(HudWeapons, setActiveWeapon, void, (S32 weaponNum), ,
 
 DefineEngineMethod(HudWeapons, clearAll, void, (), ,
    "@brief Empty the column, keeping the icon table.\n\n@ingroup GuiHud")
+{
+   object->clearAll();
+}
+
+//-----------------------------------------------------------------------------
+// The same nine calls under the names hud.cs drives the inventory row by.
+// Three of them are spelt differently from the column's: setInventoryBitmap,
+// setAmount and setInfiniteAmountBitmap.
+
+DefineEngineMethod(HudInventory, setInventoryBitmap, void, (S32 slot, const char *bitmap), ,
+   "@brief Give the table its icon for this item.\n\n@ingroup GuiHud")
+{
+   object->setItemBitmap(slot, bitmap);
+}
+
+DefineEngineMethod(HudInventory, setBackGroundBitmap, void, (const char *bitmap), ,
+   "@brief The plate drawn behind every entry.\n\n@ingroup GuiHud")
+{
+   object->setBackgroundBitmap(bitmap);
+}
+
+DefineEngineMethod(HudInventory, setHighLightBitmap, void, (const char *bitmap), ,
+   "@brief The mark on the entry in hand.\n\n@ingroup GuiHud")
+{
+   object->setHighLightBitmap(bitmap);
+}
+
+DefineEngineMethod(HudInventory, setInfiniteAmountBitmap, void, (const char *bitmap), ,
+   "@brief Drawn instead of a number when an item never runs out.\n\n@ingroup GuiHud")
+{
+   object->setInfiniteBitmap(bitmap);
+}
+
+DefineEngineMethod(HudInventory, addInventory, void, (S32 inventoryNum, S32 amount), ,
+   "@brief Put an item in the row with its count; -1 is infinite.\n\n@ingroup GuiHud")
+{
+   object->addItem(inventoryNum, amount);
+}
+
+DefineEngineMethod(HudInventory, removeInventory, void, (S32 inventoryNum), ,
+   "@brief Take an item out of the row.\n\n@ingroup GuiHud")
+{
+   object->removeItem(inventoryNum);
+}
+
+DefineEngineMethod(HudInventory, setAmount, void, (S32 inventoryNum, S32 amount), ,
+   "@brief Set the count under an item.\n\n@ingroup GuiHud")
+{
+   object->setItemCount(inventoryNum, amount);
+}
+
+DefineEngineMethod(HudInventory, setActiveInventory, void, (S32 inventoryNum), ,
+   "@brief Light this item as the one in hand.\n\n@ingroup GuiHud")
+{
+   object->setActiveItem(inventoryNum);
+}
+
+DefineEngineMethod(HudInventory, clearAll, void, (), ,
+   "@brief Empty the row, keeping the icon table.\n\n@ingroup GuiHud")
+{
+   object->clearAll();
+}
+
+//-----------------------------------------------------------------------------
+// And again for the vehicle row, which takes the column's names for six of
+// them and the inventory row's for setAmount and setInfiniteAmountBitmap.
+
+DefineEngineMethod(HudVehicleWeapon, setWeaponBitmap, void, (S32 slot, const char *bitmap), ,
+   "@brief Give the table its icon for this weapon.\n\n@ingroup GuiHud")
+{
+   object->setItemBitmap(slot, bitmap);
+}
+
+DefineEngineMethod(HudVehicleWeapon, setBackGroundBitmap, void, (const char *bitmap), ,
+   "@brief The plate drawn behind every entry.\n\n@ingroup GuiHud")
+{
+   object->setBackgroundBitmap(bitmap);
+}
+
+DefineEngineMethod(HudVehicleWeapon, setHighLightBitmap, void, (const char *bitmap), ,
+   "@brief The mark on the entry in hand.\n\n@ingroup GuiHud")
+{
+   object->setHighLightBitmap(bitmap);
+}
+
+DefineEngineMethod(HudVehicleWeapon, setInfiniteAmountBitmap, void, (const char *bitmap), ,
+   "@brief Drawn instead of a number when a weapon never runs out.\n\n@ingroup GuiHud")
+{
+   object->setInfiniteBitmap(bitmap);
+}
+
+DefineEngineMethod(HudVehicleWeapon, addWeapon, void, (S32 weaponNum, S32 amount), ,
+   "@brief Put a weapon in the row with its ammo; -1 is infinite.\n\n@ingroup GuiHud")
+{
+   object->addItem(weaponNum, amount);
+}
+
+DefineEngineMethod(HudVehicleWeapon, removeWeapon, void, (S32 weaponNum), ,
+   "@brief Take a weapon out of the row.\n\n@ingroup GuiHud")
+{
+   object->removeItem(weaponNum);
+}
+
+DefineEngineMethod(HudVehicleWeapon, setAmount, void, (S32 weaponNum, S32 amount), ,
+   "@brief Set the ammo under a weapon.\n\n@ingroup GuiHud")
+{
+   object->setItemCount(weaponNum, amount);
+}
+
+DefineEngineMethod(HudVehicleWeapon, setActiveWeapon, void, (S32 weaponNum), ,
+   "@brief Light this weapon as the one in hand.\n\n@ingroup GuiHud")
+{
+   object->setActiveItem(weaponNum);
+}
+
+DefineEngineMethod(HudVehicleWeapon, clearAll, void, (), ,
+   "@brief Empty the row, keeping the icon table.\n\n@ingroup GuiHud")
 {
    object->clearAll();
 }
