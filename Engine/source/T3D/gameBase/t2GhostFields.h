@@ -52,6 +52,8 @@ namespace T2Protocol
       T2FieldInvincibleSpeed,
       T2FieldFieldState,
       T2FieldFieldFade,
+      T2FieldPolyhedron,
+      T2FieldZoneActive,
    };
 
    inline U32 t2FieldWords(U32 field)
@@ -134,6 +136,8 @@ namespace T2Protocol
 
       { "PhysicalZone",           3, OpRaw, 32, T2FieldTransform },
       { "PhysicalZone",          19, OpRaw, 32, T2FieldScale     },
+      { "PhysicalZone",          22, OpCount, 32, T2FieldPolyhedron },
+      { "PhysicalZone",           1, OpFlag,  1, T2FieldZoneActive },
 
       { "VehicleBlocker",         0, OpRaw, 32, T2FieldTransform },
 

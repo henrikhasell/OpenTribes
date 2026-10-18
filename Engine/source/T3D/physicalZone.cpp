@@ -32,6 +32,7 @@
 #include "renderInstance/renderPassManager.h"
 #include "gfx/gfxDrawUtil.h"
 #include "console/engineAPI.h"
+#include "T3D/gameBase/t2Layout.h"   // HH: Added for Tribes 2 compatibility.
 
 IMPLEMENT_CO_NETOBJECT_V1(PhysicalZone);
 
@@ -239,6 +240,114 @@ void PhysicalZone::renderObject( ObjectRenderInst *ri,
 //--------------------------------------------------------------------------
 
 
+
+// HH: Added for Tribes 2 compatibility.
+namespace
+{
+   struct T2WordReader
+   {
+      const Vector<U32> &words;
+      U32 at;
+      bool ok;
+
+      U32 left() const { return ok ? words.size() - at : 0; }
+
+      U32 word()
+      {
+         if(!left())
+         {
+            ok = false;
+            return 0;
+         }
+         return words[at++];
+      }
+
+      F32 real()
+      {
+         const U32 bits = word();
+         F32 f;
+         dMemcpy(&f, &bits, sizeof(f));
+         return f;
+      }
+
+      U32 count(U32 wordsEach)
+      {
+         const U32 n = word();
+         if(n > left() / wordsEach)
+         {
+            ok = false;
+            return 0;
+         }
+         return n;
+      }
+   };
+}
+
+/// PhysicalZone::unpackUpdate (0x0068b290). Under the initial mask: the
+/// transform and scale, then the polyhedron's points, planes and edges, each
+/// a count and its words, then velocityMod, gravityMod and appliedForce.
+/// Then, on every update, whether the zone is active. Retail sets the
+/// polyhedron before the scale and the transform.
+void PhysicalZone::onT2BodyRead(const T2Layout::Body &body)
+{
+   if(body.polyhedronAt >= 0)
+   {
+      T2WordReader in = { T2Layout::lastWords(), U32(body.polyhedronAt), true };
+      Polyhedron poly;
+
+      poly.pointList.setSize(in.count(3));
+      for(U32 i = 0; i < poly.pointList.size(); i++)
+      {
+         Point3F &p = poly.pointList[i];
+         p.x = in.real();
+         p.y = in.real();
+         p.z = in.real();
+      }
+
+      poly.planeList.setSize(in.count(4));
+      for(U32 i = 0; i < poly.planeList.size(); i++)
+      {
+         PlaneF &p = poly.planeList[i];
+         p.x = in.real();
+         p.y = in.real();
+         p.z = in.real();
+         p.d = in.real();
+      }
+
+      poly.edgeList.setSize(in.count(4));
+      for(U32 i = 0; i < poly.edgeList.size(); i++)
+      {
+         Polyhedron::Edge &e = poly.edgeList[i];
+         e.face[0]   = in.word();
+         e.face[1]   = in.word();
+         e.vertex[0] = in.word();
+         e.vertex[1] = in.word();
+      }
+
+      const F32 velocityMod = in.real();
+      const F32 gravityMod  = in.real();
+      Point3F force;
+      force.x = in.real();
+      force.y = in.real();
+      force.z = in.real();
+
+      if(in.ok)
+      {
+         mVelocityMod = velocityMod;
+         mGravityMod  = gravityMod;
+         mAppliedForce = force;
+         setPolyhedron(poly);
+      }
+      else
+         Con::warnf("PhysicalZone %d: the body ends inside its polyhedron",
+                    getId());
+   }
+
+   Parent::onT2BodyRead(body);
+
+   if(body.hasZoneActive)
+      mActive = body.zoneActive;
+}
 
 //--------------------------------------------------------------------------
 void PhysicalZone::setPolyhedron(const Polyhedron& rPolyhedron)

@@ -90,6 +90,9 @@ namespace T2Layout
       bool    hasFieldState;
       U32     fieldState;
       U32     fieldFade;
+      S32     polyhedronAt;
+      bool    hasZoneActive;
+      bool    zoneActive;
 
       /// What a body said about one of its object's image slots -- the
       /// weapon in the hand, the pack on the back.
