@@ -536,8 +536,9 @@ bool PlayerData::unpackData(BitStream *stream, U32 classId)
 
    static const struct { U32 field; S32 PlayerData::*member; } sEmitters[] =
    {
-      { T2Layout::T2DbJetEmitter,  &PlayerData::jetEmitterID },
-      { T2Layout::T2DbDustEmitter, &PlayerData::dustID       },
+      { T2Layout::T2DbJetEmitter,      &PlayerData::jetEmitterID },
+      { T2Layout::T2DbDustEmitter,     &PlayerData::dustID       },
+      { T2Layout::T2DbFootPuffEmitter, &PlayerData::footPuffID   },
    };
 
    for (U32 i = 0; i < sizeof(sEmitters) / sizeof(sEmitters[0]); i++)
@@ -3565,6 +3566,34 @@ static const MaterialPropertyMap::Entry *groundDustProperties(SceneObject *hit)
    return MaterialPropertyMap::get()->find(avar("terrain/%s", name));
 }
 
+// HH: Added for Tribes 2 compatibility.
+// Player::updateActionThread (0x005d5ebf): a new emitter for every step, the
+// entry's two colours then clear white.
+void Player::emitFootPuff( const Point3F &pos, const MaterialPropertyMap::Entry *e )
+{
+   ParticleEmitter *emitter = new ParticleEmitter;
+   emitter->onNewDataBlock( mDataBlock->footPuffEmitter, false );
+
+   ColorF colorList[ ParticleData::PDC_NUM_KEYS ];
+   for( U32 x = 0; x < ParticleData::PDC_NUM_KEYS; ++ x )
+      colorList[ x ].set( 1.0f, 1.0f, 1.0f, 0.0f );
+   for( U32 x = 0; x < MaterialPropertyMap::NumColors
+                   && x < ParticleData::PDC_NUM_KEYS; ++ x )
+      colorList[ x ] = e->color[ x ];
+
+   emitter->setColors( colorList );
+   if( !emitter->registerObject() )
+   {
+      Con::warnf( ConsoleLogEntry::General, "Could not register emitter for particle of class: %s", mDataBlock->getName() );
+      delete emitter;
+      return;
+   }
+
+   emitter->emitParticles( pos, Point3F( 0.0f, 0.0f, 1.0f ), mDataBlock->footPuffRadius,
+                           Point3F( 0.0f, 0.0f, 0.0f ), mDataBlock->footPuffNumParts );
+   emitter->deleteWhenEmpty();
+}
+
 void Player::updateActionThread()
 {
    PROFILE_START(UpdateActionThread);
@@ -3619,7 +3648,16 @@ void Player::updateActionThread()
             if( rInfo.object->getTypeMask() & TerrainObjectType )
             {
                if( const MaterialPropertyMap::Entry *e = groundDustProperties( rInfo.object ) )
+               {
                   sound = e->sound;
+
+                  // HH: Added for Tribes 2 compatibility.
+                  // Puffs take their colours from the same entry, near the
+                  // ground and out of the water.
+                  if( rInfo.t <= 0.5f && mWaterCoverage == 0.0f
+                      && mDataBlock->footPuffEmitter )
+                     emitFootPuff( pos, e );
+               }
             }
             else if( rInfo.object->getTypeMask() & VehicleObjectType )
                sound = 2;
@@ -3636,40 +3674,6 @@ void Player::updateActionThread()
                gDecalManager->addDecal( rInfo.point, normal, tangent, mDataBlock->decalData, getScale().y );
             }
             
-            // Emit footpuffs.
-
-            if( rInfo.t <= 0.5 && mWaterCoverage == 0.0
-                && material && material->mShowDust )
-            {
-               // New emitter every time for visibility reasons
-               ParticleEmitter * emitter = new ParticleEmitter;
-               emitter->onNewDataBlock( mDataBlock->footPuffEmitter, false );
-
-               ColorF colorList[ ParticleData::PDC_NUM_KEYS];
-
-               for( U32 x = 0; x < getMin( Material::NUM_EFFECT_COLOR_STAGES, ParticleData::PDC_NUM_KEYS ); ++ x )
-                  colorList[ x ].set( material->mEffectColor[ x ].red,
-                                      material->mEffectColor[ x ].green,
-                                      material->mEffectColor[ x ].blue,
-                                      material->mEffectColor[ x ].alpha );
-               for( U32 x = Material::NUM_EFFECT_COLOR_STAGES; x < ParticleData::PDC_NUM_KEYS; ++ x )
-                  colorList[ x ].set( 1.0, 1.0, 1.0, 0.0 );
-
-               emitter->setColors( colorList );
-               if( !emitter->registerObject() )
-               {
-                  Con::warnf( ConsoleLogEntry::General, "Could not register emitter for particle of class: %s", mDataBlock->getName() );
-                  delete emitter;
-                  emitter = NULL;
-               }
-               else
-               {
-                  emitter->emitParticles( pos, Point3F( 0.0, 0.0, 1.0 ), mDataBlock->footPuffRadius,
-                     Point3F( 0, 0, 0 ), mDataBlock->footPuffNumParts );
-                  emitter->deleteWhenEmpty();
-               }
-            }
-
             // Play footstep sound.
             
             playFootstepSound( triggeredLeft, sound );

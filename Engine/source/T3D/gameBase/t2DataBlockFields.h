@@ -119,6 +119,9 @@ namespace T2Protocol
       { "PlayerData", 123, OpRaw, 32, T2DbBoxSizeY },
       { "PlayerData", 124, OpRaw, 32, T2DbBoxSizeZ },
 
+   // The emitter's flag is node 125, ahead of the count and the radius.
+      { "PlayerData", 153, OpDataBlockId, 11, T2DbFootPuffEmitter },
+
    // A particle count, likewise a word.
       { "PlayerData", 126, OpRaw, 32, T2DbFootPuffNumParts },
       { "PlayerData", 127, OpRaw, 32, T2DbFootPuffRadius   },
