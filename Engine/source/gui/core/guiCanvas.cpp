@@ -46,6 +46,7 @@
 
 #include "gfx/gfxInit.h"
 #include "core/util/journal/process.h"
+#include "platform/platformTimer.h"
 
 #ifdef TORQUE_GFX_STATE_DEBUG
 #include "gfx/gfxDebugStateTracker.h"
@@ -1531,6 +1532,11 @@ void GuiCanvas::mouseUnlock(GuiControl *lockingControl)
 
 void GuiCanvas::paint()
 {
+   // HH: Modified for Tribes 2 compatibility.
+   // Retail draws inside the time event, so a pass that posts none draws nothing.
+   if( !TimeManager::postedThisPass() )
+      return;
+
    resetUpdateRegions();
 
    // inhibit explicit refreshes in the case we're swapped out

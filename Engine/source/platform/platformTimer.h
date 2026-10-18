@@ -62,15 +62,23 @@ public:
 /// update rate.
 class TimeManager
 {
-   PlatformTimer *mTimer;
+   // HH: Modified for Tribes 2 compatibility.
+   U64 mLastCount;
    S32 mForegroundThreshold, mBackgroundThreshold;
    bool mBackground;
+
+   // HH: Added for Tribes 2 compatibility.
+   static bool smPostedThisPass;
    
    void _updateTime();
 
 public:
 
    TimeManagerEvent timeEvent;
+
+   // HH: Added for Tribes 2 compatibility.
+   /// Whether this pass of the main loop posted a time event.
+   static bool postedThisPass() { return smPostedThisPass; }
    
    TimeManager();   
    ~TimeManager();
