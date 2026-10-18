@@ -38,6 +38,7 @@
 #include "renderInstance/renderPassManager.h"
 #include "scene/sceneManager.h"
 #include "scene/sceneRenderState.h"
+#include "scene/zones/sceneZoneSpaceManager.h"
 #include "sfx/sfxSource.h"
 #include "sfx/sfxSystem.h"
 #include "sfx/sfxTrack.h"
@@ -1005,6 +1006,14 @@ void Precipitation::prepRenderImage( SceneRenderState *state )
 
    // Retail draws once a frame, and moving the drops is part of drawing them.
    if( !state->isDiffusePass() )
+      return;
+
+   // Retail draws only if isObjectRendered (0x0056fac0) finds one of its zones
+   // being rendered, and a global-bounds object's one zone is the outside.
+   // T3D never culls such an object, so the check is ours to make.
+   const SceneCullingState &culling = state->getCullingState();
+   if( !culling.disableZoneCulling() &&
+       !culling.getZoneState( SceneZoneSpaceManager::RootZoneId ).isZoneVisible() )
       return;
 
    ObjectRenderInst *ri = state->getRenderPass()->allocInst< ObjectRenderInst >();
