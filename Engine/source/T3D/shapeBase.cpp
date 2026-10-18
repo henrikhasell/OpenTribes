@@ -192,6 +192,11 @@ ShapeBaseData::ShapeBaseData()
    debrisDetail( -1 )
 {      
    dMemset( mountPointNode, -1, sizeof( S32 ) * SceneObject::NumMountPoints );
+
+   // HH: Added for Tribes 2 compatibility.
+   // Tribes 2's ShapeBaseData constructor (0x005e3e5c) sets these.
+   shieldEffectLifetimeMS = 300;
+   shieldEffectScale.set( 1.0f, 1.0f, 1.0f );
 }
 
 struct ShapeBaseDataProto
@@ -265,6 +270,18 @@ bool ShapeBaseData::unpackData(BitStream *stream, U32 classId)
       if (T2Layout::lastDataBlockWord(sIds[i].field, &id))
          this->*sIds[i].member = S32(id);
    }
+
+   U32 lifetime;
+   if (T2Layout::lastDataBlockWord(T2Layout::T2DbShieldEffectLifetimeMS,
+                                   &lifetime))
+      shieldEffectLifetimeMS = S32(lifetime);
+
+   // The scale is on the wire only when it is not the default.
+   F32 scale[3];
+   if (T2Layout::lastDataBlockField(T2Layout::T2DbShieldEffectScaleX, &scale[0]) &&
+       T2Layout::lastDataBlockField(T2Layout::T2DbShieldEffectScaleY, &scale[1]) &&
+       T2Layout::lastDataBlockField(T2Layout::T2DbShieldEffectScaleZ, &scale[2]))
+      shieldEffectScale.set(scale[0], scale[1], scale[2]);
 
    return true;
 }
@@ -567,6 +584,12 @@ void ShapeBaseData::initPersistFields()
       addField( "isInvincible", TypeBool, Offset(isInvincible, ShapeBaseData),
          "Invincible flag; when invincible, the object cannot be damaged or "
          "repaired." );
+      // HH: Added for Tribes 2 compatibility.
+      addField( "shieldEffectLifetimeMS", TypeS32, Offset(shieldEffectLifetimeMS, ShapeBaseData),
+         "How long the flash lasts when a shield turns a hit away, in ms." );
+      addField( "shieldEffectScale", TypePoint3F, Offset(shieldEffectScale, ShapeBaseData),
+         "The shield flash's size along each axis, as a share of eight "
+         "tenths of the shape's bounding sphere." );
 
    endGroup( "Damage/Energy" );
 
@@ -941,6 +964,10 @@ bool ShapeBase::onAdd()
         mCloakTexture = TextureHandle(mDataBlock->cloakTexName, MeshTexture, false);
 */         
 
+   // HH: Added for Tribes 2 compatibility.
+   if (isGhost())
+      mShieldImpact.load();
+
    return true;
 }
 
@@ -1273,6 +1300,10 @@ void ShapeBase::advanceTime(F32 dt)
    }
    if(mInvincibleOn)
       updateInvincibleEffect(dt);
+
+   // HH: Added for Tribes 2 compatibility.
+   if (mShieldImpact.isActive())
+      mShieldImpact.advance(dt);
 
    if(mFading)
    {
@@ -1611,11 +1642,35 @@ void ShapeBase::readT2Threads(const T2Layout::Body &body)
    }
 }
 
+// HH: Added for Tribes 2 compatibility.
+// ShapeBase::unpackUpdate (0x005efb77) plays the flash only on an object
+// already added, so an initial body that carries one shows nothing.
+void ShapeBase::readT2Shield(const T2Layout::Body &body)
+{
+   if (body.hasShield && isProperlyAdded())
+      playShieldEffect(body.shieldNormal, body.shieldEnergy);
+}
+
 void ShapeBase::onT2BodyRead(const T2Layout::Body &body)
 {
    readT2Damage(body);
    readT2Invincible(body);
+   readT2Shield(body);
    Parent::onT2BodyRead(body);
+}
+
+void ShapeBase::playShieldEffect(const Point3F &normal, F32 energy)
+{
+   mShieldNormal = normal;
+   if (!isGhost())
+   {
+      setMaskBits(ShieldMask);
+      return;
+   }
+
+   mShieldImpact.start(normal, energy,
+                       F32(mDataBlock->shieldEffectLifetimeMS) * 0.001f,
+                       mDataBlock->shieldEffectScale);
 }
 
 // HH: Added for Tribes 2 compatibility.
@@ -2783,7 +2838,31 @@ void ShapeBase::_prepRenderImage(   SceneRenderState *state,
    if ( mShapeInstance && renderSelf )
       prepBatchRender( state, -1 );
 
+   // HH: Added for Tribes 2 compatibility.
+   // Retail's prepRenderImage (0x005ec95e) adds this without asking whether
+   // the shape itself is drawn. A first-person eye is inside it, where every
+   // face it could see is a back face.
+   if ( mShieldImpact.isActive() && state->isDiffusePass() )
+   {
+      ObjectRenderInst *ri = state->getRenderPass()->allocInst<ObjectRenderInst>();
+      ri->renderDelegate.bind( this, &ShapeBase::_renderShieldImpact );
+      // The bin the port's other immediate-mode effects draw in. The
+      // translucent object type is taken by two bins of the default pass,
+      // which would add the flash in twice.
+      ri->type = RenderPassManager::RIT_Foliage;
+      state->getRenderPass()->addInst( ri );
+   }
+
    calcClassRenderData();
+}
+
+// HH: Added for Tribes 2 compatibility.
+void ShapeBase::_renderShieldImpact( ObjectRenderInst *ri, SceneRenderState *state, BaseMatInstance *overrideMat )
+{
+   if ( overrideMat )
+      return;
+
+   mShieldImpact.render( this, state );
 }
 
 //----------------------------------------------------------------------------
@@ -4209,6 +4288,20 @@ DefineEngineMethod( ShapeBase, getEnergyPercent, F32, (),,
    "@see setEnergyLevel()\n")
 {
    return object->getEnergyValue();
+}
+
+// HH: Added for Tribes 2 compatibility.
+// Tribes 2's, at 0x005f2170: a server's call, which a ghost ignores.
+DefineEngineMethod( ShapeBase, playShieldEffect, void, ( Point3F normal ),,
+   "@brief Flash the shield round this object on every client.\n\n"
+
+   "@param normal Where the hit came from, which need not be unit length\n")
+{
+   if ( object->isGhost() )
+      return;
+
+   normal.normalize();
+   object->playShieldEffect( normal, 1.0f );
 }
 
 // HH: Added for Tribes 2 compatibility.
