@@ -358,6 +358,14 @@ bool SFXWavStream::_readHeader()
       // read next chunk header...
       if (!mStream->read(4, &chunkHdr.id[0]) || !mStream->read(&chunkHdr.size))
          break;
+
+      // HH: Added for Tribes 2 compatibility.
+      // 181 of the shipped voice files declare a data chunk shorter than the
+      // audio they hold, so what follows it is samples, not a chunk.
+      if (dStrncmp((const char*)chunkHdr.id,"data",4) &&
+          chunkHdr.size > mStream->getStreamSize() - mStream->getPosition())
+         break;
+
       // unread chunk data rounded up to nearest WORD
       chunkRemaining = chunkHdr.size + (chunkHdr.size&1);
    }
