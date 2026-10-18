@@ -23,12 +23,31 @@
 #include "platform/platformTimer.h"
 #include "core/util/journal/process.h"
 
+#include <chrono>
+
+// HH: Added for Tribes 2 compatibility.
+static U64 readTimeCounter()
+{
+   return U64(std::chrono::duration_cast<std::chrono::nanoseconds>(
+      std::chrono::steady_clock::now().time_since_epoch()).count());
+}
+
+static S32 wholeMsSince(U64 from, U64 to)
+{
+   return S32((to - from) / 1000000);
+}
+
+// HH: Added for Tribes 2 compatibility.
+bool TimeManager::smPostedThisPass = true;
+
+// HH: Modified for Tribes 2 compatibility.
+// Retail drops the sub-millisecond remainder every event, so its clock runs slow.
 void TimeManager::_updateTime()
 {
-   // Calculate & filter time delta since last event.
+   smPostedThisPass = false;
 
    // How long since last update?
-   S32 delta = mTimer->getElapsedMs();
+   S32 delta = wholeMsSince(mLastCount, readTimeCounter());
 
    // Now - we want to try to sleep until the time threshold will hit.
    S32 msTillThresh = (mBackground ? mBackgroundThreshold : mForegroundThreshold) - delta;
@@ -39,19 +58,22 @@ void TimeManager::_updateTime()
       Platform::sleep( msTillThresh );
    }
 
-   // Ok - let's grab the new elapsed and send that out.
-   S32 finalDelta = mTimer->getElapsedMs();
-   mTimer->reset();
+   const U64 now = readTimeCounter();
+   const S32 finalDelta = wholeMsSince(mLastCount, now);
+   if(finalDelta <= 2)
+      return;
 
+   mLastCount = now;
+   smPostedThisPass = true;
    timeEvent.trigger(finalDelta);
 }
 
 TimeManager::TimeManager()
 {
    mBackground = false;
-   mTimer = PlatformTimer::create();
+   mLastCount = readTimeCounter();
    Process::notify(this, &TimeManager::_updateTime, PROCESS_TIME_ORDER);
-   
+
    mForegroundThreshold = 5;
    mBackgroundThreshold = 10;
 }
@@ -59,7 +81,6 @@ TimeManager::TimeManager()
 TimeManager::~TimeManager()
 {
    Process::remove(this, &TimeManager::_updateTime);
-   delete mTimer;
 }
 
 void TimeManager::setForegroundThreshold(const S32 msInterval)
