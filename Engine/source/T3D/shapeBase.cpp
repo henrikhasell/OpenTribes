@@ -1563,6 +1563,15 @@ void ShapeBase::readT2Damage(const T2Layout::Body &body)
 }
 
 // HH: Added for Tribes 2 compatibility.
+// The server sends the time and the speed, not the effect: as retail's
+// unpackUpdate does (0x005efc12), the ghost runs the pulse itself.
+void ShapeBase::readT2Invincible(const T2Layout::Body &body)
+{
+   if (body.hasInvincible)
+      setupInvincibleEffect(body.invincibleTime, body.invincibleSpeed);
+}
+
+// HH: Added for Tribes 2 compatibility.
 void ShapeBase::readT2Threads(const T2Layout::Body &body)
 {
    const bool trace = Con::getBoolVariable("$pref::Net::traceGhostThreads",
@@ -1605,6 +1614,7 @@ void ShapeBase::readT2Threads(const T2Layout::Body &body)
 void ShapeBase::onT2BodyRead(const T2Layout::Body &body)
 {
    readT2Damage(body);
+   readT2Invincible(body);
    Parent::onT2BodyRead(body);
 }
 

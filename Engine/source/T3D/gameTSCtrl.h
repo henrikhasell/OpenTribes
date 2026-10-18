@@ -51,6 +51,9 @@ private:
 
    void makeScriptCall(const char *func, const GuiEvent &evt) const;
 
+   // HH: Added for Tribes 2 compatibility.
+   bool mHaveCamera;
+
 public:
    GameTSCtrl();
 

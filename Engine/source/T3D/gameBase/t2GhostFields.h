@@ -47,6 +47,9 @@ namespace T2Protocol
                                     ///< person too
       T2FieldActionPosHere,         ///< the flag a thread position follows
       T2FieldActionPos,             ///< readSignedFloat(bits) of the thread
+      T2FieldInvincibleHere,
+      T2FieldInvincibleTime,
+      T2FieldInvincibleSpeed,
    };
 
    inline U32 t2FieldWords(U32 field)
@@ -99,6 +102,10 @@ namespace T2Protocol
       { "Player", 35, OpFlag,  1,  T2FieldActionFirstPerson },
       { "Player", 37, OpFlag,  1,  T2FieldActionPosHere     },
       { "Player", 36, OpRaw,   6,  T2FieldActionPos         },
+
+      { "Player", 51, OpFlag,  1,  T2FieldInvincibleHere    },
+      { "Player", 50, OpRaw,  32,  T2FieldInvincibleTime    },
+      { "Player", 49, OpRaw,  32,  T2FieldInvincibleSpeed   },
 
    // The tail Item::unpackUpdate adds to ShapeBase's body: what the item is,
       { "Item", 21, OpFlag,  1, T2FieldRotate        },

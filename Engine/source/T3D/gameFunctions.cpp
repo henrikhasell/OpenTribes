@@ -24,6 +24,10 @@
 #include "T3D/gameFunctions.h"
 #include "T3D/gameBase/gameConnection.h"
 #include "T3D/camera.h"
+#include "T3D/shapeBase.h"
+#include "gfx/gfxDevice.h"
+#include "gfx/gfxTransformSaver.h"
+#include "gfx/primBuilder.h"
 #include "T3D/sfx/sfx3DWorld.h"
 #include "console/consoleTypes.h"
 #include "gui/3d/guiTSControl.h"
@@ -380,6 +384,63 @@ void GameRenderWorld()
    PROFILE_END();
 }
 
+// HH: Added for Tribes 2 compatibility.
+// Retail's GameRenderFilters (0x005bbd80). Each filter is a colour over the
+// whole view at its own alpha, stacked from the bottom up: whiteout, damage
+// flash, blackout, then the control object's invincible pulse. Retail folds
+// the stack into one premultiplied quad whose alpha is how much of the view
+// still shows through, and draws nothing while that is 99% or more. It puts a
+// fifth filter on top, a tint while the camera is in water, which is left to
+// the water's own underwater drawing here.
+void GameRenderFilters(const CameraQuery &camq)
+{
+   GameConnection *connection = GameConnection::getConnectionToServer();
+   ShapeBase *shape = dynamic_cast<ShapeBase*>(camq.object);
+
+   struct Filter { F32 red, green, blue, alpha; };
+   Filter filters[] =
+   {
+      { 1.0f, 1.0f, 1.0f, connection ? connection->getWhiteOut() : 0.0f },
+      { 1.0f, 0.0f, 0.0f, connection ? getMin(connection->getDamageFlash(), 0.76f) : 0.0f },
+      { 0.0f, 0.0f, 0.0f, connection ? connection->getBlackOut() : 0.0f },
+      { 0.0f, 0.0f, 1.0f, shape ? shape->getInvincibleEffect() : 0.0f },
+   };
+
+   F32 red = 0.0f, green = 0.0f, blue = 0.0f, through = 1.0f;
+   for (U32 i = 0; i < sizeof(filters) / sizeof(filters[0]); i++)
+   {
+      const Filter &f = filters[i];
+      const F32 alpha = mClampF(f.alpha, 0.0f, 1.0f);
+      red   = red   * (1.0f - alpha) + f.red   * alpha;
+      green = green * (1.0f - alpha) + f.green * alpha;
+      blue  = blue  * (1.0f - alpha) + f.blue  * alpha;
+      through *= 1.0f - alpha;
+   }
+
+   if (through >= 0.99f)
+      return;
+
+   GFXStateBlockDesc desc;
+   desc.setBlend(true, GFXBlendOne, GFXBlendSrcAlpha);
+   desc.setCullMode(GFXCullNone);
+   desc.setZReadWrite(false);
+
+   GFXTransformSaver saver;
+   GFX->setProjectionMatrix(MatrixF::Identity);
+   GFX->setViewMatrix(MatrixF::Identity);
+   GFX->setWorldMatrix(MatrixF::Identity);
+
+   GFX->setStateBlock(GFX->createStateBlock(desc));
+   GFX->setupGenericShaders(GFXDevice::GSColor);
+
+   PrimBuild::color4f(red, green, blue, through);
+   PrimBuild::begin(GFXTriangleFan, 4);
+   PrimBuild::vertex3f(-1.0f, -1.0f, 0.0f);
+   PrimBuild::vertex3f( 1.0f, -1.0f, 0.0f);
+   PrimBuild::vertex3f( 1.0f,  1.0f, 0.0f);
+   PrimBuild::vertex3f(-1.0f,  1.0f, 0.0f);
+   PrimBuild::end(false);
+}
 
 static void Process3D()
 {
