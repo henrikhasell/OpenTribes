@@ -75,6 +75,13 @@ namespace T2Layout
       bool    hasWarp;
       bool    warp;                 ///< interpolate to the position rather
                                     ///< than snap to it
+      bool    hasAction;
+      U32     action;               ///< the shape's sequence number
+      bool    actionHold;
+      bool    actionAtEnd;
+      bool    actionFirstPerson;
+      bool    hasActionPos;
+      F32     actionPos;            ///< how far through the thread, -1..1
 
       /// What a body said about one of its object's image slots -- the
       /// weapon in the hand, the pack on the back.

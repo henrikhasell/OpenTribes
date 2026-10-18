@@ -39,6 +39,14 @@ namespace T2Protocol
       T2FieldTarget,                ///< readInt(bits), the target manager's
                                     ///< id for the object
       T2FieldQuickSplash,
+      T2FieldActionHere,            ///< the flag an action thread follows
+      T2FieldAction,                ///< readInt(bits), a sequence number
+      T2FieldActionHold,            ///< the flag that holds it at its end
+      T2FieldActionAtEnd,           ///< the flag that says it has finished
+      T2FieldActionFirstPerson,     ///< the flag that plays it in first
+                                    ///< person too
+      T2FieldActionPosHere,         ///< the flag a thread position follows
+      T2FieldActionPos,             ///< readSignedFloat(bits) of the thread
    };
 
    inline U32 t2FieldWords(U32 field)
@@ -79,6 +87,18 @@ namespace T2Protocol
       { "Player", 226, OpRaw,  9,  T2FieldTarget            },
 
       { "Player", 26, OpFlag,  1,  T2FieldJetting      },
+
+   // The action thread Player::unpackUpdate reads after the impact sound:
+   // the action, then hold, atEnd and firstPerson, then the thread's
+   // position only when it has not finished.
+      { "Player", 42, OpFlag,  1,  T2FieldActionHere        },
+      { "Player", 41, OpRaw,   8,  T2FieldAction            },
+      { "Player", 40, OpFlag,  1,  T2FieldActionHold        },
+      { "Player", 39, OpFlag,  1,  T2FieldActionAtEnd       },
+      { "Player", 38, OpFlag,  1,  T2FieldActionFirstPerson },
+      { "Player", 35, OpFlag,  1,  T2FieldActionFirstPerson },
+      { "Player", 37, OpFlag,  1,  T2FieldActionPosHere     },
+      { "Player", 36, OpRaw,   6,  T2FieldActionPos         },
 
    // The tail Item::unpackUpdate adds to ShapeBase's body: what the item is,
       { "Item", 21, OpFlag,  1, T2FieldRotate        },

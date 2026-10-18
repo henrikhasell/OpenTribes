@@ -287,6 +287,13 @@ struct PlayerData: public ShapeBaseData {
    static ActionAnimationDef ActionAnimationList[NumTableActionAnims];
    ActionAnimation actionList[NumActionAnims];
    U32 actionCount;
+
+   // HH: Added for Tribes 2 compatibility. A Tribes 2 sender names an
+   // action by the shape's own sequence number, eight bits wide.
+   enum { T2ActionAnimBits = 8, NumT2Actions = 1 << T2ActionAnimBits };
+   U16 t2ActionMap[NumT2Actions];
+   U32 actionFromT2(U32 t2Action) const;
+
    U32 lookAction;
    S32 spineNode[NumSpineNodes];
    S32 pickupDelta;           ///< Base off of pcikupRadius
@@ -645,6 +652,7 @@ protected:
    /// @}
 
    void onT2BodyRead( const T2Layout::Body &body ) override;
+   void readT2Action( const T2Layout::Body &body );
 
    void setPosition(const Point3F& pos,const Point3F& viewRot);
    void setRenderPosition(const Point3F& pos,const Point3F& viewRot,F32 dt=-1);
