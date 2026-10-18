@@ -90,7 +90,18 @@ namespace T2Layout
       bool    hasFieldState;
       U32     fieldState;
       U32     fieldFade;
-      S32     polyhedronAt;
+      struct Run
+      {
+         S32  at;
+         U32  count;
+      };
+      Run     zonePoints;
+      Run     zonePlanes;
+      Run     zoneEdges;
+      F32     velocityMod;
+      F32     gravityMod;
+      bool    hasAppliedForce;
+      Point3F appliedForce;
       bool    hasZoneActive;
       bool    zoneActive;
 

@@ -52,7 +52,12 @@ namespace T2Protocol
       T2FieldInvincibleSpeed,
       T2FieldFieldState,
       T2FieldFieldFade,
-      T2FieldPolyhedron,
+      T2FieldZonePoints,
+      T2FieldZonePlanes,
+      T2FieldZoneEdges,
+      T2FieldVelocityMod,
+      T2FieldGravityMod,
+      T2FieldAppliedForce,
       T2FieldZoneActive,
    };
 
@@ -67,6 +72,7 @@ namespace T2Protocol
          case T2FieldVelocityWords: return 3;
          case T2FieldExplodeWords:  return 3;
          case T2FieldImpactWords:   return 3;
+         case T2FieldAppliedForce:  return 3;
          default:                   return 0;
       }
    }
@@ -134,10 +140,18 @@ namespace T2Protocol
       { "ParticleEmissionDummy",  2, OpRaw, 32, T2FieldTransform },
       { "ParticleEmissionDummy", 18, OpRaw, 32, T2FieldScale     },
 
-      { "PhysicalZone",           3, OpRaw, 32, T2FieldTransform },
-      { "PhysicalZone",          19, OpRaw, 32, T2FieldScale     },
-      { "PhysicalZone",          22, OpCount, 32, T2FieldPolyhedron },
-      { "PhysicalZone",           1, OpFlag,  1, T2FieldZoneActive },
+   // PhysicalZone::unpackUpdate (0x0068b290): under the initial mask the
+   // transform, the scale, the polyhedron's three runs, the two mods and the
+   // force; then, on every body, the active flag.
+      { "PhysicalZone",          42, OpRaw,   32, T2FieldTransform    },
+      { "PhysicalZone",          26, OpRaw,   32, T2FieldScale        },
+      { "PhysicalZone",          23, OpCount, 32, T2FieldZonePoints   },
+      { "PhysicalZone",          18, OpCount, 32, T2FieldZonePlanes   },
+      { "PhysicalZone",          12, OpCount, 32, T2FieldZoneEdges    },
+      { "PhysicalZone",           6, OpRaw,   32, T2FieldVelocityMod  },
+      { "PhysicalZone",           5, OpRaw,   32, T2FieldGravityMod   },
+      { "PhysicalZone",           4, OpRaw,   32, T2FieldAppliedForce },
+      { "PhysicalZone",           1, OpFlag,   1, T2FieldZoneActive   },
 
       { "VehicleBlocker",         0, OpRaw, 32, T2FieldTransform },
 

@@ -53,6 +53,7 @@ static S32 sPointAt = -1;
 static S32 sVelocityAt = -1;
 static S32 sExplodeAt = -1;
 static S32 sImpactAt = -1;
+static S32 sForceAt = -1;
 static bool sQuatNegative = false;
 static bool sAxisNegative = false;
 static F32 sSpeed = 0.0f;
@@ -125,16 +126,6 @@ String resourcePath(const char *name, const char *dir)
    if(path.find('/') != String::NPos || path.find('\\') != String::NPos)
       return path;
    return String(dir) + path;
-}
-
-static void noteWord(U32 word)
-{
-   if(!sHaveFirstWord32)
-   {
-      sHaveFirstWord32 = true;
-      sFirstWord32 = word;
-   }
-   sWords.push_back(word);
 }
 
 static void noteString(const char *str)
@@ -1247,9 +1238,6 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
                const T2GhostFieldRow *row = fieldAt(layout, at);
                if(row && row->field == T2FieldTarget)
                   sBody.target = S32(v);
-
-               if(n.bits == 32)
-                  noteWord(v);
             }
             if(!layout->select)
             {
@@ -1267,13 +1255,17 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
          {
             const U32 v = xferInt(stream, n.bits, write, at, n.op);
             slots[n.b & 7] = v;
-            if(!write && n.bits == 32)
-            {
-               const T2GhostFieldRow *row = fieldAt(layout, at);
-               if(row && row->field == T2FieldPolyhedron)
-                  sBody.polyhedronAt = S32(sWords.size());
-               noteWord(v);
-            }
+
+            const T2GhostFieldRow *row = write ? NULL : fieldAt(layout, at);
+            const Body::Run run = { S32(sWords.size()), v };
+            if(row)
+               switch(row->field)
+               {
+                  case T2FieldZonePoints: sBody.zonePoints = run; break;
+                  case T2FieldZonePlanes: sBody.zonePlanes = run; break;
+                  case T2FieldZoneEdges:  sBody.zoneEdges  = run; break;
+                  default:                                         break;
+               }
             break;
          }
 
@@ -1401,12 +1393,20 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
                   case T2FieldVelocityWords: sVelocityAt  = sWords.size(); break;
                   case T2FieldExplodeWords:  sExplodeAt   = sWords.size(); break;
                   case T2FieldImpactWords:   sImpactAt    = sWords.size(); break;
+                  case T2FieldAppliedForce:  sForceAt     = sWords.size(); break;
                   default:                                                 break;
                }
 
             const U32 word = xferInt(stream, n.bits, write, at, n.op);
             if(n.bits == 32 && !write)
-               noteWord(word);
+            {
+               if(!sHaveFirstWord32)
+               {
+                  sHaveFirstWord32 = true;
+                  sFirstWord32 = word;
+               }
+               sWords.push_back(word);
+            }
             if(!write)
             {
                const T2DataBlockFieldRow *dbRow = dbFieldAt(layout, at);
@@ -1466,6 +1466,12 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
                      break;
                   case T2FieldFieldFade:
                      sBody.fieldFade = word;
+                     break;
+                  case T2FieldVelocityMod:
+                     dMemcpy(&sBody.velocityMod, &word, sizeof(F32));
+                     break;
+                  case T2FieldGravityMod:
+                     dMemcpy(&sBody.gravityMod, &word, sizeof(F32));
                      break;
                   default:
                      break;
@@ -1876,6 +1882,13 @@ static void assembleBody()
                              wordFloat(sImpactAt + 2));
       sBody.hasImpactNormal = true;
    }
+
+   if(sForceAt >= 0 && sWords.size() >= U32(sForceAt) + 3)
+   {
+      sBody.appliedForce.set(wordFloat(sForceAt), wordFloat(sForceAt + 1),
+                             wordFloat(sForceAt + 2));
+      sBody.hasAppliedForce = true;
+   }
 }
 
 static bool runGhost(BitStream *stream, const char *className,
@@ -1930,7 +1943,14 @@ static bool runGhost(BitStream *stream, const char *className,
    sBody.hasFieldState = false;
    sBody.fieldState = 0;
    sBody.fieldFade = 0;
-   sBody.polyhedronAt = -1;
+   const Body::Run none = { -1, 0 };
+   sBody.zonePoints = none;
+   sBody.zonePlanes = none;
+   sBody.zoneEdges = none;
+   sBody.velocityMod = 1.0f;
+   sBody.gravityMod = 1.0f;
+   sBody.hasAppliedForce = false;
+   sBody.appliedForce.set(0.0f, 0.0f, 0.0f);
    sBody.hasZoneActive = false;
    sBody.zoneActive = false;
    for(U32 i = 0; i < MaxImages; i++)
@@ -1966,6 +1986,7 @@ static bool runGhost(BitStream *stream, const char *className,
    sVelocityAt = -1;
    sExplodeAt = -1;
    sImpactAt = -1;
+   sForceAt = -1;
    sQuatNegative = false;
    sAxisNegative = false;
    sSpeed = 0.0f;
