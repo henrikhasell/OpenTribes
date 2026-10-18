@@ -463,14 +463,17 @@ void GFXDrawUtil::drawRect( const Point2F &upperLeft, const Point2F &lowerRight,
 
    F32 ulOffset = 0.5f - mDevice->getFillConventionOffset();
 
+   // The exe's outline covers its lower right pixel as it does its upper left.
+   const F32 lrOffset = ulOffset;
+
    verts[0].point.set( upperLeft.x + ulOffset + nw.x, upperLeft.y + ulOffset + nw.y, 0.0f );
    verts[1].point.set( upperLeft.x + ulOffset - nw.x, upperLeft.y + ulOffset - nw.y, 0.0f );
-   verts[2].point.set( lowerRight.x + ne.x, upperLeft.y + ulOffset + ne.y, 0.0f );
-   verts[3].point.set( lowerRight.x - ne.x, upperLeft.y + ulOffset - ne.y, 0.0f );
-   verts[4].point.set( lowerRight.x - nw.x, lowerRight.y - nw.y, 0.0f );
-   verts[5].point.set( lowerRight.x + nw.x, lowerRight.y + nw.y, 0.0f );
-   verts[6].point.set( upperLeft.x + ulOffset - ne.x, lowerRight.y - ne.y, 0.0f );
-   verts[7].point.set( upperLeft.x + ulOffset + ne.x, lowerRight.y + ne.y, 0.0f );
+   verts[2].point.set( lowerRight.x + lrOffset + ne.x, upperLeft.y + ulOffset + ne.y, 0.0f );
+   verts[3].point.set( lowerRight.x + lrOffset - ne.x, upperLeft.y + ulOffset - ne.y, 0.0f );
+   verts[4].point.set( lowerRight.x + lrOffset - nw.x, lowerRight.y + lrOffset - nw.y, 0.0f );
+   verts[5].point.set( lowerRight.x + lrOffset + nw.x, lowerRight.y + lrOffset + nw.y, 0.0f );
+   verts[6].point.set( upperLeft.x + ulOffset - ne.x, lowerRight.y + lrOffset - ne.y, 0.0f );
+   verts[7].point.set( upperLeft.x + ulOffset + ne.x, lowerRight.y + lrOffset + ne.y, 0.0f );
    verts[8].point.set( upperLeft.x + ulOffset + nw.x, upperLeft.y + ulOffset + nw.y, 0.0f ); // same as 0
    verts[9].point.set( upperLeft.x + ulOffset - nw.x, upperLeft.y + ulOffset - nw.y, 0.0f ); // same as 1
 
