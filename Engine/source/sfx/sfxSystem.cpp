@@ -1006,7 +1006,9 @@ void SFXSystem::_assignVoices()
             
             if( (    other->getAttenuatedVolume() < 0.1     // Very quiet or maybe not even audible.
                   || !other->isPlaying()                    // Not playing so not audible anyways.
-                  || other->getPosition() == 0 )            // Not yet started playing.
+                  // HH: Changed for Tribes 2 compatibility.
+                  // A 3D start waiting for its tick is at 0 but may be loud.
+                  || ( other->getPosition() == 0 && !other->isStartPending() ) ) // Not yet started playing.
                 && other->_releaseVoice() )
                break;
          }

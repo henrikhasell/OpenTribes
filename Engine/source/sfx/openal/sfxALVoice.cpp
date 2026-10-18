@@ -57,19 +57,20 @@ SFXALVoice* SFXALVoice::create( SFXALDevice* device, SFXALBuffer *buffer )
    if( buffer->mIs3d )
       device->mOpenAL.alSourcef( sourceName, AL_ROLLOFF_FACTOR, device->mRolloffFactor );
 
-   SFXALVoice *voice = new SFXALVoice( device->mOpenAL,
+   SFXALVoice *voice = new SFXALVoice( device,
                                        buffer,
                                        sourceName );
 
    return voice;
 }
 
-SFXALVoice::SFXALVoice( const OPENALFNTABLE &oalft,
+SFXALVoice::SFXALVoice( SFXALDevice *device,
                         SFXALBuffer *buffer, 
                         ALuint sourceName )
 
    :  Parent( buffer ),
-      mOpenAL( oalft ), 
+      mDevice( device ),
+      mOpenAL( device->mOpenAL ),
       mResumeAtSampleOffset( -1.0f ),
       mSourceName( sourceName ),
       mSampleOffset( 0 )
@@ -79,6 +80,9 @@ SFXALVoice::SFXALVoice( const OPENALFNTABLE &oalft,
 
 SFXALVoice::~SFXALVoice()
 {
+   // HH: Added for Tribes 2 compatibility.
+   mDevice->_dropStart( this );
+
    mOpenAL.alDeleteSources( 1, &mSourceName );
 }
 
@@ -97,6 +101,10 @@ void SFXALVoice::_lateBindStaticBufferIfNecessary()
 SFXStatus SFXALVoice::_status() const
 {
    AL_SANITY_CHECK();
+
+   // HH: Added for Tribes 2 compatibility.
+   if( mDevice->_isStartHeld( this ) )
+      return SFXStatusPlaying;
 
    ALint state;
    mOpenAL.alGetSourcei( mSourceName, AL_SOURCE_STATE, &state );
@@ -119,6 +127,14 @@ void SFXALVoice::_play()
    Platform::outputDebugString( "[SFXALVoice] Starting playback" );
    #endif
    
+   // HH: Changed for Tribes 2 compatibility.
+   // A fresh 3D start waits for the feeder, as in Miles Fast 2D.
+   if( _getBuffer()->mIs3d && !mBuffer->isStreaming() && mResumeAtSampleOffset == -1.0f )
+   {
+      mDevice->_holdStart( this );
+      return;
+   }
+
    mOpenAL.alSourcePlay( mSourceName );
    
    //WORKAROUND: Adjust play cursor for buggy OAL when resuming playback.  Do this after alSourcePlay
@@ -139,6 +155,9 @@ void SFXALVoice::_pause()
    Platform::outputDebugString( "[SFXALVoice] Pausing playback" );
    #endif
 
+   // HH: Added for Tribes 2 compatibility.
+   mDevice->_dropStart( this );
+
    mOpenAL.alSourcePause( mSourceName );
    
    //WORKAROUND: Another workaround for buggy OAL.  Resuming playback of a paused source will cause the 
@@ -154,6 +173,9 @@ void SFXALVoice::_stop()
    #ifdef DEBUG_SPEW
    Platform::outputDebugString( "[SFXALVoice] Stopping playback" );
    #endif
+
+   // HH: Added for Tribes 2 compatibility.
+   mDevice->_dropStart( this );
 
    mOpenAL.alSourceStop( mSourceName );
    mSampleOffset = 0;
@@ -249,6 +271,12 @@ void SFXALVoice::setCone( F32 innerAngle, F32 outerAngle, F32 outerVolume )
    mOpenAL.alSourcef( mSourceName, AL_CONE_INNER_ANGLE, innerAngle );
    mOpenAL.alSourcef( mSourceName, AL_CONE_OUTER_ANGLE, outerAngle );
    mOpenAL.alSourcef( mSourceName, AL_CONE_OUTER_GAIN, outerVolume );
+}
+
+// HH: Added for Tribes 2 compatibility.
+bool SFXALVoice::isStartPending() const
+{
+   return mDevice->_isStartHeld( this );
 }
 
 void SFXALVoice::setRolloffFactor( F32 factor )
