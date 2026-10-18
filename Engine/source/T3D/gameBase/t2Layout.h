@@ -109,6 +109,11 @@ namespace T2Layout
       bool    zoneActive;
       bool    hasCloaked;
       bool    cloaked;
+      bool    hasFade;
+      bool    fading;
+      bool    fadeVisible;
+      bool    fadeOut;
+      F32     fadeTime;
 
       /// What a body said about one of its object's image slots -- the
       /// weapon in the hand, the pack on the back.

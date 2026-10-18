@@ -1659,6 +1659,23 @@ void ShapeBase::readT2Cloak(const T2Layout::Body &body)
 {
    if (body.hasCloaked)
       setCloakedState(body.cloaked);
+
+   if (!body.hasFade)
+      return;
+
+   // The server holds a fade back until its delay is up, and then sends only
+   // its length (0x005eef06), so a client starts it as it reads it.
+   mFading = body.fading;
+   if (mFading)
+   {
+      mFadeOut = body.fadeOut;
+      mFadeVal = F32(mFadeOut);
+      mFadeTime = body.fadeTime;
+      mFadeElapsedTime = 0.0f;
+      mFadeDelay = 0.0f;
+   }
+   else
+      mFadeVal = F32(body.fadeVisible);
 }
 
 void ShapeBase::onT2BodyRead(const T2Layout::Body &body)

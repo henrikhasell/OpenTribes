@@ -60,6 +60,10 @@ namespace T2Protocol
       T2FieldAppliedForce,
       T2FieldZoneActive,
       T2FieldCloaked,
+      T2FieldFading,
+      T2FieldFadeVisible,
+      T2FieldFadeOut,
+      T2FieldFadeTime,
    };
 
    inline U32 t2FieldWords(U32 field)
@@ -121,6 +125,13 @@ namespace T2Protocol
    // flag 63 for the block, then whether it is cloaked (0x005ef937), then the
    // controlled flag and the fade.
       { "Player", 62, OpFlag,  1,  T2FieldCloaked           },
+   // After the controlled flag at 61, the fade (0x005ef9b6): whether one has
+   // begun; if not, whether the shape shows at all; if so, whether it goes
+   // out and over how long.
+      { "Player", 60, OpFlag,  1,  T2FieldFading            },
+      { "Player", 59, OpFlag,  1,  T2FieldFadeVisible       },
+      { "Player", 58, OpFlag,  1,  T2FieldFadeOut           },
+      { "Player", 57, OpRaw,  32,  T2FieldFadeTime          },
 
    // The tail Item::unpackUpdate adds to ShapeBase's body: what the item is,
       { "Item", 21, OpFlag,  1, T2FieldRotate        },

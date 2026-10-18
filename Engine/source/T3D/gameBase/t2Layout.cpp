@@ -1230,6 +1230,16 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
                         sBody.hasCloaked = true;
                         sBody.cloaked = set;
                         break;
+                     case T2FieldFading:
+                        sBody.hasFade = true;
+                        sBody.fading = set;
+                        break;
+                     case T2FieldFadeVisible:
+                        sBody.fadeVisible = set;
+                        break;
+                     case T2FieldFadeOut:
+                        sBody.fadeOut = set;
+                        break;
                      default:
                         break;
                   }
@@ -1618,6 +1628,9 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
                      break;
                   case T2FieldGravityMod:
                      dMemcpy(&sBody.gravityMod, &word, sizeof(F32));
+                     break;
+                  case T2FieldFadeTime:
+                     dMemcpy(&sBody.fadeTime, &word, sizeof(F32));
                      break;
                   default:
                      break;
@@ -2108,6 +2121,11 @@ static bool runGhost(BitStream *stream, const char *className,
    sBody.zoneActive = false;
    sBody.hasCloaked = false;
    sBody.cloaked = false;
+   sBody.hasFade = false;
+   sBody.fading = false;
+   sBody.fadeVisible = false;
+   sBody.fadeOut = false;
+   sBody.fadeTime = 0.0f;
    for(U32 i = 0; i < MaxImages; i++)
    {
       Body::Image &image = sBody.images[i];
