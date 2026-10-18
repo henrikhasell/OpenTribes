@@ -20,18 +20,18 @@
 // IN THE SOFTWARE.
 //-----------------------------------------------------------------------------
 
-//-----------------------------------------------------------------------------
-// Data
-//-----------------------------------------------------------------------------
+// HH: Retail draws the drops modulated, with GL_ALPHA_TEST GREATER 0.1, which
+// a core profile no longer has.
+
+in vec4 color;
+in vec2 texCoord;
+
 uniform sampler2D diffuseMap;
 
-varying vec4 color;
-varying vec2 texCoord;
-
-//-----------------------------------------------------------------------------
-// Main                                                                        
-//-----------------------------------------------------------------------------
 void main()
 {
-   gl_FragColor = texture2D(diffuseMap, texCoord) * color;
+   vec4 c = color * texture2D( diffuseMap, texCoord );
+   if( c.a <= 0.1 )
+      discard;
+   gl_FragColor = c;
 }

@@ -44,6 +44,7 @@
 #include "console/engineAPI.h"
 #include "sim/netConnection.h"
 #include "T3D/gameBase/gameConnection.h"
+#include "T3D/fx/precipitation.h"
 
 // For player object bounds workaround.
 #include "T3D/player.h"
@@ -666,6 +667,10 @@ static RenderPassManager *createDefaultRenderPass()
       0.8f, 0.8f ), 0.8f );
    addDefaultBin( rpm, new RenderOcclusionMgr( RenderPassManager::RIT_Occluder,
       0.9f, 0.9f ), 0.9f );
+   // Retail's precipitation is BeginSort: after the opaque images, before
+   // every translucent one, water included.
+   addDefaultBin( rpm, new RenderObjectMgr( Precipitation::RIT_Precipitation,
+      0.95f, 0.95f ), 0.95f );
    addDefaultBin( rpm, new RenderObjectMgr(
       RenderPassManager::RIT_ObjectTranslucent, 1.0f, 1.0f ), 1.0f );
    addDefaultBin( rpm, new RenderObjectMgr( RenderPassManager::RIT_Water,
