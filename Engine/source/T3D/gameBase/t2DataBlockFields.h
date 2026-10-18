@@ -38,6 +38,11 @@ namespace T2Protocol
 
       { "PlayerData", 187, OpDataBlockId, 11, T2DbJetEmitter },
 
+   // PlayerData::packData (0x005cf783) writes its 32 sounds in a loop from the
+   // jet's, which is the layout's only run of 32 flags, at nodes 90 to 121.
+      { "PlayerData", 185, OpDataBlockId, 11, T2DbJetSound    },
+      { "PlayerData", 184, OpDataBlockId, 11, T2DbWetJetSound },
+
       { "PlayerData", 55, OpRaw, 32, T2DbRunForce                   },
       { "PlayerData", 56, OpRaw, 32, T2DbRunEnergyDrain             },
       { "PlayerData", 57, OpRaw, 32, T2DbMinRunEnergy               },

@@ -121,6 +121,8 @@ namespace T2Layout
       T2DbMaxJetForwardSpeed,
       T2DbMaxJetHorizontalPercentage,
       T2DbJetEmitter,
+      T2DbJetSound,
+      T2DbWetJetSound,
       T2DbHeatDecayPerSec,
       T2DbHeatIncreasePerSec,
       T2DbCameraMaxDist,
