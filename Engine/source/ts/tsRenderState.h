@@ -34,6 +34,8 @@ class GFXCubemap;
 class Frustum;
 class LightQuery;
 class BaseMatInstance;
+// HH: Added for Tribes 2 compatibility.
+class Material;
 
 
 /// A simple class for passing render state through the pre-render pipeline.
@@ -113,6 +115,17 @@ protected:
    /// lighting off.
    BaseMatInstance *mSelfIllumOverrideMaterial;
 
+   // HH: Added for Tribes 2 compatibility.
+   Material *mMaterialOverride;
+
+   // HH: Added for Tribes 2 compatibility.
+   bool mBlendAlways;
+
+   // HH: Added for Tribes 2 compatibility.
+   /// Leave the shape's decals out, as Tribes 2's Player did for a cloaked
+   /// body (0x005dcd0f), so its damage is not left hanging in the air.
+   bool mNoDecals;
+
 public:
 
    TSRenderState();
@@ -166,6 +179,18 @@ public:
    }
    BaseMatInstance* getOverrideMaterial() const { return mOverrideMaterial; }
    BaseMatInstance* getSelfIllumOverrideMaterial() const { return mSelfIllumOverrideMaterial; }
+
+   // HH: Added for Tribes 2 compatibility.
+   void setMaterialOverride( Material *material ) { mMaterialOverride = material; }
+   Material* getMaterialOverride() const { return mMaterialOverride; }
+
+   // HH: Added for Tribes 2 compatibility.
+   void setBlendAlways( bool blend ) { mBlendAlways = blend; }
+   bool isBlendAlways() const { return mBlendAlways; }
+
+   // HH: Added for Tribes 2 compatibility.
+   void setNoDecals( bool noDecals ) { mNoDecals = noDecals; }
+   bool isNoDecals() const { return mNoDecals; }
 
    /// @}
 };

@@ -1491,6 +1491,7 @@ Player::Player()
    mUseHeadZCalc = true;
 
    allowAllPoses();
+   mMoveDisabled = false;
 
    mImpactSound = 0;
    mRecoverTicks = 0;
@@ -2362,7 +2363,6 @@ void Player::allowAllPoses()
    mAllowProne = true;
    mAllowSwimming = true;
 
-   mT2ControlFlagA = false;
    mT2ControlFlagB = false;
 }
 
@@ -2457,7 +2457,10 @@ void Player::updateMove(const Move* move)
    // Desired move direction & speed
    VectorF moveVec;
    F32 moveSpeed;
-   if ((mState == MoveState || (mState == RecoverState && mDataBlock->recoverRunForceScale > 0.0f)) && mDamageState == Enabled)
+   // HH: Modified for Tribes 2 compatibility.
+   // A player whose movement is disabled has no run force (0x005d31c0).
+   if ((mState == MoveState || (mState == RecoverState && mDataBlock->recoverRunForceScale > 0.0f)) && mDamageState == Enabled &&
+       !mMoveDisabled)
    {
       zRot.getColumn(0,&moveVec);
       moveVec *= move->x;
@@ -2722,8 +2725,10 @@ void Player::updateMove(const Move* move)
 
    if (mDataBlock->jetForce != 0.0f)
    {
+      // HH: Modified for Tribes 2 compatibility.
+      // Nor does it jet (0x005d3c7d).
       if (!isGhost() || isControlObject())
-         mJetting = mState == MoveState && mDamageState == Enabled &&
+         mJetting = !mMoveDisabled && mState == MoveState && mDamageState == Enabled &&
                     mAllowJetJumping && move->trigger[sJetTrigger] &&
                     mEnergy >= mDataBlock->minJetEnergy;
 
@@ -2939,6 +2944,12 @@ void Player::updateMove(const Move* move)
       mVelocity -= mVelocity * mDrag * TickSec * ( mVelocity.len() / mDataBlock->maxUnderwaterForwardSpeed );
    else if ( runSurface )
       mVelocity -= mVelocity * mDrag * TickSec;
+
+   // HH: Added for Tribes 2 compatibility.
+   // And it keeps no way on: retail zeroes the horizontal velocity every tick
+   // (0x005d47e8), leaving gravity and a jump to act on it.
+   if ( mMoveDisabled )
+      mVelocity.x = mVelocity.y = 0.0f;
 
    // Clamp very small velocity to zero
    if ( mVelocity.isZero() )
@@ -4703,7 +4714,9 @@ F32 Player::_doCollisionImpact( const Collision *collision, bool fallingCollisio
       if ( !isGhost() )
          onImpact( collision->object, collision->normal * bd );
 
-      if (mDamageState == Enabled && mState != RecoverState) 
+      // HH: Modified for Tribes 2 compatibility.
+      // A landing does not knock down a player held still (0x005d872f).
+      if (mDamageState == Enabled && mState != RecoverState && !mMoveDisabled)
       {
          // Scale how long we're down for
          if (mDataBlock->landSequenceTime > 0.0f)
@@ -5177,6 +5190,8 @@ void Player::onT2BodyRead(const T2Layout::Body &body)
    readT2Damage(body);
    readT2Invincible(body);
    readT2Shield(body);
+   // HH: Added for Tribes 2 compatibility.
+   readT2Cloak(body);
 
    if (body.hasJetting)
       mJetting = body.jetting;
@@ -5881,7 +5896,7 @@ void Player::writePacketData(GameConnection *connection, BitStream *stream)
    else
       stream->writeFlag(false);
 
-   stream->writeFlag(mT2ControlFlagA);
+   stream->writeFlag(mMoveDisabled);
    stream->writeFlag(mT2ControlFlagB);
 }
 
@@ -5931,7 +5946,7 @@ void Player::readPacketData(GameConnection *connection, BitStream *stream)
    else
       setControlObject(0);
 
-   mT2ControlFlagA = stream->readFlag();
+   mMoveDisabled = stream->readFlag();
    mT2ControlFlagB = stream->readFlag();
 }
 
@@ -5967,6 +5982,22 @@ DefineEngineMethod( Player, allowAllPoses, void, (),,
    "@see allowSwimming()\n" )
 {
    object->allowAllPoses();
+}
+
+// HH: Added for Tribes 2 compatibility.
+// Tribes 2's Player render leaves a cloaked player, and any cloakable image
+// it carries, at 0.04 of itself (0x005dcd09, 0x005dc8ec) -- a third of what
+// ShapeBase leaves of any other shape.
+F32 Player::getCloakAlpha( bool ) const
+{
+   return 0.04f + ( 1.0f - mCloakLevel ) * 0.96f;
+}
+
+// HH: Added for Tribes 2 compatibility.
+DefineEngineMethod( Player, disableMove, void, (bool disable),,
+   "obj.disableMove(bool)" )
+{
+   object->setMoveDisabled(disable);
 }
 
 DefineEngineMethod( Player, allowJumping, void, (bool state),,

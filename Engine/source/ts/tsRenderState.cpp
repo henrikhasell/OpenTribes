@@ -36,7 +36,10 @@ TSRenderState::TSRenderState()
       mUseOriginSort( false ),
       // HH: Added for Tribes 2 compatibility.
       mOverrideMaterial( NULL ),
-      mSelfIllumOverrideMaterial( NULL )
+      mSelfIllumOverrideMaterial( NULL ),
+      mMaterialOverride( NULL ),
+      mBlendAlways( false ),
+      mNoDecals( false )
 {
 }
 
@@ -52,6 +55,9 @@ TSRenderState::TSRenderState( const TSRenderState &state )
       mUseOriginSort( state.mUseOriginSort ),
       // HH: Added for Tribes 2 compatibility.
       mOverrideMaterial( state.mOverrideMaterial ),
-      mSelfIllumOverrideMaterial( state.mSelfIllumOverrideMaterial )
+      mSelfIllumOverrideMaterial( state.mSelfIllumOverrideMaterial ),
+      mMaterialOverride( state.mMaterialOverride ),
+      mBlendAlways( state.mBlendAlways ),
+      mNoDecals( state.mNoDecals )
 {
 }

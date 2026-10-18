@@ -288,6 +288,9 @@ namespace T2Protocol
    // ShapeBaseImageData::packData writes the mount point as a whole word, which
    // is the layout's node 2.
       { "ShapeBaseImageData", 2, OpRaw, 32, T2DbImageMountPoint },
+   // and whether a cloak may thin the image as a flag at node 19, just before
+   // the light type's ranged write (0x005f585d).
+      { "ShapeBaseImageData", 19, OpFlag, 1, T2DbImageCloakable },
 
    // Every projectile carries the same run of datablock ids, the emitters then
    // the explosions then the splash and the sound, so the sound is three past

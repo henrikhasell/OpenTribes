@@ -338,8 +338,10 @@ static void applyTSMaterialFlags( Material *mat, U32 flags )
       return;
 
    mat->mTranslucent = true;
+   // Additive is GL_SRC_ALPHA, GL_ONE (0x006a6a5e), so it fades with the
+   // shape -- a cloaked pack's glow goes with the rest of it.
    mat->mTranslucentBlendOp = ( flags & TSMaterialList::Additive )
-                                 ? Material::Add : Material::Sub;
+                                 ? Material::AddAlpha : Material::Sub;
 
 
    mat->mTranslucentZWrite = false;

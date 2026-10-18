@@ -487,7 +487,11 @@ protected:
    bool  mAllowProne;
    bool  mAllowSwimming;
 
-   bool  mT2ControlFlagA;
+   // HH: Modified for Tribes 2 compatibility.
+   /// Set by disableMove (0x005de200): the player can look about but not
+   /// run or jet. It travels as the control data's first closing flag, so a
+   /// client predicting its own player stands still with the server.
+   bool  mMoveDisabled;
    bool  mT2ControlFlagB;
 
    S32 mContactTimer;               ///< Ticks since last contact
@@ -656,6 +660,8 @@ protected:
    /// @}
 
    void onT2BodyRead( const T2Layout::Body &body ) override;
+   // HH: Added for Tribes 2 compatibility.
+   F32 getCloakAlpha( bool image ) const override;
    void readT2Action( const T2Layout::Body &body );
 
    void setPosition(const Point3F& pos,const Point3F& viewRot);
@@ -759,6 +765,8 @@ public:
    void allowCrouching(bool state) { mAllowCrouching = state; }
    void allowProne(bool state) { mAllowProne = state; }
    void allowSwimming(bool state) { mAllowSwimming = state; }
+   // HH: Added for Tribes 2 compatibility.
+   void setMoveDisabled(bool state) { mMoveDisabled = state; }
 
    bool canJump();                                         ///< Can the player jump?
    bool canJetJump();                                      ///< Can the player jet?

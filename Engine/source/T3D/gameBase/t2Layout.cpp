@@ -1226,6 +1226,10 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
                         sBody.hasZoneActive = true;
                         sBody.zoneActive = set;
                         break;
+                     case T2FieldCloaked:
+                        sBody.hasCloaked = true;
+                        sBody.cloaked = set;
+                        break;
                      default:
                         break;
                   }
@@ -2102,6 +2106,8 @@ static bool runGhost(BitStream *stream, const char *className,
    sBody.appliedForce.set(0.0f, 0.0f, 0.0f);
    sBody.hasZoneActive = false;
    sBody.zoneActive = false;
+   sBody.hasCloaked = false;
+   sBody.cloaked = false;
    for(U32 i = 0; i < MaxImages; i++)
    {
       Body::Image &image = sBody.images[i];

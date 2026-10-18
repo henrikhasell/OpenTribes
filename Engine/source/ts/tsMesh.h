@@ -70,6 +70,12 @@ class TSShapeInstance;
 struct RayInfo;
 class ConvexFeature;
 class ShapeBase;
+// HH: Added for Tribes 2 compatibility.
+class BaseMatInstance;
+
+// HH: Added for Tribes 2 compatibility.
+BaseMatInstance *TSGetBlendedMatInstance( BaseMatInstance *matInst,
+                                          const GFXVertexFormat *format );
 
 struct TSDrawPrimitive
 {
