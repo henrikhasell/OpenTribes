@@ -54,6 +54,9 @@ namespace T2Protocol
                                     ///< states
       T2FieldFieldFade,             ///< a raw word of milliseconds into the
                                     ///< fade, sent only while it fades
+      T2FieldPolyhedron,            ///< the point count a zone's polyhedron,
+                                    ///< mods and force follow, word by word
+      T2FieldZoneActive,            ///< the flag that says a zone acts
    };
 
    inline U32 t2FieldWords(U32 field)
@@ -136,6 +139,8 @@ namespace T2Protocol
 
       { "PhysicalZone",           3, OpRaw, 32, T2FieldTransform },
       { "PhysicalZone",          19, OpRaw, 32, T2FieldScale     },
+      { "PhysicalZone",          22, OpCount, 32, T2FieldPolyhedron },
+      { "PhysicalZone",           1, OpFlag,  1, T2FieldZoneActive },
 
       { "VehicleBlocker",         0, OpRaw, 32, T2FieldTransform },
 

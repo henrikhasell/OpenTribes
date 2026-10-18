@@ -90,6 +90,10 @@ namespace T2Layout
                                     ///< closing or closed
       U32     fieldFade;            ///< milliseconds into its fade, where
                                     ///< the state is a fade at all
+      S32     polyhedronAt;         ///< where in lastWords() a zone's point
+                                    ///< count is, or -1 for no polyhedron
+      bool    hasZoneActive;
+      bool    zoneActive;           ///< the zone acts on what is in it
 
       /// What a body said about one of its object's image slots -- the
       /// weapon in the hand, the pack on the back.
@@ -466,7 +470,8 @@ namespace T2Layout
 
    const Vector<String> &lastStrings();
 
-   /// Every 32-bit word the last ghost body read, in the order it read them.
+   /// Every 32-bit word the last ghost body read, in the order it read them,
+   /// counts and the words a branch was taken on included.
    const Vector<U32> &lastWords();
 
    /// A Tribes 2 resource name is a bare file name; Torque wants a path.

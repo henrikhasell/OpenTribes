@@ -133,6 +133,16 @@ String resourcePath(const char *name, const char *dir)
    return String(dir) + path;
 }
 
+static void noteWord(U32 word)
+{
+   if(!sHaveFirstWord32)
+   {
+      sHaveFirstWord32 = true;
+      sFirstWord32 = word;
+   }
+   sWords.push_back(word);
+}
+
 static void noteString(const char *str)
 {
    if(sShapeName[0] || !str)
@@ -1089,6 +1099,10 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
                      case T2FieldInvincibleHere:
                         sBody.hasInvincible = set;
                         break;
+                     case T2FieldZoneActive:
+                        sBody.hasZoneActive = true;
+                        sBody.zoneActive = set;
+                        break;
                      default:
                         break;
                   }
@@ -1239,6 +1253,11 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
                const T2GhostFieldRow *row = fieldAt(layout, at);
                if(row && row->field == T2FieldTarget)
                   sBody.target = S32(v);
+
+               // The recovery took some of PhysicalZone's raw floats for
+               // branches; the word is still one the body carries.
+               if(n.bits == 32)
+                  noteWord(v);
             }
             if(!layout->select)
             {
@@ -1253,8 +1272,18 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
          }
 
          case OpCount:
-            slots[n.b & 7] = xferInt(stream, n.bits, write, at, n.op);
+         {
+            const U32 v = xferInt(stream, n.bits, write, at, n.op);
+            slots[n.b & 7] = v;
+            if(!write && n.bits == 32)
+            {
+               const T2GhostFieldRow *row = fieldAt(layout, at);
+               if(row && row->field == T2FieldPolyhedron)
+                  sBody.polyhedronAt = S32(sWords.size());
+               noteWord(v);
+            }
             break;
+         }
 
          case OpLoop:
          {
@@ -1377,14 +1406,7 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
 
             const U32 word = xferInt(stream, n.bits, write, at, n.op);
             if(n.bits == 32 && !write)
-            {
-               if(!sHaveFirstWord32)
-               {
-                  sHaveFirstWord32 = true;
-                  sFirstWord32 = word;
-               }
-               sWords.push_back(word);
-            }
+               noteWord(word);
             if(!write)
             {
                const T2DataBlockFieldRow *dbRow = dbFieldAt(layout, at);
@@ -1907,6 +1929,9 @@ static bool runGhost(BitStream *stream, const char *className,
    sBody.hasFieldState = false;
    sBody.fieldState = 0;
    sBody.fieldFade = 0;
+   sBody.polyhedronAt = -1;
+   sBody.hasZoneActive = false;
+   sBody.zoneActive = false;
    for(U32 i = 0; i < MaxImages; i++)
    {
       Body::Image &image = sBody.images[i];
