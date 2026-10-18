@@ -157,9 +157,11 @@ bool GuiPopupTextListCtrl::onKeyDown(const GuiEvent &event)
    return Parent::onKeyDown(event);
 }
 
-void GuiPopupTextListCtrl::onMouseUp(const GuiEvent &event)
+// HH: Modified for Tribes 2 compatibility.
+// The list closes on the press that takes a row, as the row is taken there.
+void GuiPopupTextListCtrl::onMouseDown(const GuiEvent &event)
 {
-   Parent::onMouseUp( event );
+   Parent::onMouseDown( event );
    mPopUpCtrl->closePopUp();
 }
 

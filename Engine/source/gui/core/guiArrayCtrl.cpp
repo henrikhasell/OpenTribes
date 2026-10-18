@@ -382,21 +382,14 @@ void GuiArrayCtrl::onRender(Point2I offset, const RectI &updateRect)
 
 //-----------------------------------------------------------------------------
 
+// HH: Modified for Tribes 2 compatibility.
+// A cell is taken on the press, not on the release.  Tribes 2 tucks an open
+// drop-down's list over the face it was opened from, so the release that
+// opened it rests on a row and would take it.
 void GuiArrayCtrl::onMouseDown( const GuiEvent &event )
 {
    if ( !mActive || !mAwake || !mVisible )
       return;
-}
-
-//-----------------------------------------------------------------------------
-
-void GuiArrayCtrl::onMouseUp( const GuiEvent &event )
-{
-   if ( !mActive || !mAwake || !mVisible )
-      return;
-
-   //let the guiControl method take care of the rest
-   Parent::onMouseUp(event);
 
    Point2I pt = globalToLocalCoord(event.mousePoint);
    pt.x -= mHeaderDim.x; pt.y -= mHeaderDim.y;

@@ -103,7 +103,6 @@ public:
    /// @name Mouse input methods
    /// @{
    void onMouseDown( const GuiEvent &event );
-   void onMouseUp( const GuiEvent &event );
    void onMouseMove( const GuiEvent &event );
    void onMouseDragged( const GuiEvent &event );
    void onMouseEnter( const GuiEvent &event );
