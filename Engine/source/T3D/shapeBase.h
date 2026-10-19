@@ -552,6 +552,14 @@ public:
    S32               underwaterExplosionID;
    /// @}
 
+   // HH: Added for Tribes 2 compatibility.
+   /// How the commander map files and draws this shape. Every shape datablock
+   /// carries them, so they arrive whether or not the map is drawn.
+   StringTableEntry  cmdCategory;
+   StringTableEntry  cmdMiniIconName;
+   GameBaseData*     cmdIcon;
+   S32               cmdIconID;
+
    /// @name Physical Properties
    /// @{
    F32 mass;
