@@ -26,6 +26,7 @@
 #include "T3D/gameBase/gameBase.h"
 #include "T3D/gameBase/gameConnection.h"
 #include "T3D/gameBase/moveList.h"
+#include "T3D/gameBase/targetManagerT2.h"
 
 //----------------------------------------------------------------------------
 
@@ -170,6 +171,11 @@ void ServerProcessList::advanceObjects()
    #ifdef TORQUE_DEBUG_NET_MOVES
    Con::printf("Advance server time...");
    #endif
+
+   // HH: Added for Tribes 2 compatibility.
+   // Retail's server runs its sensors each tick before anything ticks
+   // (0x6023aa).
+   TargetManagerT2::server()->updateSensors();
 
    Parent::advanceObjects();
 

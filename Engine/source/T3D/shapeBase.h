@@ -1481,8 +1481,19 @@ public:
 
    /// Returns level of cloaking, as it's not an instant "now you see it, now you don't"
    F32 getCloakLevel();
+
+   // HH: Added for Tribes 2 compatibility.
+   // Shown only to sensors that detect active jamming, cloaking or passive
+   // jamming (ShapeBase+0x82c); the cloaking pack sets it.  The server's
+   // target manager (targetManagerT2.cpp) is all that reads it.
+   bool isPassiveJammed() const       { return mPassiveJammed; }
+   void setPassiveJammed(bool jammed) { mPassiveJammed = jammed; }
    /// @}
 
+protected:
+   bool mPassiveJammed = false;
+
+public:
    /// @name Mounted objects
    /// @{   
    virtual void onMount( SceneObject *obj, S32 node );   

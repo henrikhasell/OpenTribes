@@ -96,7 +96,6 @@ ConsoleDocClass( TSShapeConstructorT2,
 
 IMPLEMENT_DATABLOCK_T2( CommanderIconData );
 IMPLEMENT_DATABLOCK_T2( CannedChatItem );
-IMPLEMENT_DATABLOCK_T2( SensorData );
 IMPLEMENT_DATABLOCK_T2( AudioEnvironment );
 IMPLEMENT_DATABLOCK_T2( AudioSampleEnvironment );
 IMPLEMENT_DATABLOCK_T2( BombProjectileData );
