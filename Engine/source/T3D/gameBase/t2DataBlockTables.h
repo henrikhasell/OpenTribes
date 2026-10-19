@@ -29,6 +29,15 @@ namespace T2Protocol
       OpPacketDataOf,
 
       OpCountBits,
+
+      /// Read nothing, and take b if the body is for the connection's own
+      /// control object. WheeledVehicle's unpackUpdate tests that before its
+      /// tail (0x615a89) and reads none of the tail when it holds.
+      OpControlObject,
+      /// Read nothing, and keep in slot b the wheels of the object's
+      /// datablock, for an OpLoop to run over: WheeledVehicle's loops run to
+      /// [db+0x6e8] (0x615b7b, 0x615905), which no bit of the body carries.
+      OpWheelCount,
    };
 
    struct T2DataNode

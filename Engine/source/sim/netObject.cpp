@@ -323,13 +323,21 @@ F32 NetObject::getUpdatePriority(CameraScopeQuery*, U32, S32 updateSkips)
 U32 NetObject::packUpdate(NetConnection *conn, U32 mask, BitStream *stream,
                           bool isInitial)
 {
-   T2Layout::writeGhost(stream, getClassName(), isInitial);
+   T2Layout::Subject subject;
+   getT2Subject(&subject, conn);
+   // Retail's writer sends its controller a first body whole all the same
+   // (0x6159ae), since the reader cannot have it as its control object yet.
+   if(isInitial)
+      subject.isControlObject = false;
+   T2Layout::writeGhost(stream, getClassName(), isInitial, &subject);
    return 0;
 }
 
 bool NetObject::unpackUpdate(BitStream *stream, bool isInitial)
 {
-   if(!T2Layout::readGhost(stream, getClassName(), isInitial))
+   T2Layout::Subject subject;
+   getT2Subject(&subject, NULL);
+   if(!T2Layout::readGhost(stream, getClassName(), isInitial, &subject))
       return false;
 
    onT2BodyHeadRead(T2Layout::lastBody());

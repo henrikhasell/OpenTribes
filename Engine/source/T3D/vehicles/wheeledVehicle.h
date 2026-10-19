@@ -130,6 +130,8 @@ struct WheeledVehicleData: public VehicleData
       F32 springLength;          // Suspension animation length
    } wheel[MaxWheels];
    U32 wheelCount;
+   // HH: Added for Tribes 2 compatibility.
+   U32 t2WheelCount;             ///< the wheels Tribes 2 finds ([db+0x6e8])
    ClippedPolyList rigidBody;    // Extracted from shape
    S32 brakeLightSequence;       // Brakes
    S32 steeringSequence;         // Steering animation
@@ -236,6 +238,10 @@ public:
 
    void writePacketData(GameConnection * conn, BitStream *stream);
    void readPacketData(GameConnection * conn, BitStream *stream);
+
+   // HH: Added for Tribes 2 compatibility.
+   void getT2Subject(T2Layout::Subject *subject,
+                     NetConnection *conn) const override;
 };
 
 
