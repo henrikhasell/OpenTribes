@@ -251,6 +251,17 @@ ShapeBaseData::~ShapeBaseData()
 }
 
 // HH: Added for Tribes 2 compatibility.
+// GameConnection::transmitDataBlocks packs and unpacks a server's own
+// datablocks in place for its local client, and the body our write walk
+// gives them carries defaults, not what the scripts set. One a remote server
+// sent sits in its connection, and a re-send of it has to land, as it does in
+// retail.
+bool ShapeBaseData::isUnpackedInPlace()
+{
+   return isProperlyAdded() && !dynamic_cast<NetConnection *>(getGroup());
+}
+
+// HH: Added for Tribes 2 compatibility.
 // The fields ShapeBaseData::unpackData (0x5e63e0) reads for every shape
 // datablock, whatever its class.
 bool ShapeBaseData::unpackData(BitStream *stream, U32 classId)
@@ -258,12 +269,7 @@ bool ShapeBaseData::unpackData(BitStream *stream, U32 classId)
    if (!Parent::unpackData(stream, classId))
       return false;
 
-   // GameConnection::transmitDataBlocks packs and unpacks a server's own
-   // datablocks in place for its local client, and the body our write walk
-   // gives them carries defaults, not what the scripts set. One a remote
-   // server sent sits in its connection, and a re-send of it has to land, as
-   // it does in retail.
-   if (isProperlyAdded() && !dynamic_cast<NetConnection *>(getGroup()))
+   if (isUnpackedInPlace())
       return true;
 
    // computeCRC is the first field of the run, so a body without it is one

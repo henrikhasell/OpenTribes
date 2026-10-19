@@ -41,6 +41,7 @@
 #include "sfx/sfxSource.h"
 #include "T3D/missionArea.h"
 #include "T3D/gameBase/gravityT2.h"   // HH: Added for Tribes 2 compatibility.
+#include "T3D/gameBase/t2Layout.h"    // HH: Added for Tribes 2 compatibility.
 
 //----------------------------------------------------------------------------
 
@@ -116,13 +117,21 @@ FlyingVehicleData::FlyingVehicleData()
    for (S32 k = 0; k < MaxJetNodes; k++)
       jetNode[k] = -1;
 
+   // HH: Modified for Tribes 2 compatibility.
    for (S32 j = 0; j < MaxJetEmitters; j++)
+   {
       jetEmitter[j] = 0;
+      jetEmitterID[j] = -1;
+   }
 
    for (S32 i = 0; i < MaxSounds; i++)
+   {
       sound[i] = 0;
+      soundID[i] = -1;
+   }
 
    vertThrustMultiple = 1.0;
+   maxForwardSpeed = 20;            // HH: Added for Tribes 2 compatibility.
 }
 
 bool FlyingVehicleData::preload(bool server, String &errorStr)
@@ -132,16 +141,16 @@ bool FlyingVehicleData::preload(bool server, String &errorStr)
 
    TSShapeInstance* si = new TSShapeInstance(mShape, false);
 
-   // Resolve objects transmitted from server
-   if (!server) {
-      for (S32 i = 0; i < MaxSounds; i++)
-         if (sound[i])
-            Sim::findObject(SimObjectId((uintptr_t)sound[i]),sound[i]);
+   // HH: Modified for Tribes 2 compatibility.
+   // Retail (0x60f550) resolves these on server and client alike, and
+   // silently.
+   for (S32 i = 0; i < MaxSounds; i++)
+      if (!sound[i] && soundID[i] != -1)
+         Sim::findObject(soundID[i], sound[i]);
 
-      for (S32 j = 0; j < MaxJetEmitters; j++)
-         if (jetEmitter[j])
-            Sim::findObject(SimObjectId((uintptr_t)jetEmitter[j]),jetEmitter[j]);
-   }
+   for (S32 j = 0; j < MaxJetEmitters; j++)
+      if (!jetEmitter[j] && jetEmitterID[j] != -1)
+         Sim::findObject(jetEmitterID[j], jetEmitter[j]);
 
    // Extract collision planes from shape collision detail level
    if (collisionDetails[0] != -1)
@@ -235,7 +244,56 @@ void FlyingVehicleData::initPersistFields()
    addField( "minTrailSpeed", TypeF32, Offset(minTrailSpeed, FlyingVehicleData),
       "Minimum speed at which to start generating contrail particles." );
 
+   // HH: Added for Tribes 2 compatibility.
+   addField( "maxForwardSpeed", TypeF32, Offset(maxForwardSpeed, FlyingVehicleData),
+      "Speed below which jetting and thrust still push the vehicle forwards." );
+
    Parent::initPersistFields();
+}
+
+// HH: Added for Tribes 2 compatibility.
+// The fields FlyingVehicleData::unpackData (0x60fc40) reads after
+// VehicleData's. Retail keeps the sounds and emitters it had, which preload
+// then leaves as they are.
+bool FlyingVehicleData::unpackData(BitStream *stream, U32 classId)
+{
+   if (!Parent::unpackData(stream, classId))
+      return false;
+
+   F32 value;
+   if (isUnpackedInPlace() ||
+       !T2Layout::lastDataBlockField(T2Layout::T2DbManeuveringForce, &value))
+      return true;
+
+   static const struct { U32 field; F32 FlyingVehicleData::*member; } sFields[] =
+   {
+      { T2Layout::T2DbManeuveringForce,       &FlyingVehicleData::maneuveringForce       },
+      { T2Layout::T2DbHorizontalSurfaceForce, &FlyingVehicleData::horizontalSurfaceForce },
+      { T2Layout::T2DbVerticalSurfaceForce,   &FlyingVehicleData::verticalSurfaceForce   },
+      { T2Layout::T2DbAutoInputDamping,       &FlyingVehicleData::autoInputDamping       },
+      { T2Layout::T2DbSteeringForce,          &FlyingVehicleData::steeringForce          },
+      { T2Layout::T2DbSteeringRollForce,      &FlyingVehicleData::steeringRollForce      },
+      { T2Layout::T2DbRollForce,              &FlyingVehicleData::rollForce              },
+      { T2Layout::T2DbAutoAngularForce,       &FlyingVehicleData::autoAngularForce       },
+      { T2Layout::T2DbRotationalDrag,         &FlyingVehicleData::rotationalDrag         },
+      { T2Layout::T2DbAutoLinearForce,        &FlyingVehicleData::autoLinearForce        },
+      { T2Layout::T2DbMaxAutoSpeed,           &FlyingVehicleData::maxAutoSpeed           },
+      { T2Layout::T2DbHoverHeight,            &FlyingVehicleData::hoverHeight            },
+      { T2Layout::T2DbCreateHoverHeight,      &FlyingVehicleData::createHoverHeight      },
+      { T2Layout::T2DbMinTrailSpeed,          &FlyingVehicleData::minTrailSpeed          },
+      { T2Layout::T2DbVertThrustMultiple,     &FlyingVehicleData::vertThrustMultiple     },
+      { T2Layout::T2DbMaxForwardSpeed,        &FlyingVehicleData::maxForwardSpeed        },
+   };
+
+   for (U32 i = 0; i < sizeof(sFields) / sizeof(sFields[0]); i++)
+      T2Layout::lastDataBlockField(sFields[i].field, &(this->*sFields[i].member));
+
+   for (U32 i = 0; i < MaxSounds; i++)
+      soundID[i] = sentDataBlockId(T2Layout::T2DbVehicleSound + i);
+   for (U32 i = 0; i < MaxJetEmitters; i++)
+      jetEmitterID[i] = sentDataBlockId(T2Layout::T2DbVehicleJetEmitter + i);
+
+   return true;
 }
 
 

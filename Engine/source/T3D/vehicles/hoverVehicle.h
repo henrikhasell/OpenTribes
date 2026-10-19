@@ -47,6 +47,7 @@ class HoverVehicleData : public VehicleData
       MaxSounds
    };
    SFXProfile* sound[MaxSounds];
+   S32 soundID[MaxSounds];          // HH: Added for Tribes 2 compatibility.
 
    enum Jets {
       // These enums index into a static name list.
@@ -56,6 +57,7 @@ class HoverVehicleData : public VehicleData
       MaxJetEmitters,
    };
    ParticleEmitterData* jetEmitter[MaxJetEmitters];
+   S32 jetEmitterID[MaxJetEmitters];   // HH: Added for Tribes 2 compatibility.
 
    enum JetNodes {
       // These enums index into a static name list.
@@ -116,6 +118,8 @@ class HoverVehicleData : public VehicleData
    ~HoverVehicleData();
 
    bool preload(bool server, String &errorStr);
+   // HH: Added for Tribes 2 compatibility.
+   bool unpackData(BitStream *stream, U32 classId) override;
 
    DECLARE_CONOBJECT(HoverVehicleData);
    static void initPersistFields();
