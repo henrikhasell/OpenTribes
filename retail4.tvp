@@ -1,0 +1,137 @@
+TVP ---- setup
+TVP defaults = 1 1 0 0 0 1 0 0 250 90 0 0 0 0 0 0
+TVP mpb jammer = 1 1 1 0 50 20
+TVP wall box = -1.09998 -3.78003 -0.0489807 1.63 -0.0999756 2.935
+TVP ---- placed
+TVP ---- report
+TVP vis s1 = 10100000
+TVP vis t1a = 11100000
+TVP vis t1b = 11000000
+TVP vis t1c = 01000000
+TVP vis t1d = 11100000
+TVP vis t1e = 11100000
+TVP vis t1f = 11000000
+TVP vis t1g = 11000000
+TVP vis s1late = 10100000
+TVP vis s2 = 10000000
+TVP vis s2n = 00100000
+TVP vis t2a = 00110000
+TVP vis t2b = 10110000
+TVP vis s3p = 11111000
+TVP vis s3c = 11111000
+TVP vis s3s = 11111000
+TVP vis s3a = 11111000
+TVP vis t3a = 11111000
+TVP vis t3b = 01011000
+TVP vis t3c = 01111000
+TVP vis t3d = 00011000
+TVP vis j3d = 00011000
+TVP vis t3e = 00011000
+TVP vis j3e = 00011000
+TVP vis s4p = 10001000
+TVP vis s4a = 10001000
+TVP vis t4a = 00011000
+TVP vis j4a = 00001100
+TVP vis t4b = 10011000
+TVP vis j4b = 00001100
+TVP vis t4c = 10011000
+TVP vis f4c = 10011000
+TVP vis e4c = 00001100
+TVP vis e4d = 00001100
+TVP vis t4d = 00011000
+TVP vis f4d = 00011000
+TVP vis s5 = 10000000
+TVP vis t5a = 00010000
+TVP vis t5b = 10100000
+TVP vis t5c = 10000000
+TVP vis t5d = 00000010
+TVP vis t5e = 10100000
+TVP vis t5f = 00000000
+TVP vis s6 = 10000000
+TVP vis s6o = 01000000
+TVP vis s6m = 00100000
+TVP vis t6a = 11010000
+TVP vis t6b = 00010000
+TVP vis t6c = 00010000
+TVP vis t6d = 11010000
+TVP vis t6e = 11010000
+TVP vis s7 = 10100000
+TVP vis s7b = 00100000
+TVP vis t7 = 00110000
+TVP vis s8 = 10000000
+TVP vis mpb = 00010000
+TVP vis t8a = 00010000
+TVP vis t8b = 10010000
+TVP vis t8c = 10010000
+TVP vis t8d = 10000100
+TVP t3b cloaked = 1
+TVP t4a cloaked = 1
+TVP t3c passive = 1
+TVP t3a passive = 0
+TVP t5d never = 16
+TVP t5d always = 1024
+TVP t5e always = 64
+TVP t5e friendly = 2048
+TVP t5e friendly 11 = 1
+TVP t5e friendly 4 = 0
+TVP t5e friendly 4 after -1 = 1
+TVP t5e friendly mask after -1 = -1
+TVP t5e friendly mask after 4294967295 = 2147483647
+TVP t5e friendly mask after 0xffffffff = -1
+TVP group 11 always = 64
+TVP group 11 never = 0
+TVP group 11 friendly = 2048
+TVP group 11 listen = 5
+TVP group 10 never = 16
+TVP group 3 always = 8
+TargetManager::cGetSensorGroupAlwaysVisMask: invalid sensor group [32]
+TVP group 32 always = 0
+TargetManager::cGetSensorGroupListenMask: invalid sensor group [-1]
+TVP group -1 listen = 0
+TargetManager::cSetSensorGroupFriendlyMask: invalid sensor group [40]
+TVP team 11 always = 64
+TVP team 11 friendly = 2048
+TVP team 10 never = 16
+TVP team 12 always after set = 9
+TVP team 12 visible 0 = 1
+TVP team 12 visible 3 = 1
+TargetManager::cIsTargetVisible: cannot change attribute on unallocated target [511]
+TVP vis 511 = 0
+TargetManager::cIsTargetVisible: invalid target index [512]
+TVP vis 512 = 0
+TargetManager::cIsTargetVisible: invalid sensor group [32]
+TVP vis group 32 = 0
+TargetManager::cIsTargetFriendly: invalid target index [600]
+TVP friendly 600 = 0
+TargetManager::cGetTargetAlwaysVisMask: cannot change attribute on unallocated target [511]
+TVP always 511 = 0
+TargetManager::cSetTargetNeverVisMask: cannot change attribute on unallocated target [511]
+TargetManager::cSetTargetNeverVisMask: invalid target index [-4]
+TVP sd fresh = -1
+TVP sd s1 = 1
+TVP sd 500 = 1
+TVP sd 500 cleared = -1
+TVP sd 500 non-sensor = -1
+TVP sd 600 = -1
+TVP sd -1 = -1
+TVP sd after alloc = -1
+TVP sd after free = -1
+TVP realloc same id = 1
+TVP sd after realloc = -1
+TVP count = 3
+TargetManager::cSetSensorGroupCount: invalid group count [33]
+TVP count after 33 = 3
+TVP count after 32 = 32
+TargetManager::cSetSensorGroupCount: invalid group count [-1]
+TVP count after -1 = 32
+TVP ---- end
+TVP ---- phase 2
+TVP ---- report 2
+TVP vis t1a = 10100000
+TVP vis t3b = 11111000
+TVP vis t3c = 11111000
+TVP vis t3d = 11111000
+TVP vis t7 = 10110000
+TVP vis mpb = 10010000
+TVP vis t8a = 10010000
+TVP ---- end 2

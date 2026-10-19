@@ -1,0 +1,7 @@
+% TVF ids = 74 75
+READ seen id=75 group4bit=1 flags=4 visMask=0x30
+% TVF before free vis4 = 1
+TVF reused = 75 75 -1
+TVF after realloc vis4 = 0
+READ freed+realloc id=75 group4bit=0 flags=0 visMask=0x0
+READ later id=75 group4bit=0 flags=0 visMask=0x0
