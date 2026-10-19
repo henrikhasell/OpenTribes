@@ -106,6 +106,8 @@ namespace T2Layout
          bool   wet;
          bool   target;
          U32    fireCount;
+         bool   fireOnInitial;      ///< an initial body's extra flag: the
+                                    ///< slot was firing when the ghost was sent
       };
       Image   images[MaxImages];
 

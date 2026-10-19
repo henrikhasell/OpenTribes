@@ -1136,6 +1136,7 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
                      case T2ImageAmmo:    image.ammo        = set; break;
                      case T2ImageWet:     image.wet         = set; break;
                      case T2ImageTarget:  image.target      = set; break;
+                     case T2ImageExtra:   image.fireOnInitial = set; break;
                      default:                                      break;
                   }
                }
@@ -1906,6 +1907,7 @@ static bool runGhost(BitStream *stream, const char *className,
       image.wet = false;
       image.target = false;
       image.fireCount = 0;
+      image.fireOnInitial = false;
    }
    for(U32 i = 0; i < MaxThreads; i++)
    {
