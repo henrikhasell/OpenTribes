@@ -31,6 +31,9 @@ namespace T2Layout
    /// ShapeBase's playAudio slots.
    enum { MaxSounds = 4 };
 
+   /// The most wheels WheeledVehicleData's preload looks for (0x611f42).
+   enum { MaxWheels = 8 };
+
    struct Body
    {
       bool    hasDataBlock;         ///< the object's own datablock came with
@@ -193,6 +196,16 @@ namespace T2Layout
          U32    thrust;             ///< a hover or flyer's thrust direction
          bool   hasCreateHeight;
          bool   createHeightOn;     ///< a flyer still at its pad height
+         bool   hasBraking;         ///< a wheeled vehicle's own tail, which
+                                    ///< its controller is not sent
+         bool   braking;
+         bool   hasWheels;          ///< the wheels' block followed
+         U32    wheelCount;         ///< the wheels it carried
+         U32    wheelWords;         ///< the words read so far, for the walk
+         U32    wheels[MaxWheels][3]; ///< per wheel: the angular velocity,
+                                    ///< then the longitudinal and lateral
+                                    ///< tire deflection (Torque's avel, Dy,
+                                    ///< Dx), each sent whole
       };
       VehicleTail vehicle;
    };

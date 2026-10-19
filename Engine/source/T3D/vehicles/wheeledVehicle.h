@@ -201,6 +201,7 @@ public:
    // HH: Added for Tribes 2 compatibility.
    void getT2Subject(T2Layout::Subject *subject,
                      NetConnection *conn) const override;
+   bool unpackUpdate(BitStream *stream, bool isInitial) override;
 };
 
 

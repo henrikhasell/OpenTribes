@@ -1140,8 +1140,11 @@ enum T2VehiclePart
    T2VehicleEnergy,
    T2VehicleCreateHeight,
    T2VehicleThrust,
+   T2VehicleBraking,
+   T2VehicleWheelsHere,
+   T2VehicleWheelWord,
 
-   T2VehicleParts
+   T2VehicleParts       = T2VehicleWheelWord + 3
 };
 
 struct T2VehicleMap
@@ -1152,6 +1155,50 @@ struct T2VehicleMap
 
 static Vector<T2VehicleMap *> sVehicleMaps(__FILE__, __LINE__);
 static const T2VehicleMap *sVehicle = NULL;
+
+   /// WheeledVehicle::unpackUpdate (0x615a70), after Vehicle's: nothing for
+   /// the connection's control object, else the brake, then a flag and, under
+   /// it, three whole words for each of the datablock's wheels. Every way out
+   /// lands where the read returns.
+static void matchWheeledTail(const T2DataBlockLayout *layout, S32 top,
+                             S16 *parts)
+{
+   const T2DataNode *control = nodeAt(layout, top);
+   const T2DataNode *braking = nodeAt(layout, control->a);
+   if(!isBareFlag(braking))
+      return;
+
+   const T2DataNode *wheelsHere = nodeAt(layout, braking->a);
+   if(!isBranch(wheelsHere) || wheelsHere->a != control->b)
+      return;
+
+   const T2DataNode *count = nodeAt(layout, wheelsHere->b);
+   if(!count || count->op != OpWheelCount)
+      return;
+
+   const T2DataNode *loop = nodeAt(layout, count->a);
+   if(!loop || loop->op != OpLoop || loop->bits != count->b ||
+      loop->a != wheelsHere->a)
+      return;
+
+   S16 words[3];
+   S32 at = loop->b;
+   for(U32 i = 0; i < 3; i++)
+   {
+      const T2DataNode *word = nodeAt(layout, at);
+      if(!isWord(word, 32))
+         return;
+      words[i] = S16(at);
+      at = word->a;
+   }
+   if(at != -1)
+      return;
+
+   parts[T2VehicleBraking]    = S16(control->a);
+   parts[T2VehicleWheelsHere] = S16(braking->a);
+   for(U32 i = 0; i < 3; i++)
+      parts[T2VehicleWheelWord + i] = words[i];
+}
 
    /// Vehicle::unpackUpdate (0x60dc30): jetting, then a flag that ends the
    /// tail when this client drives the vehicle, then two steering words of
@@ -1271,6 +1318,8 @@ static bool matchVehicleTail(const T2DataBlockLayout *layout, S32 top,
          parts[T2VehicleThrust]       = S16(createHeight->a);
       }
    }
+   else if(after && after->op == OpControlObject)
+      matchWheeledTail(layout, next, parts);
    return true;
 }
 
@@ -1829,6 +1878,13 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
                      v.hasCreateHeight = true;
                      v.createHeightOn = set;
                   }
+                  else if(partOf == T2VehicleBraking)
+                  {
+                     v.hasBraking = true;
+                     v.braking = set;
+                  }
+                  else if(partOf == T2VehicleWheelsHere)
+                     v.hasWheels = set;
                }
 
                U32 state, part;
@@ -2299,6 +2355,18 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
                   {
                      v.hasThrust = true;
                      v.thrust = word;
+                  }
+                  else if(part >= T2VehicleWheelWord &&
+                          part < T2VehicleParts)
+                  {
+                     // The loop visits each wheel's three words in turn, so
+                     // the count of them read says which wheel this is.
+                     const U32 wheel = v.wheelWords++ / 3;
+                     if(wheel < MaxWheels)
+                     {
+                        v.wheels[wheel][part - T2VehicleWheelWord] = word;
+                        v.wheelCount = wheel + 1;
+                     }
                   }
                }
 

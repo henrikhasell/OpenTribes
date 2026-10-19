@@ -708,6 +708,9 @@ U32 WheeledVehicle::getCollisionMask()
 
 //----------------------------------------------------------------------------
 
+// HH: Modified for Tribes 2 compatibility.
+// WheeledVehicle::writePacketData (0x6157a0): Vehicle's, the brake, then each
+// wheel's angular velocity and tire deflection. Retail sends no slipping flag.
 void WheeledVehicle::writePacketData(GameConnection *connection, BitStream *stream)
 {
    Parent::writePacketData(connection, stream);
@@ -719,10 +722,11 @@ void WheeledVehicle::writePacketData(GameConnection *connection, BitStream *stre
       stream->write(wheel->avel);
       stream->write(wheel->Dy);
       stream->write(wheel->Dx);
-      stream->writeFlag(wheel->slipping);
    }
 }
 
+// HH: Modified for Tribes 2 compatibility.
+// WheeledVehicle::readPacketData (0x615840), the mirror of the write.
 void WheeledVehicle::readPacketData(GameConnection *connection, BitStream *stream)
 {
    Parent::readPacketData(connection, stream);
@@ -734,7 +738,6 @@ void WheeledVehicle::readPacketData(GameConnection *connection, BitStream *strea
       stream->read(&wheel->avel);
       stream->read(&wheel->Dy);
       stream->read(&wheel->Dx);
-      wheel->slipping = stream->readFlag();
    }
 
    // Rigid state is transmitted by the parent...
@@ -755,6 +758,35 @@ void WheeledVehicle::getT2Subject(T2Layout::Subject *subject,
 {
    Parent::getT2Subject(subject, conn);
    subject->wheelCount = t2WheelCountOf;
+}
+
+// HH: Added for Tribes 2 compatibility.
+// WheeledVehicle::unpackUpdate (0x615a70) keeps the brake and the wheels'
+// words as they come, and its controller is sent neither: it has them from
+// its own packet data. Retail stores them once a first body's datablock has
+// been taken and its onNewDataBlock has cleared the wheels, so they are kept
+// here after the parent's read has done the same.
+bool WheeledVehicle::unpackUpdate(BitStream *stream, bool isInitial)
+{
+   if (!Parent::unpackUpdate(stream, isInitial))
+      return false;
+
+   const T2Layout::Body::VehicleTail &tail = T2Layout::lastBody().vehicle;
+   if (tail.hasBraking)
+      mBraking = tail.braking;
+
+   if (!tail.hasWheels || !mDataBlock)
+      return true;
+
+   // The walk counted the wheels from the datablock this one has now.
+   const U32 count = getMin(tail.wheelCount, mDataBlock->wheelCount);
+   for (U32 i = 0; i < count; i++)
+   {
+      dMemcpy(&mWheel[i].avel, &tail.wheels[i][0], sizeof(F32));
+      dMemcpy(&mWheel[i].Dy,   &tail.wheels[i][1], sizeof(F32));
+      dMemcpy(&mWheel[i].Dx,   &tail.wheels[i][2], sizeof(F32));
+   }
+   return true;
 }
 
 
