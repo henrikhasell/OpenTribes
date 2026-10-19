@@ -605,6 +605,17 @@ void HoverVehicle::updateMove(const Move* move)
    mThrustDirection = (!move->y)? ThrustDown: (move->y > 0)? ThrustForward: ThrustBackward;
 }
 
+// HH: Added for Tribes 2 compatibility.
+// HoverVehicle::unpackUpdate (0x617340) reads the thrust even from a body
+// Vehicle's read ended early, for the client that drives it.
+void HoverVehicle::onT2BodyRead(const T2Layout::Body &body)
+{
+   Parent::onT2BodyRead(body);
+
+   if (body.vehicle.hasThrust)
+      mThrustDirection = ThrustDirection(body.vehicle.thrust);
+}
+
 F32 HoverVehicle::getBaseStabilizerLength() const
 {
    F32 base = mDataBlock->stabLenMin;

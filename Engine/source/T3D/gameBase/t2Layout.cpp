@@ -1120,6 +1120,216 @@ static bool soundAt(const T2DataBlockLayout *layout, S32 at, U32 *slot,
    return true;
 }
 
+/// The nodes of the tail Vehicle::unpackUpdate adds to ShapeBase's body, and
+/// of what a hover or flying vehicle reads after it.
+enum T2VehiclePart
+{
+   T2VehicleJetting,
+   T2VehicleControlled,
+   T2VehicleSteering,
+   T2VehicleMoveRotHere = T2VehicleSteering + 2,
+   T2VehicleMoveRot     = T2VehicleMoveRotHere + 3,
+   T2VehicleMoveAxis    = T2VehicleMoveRot + 3,
+   T2VehicleFreeLook    = T2VehicleMoveAxis + 3,
+   T2VehicleTrigger,
+   T2VehicleFrozen      = T2VehicleTrigger + 6,
+   T2VehiclePositionHere,
+   T2VehiclePosition,
+   T2VehicleWord,
+   T2VehicleEnergyHere  = T2VehicleWord + 10,
+   T2VehicleEnergy,
+   T2VehicleCreateHeight,
+   T2VehicleThrust,
+
+   T2VehicleParts
+};
+
+struct T2VehicleMap
+{
+   const T2DataBlockLayout *layout;
+   Vector<S16>              part;   ///< node -> part, or -1
+};
+
+static Vector<T2VehicleMap *> sVehicleMaps(__FILE__, __LINE__);
+static const T2VehicleMap *sVehicle = NULL;
+
+   /// Vehicle::unpackUpdate (0x60dc30): jetting, then a flag that ends the
+   /// tail when this client drives the vehicle, then two steering words of
+   /// nine bits, the Move (0x601800), frozen, the position block behind its
+   /// own flag -- a compressed point and ten whole words -- and the energy
+   /// behind another. The controlled flag's set arm lands where the energy's
+   /// arms do, since both are where Vehicle's read returns; that is what
+   /// tells the tail's end from whatever a subclass reads next.
+static bool matchVehicleTail(const T2DataBlockLayout *layout, S32 top,
+                             S16 *parts)
+{
+   const T2DataNode *jetting = nodeAt(layout, top);
+   if(!isBareFlag(jetting))
+      return false;
+
+   const T2DataNode *controlled = nodeAt(layout, jetting->a);
+   if(!isBranch(controlled))
+      return false;
+
+   parts[T2VehicleJetting]    = S16(top);
+   parts[T2VehicleControlled] = S16(jetting->a);
+
+   S32 at = controlled->a;
+   for(U32 i = 0; i < 2; i++)
+   {
+      const T2DataNode *steering = nodeAt(layout, at);
+      if(!isWord(steering, 9))
+         return false;
+      parts[T2VehicleSteering + i] = S16(at);
+      at = steering->a;
+   }
+
+   for(U32 i = 0; i < 3; i++)
+   {
+      const T2DataNode *here = nodeAt(layout, at);
+      if(!isBranch(here))
+         return false;
+
+      const T2DataNode *rot = nodeAt(layout, here->b);
+      if(!isWord(rot, 16) || rot->a != here->a)
+         return false;
+
+      parts[T2VehicleMoveRotHere + i] = S16(at);
+      parts[T2VehicleMoveRot + i]     = S16(here->b);
+      at = here->a;
+   }
+
+   for(U32 i = 0; i < 3; i++)
+   {
+      const T2DataNode *axis = nodeAt(layout, at);
+      if(!isWord(axis, 6))
+         return false;
+      parts[T2VehicleMoveAxis + i] = S16(at);
+      at = axis->a;
+   }
+
+   // freeLook, the six triggers, then frozen.
+   for(U32 i = 0; i < 8; i++)
+   {
+      const T2DataNode *flag = nodeAt(layout, at);
+      if(!isBareFlag(flag))
+         return false;
+      parts[T2VehicleFreeLook + i] = S16(at);
+      at = flag->a;
+   }
+
+   const T2DataNode *positionHere = nodeAt(layout, at);
+   if(!isBranch(positionHere))
+      return false;
+
+   const T2DataNode *position = nodeAt(layout, positionHere->b);
+   if(!position || position->op != OpPoint)
+      return false;
+
+   parts[T2VehiclePositionHere] = S16(at);
+   parts[T2VehiclePosition]     = S16(positionHere->b);
+
+   S32 word = position->a;
+   for(U32 i = 0; i < 10; i++)
+   {
+      const T2DataNode *n = nodeAt(layout, word);
+      if(!isWord(n, 32))
+         return false;
+      parts[T2VehicleWord + i] = S16(word);
+      word = n->a;
+   }
+   if(word != positionHere->a)
+      return false;
+
+   const T2DataNode *energyHere = nodeAt(layout, positionHere->a);
+   if(!isBranch(energyHere))
+      return false;
+
+   const T2DataNode *energy = nodeAt(layout, energyHere->b);
+   if(!isWord(energy, 8) || energy->a != energyHere->a ||
+      energyHere->a != controlled->b)
+      return false;
+
+   parts[T2VehicleEnergyHere] = S16(positionHere->a);
+   parts[T2VehicleEnergy]     = S16(energyHere->b);
+
+   // HoverVehicle::unpackUpdate (0x617340) reads its thrust whether or not
+   // Vehicle's returned early. FlyingVehicle's (0x6116a0) has a controlled
+   // flag of its own ahead of createHeightOn and the thrust.
+   const S32 next = energyHere->a;
+   const T2DataNode *after = nodeAt(layout, next);
+   if(isWord(after, 3))
+      parts[T2VehicleThrust] = S16(next);
+   else if(isBranch(after))
+   {
+      const T2DataNode *createHeight = nodeAt(layout, after->a);
+      const T2DataNode *thrust =
+         isBareFlag(createHeight) ? nodeAt(layout, createHeight->a) : NULL;
+      if(isWord(thrust, 3) && thrust->a == after->b)
+      {
+         parts[T2VehicleCreateHeight] = S16(after->a);
+         parts[T2VehicleThrust]       = S16(createHeight->a);
+      }
+   }
+   return true;
+}
+
+static const T2VehicleMap *resolveVehicle(const T2DataBlockLayout *layout)
+{
+   for(U32 i = 0; i < sVehicleMaps.size(); i++)
+      if(sVehicleMaps[i]->layout == layout)
+         return sVehicleMaps[i];
+
+   T2VehicleMap *map = new T2VehicleMap;
+   map->layout = layout;
+   map->part.setSize(layout->count);
+   for(U32 i = 0; i < layout->count; i++)
+      map->part[i] = -1;
+
+   S16 parts[T2VehicleParts];
+   U32 tails = 0;
+   S32 tailAt = -1;
+   for(U32 i = 0; i < layout->count; i++)
+   {
+      for(U32 p = 0; p < T2VehicleParts; p++)
+         parts[p] = -1;
+
+      // Two tails would be two vehicles' states to choose between, and
+      // nothing to choose by, so only the first one counts.
+      if(!matchVehicleTail(layout, S32(i), parts) || tails++)
+         continue;
+
+      tailAt = S32(i);
+      for(U32 p = 0; p < T2VehicleParts; p++)
+         if(parts[p] >= 0)
+            map->part[parts[p]] = S16(p);
+   }
+
+   if(tails > 1)
+      Con::warnf("T2 layout: %s has %d blocks shaped like Vehicle's tail; "
+                 "the first is being taken", layout->name, tails);
+   else if(tails)
+      Con::printf("T2 layout: %s carries a vehicle's tail at node %d",
+                  layout->name, tailAt);
+
+   sVehicleMaps.push_back(map);
+   return map;
+}
+
+static bool vehicleAt(const T2DataBlockLayout *layout, S32 at, U32 *part)
+{
+   if(!sVehicle || sVehicle->layout != layout || at < 0 ||
+      U32(at) >= sVehicle->part.size())
+      return false;
+
+   const S16 what = sVehicle->part[at];
+   if(what < 0)
+      return false;
+
+   *part = U32(what);
+   return true;
+}
+
 static bool threadAt(const T2DataBlockLayout *layout, S32 at, U32 *slot,
                      U32 *part)
 {
@@ -1589,6 +1799,38 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
                         break;
                   }
 
+               if(vehicleAt(layout, at, &partOf))
+               {
+                  Body::VehicleTail &v = sBody.vehicle;
+                  if(partOf == T2VehicleJetting)
+                  {
+                     v.present = true;
+                     sBody.hasJetting = true;
+                     sBody.jetting = set;
+                  }
+                  else if(partOf == T2VehicleControlled)
+                     v.controlled = set;
+                  else if(partOf >= T2VehicleMoveRotHere &&
+                          partOf < T2VehicleMoveRot)
+                     v.hasMoveRot[partOf - T2VehicleMoveRotHere] = set;
+                  else if(partOf == T2VehicleFreeLook)
+                     v.freeLook = set;
+                  else if(partOf >= T2VehicleTrigger &&
+                          partOf < T2VehicleFrozen)
+                     v.trigger[partOf - T2VehicleTrigger] = set;
+                  else if(partOf == T2VehicleFrozen)
+                     v.frozen = set;
+                  else if(partOf == T2VehiclePositionHere)
+                     v.hasPosition = set;
+                  else if(partOf == T2VehicleEnergyHere)
+                     v.hasEnergy = set;
+                  else if(partOf == T2VehicleCreateHeight)
+                  {
+                     v.hasCreateHeight = true;
+                     v.createHeightOn = set;
+                  }
+               }
+
                U32 state, part;
                if(stateAt(layout, at, &state, &part))
                {
@@ -2039,6 +2281,27 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
                         break;
                   }
 
+               if(vehicleAt(layout, at, &part))
+               {
+                  Body::VehicleTail &v = sBody.vehicle;
+                  if(part >= T2VehicleSteering && part < T2VehicleMoveRotHere)
+                     v.steering[part - T2VehicleSteering] = t2Float(word, 9);
+                  else if(part >= T2VehicleMoveRot && part < T2VehicleMoveAxis)
+                     v.moveRot[part - T2VehicleMoveRot] = word;
+                  else if(part >= T2VehicleMoveAxis &&
+                          part < T2VehicleFreeLook)
+                     v.moveAxis[part - T2VehicleMoveAxis] = word;
+                  else if(part >= T2VehicleWord && part < T2VehicleEnergyHere)
+                     v.words[part - T2VehicleWord] = word;
+                  else if(part == T2VehicleEnergy)
+                     v.energy = t2Float(word, 8);
+                  else if(part == T2VehicleThrust)
+                  {
+                     v.hasThrust = true;
+                     v.thrust = word;
+                  }
+               }
+
                U32 state;
                if(stateAt(layout, at, &state, &part) && part == T2StateTimeout)
                   dMemcpy(&sImageStates[state].timeout, &word, sizeof(F32));
@@ -2060,6 +2323,12 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
                   sBody.hasPosition = true;
                   sBody.position = p;
                }
+
+               // Kept apart from the position SceneObject places a body at:
+               // a vehicle's goes to its rigid body and is warped to.
+               U32 part;
+               if(vehicleAt(layout, at, &part) && part == T2VehiclePosition)
+                  sBody.vehicle.position = p;
             }
             break;
          }
@@ -2687,6 +2956,7 @@ static void resolveGhostFields(const char *className)
    sShield = NULL;
    sShape = NULL;
    sSounds = NULL;
+   sVehicle = NULL;
 
    const T2DataBlockLayout *layout =
       findNamed(className, sT2GhostsRecovered, ELEMENTS(sT2GhostsRecovered));
@@ -2700,6 +2970,7 @@ static void resolveGhostFields(const char *className)
    sShield = resolveShield(layout);
    sShape = resolveShape(layout);
    sSounds = resolveSounds(layout);
+   sVehicle = resolveVehicle(layout);
 
    for(U32 i = 0; i < ELEMENTS(sT2GhostFields); i++)
    {
@@ -2937,6 +3208,7 @@ static bool runGhost(BitStream *stream, const char *className,
       sound.play = false;
       sound.profile = -1;
    }
+   dMemset(&sBody.vehicle, 0, sizeof(sBody.vehicle));
    sTransformAt = -1;
    sAffineAt = -1;
    sScaleAt = -1;

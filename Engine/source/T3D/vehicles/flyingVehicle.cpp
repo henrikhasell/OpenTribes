@@ -744,6 +744,19 @@ void FlyingVehicle::readPacketData(GameConnection *connection, BitStream *stream
    mDelta.rot[1] = mRigid.angPosition;
 }
 
+// HH: Added for Tribes 2 compatibility.
+// FlyingVehicle::unpackUpdate (0x6116a0) sends the client that flies it
+// neither of these.
+void FlyingVehicle::onT2BodyRead(const T2Layout::Body &body)
+{
+   Parent::onT2BodyRead(body);
+
+   if (body.vehicle.hasCreateHeight)
+      createHeightOn = body.vehicle.createHeightOn;
+   if (body.vehicle.hasThrust)
+      mThrustDirection = ThrustDirection(body.vehicle.thrust);
+}
+
 
 
 void FlyingVehicle::initPersistFields()
