@@ -423,6 +423,18 @@ public:
    // HH: Added for Tribes 2 compatibility.
    bool unpackUpdate(BitStream *stream, bool isInitial);
 
+   // HH: Added for Tribes 2 compatibility.
+   // The target the scripts gave this object, -1 for none. The server's
+   // target manager (targetManagerT2.cpp) holds what it stands for.
+   S32  getTarget() const;
+   void setTarget(S32 target);
+
+protected:
+   friend class TargetManagerT2;
+   S32 mTarget = -1;
+
+public:
+
    DECLARE_CONOBJECT (GameBase );
 
    /// @name Callbacks
