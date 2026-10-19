@@ -48,6 +48,11 @@ VehicleBlocker::VehicleBlocker()
    mTypeMask = VehicleBlockerObjectType;
 
    mConvexList = new Convex;
+
+   // HH: Added for Tribes 2 compatibility. onAdd builds the box from this,
+   // and a blocker made with no dimensions would otherwise build it from
+   // whatever the allocation held.
+   mDimensions.set(0.0f, 0.0f, 0.0f);
 }
 
 VehicleBlocker::~VehicleBlocker()
@@ -88,11 +93,38 @@ void VehicleBlocker::onRemove()
    Parent::onRemove();
 }
 
+//--------------------------------------------------------------------------
+// HH: Added for Tribes 2 compatibility. The binary's layout (0x5b9c50):
+// every update carries the transform, the scale and the dimensions, sixteen,
+// three and three raw floats, whatever the mask.
+U32 VehicleBlocker::packUpdate(NetConnection *, U32, BitStream *stream, bool)
+{
+   mathWrite(*stream, getTransform());
+   mathWrite(*stream, getScale());
+   mathWrite(*stream, mDimensions);
 
+   return 0;
+}
 
+bool VehicleBlocker::unpackUpdate(BitStream *stream, bool)
+{
+   // The binary's reader (0x5b9d40) rebuilds the box before it takes the
+   // scale and the transform, so the world box they reset is the new one.
+   MatrixF mat;
+   Point3F scale;
+   mathRead(*stream, &mat);
+   mathRead(*stream, &scale);
+   mathRead(*stream, &mDimensions);
 
+   mObjBox.minExtents.set(-mDimensions.x, -mDimensions.y, 0);
+   mObjBox.maxExtents.set( mDimensions.x,  mDimensions.y, mDimensions.z);
+   setScale(scale);
+   setTransform(mat);
 
+   return true;
+}
 
+//--------------------------------------------------------------------------
 void VehicleBlocker::buildConvex(const Box3F& box, Convex* convex)
 {
    // These should really come out of a pool

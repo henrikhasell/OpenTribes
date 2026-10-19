@@ -158,8 +158,6 @@ namespace T2Protocol
       { "PhysicalZone",           4, OpRaw,   32, T2FieldAppliedForce },
       { "PhysicalZone",           1, OpFlag,   1, T2FieldZoneActive   },
 
-      { "VehicleBlocker",         0, OpRaw, 32, T2FieldTransform },
-
       { "StaticShape",           11, OpRaw,  32, T2FieldAffine   },
       { "StaticShape",            5, OpFlag,  1, T2FieldQuatSign },
       { "StaticShape",            4, OpRaw,  32, T2FieldScale    },

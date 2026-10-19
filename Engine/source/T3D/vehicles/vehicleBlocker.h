@@ -42,6 +42,10 @@ class VehicleBlocker : public SceneObject
 
    // Collision
    void buildConvex(const Box3F& box, Convex* convex);
+
+   // HH: Added for Tribes 2 compatibility.
+   U32  packUpdate(NetConnection *conn, U32 mask, BitStream *stream, bool isInitial);
+   bool unpackUpdate(BitStream *stream, bool isInitial);
   protected:
    Convex* mConvexList;
 
