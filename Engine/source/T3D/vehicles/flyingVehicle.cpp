@@ -481,7 +481,10 @@ void FlyingVehicle::updateForces(F32 /*dt*/)
    currPosMat.getColumn(2,&zv);
    F32 speed = mRigid.linVelocity.len();
 
-   Point3F force  = Point3F(0, 0, sFlyingVehicleGravity * mRigid.mass * mGravityMod);
+   // HH: Modified for Tribes 2 compatibility.
+   // The body's mass is 1 (Vehicle::onAdd); retail weighs the vehicle by
+   // ShapeBase's mass here (0x61056c) and divides the sum by it at the end.
+   Point3F force  = Point3F(0, 0, sFlyingVehicleGravity * mMass * mGravityMod);
    Point3F torque = Point3F(0, 0, 0);
 
    // Drag at any speed
@@ -503,7 +506,7 @@ void FlyingVehicle::updateForces(F32 /*dt*/)
    }
 
    // Hovering Jet
-   F32 vf = -sFlyingVehicleGravity * mRigid.mass * mGravityMod;
+   F32 vf = -sFlyingVehicleGravity * mMass * mGravityMod;
    F32 h  = getHeight();
    if (h <= 1) {
       if (h > 0) {
@@ -554,9 +557,11 @@ void FlyingVehicle::updateForces(F32 /*dt*/)
    force -= Point3F(0, 0, 1) * (mBuoyancy * sFlyingVehicleGravity * mRigid.mass * mGravityMod);
    force -= mRigid.linVelocity * mDrag;
 
-   //
-   mRigid.force  = force;
-   mRigid.torque = torque;
+   // HH: Modified for Tribes 2 compatibility.
+   // Retail divides both sums by ShapeBase's mass (0x610ca0), which is the
+   // mass the unit-mass body does not carry.
+   mRigid.force  = force * mOneOverMass;
+   mRigid.torque = torque * mOneOverMass;
 }
 
 

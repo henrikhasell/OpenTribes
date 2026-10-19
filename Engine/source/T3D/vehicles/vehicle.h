@@ -190,8 +190,6 @@ class Vehicle: public ShapeBase
    bool inLiquid;
    SFXSource* mWakeSound;
 
-   Point3F mCameraOffset; ///< 3rd person camera
-
    // Control
    Point2F mSteering;
    F32 mThrottle;
@@ -205,9 +203,6 @@ class Vehicle: public ShapeBase
    bool mFrozen;
 
    GFXStateBlockRef  mSolidSB;
-
-   Box3F         mWorkingQueryBox;
-   S32           mWorkingQueryBoxCountDown;
 
    CollisionList mCollisionList;
    CollisionList mContacts;
@@ -238,13 +233,19 @@ class Vehicle: public ShapeBase
    virtual void updateMove(const Move* move);
    virtual void updateForces(F32 dt);
 
+   // HH: Added for Tribes 2 compatibility.
+   // Tribes 2's slot 127 (Vehicle's 0x60a280 is empty): processTick calls it
+   // on each warp tick, once the vehicle stands at its new position, and
+   // WheeledVehicle extends its wheels there (0x6132f0).
+   virtual void onWarpTick() {}
+
    void writePacketData(GameConnection * conn, BitStream *stream);
    void readPacketData (GameConnection * conn, BitStream *stream);
 
    // HH: Added for Tribes 2 compatibility.
    void onT2BodyRead(const T2Layout::Body &body) override;
    void setRigidStateT2(const Point3F &pos, const QuatF &rot,
-                        const Point3F &linVel, const Point3F &angVel);
+                        const Point3F &linMom, const Point3F &angMom);
 
    void updateLiftoffDust( F32 dt );
    void updateDamageSmoke( F32 dt );
@@ -309,13 +310,15 @@ public:
    void applyImpulse(const Point3F &r, const Point3F &impulse);
 
    void getCameraParameters(F32 *min, F32* max, Point3F* offset, MatrixF* rot);
-   void getCameraTransform(F32* pos, MatrixF* mat);
    ///@}
 
    /// @name Mounted objects
    /// @{
    virtual void mountObject( SceneObject *obj, S32 node, const MatrixF &xfm = MatrixF::Identity );
    /// @}
+
+   // HH: Added for Tribes 2 compatibility.
+   void setFrozenState(bool frozen) { mFrozen = frozen; }
 
    DECLARE_CONOBJECT(Vehicle);
 };

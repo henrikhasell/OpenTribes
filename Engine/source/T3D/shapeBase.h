@@ -1013,6 +1013,10 @@ protected:
    TSThread *mDamageThread;
    TSThread *mHulkThread;
    VectorF damageDir;
+   // HH: Added for Tribes 2 compatibility.
+   // Tribes 2's blowup flag (this+0x730); damageDir is its momentum vector
+   // (this+0x734), which setMomentumVector sets.
+   bool mBlowApart;
    /// @}
 
    /// @name Cloaking
@@ -1375,6 +1379,10 @@ public:
    /// Nothing but a turret has one, so anything else reads empty, which is
    /// what retail's HudCapacitor gets from its failed cast to Turret.
    virtual F32 getCapacitorValue() { return 0.f; }
+
+   /// Tribes 2 keeps this until the object goes, and sends it in the damage
+   /// block beside the momentum vector, which is how a ghost learns to burst.
+   void setBlowApart() { mBlowApart = true; }
 
    /// Take the damage a Tribes 2 ghost body carried, where it carried one.
    void readT2Damage(const T2Layout::Body &body);

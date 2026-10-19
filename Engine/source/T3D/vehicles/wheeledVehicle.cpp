@@ -547,11 +547,9 @@ bool WheeledVehicle::onNewDataBlock(GameBaseData* dptr, bool reload)
    if (!mDataBlock || !Parent::onNewDataBlock(dptr,reload))
       return false;
 
-   // Set inertial tensor, default for the vehicle is sphere
-   if (mDataBlock->massBox.x > 0 && mDataBlock->massBox.y > 0 && mDataBlock->massBox.z > 0)
-      mRigid.setObjectInertia(mDataBlock->massBox);
-   else
-      mRigid.setObjectInertia(mObjBox.maxExtents - mObjBox.minExtents);
+   // HH: Modified for Tribes 2 compatibility.
+   // Retail's (0x612f40) leaves the body alone: its inertia stays the
+   // identity Vehicle::onAdd gives it, even when the datablock changes.
 
    // Initialize the wheels...
    for (S32 i = 0; i < mDataBlock->wheelCount; i++) 
@@ -1028,8 +1026,13 @@ void WheeledVehicle::updateForces(F32 dt)
    if (mRigid.atRest && (mRigid.force.len() || mRigid.torque.len()))
       mRigid.atRest = false;
 
-   // Gravity
-   mRigid.force += Point3F(0, 0, sWheeledVehicleGravity * mRigid.mass);
+   // HH: Modified for Tribes 2 compatibility.
+   // The body's mass is 1 (Vehicle::onAdd), so the vehicle is weighed by
+   // ShapeBase's mass and the sums divided by it, as retail divides its jet
+   // and drag (0x61424d, 0x613ea1).
+   mRigid.force += Point3F(0, 0, sWheeledVehicleGravity * mMass);
+   mRigid.force  *= mOneOverMass;
+   mRigid.torque *= mOneOverMass;
 
    // Integrate and update velocity
    mRigid.linMomentum += mRigid.force * dt;

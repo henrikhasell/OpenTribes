@@ -949,6 +949,7 @@ ShapeBase::ShapeBase()
    mFadeDelay( 0.0f ),
    mFlipFadeVal( false ),
    damageDir( 0.0f, 0.0f, 1.0f ),
+   mBlowApart( false ),         // HH: Added for Tribes 2 compatibility.
    mShapeBaseMount( NULL ),
    mMass( 1.0f ),
    mOneOverMass( 1.0f ),
