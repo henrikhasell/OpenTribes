@@ -366,6 +366,11 @@ public:
    ///          connection -- the stream cursor is no longer trustworthy.
    virtual bool unpackUpdate(BitStream *stream, bool isInitial);
 
+   /// What the head of a body says, applied before onT2BodyRead: a base
+   /// class's fields come first on the wire, and a subclass reads its own
+   /// against them.
+   virtual void onT2BodyHeadRead(const T2Layout::Body &body) {}
+
    virtual void onT2BodyRead(const T2Layout::Body &body) {}
 
    /// Queries the object about information used to determine scope.

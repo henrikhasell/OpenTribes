@@ -30,6 +30,8 @@ namespace T2Layout
 
    struct Body
    {
+      bool    hasDataBlock;         ///< the object's own datablock came with
+      U32     dataBlockId;          ///< the body, as GameBase sends it
       bool    hasPosition;
       Point3F position;
       bool    hasYaw;
@@ -436,8 +438,6 @@ namespace T2Layout
                         GhostClassFn resolve = NULL, void *ctx = NULL);
 
    const char *lastShapeFile();
-
-   U32 firstDataBlockId();
 
    /// Every datablock id the last body named, in the order it named them.
    const Vector<U32> &lastDataBlockIds();
