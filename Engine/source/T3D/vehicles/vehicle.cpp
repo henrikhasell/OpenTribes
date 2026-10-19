@@ -51,16 +51,6 @@
 
 namespace {
 
-static U32 sWorkingQueryBoxStaleThreshold = 10;    // The maximum number of ticks that go by before
-                                                   // the mWorkingQueryBox is considered stale and
-                                                   // needs updating.  Set to -1 to disable.
-
-static F32 sWorkingQueryBoxSizeMultiplier = 2.0f;  // How much larger should the mWorkingQueryBox be
-                                                   // made when updating the working collision list.
-                                                   // The larger this number the less often the working list
-                                                   // will be updated due to motion, but any non-static shape
-                                                   // that moves into the query box will not be noticed.
-
 const U32 sMoveRetryCount = 3;
 
 // Client prediction
@@ -396,12 +386,13 @@ void VehicleData::initPersistFields()
    addField( "minJetEnergy", TypeF32, Offset(minJetEnergy, VehicleData),
       "Minimum vehicle energy level to begin jetting." );
 
+   // HH: Modified for Tribes 2 compatibility.
+   // Retail has neither field: its body is a unit mass about the object's
+   // origin with identity inertia (0x60a2d0).
    addField( "massCenter", TypePoint3F, Offset(massCenter, VehicleData),
-      "Defines the vehicle's center of mass (offset from the origin of the model)." );
+      "Unused. A Tribes 2 vehicle turns about its origin." );
    addField( "massBox", TypePoint3F, Offset(massBox, VehicleData),
-      "@brief Define the box used to estimate the vehicle's moment of inertia.\n\n"
-      "Currently only used by WheeledVehicle; other vehicle types use a "
-      "unit sphere to compute inertia." );
+      "Unused. A Tribes 2 vehicle's body has identity inertia." );
    addField( "bodyRestitution", TypeF32, Offset(body.restitution, VehicleData),
       "Collision 'bounciness'.\nNormally in the range 0 (not bouncy at all) to "
       "1 (100% bounciness)." );
@@ -436,9 +427,11 @@ void VehicleData::initPersistFields()
       "Maximum drag coefficient.\nCurrently unused." );
    addField( "minDrag", TypeF32, Offset(minDrag, VehicleData),
       "Minimum drag coefficient.\nCurrently only used by FlyingVehicle." );
+   // HH: Modified for Tribes 2 compatibility.
+   // Retail has no such field: its tick runs the forces once (0x60a800) and
+   // updatePos picks its own steps.
    addField( "integration", TypeS32, Offset(integration, VehicleData),
-      "Number of integration steps per tick.\nIncrease this to improve simulation "
-      "stability (also increases simulation processing time)." );
+      "Unused. A Tribes 2 vehicle takes the forces once a tick." );
    addField( "collisionTol", TypeF32, Offset(collisionTol, VehicleData),
       "Minimum distance between objects for them to be considered as colliding." );
    addField( "contactTol", TypeF32, Offset(contactTol, VehicleData),
@@ -448,13 +441,13 @@ void VehicleData::initPersistFields()
    addField( "cameraRoll", TypeBool, Offset(cameraRoll, VehicleData),
       "If true, the camera will roll with the vehicle. If false, the camera will "
       "always have the positive Z axis as up." );
+   // HH: Modified for Tribes 2 compatibility.
+   // Retail sends cameraLag with the datablock but nothing reads it, and has
+   // no cameraDecay: a vehicle's camera is ShapeBase's.
    addField( "cameraLag", TypeF32, Offset(cameraLag, VehicleData),
-      "@brief How much the camera lags behind the vehicle depending on vehicle speed.\n\n"
-      "Increasing this value will make the camera fall further behind the vehicle "
-      "as it accelerates away.\n\n@see cameraDecay." );
+      "Unused. Sent with the datablock, as Tribes 2 sends it." );
    addField("cameraDecay",  TypeF32, Offset(cameraDecay, VehicleData),
-      "How quickly the camera moves back towards the vehicle when stopped.\n\n"
-      "@see cameraLag." );
+      "Unused." );
    addField("cameraOffset", TypeF32, Offset(cameraOffset, VehicleData),
       "Vertical (Z axis) height of the camera above the vehicle." );
 
@@ -590,8 +583,6 @@ Vehicle::Vehicle()
    mThrottle = 0;
    mJetting = false;
 
-   mCameraOffset.set(0,0,0);
-
    dMemset( mDustEmitterList, 0, sizeof( mDustEmitterList ) );
    dMemset( mDamageEmitterList, 0, sizeof( mDamageEmitterList ) );
    dMemset( mSplashEmitterList, 0, sizeof( mSplashEmitterList ) );
@@ -602,15 +593,13 @@ Vehicle::Vehicle()
 
    inLiquid = false;
    mWakeSound = NULL;
-
-   mWorkingQueryBox.minExtents.set(-1e9f, -1e9f, -1e9f);
-   mWorkingQueryBox.maxExtents.set(-1e9f, -1e9f, -1e9f);
-   mWorkingQueryBoxCountDown = sWorkingQueryBoxStaleThreshold;
 }
 
+// HH: Modified for Tribes 2 compatibility.
+// Retail's (0x60a290) is no error: it collides with nothing, and each
+// subclass names its own.
 U32 Vehicle::getCollisionMask()
 {
-   AssertFatal(false, "Vehicle::getCollisionMask is pure virtual!");
    return 0;
 }
 
@@ -626,12 +615,20 @@ bool Vehicle::onAdd()
    if (!Parent::onAdd())
       return false;
 
-   mWorkingQueryBox.minExtents.set(-1e9f, -1e9f, -1e9f);
-   mWorkingQueryBox.maxExtents.set(-1e9f, -1e9f, -1e9f);
-
    // When loading from a mission script, the base SceneObject's transform
    // will have been set and needs to be transfered to the rigid body.
    mRigid.setTransform(mObjToWorld);
+
+   // HH: Added for Tribes 2 compatibility.
+   // Retail's body (0x60a338) has a mass of 1 whatever the datablock says:
+   // the datablock's mass reaches it only through ShapeBase's, by which
+   // applyImpulse and the subclasses' forces are divided. It passes half the
+   // object box for an inertia, which 0x5c5d10 ignores, leaving identity.
+   mRigid.mass = 1.0f;
+   mRigid.oneOverMass = 1.0f / mRigid.mass;
+   mRigid.objectInertia.identity();
+   mRigid.invObjectInertia.identity();
+   mRigid.updateInertialTensor();
 
    // Initialize interpolation vars.
    mDelta.rot[1] = mDelta.rot[0] = mRigid.angPosition;
@@ -733,9 +730,6 @@ void Vehicle::onRemove()
       }
    }
 
-   mWorkingQueryBox.minExtents.set(-1e9f, -1e9f, -1e9f);
-   mWorkingQueryBox.maxExtents.set(-1e9f, -1e9f, -1e9f);
-
    Parent::onRemove();
 }
 
@@ -759,6 +753,7 @@ void Vehicle::processTick(const Move* move)
       mDelta.rot[0] = mDelta.rot[1];
       mDelta.rot[1].interpolate(mDelta.warpRot[0],mDelta.warpRot[1],F32(mDelta.warpCount)/mDelta.warpTicks);
       setPosition(mDelta.pos,mDelta.rot[1]);
+      onWarpTick();   // HH: Added for Tribes 2 compatibility.
 
       // Pos backstepping
       mDelta.posVec.x = -mDelta.warpOffset.x;
@@ -793,6 +788,12 @@ void Vehicle::processTick(const Move* move)
          return;
       }
 
+      // HH: Modified for Tribes 2 compatibility.
+      // Retail's order (0x60a965): the working set comes before the move,
+      // and the forces are summed here, once a tick, rather than inside
+      // updatePos. There is no integration count to loop over.
+      updateWorkingCollisionSet(getCollisionMask());
+
       // Process input move
       updateMove(move);
 
@@ -800,12 +801,9 @@ void Vehicle::processTick(const Move* move)
       mDelta.posVec = mRigid.linPosition;
       mDelta.rot[0] = mRigid.angPosition;
 
-      // Update the physics based on the integration rate
-      S32 count = mDataBlock->integration;
-      --mWorkingQueryBoxCountDown;
-      updateWorkingCollisionSet(getCollisionMask());
-      for (U32 i = 0; i < count; i++)
-         updatePos(TickSec / count);
+      mRigid.clearForces();
+      updateForces(TickSec);
+      updatePos(TickSec);
 
       // Wrap up interpolation info
       mDelta.pos     = mRigid.linPosition;
@@ -824,6 +822,14 @@ void Vehicle::interpolateTick(F32 dt)
    PROFILE_SCOPE( Vehicle_InterpolateTick );
 
    Parent::interpolateTick(dt);
+
+   // HH: Added for Tribes 2 compatibility.
+   // Retail draws a frozen vehicle where its last tick left it (0x60abe1).
+   if (mFrozen)
+   {
+      mDelta.dt = 0;
+      return;
+   }
 
    if(dt == 0.0f)
       setRenderPosition(mDelta.pos, mDelta.rot[1]);
@@ -846,12 +852,6 @@ void Vehicle::advanceTime(F32 dt)
    updateLiftoffDust( dt );
    updateDamageSmoke( dt );
    updateFroth(dt);
-
-   // Update 3rd person camera offset.  Camera update is done
-   // here as it's a client side only animation.
-   mCameraOffset -=
-      (mCameraOffset * mDataBlock->cameraDecay +
-      mRigid.linVelocity * mDataBlock->cameraLag) * dt;
 }
 
 
@@ -863,16 +863,10 @@ bool Vehicle::onNewDataBlock(GameBaseData* dptr,bool reload)
    if (!mDataBlock || !Parent::onNewDataBlock(dptr, reload))
       return false;
 
-   // Update Rigid Info
-   mRigid.mass = mDataBlock->mass;
-   mRigid.oneOverMass = 1 / mRigid.mass;
-   mRigid.friction = mDataBlock->body.friction;
-   mRigid.restitution = mDataBlock->body.restitution;
-   mRigid.setCenterOfMass(mDataBlock->massCenter);
-
-   // Ignores massBox, just set sphere for now. Derived objects
-   // can set what they want.
-   mRigid.setObjectInertia();
+   // HH: Modified for Tribes 2 compatibility.
+   // Retail's (0x60ace0) gives the body nothing: its mass and inertia are
+   // set once in onAdd, its restitution and friction keep the rigid body's
+   // own 0.3 and 0.5, and there is no massCenter to move.
 
    if (isGhost()) 
    {
@@ -899,101 +893,6 @@ void Vehicle::getCameraParameters(F32 *min,F32* max,Point3F* off,MatrixF* rot)
    rot->identity();
 }
 
-
-//----------------------------------------------------------------------------
-
-void Vehicle::getCameraTransform(F32* pos,MatrixF* mat)
-{
-   // Returns camera to world space transform
-   // Handles first person / third person camera position
-   if (isServerObject() && mShapeInstance)
-      mShapeInstance->animateNodeSubtrees(true);
-
-   if (*pos == 0) {
-      getRenderEyeTransform(mat);
-      return;
-   }
-
-   // Get the shape's camera parameters.
-   F32 min,max;
-   MatrixF rot;
-   Point3F offset;
-   getCameraParameters(&min,&max,&offset,&rot);
-
-   // Start with the current eye position
-   MatrixF eye;
-   getRenderEyeTransform(&eye);
-
-   // Build a transform that points along the eye axis
-   // but where the Z axis is always up.
-   if (mDataBlock->cameraRoll)
-      mat->mul(eye,rot);
-   else 
-   {
-      MatrixF cam(1);
-      VectorF x,y,z(0,0,1);
-      eye.getColumn(1, &y);
-      mCross(y, z, &x);
-      x.normalize();
-      mCross(x, y, &z);
-      z.normalize();
-      cam.setColumn(0,x);
-      cam.setColumn(1,y);
-      cam.setColumn(2,z);
-      mat->mul(cam,rot);
-   }
-
-   // Camera is positioned straight back along the eye's -Y axis.
-   // A ray is cast to make sure the camera doesn't go through
-   // anything solid.
-   VectorF vp,vec;
-   vp.x = vp.z = 0;
-   vp.y = -(max - min) * *pos;
-   eye.mulV(vp,&vec);
-
-   // Use the camera node as the starting position if it exists.
-   Point3F osp,sp;
-   if (mDataBlock->cameraNode != -1) 
-   {
-      mShapeInstance->mNodeTransforms[mDataBlock->cameraNode].getColumn(3,&osp);
-      getRenderTransform().mulP(osp,&sp);
-   }
-   else
-      eye.getColumn(3,&sp);
-
-   // Make sure we don't hit ourself...
-   disableCollision();
-   if (isMounted())
-      getObjectMount()->disableCollision();
-
-   // Cast the ray into the container database to see if we're going
-   // to hit anything.
-   RayInfo collision;
-   Point3F ep = sp + vec + offset + mCameraOffset;
-   if (mContainer->castRay(sp, ep,
-         ~(WaterObjectType | GameBaseObjectType | DefaultObjectType | sTriggerMask),
-         &collision) == true) {
-
-      // Shift the collision point back a little to try and
-      // avoid clipping against the front camera plane.
-      F32 t = collision.t - (-mDot(vec, collision.normal) / vec.len()) * 0.1;
-      if (t > 0.0f)
-         ep = sp + offset + mCameraOffset + (vec * t);
-      else
-         eye.getColumn(3,&ep);
-   }
-   mat->setColumn(3,ep);
-
-   // Re-enable our collision.
-   if (isMounted())
-      getObjectMount()->enableCollision();
-   enableCollision();
-
-   // Apply Camera FX.
-   mat->mul( gCamFXMgr.getTrans() );
-}
-
-
 //----------------------------------------------------------------------------
 
 void Vehicle::getVelocity(const Point3F& r, Point3F* v)
@@ -1001,11 +900,15 @@ void Vehicle::getVelocity(const Point3F& r, Point3F* v)
    mRigid.getVelocity(r, v);
 }
 
+// HH: Modified for Tribes 2 compatibility.
+// Retail's (0x60ae30) arms the impulse from the object's transform at the
+// datablock's +0x424, which preload zeroes (0x60900e), and divides it by
+// ShapeBase's mass before the unit-mass body takes it (0x60aef0).
 void Vehicle::applyImpulse(const Point3F &pos, const Point3F &impulse)
 {
-   Point3F r;
-   mRigid.getOriginVector(pos,&r);
-   mRigid.applyImpulse(r, impulse);
+   Point3F origin;
+   mObjToWorld.getColumn(3, &origin);
+   mRigid.applyImpulse(pos - origin, impulse * mOneOverMass);
 }
 
 
@@ -1056,6 +959,47 @@ void Vehicle::updateMove(const Move* move)
    }
    else
       mJetting = false;
+
+   // HH: Moved for Tribes 2 compatibility.
+   // Retail's updateMove (0x60b399), not its updatePos, tells the scripts
+   // and the splash sounds about the water, before the tick's physics.
+   if (isServerObject()) {
+
+      // Water script callbacks. Retail's water also hides the vehicle's
+      // heat, and leaving it restores it in full.
+      if (!inLiquid && mWaterCoverage != 0.0f) {
+         mDataBlock->onEnterLiquid_callback( this, mWaterCoverage, mLiquidType.c_str() );
+         inLiquid = true;
+         mHeat = 0.0f;
+      }
+      else if (inLiquid && mWaterCoverage == 0.0f) {
+         mDataBlock->onLeaveLiquid_callback( this, mLiquidType.c_str() );
+         inLiquid = false;
+         mHeat = 1.0f;
+      }
+   }
+   else {
+
+      // Water volume sounds
+      F32 vSpeed = getVelocity().len();
+      if (!inLiquid && mWaterCoverage >= 0.8f) {
+         if (vSpeed >= mDataBlock->hardSplashSoundVel)
+            SFX->playOnce( mDataBlock->waterSound[VehicleData::ImpactHard], &getTransform() );
+         else
+            if (vSpeed >= mDataBlock->medSplashSoundVel)
+               SFX->playOnce( mDataBlock->waterSound[VehicleData::ImpactMedium], &getTransform() );
+         else
+            if (vSpeed >= mDataBlock->softSplashSoundVel)
+               SFX->playOnce( mDataBlock->waterSound[VehicleData::ImpactSoft], &getTransform() );
+         inLiquid = true;
+      }
+      else
+         if(inLiquid && mWaterCoverage < 0.8f) {
+            if (vSpeed >= mDataBlock->exitSplashSoundVel)
+               SFX->playOnce( mDataBlock->waterSound[VehicleData::ExitWater], &getTransform() );
+         inLiquid = false;
+      }
+   }
 }
 
 
@@ -1113,35 +1057,41 @@ void Vehicle::updatePos(F32 dt)
 
    Point3F origVelocity = mRigid.linVelocity;
 
-   // Update internal forces acting on the body.
-   mRigid.clearForces();
-   updateForces(dt);
-
-   // Update collision information based on our current pos.
+   // HH: Modified for Tribes 2 compatibility.
+   // processTick has already summed the forces. Retail's body (0x60b730)
+   // moves in steps of half the tick, which only a contact shortens, so a
+   // vehicle touching nothing integrates twice a tick, at dt / 2 each time.
+   // Torque's collision response runs in each step until the solver is
+   // retail's.
+   const F32 step = dt * 0.5f;
    bool collided = false;
-   if (!mRigid.atRest) {
-      collided = updateCollision(dt);
+   for (U32 i = 0; i < 2; i++)
+   {
+      // Update collision information based on our current pos.
+      if (!mRigid.atRest) {
+         collided |= updateCollision(step);
 
-      // Now that all the forces have been processed, lets
-      // see if we're at rest.  Basically, if the kinetic energy of
-      // the vehicles is less than some percentage of the energy added
-      // by gravity for a short period, we're considered at rest.
-      // This should really be part of the rigid class...
-      if (mCollisionList.getCount()) 
-      {
-         F32 k = mRigid.getKineticEnergy();
-         F32 G = sVehicleGravity * dt;
-         F32 Kg = 0.5 * mRigid.mass * G * G;
-         if (k < sRestTol * Kg && ++restCount > sRestCount)
-            mRigid.setAtRest();
+         // Now that all the forces have been processed, lets
+         // see if we're at rest.  Basically, if the kinetic energy of
+         // the vehicles is less than some percentage of the energy added
+         // by gravity for a short period, we're considered at rest.
+         // This should really be part of the rigid class...
+         if (mCollisionList.getCount())
+         {
+            F32 k = mRigid.getKineticEnergy();
+            F32 G = sVehicleGravity * step;
+            F32 Kg = 0.5 * mRigid.mass * G * G;
+            if (k < sRestTol * Kg && ++restCount > sRestCount)
+               mRigid.setAtRest();
+         }
+         else
+            restCount = 0;
       }
-      else
-         restCount = 0;
-   }
 
-   // Integrate forward
-   if (!mRigid.atRest)
-      mRigid.integrate(dt);
+      // Integrate forward
+      if (!mRigid.atRest)
+         mRigid.integrate(step);
+   }
 
    // Deal with client and server scripting, sounds, etc.
    if (isServerObject()) {
@@ -1162,17 +1112,6 @@ void Vehicle::updatePos(F32 dt)
          if (collSpeed > mDataBlock->minImpactSpeed)
             onImpact(collVec);
       }
-
-      // Water script callbacks
-      if (!inLiquid && mWaterCoverage != 0.0f) {
-         mDataBlock->onEnterLiquid_callback( this, mWaterCoverage, mLiquidType.c_str() );
-         inLiquid = true;
-      }
-      else if (inLiquid && mWaterCoverage == 0.0f) {
-         mDataBlock->onLeaveLiquid_callback( this, mLiquidType.c_str() );
-         inLiquid = false;
-      }
-
    }
    else {
 
@@ -1188,26 +1127,6 @@ void Vehicle::updatePos(F32 dt)
 
          if (impactSound != -1 && mDataBlock->body.sound[impactSound] != NULL)
             SFX->playOnce( mDataBlock->body.sound[impactSound], &getTransform() );
-      }
-
-      // Water volume sounds
-      F32 vSpeed = getVelocity().len();
-      if (!inLiquid && mWaterCoverage >= 0.8f) {
-         if (vSpeed >= mDataBlock->hardSplashSoundVel)
-            SFX->playOnce( mDataBlock->waterSound[VehicleData::ImpactHard], &getTransform() );
-         else
-            if (vSpeed >= mDataBlock->medSplashSoundVel)
-               SFX->playOnce( mDataBlock->waterSound[VehicleData::ImpactMedium], &getTransform() );
-         else
-            if (vSpeed >= mDataBlock->softSplashSoundVel)
-               SFX->playOnce( mDataBlock->waterSound[VehicleData::ImpactSoft], &getTransform() );
-         inLiquid = true;
-      }
-      else
-         if(inLiquid && mWaterCoverage < 0.8f) {
-            if (vSpeed >= mDataBlock->exitSplashSoundVel)
-               SFX->playOnce( mDataBlock->waterSound[VehicleData::ExitWater], &getTransform() );
-         inLiquid = false;
       }
    }
 }
@@ -1410,54 +1329,23 @@ bool Vehicle::resolveDisplacement(Rigid& ns,CollisionState *state, F32 dt)
 
 //----------------------------------------------------------------------------
 
+// HH: Modified for Tribes 2 compatibility.
+// Retail's (0x60af50) keeps no cached box: every tick it rebuilds the list
+// from the convex's box, grown by this tick's travel plus the 1.5625 m that
+// 50 m/s would add, times 1.1 and 0.1 more.
 void Vehicle::updateWorkingCollisionSet(const U32 mask)
 {
    PROFILE_SCOPE( Vehicle_UpdateWorkingCollisionSet );
 
-   // First, we need to adjust our velocity for possible acceleration.  It is assumed
-   // that we will never accelerate more than 20 m/s for gravity, plus 30 m/s for
-   // jetting, and an equivalent 10 m/s for vehicle accel.  We also assume that our
-   // working list is updated on a Tick basis, which means we only expand our box by
-   // the possible movement in that tick, plus some extra for caching purposes
    Box3F convexBox = mConvex.getBoundingBox(getTransform(), getScale());
-   F32 len = (mRigid.linVelocity.len() + 50) * TickSec;
-   F32 l = (len * 1.1) + 0.1;  // fudge factor
+   const F32 len = (mRigid.linVelocity * TickSec).len();
+   const F32 l = F32((len + 1.5625f) * 1.1 + 0.1);
    convexBox.minExtents -= Point3F(l, l, l);
    convexBox.maxExtents += Point3F(l, l, l);
 
-   // Check to see if it is actually necessary to construct the new working list,
-   // or if we can use the cached version from the last query.  We use the x
-   // component of the min member of the mWorkingQueryBox, which is lame, but
-   // it works ok.
-   bool updateSet = false;
-
-   // Check containment
-   if ((sWorkingQueryBoxStaleThreshold == -1 || mWorkingQueryBoxCountDown > 0) && mWorkingQueryBox.minExtents.x != -1e9f)
-   {
-      if (mWorkingQueryBox.isContained(convexBox) == false)
-         // Needed region is outside the cached region.  Update it.
-         updateSet = true;
-   }
-   else
-   {
-      // Must update
-      updateSet = true;
-   }
-
-   // Actually perform the query, if necessary
-   if (updateSet == true)
-   {
-      mWorkingQueryBoxCountDown = sWorkingQueryBoxStaleThreshold;
-
-      const Point3F  lPoint( sWorkingQueryBoxSizeMultiplier * l );
-      mWorkingQueryBox = convexBox;
-      mWorkingQueryBox.minExtents -= lPoint;
-      mWorkingQueryBox.maxExtents += lPoint;
-
-      disableCollision();
-      mConvex.updateWorkingList(mWorkingQueryBox, mask);
-      enableCollision();
-   }
+   disableCollision();
+   mConvex.updateWorkingList(convexBox, mask);
+   enableCollision();
 }
 
 
@@ -1503,11 +1391,8 @@ void Vehicle::findCallback(SceneObject* obj,void *key)
 //----------------------------------------------------------------------------
 
 // HH: Modified for Tribes 2 compatibility.
-// Vehicle::writePacketData (0x60d5a0). Retail sends its momenta, which are
-// near its velocities (see setRigidStateT2). Ours still has the datablock's
-// mass, so our velocities are the nearer match for the checksum a retail
-// server takes from us. There is no atRest or contacts flag, and the last
-// flag is the frozen state.
+// Vehicle::writePacketData (0x60d5a0): the body's momenta, with no atRest or
+// contacts flag, and the frozen state last.
 void Vehicle::writePacketData(GameConnection *connection, BitStream *stream)
 {
    Parent::writePacketData(connection, stream);
@@ -1515,8 +1400,8 @@ void Vehicle::writePacketData(GameConnection *connection, BitStream *stream)
 
    mathWrite(*stream, mRigid.linPosition);
    mathWrite(*stream, mRigid.angPosition);
-   mathWrite(*stream, mRigid.linVelocity);
-   mathWrite(*stream, mRigid.angVelocity);
+   mathWrite(*stream, mRigid.linMomentum);
+   mathWrite(*stream, mRigid.angMomentum);
 
    stream->writeFlag(mDisableMove);
    stream->writeFlag(mFrozen);
@@ -1527,19 +1412,19 @@ void Vehicle::writePacketData(GameConnection *connection, BitStream *stream)
 // HH: Modified for Tribes 2 compatibility.
 // Vehicle::readPacketData (0x60d740). Retail refreshes only its velocities
 // from the momenta it reads (0x5c57a0), and leaves atRest and the contacts
-// as they were. Ours takes the momenta as velocities, as the write sends.
+// as they were.
 void Vehicle::readPacketData(GameConnection *connection, BitStream *stream)
 {
    Parent::readPacketData(connection, stream);
    mathRead(*stream, &mSteering);
 
-   Point3F pos, linVel, angVel;
+   Point3F pos, linMom, angMom;
    QuatF rot;
    mathRead(*stream, &pos);
    mathRead(*stream, &rot);
-   mathRead(*stream, &linVel);
-   mathRead(*stream, &angVel);
-   setRigidStateT2(pos, rot, linVel, angVel);
+   mathRead(*stream, &linMom);
+   mathRead(*stream, &angMom);
+   setRigidStateT2(pos, rot, linMom, angMom);
 
    mDisableMove = stream->readFlag();
    mFrozen = stream->readFlag();
@@ -1547,26 +1432,19 @@ void Vehicle::readPacketData(GameConnection *connection, BitStream *stream)
 }
 
 // HH: Added for Tribes 2 compatibility.
-// Retail's rigid body has a mass of 1 (0x60a338) and an object inertia of
-// identity (0x5c5d10 ignores the box it is given). So its linear momentum is
-// its velocity exactly, and its angular velocity is its momentum to the low
-// bits only: the world inertia is R*I*R^T rounded in floats, and 0x5c57a0
-// applies the one already stored, not one from the new rotation. Ours carries
-// the datablock's mass and an inertia until V08a, so it is given the momenta
-// that move it at those velocities. With unit mass, retail's own way applies:
-// keep the momenta read and derive the velocities as 0x5c57a0 does.
+// What retail's packet data (0x60d8ae) and ghost (0x60df5e) do with a body
+// they are sent: keep the momenta, and take the velocities from them through
+// the world inertia already stored, not one from the new rotation. With unit
+// mass and identity inertia the velocities are the momenta, but for the
+// low bits that R*I*R^T rounds.
 void Vehicle::setRigidStateT2(const Point3F &pos, const QuatF &rot,
-                              const Point3F &linVel, const Point3F &angVel)
+                              const Point3F &linMom, const Point3F &angMom)
 {
    mRigid.linPosition = pos;
    mRigid.angPosition = rot;
-   mRigid.linVelocity = linVel;
-   mRigid.angVelocity = angVel;
-   mRigid.linMomentum = linVel * mRigid.mass;
-   mRigid.updateInertialTensor();
-   MatrixF worldInertia = mRigid.invWorldInertia;
-   worldInertia.fullInverse();
-   worldInertia.mulV(angVel, &mRigid.angMomentum);
+   mRigid.linMomentum = linMom;
+   mRigid.angMomentum = angMom;
+   mRigid.updateVelocity();
    // Torque's own rigid body keeps a world centre of mass beside the
    // position; with massCenter inert it is the position.
    mRigid.updateCenterOfMass();
@@ -1690,21 +1568,35 @@ void Vehicle::onT2BodyRead(const T2Layout::Body &body)
 
 //----------------------------------------------------------------------------
 
+// HH: Modified for Tribes 2 compatibility.
+// Retail's (0x60a250) registers blowup and no variables: there is no working
+// query box to tune.
 void Vehicle::consoleInit()
 {
-   Con::addVariable("$vehicle::workingQueryBoxStaleThreshold",TypeS32,&sWorkingQueryBoxStaleThreshold, 
-      "@brief The maximum number of ticks that go by before the mWorkingQueryBox is considered stale and needs updating.\n\n"
-      "Other factors can cause the collision working query box to become invalidated, such as the vehicle moving far "
-      "enough outside of this cached box.  The smaller this number, the more times the working list of triangles that are "
-      "considered for collision is refreshed.  This has the greatest impact with colliding with high triangle count meshes.\n\n"
-      "@note Set to -1 to disable any time-based forced check.\n\n"
-	   "@ingroup GameObjects\n");
+}
 
-   Con::addVariable("$vehicle::workingQueryBoxSizeMultiplier",TypeF32,&sWorkingQueryBoxSizeMultiplier, 
-      "@brief How much larger the mWorkingQueryBox should be made when updating the working collision list.\n\n"
-      "The larger this number the less often the working list will be updated due to motion, but any non-static shape that "
-      "moves into the query box will not be noticed.\n\n"
-	   "@ingroup GameObjects\n");
+// HH: Added for Tribes 2 compatibility.
+// Tribes 2's, at 0x0060a240. Unlike ShapeBase's it sets no mask bit; the
+// damage block carries the flag when something else sends it. Our server
+// does not pack that block yet, so for now only the server sees the flag.
+DefineEngineMethod( Vehicle, blowup, void, (),,
+   "@brief Mark the vehicle to burst into its explosion and debris.\n\n"
+   "The flag goes to clients with the vehicle's next damage update.\n\n")
+{
+   object->setBlowApart();
+}
+
+// HH: Added for Tribes 2 compatibility.
+// Tribes 2's, at 0x00608a30 -> 0x0060e850. It sets the flag and nothing more:
+// the call after it (0x5f0520) is empty, so no mask bit is set, and clients
+// learn of it with the vehicle's next update.
+DefineEngineMethod( Vehicle, setFrozenState, void, ( bool frozen ),,
+   "@brief Hold the vehicle where it is, or let it go.\n\n"
+   "A frozen vehicle takes no move and steps no physics; its clients draw it "
+   "where its last tick left it.\n\n"
+   "@param frozen true to freeze the vehicle, false to thaw it.\n\n")
+{
+   object->setFrozenState( frozen );
 }
 
 void Vehicle::initPersistFields()
