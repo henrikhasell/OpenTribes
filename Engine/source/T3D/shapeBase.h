@@ -1386,6 +1386,10 @@ public:
    /// on.
    void readT2Mount(const T2Layout::Body &body);
 
+   /// Start or stop what a Tribes 2 ghost body said plays in this object's
+   /// sound slots.
+   void readT2Sounds(const T2Layout::Body &body);
+
    /// Mount what a Tribes 2 ghost body said is in this object's image slots.
    void readT2Images(const T2Layout::Body &body);
 

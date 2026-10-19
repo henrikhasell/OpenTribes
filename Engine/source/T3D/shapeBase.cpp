@@ -28,6 +28,7 @@
 #include "sfx/sfxSource.h"
 #include "sfx/sfxTrack.h"
 #include "sfx/sfxDescription.h"
+#include "sfx/sfxProfile.h"
 #include "T3D/sfx/sfx3DWorld.h"
 #include "T3D/gameBase/gameConnection.h"
 #include "T3D/gameBase/t2Layout.h"
@@ -1841,6 +1842,47 @@ void ShapeBase::readT2Mount(const T2Layout::Body &body)
    mount->mountObject(this, S32(body.mountNode));
 }
 
+// HH: Added for Tribes 2 compatibility.
+// As retail's unpackUpdate (0x5ef2a3): the profile is kept as the id the
+// server sent, which updateAudioState resolves on a ghost, and a first body
+// leaves that to onAdd.
+void ShapeBase::readT2Sounds(const T2Layout::Body &body)
+{
+   const bool trace = Con::getBoolVariable("$pref::Net::traceGhostSounds",
+                                           false);
+
+   const U32 slots = getMin((U32)MaxSoundThreads, (U32)T2Layout::MaxSounds);
+   for (U32 i = 0; i < slots; i++)
+   {
+      const T2Layout::Body::Sound &slot = body.sounds[i];
+      if (!slot.present)
+         continue;
+
+      Sound &st = mSoundThread[i];
+      st.play = slot.play;
+      st.profile = st.play ? reinterpret_cast<SFXTrack *>(
+                                uintptr_t(slot.profile))
+                           : NULL;
+
+      // A datablock comes without its name, so the file is what says which
+      // profile it is.
+      if (trace)
+      {
+         SFXProfile *profile = NULL;
+         if (st.play)
+            Sim::findObject(SimObjectId(slot.profile), profile);
+         Con::printf("T2 sound: %s %d (ghost %d) slot %d %s %d (%s)",
+                     getClassName(), getId(), getNetIndex(), i,
+                     st.play ? "plays" : "stops", slot.profile,
+                     profile ? profile->getSoundFileName().c_str()
+                             : "nothing");
+      }
+
+      if (isProperlyAdded())
+         updateAudioState(st);
+   }
+}
+
 void ShapeBase::onT2BodyRead(const T2Layout::Body &body)
 {
    readT2Damage(body);
@@ -1848,6 +1890,7 @@ void ShapeBase::onT2BodyRead(const T2Layout::Body &body)
    readT2Shield(body);
    readT2Cloak(body);
    readT2Mount(body);
+   readT2Sounds(body);
    Parent::onT2BodyRead(body);
 }
 

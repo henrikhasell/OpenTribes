@@ -28,6 +28,9 @@ namespace T2Layout
 
    enum { MaxThreads = 4 };
 
+   /// ShapeBase's playAudio slots.
+   enum { MaxSounds = 4 };
+
    struct Body
    {
       bool    hasDataBlock;         ///< the object's own datablock came with
@@ -154,6 +157,15 @@ namespace T2Layout
          bool   atEnd;
       };
       Thread  threads[MaxThreads];
+
+      /// A sound slot the server started or stopped on the object.
+      struct Sound
+      {
+         bool   present;            ///< the body changed this slot
+         bool   play;
+         S32    profile;            ///< an AudioProfile's id, or -1
+      };
+      Sound   sounds[MaxSounds];
    };
 
    const Body &lastBody();
