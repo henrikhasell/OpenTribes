@@ -39,7 +39,8 @@ static const T2GhostFieldRow *sRows[32] = { NULL };
 static U32 sRowCount = 0;
 static const char *sFieldsFor = NULL;
 
-static const T2DataBlockFieldRow *sDbRows[128] = { NULL };
+// Room for every field one class names. PlayerData names the most, 125.
+static const T2DataBlockFieldRow *sDbRows[256] = { NULL };
 static U32 sDbRowCount = 0;
 static S32 sDbRowsFor = -1;
 static const void *sDbLayout = NULL;
@@ -87,6 +88,14 @@ const Vector<U32> &lastDataBlockValues(U32 field)
 {
    static Vector<U32> none;
    return field < T2DbFieldCount ? sDbList[field] : none;
+}
+
+const char *lastDataBlockString(U32 field)
+{
+   if(field >= T2DbFieldCount || !sDbHas[field] ||
+      sDbWords[field] >= U32(sStrings.size()))
+      return NULL;
+   return sStrings[sDbWords[field]].c_str();
 }
 
 const char *lastShapeFile()
@@ -2064,6 +2073,12 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
                traced(at, n.op, 0, buf);
                noteString(buf);
                sStrings.push_back(String(buf));
+
+               // A string field keeps where it sits among the body's strings.
+               const T2DataBlockFieldRow *dbRow = dbFieldAt(layout, at);
+               if(dbRow)
+                  noteDbField(dbRow, U32(sStrings.size() - 1));
+
                if(!sFirstString[0])
                {
                   dStrncpy(sFirstString, buf, sizeof(sFirstString) - 1);
@@ -2150,6 +2165,190 @@ static void warnUnimplemented(const char *kind, const char *name, bool write)
                what, write ? "body we are writing" : "packet");
 }
 
+// HH: Added for Tribes 2 compatibility.
+/// ShapeBaseData::packData (0x5e5d10) writes the first fields of every shape
+/// datablock, whatever its class goes on to add, so they come in the same
+/// order in all of them. The recovery numbered each flagged value after the
+/// rest of its class, though, so one field is a different node in each. They
+/// are found from the root by their shape instead, and given rows there.
+struct T2ShapeDataMap
+{
+   const T2DataBlockLayout     *layout;
+   Vector<T2DataBlockFieldRow>  rows;
+};
+
+static Vector<T2ShapeDataMap *> sShapeDataMaps(__FILE__, __LINE__);
+
+/// A flag whose set arm is a run of values that then rejoins its clear arm,
+/// which is how a field sent only when it differs from the default looks.
+/// The first value's node, or -1.
+static S32 flaggedRun(const T2DataBlockLayout *layout, S32 at, U32 op,
+                      U32 bits, U32 count = 1)
+{
+   const T2DataNode *flag = nodeAt(layout, at);
+   if(!isBranch(flag))
+      return -1;
+
+   S32 next = flag->b;
+   for(U32 i = 0; i < count; i++)
+   {
+      const T2DataNode *value = nodeAt(layout, next);
+      if(!value || value->op != op || value->bits != bits)
+         return -1;
+      next = value->a;
+   }
+
+   return next == flag->a ? flag->b : -1;
+}
+
+static void addShapeDataRow(T2ShapeDataMap *map, S32 at, U32 field)
+{
+   const T2DataNode &n = map->layout->nodes[at];
+   const T2DataBlockFieldRow row = { map->layout->name, S16(at), n.op, n.bits,
+                                     T2DataBlockField(field) };
+   map->rows.push_back(row);
+}
+
+/// Finds, from the layout's root, each field in the order
+/// ShapeBaseData::unpackData (0x5e63e0) reads them. The fields this engine
+/// has no use for are matched all the same, since the run is only sure to be
+/// ShapeBaseData's as a whole.
+static bool matchShapeData(T2ShapeDataMap *map)
+{
+   const T2DataBlockLayout *layout = map->layout;
+   S32 at = layout->root;
+
+   const S32 crc = flaggedRun(layout, at, OpRaw, 32);
+   if(crc < 0)
+      return false;
+   addShapeDataRow(map, at, T2DbComputeCRC);
+   addShapeDataRow(map, crc, T2DbShapeCRC);
+   at = layout->nodes[at].a;
+
+   const T2DataNode *n = nodeAt(layout, at);
+   if(!n || n->op != OpString)
+      return false;
+   addShapeDataRow(map, at, T2DbShapeFile);
+   at = n->a;
+
+   static const U32 sWords[] =
+   {
+      T2DbMass, T2DbDrag, T2DbDensity, T2DbMaxEnergy, T2DbCameraMaxDist,
+      T2DbCameraMinDist, T2DbCameraDefaultFov, T2DbCameraMinFov,
+      T2DbCameraMaxFov,
+   };
+   for(U32 i = 0; i < ELEMENTS(sWords); i++)
+   {
+      const S32 word = flaggedRun(layout, at, OpRaw, 32);
+      if(word < 0)
+         return false;
+      addShapeDataRow(map, word, sWords[i]);
+      at = layout->nodes[at].a;
+   }
+
+   n = nodeAt(layout, at);
+   if(!n || n->op != OpString)
+      return false;
+   addShapeDataRow(map, at, T2DbDebrisShapeName);
+   at = n->a;
+
+   // sensorRadius in ten bits, then sensorColor's four bytes.
+   const T2DataNode *sensor = nodeAt(layout, at);
+   if(!isBranch(sensor) || !isWord(nodeAt(layout, sensor->b), 10))
+      return false;
+   S32 next = layout->nodes[sensor->b].a;
+   for(U32 i = 0; i < 4; i++)
+   {
+      if(!isWord(nodeAt(layout, next), 8))
+         return false;
+      next = layout->nodes[next].a;
+   }
+   if(next != sensor->a)
+      return false;
+   at = sensor->a;
+
+   // heatSignature.
+   if(flaggedRun(layout, at, OpRaw, 32) < 0)
+      return false;
+   at = layout->nodes[at].a;
+
+   static const U32 sStringFields[] = { T2DbCmdCategory, T2DbCmdMiniIconName };
+   for(U32 i = 0; i < ELEMENTS(sStringFields); i++)
+   {
+      n = nodeAt(layout, at);
+      if(!n || n->op != OpString)
+         return false;
+      addShapeDataRow(map, at, sStringFields[i]);
+      at = n->a;
+   }
+
+   // canControl, canObserve, observeThroughObject, emap, isInvincible and
+   // renderWhenDestroyed, in that order.
+   static const S32 sFlags[] =
+   {
+      -1, -1, T2DbObserveThroughObject, -1, T2DbIsInvincible,
+      T2DbRenderWhenDestroyed,
+   };
+   for(U32 i = 0; i < ELEMENTS(sFlags); i++)
+   {
+      if(!isBareFlag(nodeAt(layout, at)))
+         return false;
+      if(sFlags[i] >= 0)
+         addShapeDataRow(map, at, U32(sFlags[i]));
+      at = layout->nodes[at].a;
+   }
+
+   static const U32 sIds[] =
+   {
+      T2DbCmdIcon, T2DbShapeExplosion, T2DbShapeUnderwaterExplosion,
+      T2DbShapeDebris,
+   };
+   for(U32 i = 0; i < ELEMENTS(sIds); i++)
+   {
+      const S32 id = flaggedRun(layout, at, OpDataBlockId, 11);
+      if(id < 0)
+         return false;
+      addShapeDataRow(map, id, sIds[i]);
+      at = layout->nodes[at].a;
+   }
+
+   static const U32 sLastFlags[] =
+   {
+      T2DbInheritEnergyFromMount, T2DbFirstPersonOnly, T2DbUseEyePoint,
+   };
+   for(U32 i = 0; i < ELEMENTS(sLastFlags); i++)
+   {
+      if(!isBareFlag(nodeAt(layout, at)))
+         return false;
+      addShapeDataRow(map, at, sLastFlags[i]);
+      at = layout->nodes[at].a;
+   }
+
+   // shieldEffectLifetimeMS, then shieldEffectScale's three words.
+   if(!isWord(nodeAt(layout, at), 32))
+      return false;
+   at = layout->nodes[at].a;
+   return flaggedRun(layout, at, OpRaw, 32, 3) >= 0;
+}
+
+static const T2ShapeDataMap *resolveShapeData(const T2DataBlockLayout *layout)
+{
+   for(U32 i = 0; i < sShapeDataMaps.size(); i++)
+      if(sShapeDataMaps[i]->layout == layout)
+         return sShapeDataMaps[i];
+
+   T2ShapeDataMap *map = new T2ShapeDataMap;
+   map->layout = layout;
+   if(matchShapeData(map))
+      Con::printf("T2 layout: %s opens with ShapeBaseData's fields",
+                  layout->name);
+   else
+      map->rows.clear();
+
+   sShapeDataMaps.push_back(map);
+   return map;
+}
+
 static void resolveDataBlockFields(U32 classId, const T2DataBlockLayout *layout)
 {
    if(S32(classId) == sDbRowsFor)
@@ -2193,6 +2392,20 @@ static void resolveDataBlockFields(U32 classId, const T2DataBlockLayout *layout)
       }
 
       sDbRows[sDbRowCount++] = &row;
+   }
+
+   const T2ShapeDataMap *shape = resolveShapeData(layout);
+   for(U32 i = 0; i < shape->rows.size(); i++)
+   {
+      if(sDbRowCount >= ELEMENTS(sDbRows))
+      {
+         Con::errorf("T2 datablock field: %s names more fields than there is "
+                     "room for; node %d is being ignored.", layout->name,
+                     shape->rows[i].node);
+         continue;
+      }
+
+      sDbRows[sDbRowCount++] = &shape->rows[i];
    }
 }
 

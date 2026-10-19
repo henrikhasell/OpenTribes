@@ -448,7 +448,6 @@ bool PlayerData::unpackData(BitStream *stream, U32 classId)
         &PlayerData::maxJetHorizontalPercentage },
       { T2Layout::T2DbHeatDecayPerSec,          &PlayerData::heatDecayPerSec          },
       { T2Layout::T2DbHeatIncreasePerSec,       &PlayerData::heatIncreasePerSec       },
-      { T2Layout::T2DbCameraMaxDist,            &PlayerData::cameraMaxDist            },
 
       { T2Layout::T2DbMinLookAngle,             &PlayerData::minLookAngle             },
       { T2Layout::T2DbMaxLookAngle,             &PlayerData::maxLookAngle             },

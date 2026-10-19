@@ -173,18 +173,28 @@ ShapeBaseData::ShapeBaseData()
    hulkSequence( -1 ),
    cameraMaxDist( 0.0f ),
    cameraMinDist( 0.2f ),
-   cameraDefaultFov( 75.0f ),
+   // HH: Modified for Tribes 2 compatibility.
+   // Retail's constructor (0x5e3c30) gives 90, and most vehicle datablocks
+   // leave it unset.
+   cameraDefaultFov( 90.0f ),
    cameraMinFov( 5.0f ),
    cameraMaxFov( 120.f ),
    isInvincible( false ),
    renderWhenDestroyed( true ),
    debris( NULL ),
-   debrisID( 0 ),
+   // HH: Modified for Tribes 2 compatibility.
+   // -1 is none, as in retail's constructor (0x5e3c30), since 0 is a real
+   // datablock id.
+   debrisID( -1 ),
    debrisShapeName( StringTable->insert("") ),
    explosion( NULL ),
-   explosionID( 0 ),
+   explosionID( -1 ),
    underwaterExplosion( NULL ),
-   underwaterExplosionID( 0 ),
+   underwaterExplosionID( -1 ),
+   cmdCategory( StringTable->insert("") ),
+   cmdMiniIconName( StringTable->insert("") ),
+   cmdIcon( NULL ),
+   cmdIconID( -1 ),
    firstPersonOnly( false ),
    useEyePoint( false ),
    cubeDescId( 0 ),
@@ -224,7 +234,10 @@ struct ShapeBaseDataProto
       maxEnergy = 0;
       cameraMaxDist = 0;
       cameraMinDist = 0.2f;
-      cameraDefaultFov = 75.f;
+      // HH: Modified for Tribes 2 compatibility.
+      // A field the server leaves out takes this, and retail's prototype is
+      // a default-constructed ShapeBaseData.
+      cameraDefaultFov = 90.f;
       cameraMinFov = 5.0f;
       cameraMaxFov = 120.f;
    }
@@ -238,30 +251,87 @@ ShapeBaseData::~ShapeBaseData()
 }
 
 // HH: Added for Tribes 2 compatibility.
-// The four values every ShapeBase simulates on, which a client has to agree
-// with the server about or its prediction walks away from the server's.
+// The fields ShapeBaseData::unpackData (0x5e63e0) reads for every shape
+// datablock, whatever its class.
 bool ShapeBaseData::unpackData(BitStream *stream, U32 classId)
 {
    if (!Parent::unpackData(stream, classId))
       return false;
 
-   static const struct { U32 field; F32 ShapeBaseData::*member; } sFields[] =
+   // GameConnection::transmitDataBlocks packs and unpacks a server's own
+   // datablocks in place for its local client, and the body our write walk
+   // gives them carries defaults, not what the scripts set. One a remote
+   // server sent sits in its connection, and a re-send of it has to land, as
+   // it does in retail.
+   if (isProperlyAdded() && !dynamic_cast<NetConnection *>(getGroup()))
+      return true;
+
+   // computeCRC is the first field of the run, so a body without it is one
+   // whose layout the run was not found in. It keeps naming its shape by the
+   // first one it carries, as every datablock did before the run was known.
+   U32 word;
+   if (!T2Layout::lastDataBlockWord(T2Layout::T2DbComputeCRC, &word))
    {
-      { T2Layout::T2DbMass,      &ShapeBaseData::mass      },
-      { T2Layout::T2DbDrag,      &ShapeBaseData::drag      },
-      { T2Layout::T2DbDensity,   &ShapeBaseData::density   },
-      { T2Layout::T2DbMaxEnergy, &ShapeBaseData::maxEnergy },
+      if (const char *shape = T2Layout::lastShapeFile())
+         shapeName = StringTable->insert(shape);
+      return true;
+   }
+
+   computeCRC = word != 0;
+   if (T2Layout::lastDataBlockWord(T2Layout::T2DbShapeCRC, &word))
+      mCRC = word;
+
+   static const struct { U32 field; StringTableEntry ShapeBaseData::*member; }
+      sStrings[] =
+   {
+      { T2Layout::T2DbShapeFile,       &ShapeBaseData::shapeName       },
+      { T2Layout::T2DbDebrisShapeName, &ShapeBaseData::debrisShapeName },
+      { T2Layout::T2DbCmdCategory,     &ShapeBaseData::cmdCategory     },
+      { T2Layout::T2DbCmdMiniIconName, &ShapeBaseData::cmdMiniIconName },
+   };
+
+   for (U32 i = 0; i < sizeof(sStrings) / sizeof(sStrings[0]); i++)
+   {
+      const char *str = T2Layout::lastDataBlockString(sStrings[i].field);
+      this->*sStrings[i].member = StringTable->insert(str ? str : "");
+   }
+
+   // Each is sent only where it differs from the prototype, and a clear flag
+   // puts the prototype's value back.
+   static const struct { U32 field; F32 ShapeBaseData::*member;
+                         const F32 *proto; } sFields[] =
+   {
+      { T2Layout::T2DbMass,             &ShapeBaseData::mass,
+        &gShapeBaseDataProto.mass             },
+      { T2Layout::T2DbDrag,             &ShapeBaseData::drag,
+        &gShapeBaseDataProto.drag             },
+      { T2Layout::T2DbDensity,          &ShapeBaseData::density,
+        &gShapeBaseDataProto.density          },
+      { T2Layout::T2DbMaxEnergy,        &ShapeBaseData::maxEnergy,
+        &gShapeBaseDataProto.maxEnergy        },
+      { T2Layout::T2DbCameraMaxDist,    &ShapeBaseData::cameraMaxDist,
+        &gShapeBaseDataProto.cameraMaxDist    },
+      { T2Layout::T2DbCameraMinDist,    &ShapeBaseData::cameraMinDist,
+        &gShapeBaseDataProto.cameraMinDist    },
+      { T2Layout::T2DbCameraDefaultFov, &ShapeBaseData::cameraDefaultFov,
+        &gShapeBaseDataProto.cameraDefaultFov },
+      { T2Layout::T2DbCameraMinFov,     &ShapeBaseData::cameraMinFov,
+        &gShapeBaseDataProto.cameraMinFov     },
+      { T2Layout::T2DbCameraMaxFov,     &ShapeBaseData::cameraMaxFov,
+        &gShapeBaseDataProto.cameraMaxFov     },
    };
 
    for (U32 i = 0; i < sizeof(sFields) / sizeof(sFields[0]); i++)
    {
-      F32 value;
-      if (T2Layout::lastDataBlockField(sFields[i].field, &value))
-         this->*sFields[i].member = value;
+      F32 value = *sFields[i].proto;
+      T2Layout::lastDataBlockField(sFields[i].field, &value);
+      this->*sFields[i].member = value;
    }
 
+   // A clear flag is none, which retail stores as -1.
    static const struct { U32 field; S32 ShapeBaseData::*member; } sIds[] =
    {
+      { T2Layout::T2DbCmdIcon,                  &ShapeBaseData::cmdIconID    },
       { T2Layout::T2DbShapeExplosion,           &ShapeBaseData::explosionID  },
       { T2Layout::T2DbShapeUnderwaterExplosion,
                                       &ShapeBaseData::underwaterExplosionID },
@@ -271,9 +341,26 @@ bool ShapeBaseData::unpackData(BitStream *stream, U32 classId)
    for (U32 i = 0; i < sizeof(sIds) / sizeof(sIds[0]); i++)
    {
       U32 id;
-      if (T2Layout::lastDataBlockWord(sIds[i].field, &id))
-         this->*sIds[i].member = S32(id);
+      this->*sIds[i].member =
+         T2Layout::lastDataBlockWord(sIds[i].field, &id)
+            ? S32(id + DataBlockObjectIdFirst) : -1;
    }
+
+   static const struct { U32 field; bool ShapeBaseData::*member; } sFlags[] =
+   {
+      { T2Layout::T2DbObserveThroughObject,
+                                       &ShapeBaseData::observeThroughObject   },
+      { T2Layout::T2DbIsInvincible,         &ShapeBaseData::isInvincible        },
+      { T2Layout::T2DbRenderWhenDestroyed,  &ShapeBaseData::renderWhenDestroyed },
+      { T2Layout::T2DbInheritEnergyFromMount,
+                                       &ShapeBaseData::inheritEnergyFromMount },
+      { T2Layout::T2DbFirstPersonOnly,      &ShapeBaseData::firstPersonOnly     },
+      { T2Layout::T2DbUseEyePoint,          &ShapeBaseData::useEyePoint         },
+   };
+
+   for (U32 i = 0; i < sizeof(sFlags) / sizeof(sFlags[0]); i++)
+      if (T2Layout::lastDataBlockWord(sFlags[i].field, &word))
+         this->*sFlags[i].member = word != 0;
 
    U32 lifetime;
    if (T2Layout::lastDataBlockWord(T2Layout::T2DbShieldEffectLifetimeMS,
@@ -296,36 +383,46 @@ bool ShapeBaseData::preload(bool server, String &errorStr)
       return false;
    bool shapeError = false;
 
+   // HH: Modified for Tribes 2 compatibility.
+   // Retail (0x5e42b0) resolves these on server and client alike, before it
+   // asks which it is, with -1 for none. The commander icon's failure prints
+   // the debris message, as retail's does.
+   if( !explosion && explosionID != -1 )
+   {
+      if( Sim::findObject( explosionID, explosion ) == false)
+      {
+         Con::errorf( ConsoleLogEntry::General, "ShapeBaseData::preload: Invalid packet, bad datablockId(explosion): 0x%x", explosionID );
+      }
+      AssertFatal(!(explosion && ((explosionID < DataBlockObjectIdFirst) || (explosionID > DataBlockObjectIdLast))),
+         "ShapeBaseData::preload: invalid explosion data");
+   }
+
+   if( !underwaterExplosion && underwaterExplosionID != -1 )
+   {
+      if( Sim::findObject( underwaterExplosionID, underwaterExplosion ) == false)
+      {
+         Con::errorf( ConsoleLogEntry::General, "ShapeBaseData::preload: Invalid packet, bad datablockId(underwaterExplosion): 0x%x", underwaterExplosionID );
+      }
+      AssertFatal(!(underwaterExplosion && ((underwaterExplosionID < DataBlockObjectIdFirst) || (underwaterExplosionID > DataBlockObjectIdLast))),
+         "ShapeBaseData::preload: invalid underwaterExplosion data");
+   }
+
+   if( !debris && debrisID != -1 )
+   {
+      if( Sim::findObject( debrisID, debris ) == false )
+         Con::errorf( ConsoleLogEntry::General, "ShapeBaseData::preload: Invalid packet, bad datablockId(debris): 0x%x", debrisID );
+      AssertFatal(!(debris && ((debrisID < DataBlockObjectIdFirst) || (debrisID > DataBlockObjectIdLast))),
+         "ShapeBaseData::preload: invalid debris data");
+   }
+
+   if( !cmdIcon && cmdIconID != -1 )
+   {
+      if( Sim::findObject( cmdIconID, cmdIcon ) == false )
+         Con::errorf( ConsoleLogEntry::General, "ShapeBaseData::preload: Invalid packet, bad datablockId(debris): 0x%x", cmdIconID );
+   }
+
    // Resolve objects transmitted from server
    if (!server) {
-
-      if( !explosion && explosionID != 0 )
-      {
-         if( Sim::findObject( explosionID, explosion ) == false)
-         {
-            Con::errorf( ConsoleLogEntry::General, "ShapeBaseData::preload: Invalid packet, bad datablockId(explosion): 0x%x", explosionID );
-         }
-         AssertFatal(!(explosion && ((explosionID < DataBlockObjectIdFirst) || (explosionID > DataBlockObjectIdLast))),
-            "ShapeBaseData::preload: invalid explosion data");
-      }
-
-      if( !underwaterExplosion && underwaterExplosionID != 0 )
-      {
-         if( Sim::findObject( underwaterExplosionID, underwaterExplosion ) == false)
-         {
-            Con::errorf( ConsoleLogEntry::General, "ShapeBaseData::preload: Invalid packet, bad datablockId(underwaterExplosion): 0x%x", underwaterExplosionID );
-         }
-         AssertFatal(!(underwaterExplosion && ((underwaterExplosionID < DataBlockObjectIdFirst) || (underwaterExplosionID > DataBlockObjectIdLast))),
-            "ShapeBaseData::preload: invalid underwaterExplosion data");
-      }
-
-      if( !debris && debrisID != 0 )
-      {
-         Sim::findObject( debrisID, debris );
-         AssertFatal(!(debris && ((debrisID < DataBlockObjectIdFirst) || (debrisID > DataBlockObjectIdLast))),
-            "ShapeBaseData::preload: invalid debris data");
-      }
-
 
       if( debrisShapeName && debrisShapeName[0] != '\0' && !bool(debrisShape) )
       {
@@ -633,6 +730,18 @@ void ShapeBaseData::initPersistFields()
          "server's CRC for the shape model when loaded by the client." );
 
    endGroup( "Misc" );
+
+   // HH: Added for Tribes 2 compatibility.
+   addGroup( "Commander" );
+
+      addField( "cmdCategory", TypeString, Offset(cmdCategory, ShapeBaseData),
+         "The commander map's category for this shape." );
+      addField( "cmdIcon", TYPEID< GameBaseData >(), Offset(cmdIcon, ShapeBaseData),
+         "The CommanderIconData the commander map draws this shape with." );
+      addField( "cmdMiniIconName", TypeString, Offset(cmdMiniIconName, ShapeBaseData),
+         "The small icon the commander map lists this shape with." );
+
+   endGroup( "Commander" );
 
    addGroup( "Reflection" );
 
