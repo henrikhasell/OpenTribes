@@ -1001,6 +1001,116 @@ static bool shapeAt(const T2DataBlockLayout *layout, S32 at, U32 *part)
    return true;
 }
 
+/// The nodes of one of ShapeBase's sound slots.
+enum T2SoundPart
+{
+   T2SoundChanged,
+   T2SoundPlay,
+   T2SoundProfile,
+
+   T2SoundParts
+};
+
+struct T2SoundMap
+{
+   const T2DataBlockLayout *layout;
+   Vector<S16>              part;   ///< node -> slot * T2SoundParts + part,
+                                    ///< or -1
+};
+
+static Vector<T2SoundMap *> sSoundMaps(__FILE__, __LINE__);
+static const T2SoundMap *sSounds = NULL;
+
+   /// ShapeBase::unpackUpdate (0x5ef2a3): a flag for the block, then for each
+   /// of the four slots a flag for a change, a flag for playing and the
+   /// profile's id, every clear arm landing on the next slot and the last
+   /// slot's on the block's own clear arm. The recovery calls the id an int
+   /// in some classes and a datablock id in others; it is read whole either
+   /// way.
+static bool matchSounds(const T2DataBlockLayout *layout, S32 top, S16 *parts)
+{
+   const T2DataNode *mask = nodeAt(layout, top);
+   if(!isBranch(mask))
+      return false;
+
+   S32 at = mask->b;
+   for(U32 slot = 0; slot < MaxSounds; slot++)
+   {
+      const T2DataNode *changed = nodeAt(layout, at);
+      if(!isBranch(changed))
+         return false;
+
+      const T2DataNode *play = nodeAt(layout, changed->b);
+      if(!isBranch(play) || play->a != changed->a)
+         return false;
+
+      const T2DataNode *profile = nodeAt(layout, play->b);
+      if(!profile || profile->a != changed->a ||
+         !(isWord(profile, 11) ||
+           (profile->op == OpDataBlockId && profile->bits == 11)))
+         return false;
+
+      parts[slot * T2SoundParts + T2SoundChanged] = S16(at);
+      parts[slot * T2SoundParts + T2SoundPlay]    = S16(changed->b);
+      parts[slot * T2SoundParts + T2SoundProfile] = S16(play->b);
+      at = changed->a;
+   }
+
+   return at == mask->a;
+}
+
+static const T2SoundMap *resolveSounds(const T2DataBlockLayout *layout)
+{
+   for(U32 i = 0; i < sSoundMaps.size(); i++)
+      if(sSoundMaps[i]->layout == layout)
+         return sSoundMaps[i];
+
+   T2SoundMap *map = new T2SoundMap;
+   map->layout = layout;
+   map->part.setSize(layout->count);
+   for(U32 i = 0; i < layout->count; i++)
+      map->part[i] = -1;
+
+   S16 parts[MaxSounds * T2SoundParts];
+   U32 blocks = 0;
+   for(U32 i = 0; i < layout->count; i++)
+   {
+      // Two blocks would be two sets of slots to choose between, and nothing
+      // to choose by, so only the first one counts.
+      if(!matchSounds(layout, S32(i), parts) || blocks++)
+         continue;
+
+      for(U32 p = 0; p < MaxSounds * T2SoundParts; p++)
+         map->part[parts[p]] = S16(p);
+   }
+
+   if(blocks > 1)
+      Con::warnf("T2 layout: %s has %d blocks shaped like ShapeBase's sound "
+                 "slots; the first is being taken", layout->name, blocks);
+   else if(blocks)
+      Con::printf("T2 layout: %s carries %d sound slots", layout->name,
+                  MaxSounds);
+
+   sSoundMaps.push_back(map);
+   return map;
+}
+
+static bool soundAt(const T2DataBlockLayout *layout, S32 at, U32 *slot,
+                    U32 *part)
+{
+   if(!sSounds || sSounds->layout != layout || at < 0 ||
+      U32(at) >= sSounds->part.size())
+      return false;
+
+   const S16 what = sSounds->part[at];
+   if(what < 0)
+      return false;
+
+   *slot = U32(what) / T2SoundParts;
+   *part = U32(what) % T2SoundParts;
+   return true;
+}
+
 static bool threadAt(const T2DataBlockLayout *layout, S32 at, U32 *slot,
                      U32 *part)
 {
@@ -1431,6 +1541,19 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
                if(damageAt(layout, at, &partOf) && partOf == T2DamageBlowApart)
                   sBody.blowApart = set;
 
+               if(soundAt(layout, at, &slotOf, &partOf))
+               {
+                  Body::Sound &sound = sBody.sounds[slotOf];
+                  if(partOf == T2SoundChanged)
+                     sound.present = set;
+                  else if(partOf == T2SoundPlay)
+                  {
+                     // Retail parks a stopped slot's profile at -1 (0x5ef375).
+                     sound.play = set;
+                     sound.profile = -1;
+                  }
+               }
+
                if(shapeAt(layout, at, &partOf))
                   switch(partOf)
                   {
@@ -1662,6 +1785,10 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
             U32 slot, part;
             const bool isImage = !write && imageAt(layout, at, &slot, &part) &&
                                  part == T2ImageBlockId;
+            U32 soundSlot, soundPart;
+            const bool isSound = !write &&
+                                 soundAt(layout, at, &soundSlot, &soundPart) &&
+                                 soundPart == T2SoundProfile;
 
                // An image slot names a ShapeBaseImageData, never the object's own
                // datablock.
@@ -1681,7 +1808,7 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
 
                // Every GameBase body opens with a flag and, when it is set, the
                // object's own datablock; any other id in the body is something
-               // else's.
+               // else's -- an image slot's, or a sound slot's profile.
             const T2DataNode &root = layout->nodes[layout->root];
             if(!write && layout == sFieldsLayout && root.op == OpFlag &&
                root.b == at)
@@ -1698,6 +1825,8 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
                sBody.images[slot].hasDataBlock = true;
                sBody.images[slot].dataBlockId = dbId;
             }
+            if(isSound)
+               sBody.sounds[soundSlot].profile = S32(dbId);
             if(!write)
                sDataBlockIds.push_back(dbId);
             break;
@@ -1875,6 +2004,9 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
                   noteDamage(part, word, n.bits);
                if(shieldAt(layout, at, &part))
                   noteShield(part, word, n.bits);
+
+               if(soundAt(layout, at, &slot, &part) && part == T2SoundProfile)
+                  sBody.sounds[slot].profile = S32(word);
 
                if(shapeAt(layout, at, &part))
                   switch(part)
@@ -2153,6 +2285,7 @@ static void resolveGhostFields(const char *className)
    sDamage = NULL;
    sShield = NULL;
    sShape = NULL;
+   sSounds = NULL;
 
    const T2DataBlockLayout *layout =
       findNamed(className, sT2GhostsRecovered, ELEMENTS(sT2GhostsRecovered));
@@ -2165,6 +2298,7 @@ static void resolveGhostFields(const char *className)
    sDamage = resolveDamage(layout);
    sShield = resolveShield(layout);
    sShape = resolveShape(layout);
+   sSounds = resolveSounds(layout);
 
    for(U32 i = 0; i < ELEMENTS(sT2GhostFields); i++)
    {
@@ -2394,6 +2528,13 @@ static bool runGhost(BitStream *stream, const char *className,
       thread.state = 0;
       thread.forward = false;
       thread.atEnd = false;
+   }
+   for(U32 i = 0; i < MaxSounds; i++)
+   {
+      Body::Sound &sound = sBody.sounds[i];
+      sound.present = false;
+      sound.play = false;
+      sound.profile = -1;
    }
    sTransformAt = -1;
    sAffineAt = -1;
