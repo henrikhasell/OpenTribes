@@ -87,6 +87,23 @@ namespace T2Layout
       bool    hasInvincible;
       F32     invincibleTime;
       F32     invincibleSpeed;
+      bool    hasFieldState;
+      U32     fieldState;
+      U32     fieldFade;
+      struct Run
+      {
+         S32  at;
+         U32  count;
+      };
+      Run     zonePoints;
+      Run     zonePlanes;
+      Run     zoneEdges;
+      F32     velocityMod;
+      F32     gravityMod;
+      bool    hasAppliedForce;
+      Point3F appliedForce;
+      bool    hasZoneActive;
+      bool    zoneActive;
 
       /// What a body said about one of its object's image slots -- the
       /// weapon in the hand, the pack on the back.
@@ -357,6 +374,19 @@ namespace T2Layout
       T2DbParticleColorA,
       T2DbParticleSize,
       T2DbParticleTime,
+
+      T2DbFieldFadeMS,
+      T2DbFieldBaseTranslucency,
+      T2DbFieldPowerOffTranslucency,
+      T2DbFieldTeamPermiable,
+      T2DbFieldOtherPermiable,
+      T2DbFieldColor,
+      T2DbFieldPowerOffColor,
+      T2DbFieldFramesPerSec,
+      T2DbFieldNumFrames,
+      T2DbFieldScrollSpeed,
+      T2DbFieldUMapping,
+      T2DbFieldVMapping,
 
       T2DbFieldCount
    };

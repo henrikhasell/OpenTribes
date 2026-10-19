@@ -74,6 +74,7 @@ class PhysicalZone : public SceneObject
    void inspectPostApply();
 
    // NetObject
+   void onT2BodyRead(const T2Layout::Body &body) override;   // HH: Added for Tribes 2 compatibility.
 
    // SceneObject
    void setTransform(const MatrixF &mat);

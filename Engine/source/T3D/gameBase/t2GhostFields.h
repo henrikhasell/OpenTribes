@@ -50,6 +50,15 @@ namespace T2Protocol
       T2FieldInvincibleHere,
       T2FieldInvincibleTime,
       T2FieldInvincibleSpeed,
+      T2FieldFieldState,
+      T2FieldFieldFade,
+      T2FieldZonePoints,
+      T2FieldZonePlanes,
+      T2FieldZoneEdges,
+      T2FieldVelocityMod,
+      T2FieldGravityMod,
+      T2FieldAppliedForce,
+      T2FieldZoneActive,
    };
 
    inline U32 t2FieldWords(U32 field)
@@ -63,6 +72,7 @@ namespace T2Protocol
          case T2FieldVelocityWords: return 3;
          case T2FieldExplodeWords:  return 3;
          case T2FieldImpactWords:   return 3;
+         case T2FieldAppliedForce:  return 3;
          default:                   return 0;
       }
    }
@@ -130,8 +140,18 @@ namespace T2Protocol
       { "ParticleEmissionDummy",  2, OpRaw, 32, T2FieldTransform },
       { "ParticleEmissionDummy", 18, OpRaw, 32, T2FieldScale     },
 
-      { "PhysicalZone",           3, OpRaw, 32, T2FieldTransform },
-      { "PhysicalZone",          19, OpRaw, 32, T2FieldScale     },
+   // PhysicalZone::unpackUpdate (0x0068b290): under the initial mask the
+   // transform, the scale, the polyhedron's three runs, the two mods and the
+   // force; then, on every body, the active flag.
+      { "PhysicalZone",          42, OpRaw,   32, T2FieldTransform    },
+      { "PhysicalZone",          26, OpRaw,   32, T2FieldScale        },
+      { "PhysicalZone",          23, OpCount, 32, T2FieldZonePoints   },
+      { "PhysicalZone",          18, OpCount, 32, T2FieldZonePlanes   },
+      { "PhysicalZone",          12, OpCount, 32, T2FieldZoneEdges    },
+      { "PhysicalZone",           6, OpRaw,   32, T2FieldVelocityMod  },
+      { "PhysicalZone",           5, OpRaw,   32, T2FieldGravityMod   },
+      { "PhysicalZone",           4, OpRaw,   32, T2FieldAppliedForce },
+      { "PhysicalZone",           1, OpFlag,   1, T2FieldZoneActive   },
 
       { "VehicleBlocker",         0, OpRaw, 32, T2FieldTransform },
 
@@ -170,6 +190,13 @@ namespace T2Protocol
       { "ForceFieldBare",         8, OpRaw,  32, T2FieldAffine   },
       { "ForceFieldBare",        14, OpFlag,  1, T2FieldQuatSign },
       { "ForceFieldBare",        15, OpRaw,  32, T2FieldScale    },
+
+   // GameBase's target, which is the team the field lets through, and the
+   // state ForceFieldBare::packUpdate (0x00676bf0) sends under its 0x10 mask.
+      { "ForceFieldBare",        18, OpFlag,  1, T2FieldTargetHere },
+      { "ForceFieldBare",        19, OpReadBr, 9, T2FieldTarget    },
+      { "ForceFieldBare",         6, OpSelect, 2, T2FieldFieldState },
+      { "ForceFieldBare",         7, OpRaw,  32, T2FieldFieldFade  },
 
       { "WaterBlock",             0, OpRaw,  32, T2FieldAffine   },
       { "WaterBlock",             6, OpFlag,  1, T2FieldQuatSign },

@@ -8,6 +8,7 @@
 #include "sim/netConnection.h"
 #include "T3D/gameBase/gameConnection.h"
 #include "T3D/gameBase/t2Layout.h"
+#include "T3D/gameBase/targetsT2.h"
 #include "T3D/shapeBase.h"
 #include "T3D/player.h"
 #include "core/crc.h"
@@ -393,13 +394,21 @@ namespace
 
       NetStringHandle tags[NumTags];
       F32 voicePitch;
+      U32 sensorGroup;
 
-      ClientTarget() : voicePitch(1.0f) {}
+      ClientTarget() : voicePitch(1.0f), sensorGroup(0) {}
    };
 
    enum { TargetBits = 9, NumTargets = 1 << TargetBits };
 
    ClientTarget sClientTargets[NumTargets];
+}
+
+U32 T2Targets::sensorGroup(S32 target)
+{
+   if (target < 0 || target >= NumTargets)
+      return 0;
+   return sClientTargets[target].sensorGroup;
 }
 
 class TargetInfoEvent : public NetEvent
@@ -419,6 +428,8 @@ class TargetInfoEvent : public NetEvent
    U32 mTag[ClientTarget::NumTags];
    bool mVoicePitchHere;
    U32 mVoicePitch;
+   bool mSensorGroupHere;
+   U32 mSensorGroup;
 
 public:
    TargetInfoEvent()
@@ -432,6 +443,8 @@ public:
       }
       mVoicePitchHere = false;
       mVoicePitch = 0;
+      mSensorGroupHere = false;
+      mSensorGroup = 0;
    }
 
    void pack(NetConnection *, BitStream *) {}
@@ -447,8 +460,8 @@ public:
                     ? stream->readInt(ConnectionStringTable::EntryBitSize) + 1
                     : 0;
 
-      if (stream->readFlag())
-         stream->readInt(SensorGroupBits);
+      if ((mSensorGroupHere = stream->readFlag()))
+         mSensorGroup = stream->readInt(SensorGroupBits);
       if (stream->readFlag() && stream->readFlag())
          stream->readInt(DataBlockBits);
       if (stream->readFlag())
@@ -465,6 +478,9 @@ public:
                                      : NetStringHandle();
 
       // allocTarget takes a pitch from 0.5 to 2, sent as a share of that.
+      if (mSensorGroupHere)
+         target.sensorGroup = mSensorGroup;
+
       if (mVoicePitchHere)
          target.voicePitch = 0.5f + 1.5f * F32(mVoicePitch) /
                                     F32((1 << VoicePitchBits) - 1);

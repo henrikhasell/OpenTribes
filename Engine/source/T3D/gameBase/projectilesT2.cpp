@@ -562,10 +562,12 @@ void ProjectileT2::advanceTime(F32 dt)
    mShapeInstance->advanceTime(dt);
 }
 
+/// A force field is in retail's static half of this, at 0x007abf60, next to
+/// static objects, terrain and interiors.
 static const U32 sProjectileCollisionMask =
    StaticObjectType | TerrainObjectType | InteriorObjectType |
    StaticShapeObjectType | PlayerObjectType | VehicleObjectType |
-   ItemObjectType;
+   ItemObjectType | ForceFieldObjectType;
 
 /// Age every length of the trail from both ends and drop the ones that have
 /// run out, which is GrenadeBlur's advance at 0x00698380 and the pass after it

@@ -32,6 +32,7 @@
 #include "renderInstance/renderPassManager.h"
 #include "gfx/gfxDrawUtil.h"
 #include "console/engineAPI.h"
+#include "T3D/gameBase/t2Layout.h"   // HH: Added for Tribes 2 compatibility.
 
 IMPLEMENT_CO_NETOBJECT_V1(PhysicalZone);
 
@@ -239,6 +240,72 @@ void PhysicalZone::renderObject( ObjectRenderInst *ri,
 //--------------------------------------------------------------------------
 
 
+
+// HH: Added for Tribes 2 compatibility.
+namespace
+{
+   const U32 *t2Run(const T2Layout::Body::Run &run, U32 wordsEach)
+   {
+      const Vector<U32> &words = T2Layout::lastWords();
+      if(run.at < 0 || U32(run.at) + run.count * wordsEach > words.size())
+         return NULL;
+      return words.address() + run.at;
+   }
+
+   F32 t2Float(U32 word)
+   {
+      F32 f;
+      dMemcpy(&f, &word, sizeof(f));
+      return f;
+   }
+}
+
+/// PhysicalZone::unpackUpdate (0x0068b290). Under the initial mask: the
+/// transform and scale, then the polyhedron's points, planes and edges, then
+/// velocityMod, gravityMod and appliedForce. Then, on every update, whether
+/// the zone is active. Retail sets the polyhedron before the scale and the
+/// transform.
+void PhysicalZone::onT2BodyRead(const T2Layout::Body &body)
+{
+   const U32 *points = t2Run(body.zonePoints, 3);
+   const U32 *planes = t2Run(body.zonePlanes, 4);
+   const U32 *edges  = t2Run(body.zoneEdges, 4);
+
+   if(points && planes && edges && body.hasAppliedForce)
+   {
+      Polyhedron poly;
+
+      poly.pointList.setSize(body.zonePoints.count);
+      for(U32 i = 0; i < poly.pointList.size(); i++, points += 3)
+         poly.pointList[i].set(t2Float(points[0]), t2Float(points[1]),
+                               t2Float(points[2]));
+
+      poly.planeList.setSize(body.zonePlanes.count);
+      for(U32 i = 0; i < poly.planeList.size(); i++, planes += 4)
+         poly.planeList[i].set(t2Float(planes[0]), t2Float(planes[1]),
+                               t2Float(planes[2]), t2Float(planes[3]));
+
+      poly.edgeList.setSize(body.zoneEdges.count);
+      for(U32 i = 0; i < poly.edgeList.size(); i++, edges += 4)
+      {
+         Polyhedron::Edge &e = poly.edgeList[i];
+         e.face[0]   = edges[0];
+         e.face[1]   = edges[1];
+         e.vertex[0] = edges[2];
+         e.vertex[1] = edges[3];
+      }
+
+      mVelocityMod  = body.velocityMod;
+      mGravityMod   = body.gravityMod;
+      mAppliedForce = body.appliedForce;
+      setPolyhedron(poly);
+   }
+
+   Parent::onT2BodyRead(body);
+
+   if(body.hasZoneActive)
+      mActive = body.zoneActive;
+}
 
 //--------------------------------------------------------------------------
 void PhysicalZone::setPolyhedron(const Polyhedron& rPolyhedron)
