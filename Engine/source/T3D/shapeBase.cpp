@@ -1679,12 +1679,66 @@ void ShapeBase::readT2Cloak(const T2Layout::Body &body)
       mFadeVal = F32(body.fadeVisible);
 }
 
+// HH: Added for Tribes 2 compatibility.
+void ShapeBase::readT2Mount(const T2Layout::Body &body)
+{
+   if (!body.hasMount)
+      return;
+
+   const bool trace = Con::getBoolVariable("$pref::Net::traceGhostMounts",
+                                           false);
+
+   if (body.mountGhost < 0)
+   {
+      if (trace)
+         Con::printf("T2 mount: %s %d (ghost %d) gets off %d",
+                     getClassName(), getId(), getNetIndex(),
+                     isMounted() ? getObjectMount()->getId() : 0);
+
+      // Player's unmount starts a root animation, which a first body has no
+      // shape for yet; retail's (0x5eb030) does nothing when not mounted.
+      if (isMounted())
+         unmount();
+      return;
+   }
+
+   NetConnection *conn = NetConnection::getConnectionToServer();
+   NetObject *ghost = conn ? conn->resolveGhost(body.mountGhost) : NULL;
+   if (trace)
+      Con::printf("T2 mount: %s %d (ghost %d) on ghost %d node %d = %s %d",
+                  getClassName(), getId(), getNetIndex(), body.mountGhost,
+                  body.mountNode, ghost ? ghost->getClassName() : "nothing",
+                  ghost ? ghost->getId() : 0);
+
+   if (!ghost)
+   {
+      // A server names only a mount it has ghosted already, and a recording
+      // writes the mount first, so retail calls this a bad packet (0x5efcd0).
+      NetConnection::setLastError("Invalid packet from server.");
+      return;
+   }
+
+   // Some Tribes 2 classes are still placeholders with no shape here, and a
+   // recording's first bodies keep a ghost that would not register; retail
+   // has neither.
+   SceneObject *mount = dynamic_cast<SceneObject *>(ghost);
+   if (!mount || !mount->isProperlyAdded())
+   {
+      Con::warnf("T2 mount: %s %d is mounted on a %s, which cannot carry it "
+                 "here.", getClassName(), getId(), ghost->getClassName());
+      return;
+   }
+
+   mount->mountObject(this, S32(body.mountNode));
+}
+
 void ShapeBase::onT2BodyRead(const T2Layout::Body &body)
 {
    readT2Damage(body);
    readT2Invincible(body);
    readT2Shield(body);
    readT2Cloak(body);
+   readT2Mount(body);
    Parent::onT2BodyRead(body);
 }
 

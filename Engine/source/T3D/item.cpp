@@ -615,6 +615,8 @@ void Item::onT2BodyRead(const T2Layout::Body &body)
    // HH: Added for Tribes 2 compatibility.
    readT2Damage(body);
    readT2Shield(body);
+   readT2Invincible(body);
+   readT2Mount(body);
 
    if (body.hasRotate)
       mRotate = body.rotate;

@@ -47,9 +47,6 @@ namespace T2Protocol
                                     ///< person too
       T2FieldActionPosHere,         ///< the flag a thread position follows
       T2FieldActionPos,             ///< readSignedFloat(bits) of the thread
-      T2FieldInvincibleHere,
-      T2FieldInvincibleTime,
-      T2FieldInvincibleSpeed,
       T2FieldFieldState,
       T2FieldFieldFade,
       T2FieldZonePoints,
@@ -99,11 +96,6 @@ namespace T2Protocol
       { "Player", 22, OpRaw,   21, T2FieldDirection    },
       { "Player", 19, OpRaw,   7,  T2FieldYaw          },
 
-   // ShapeBase's target: a flag for a change, a flag for having one at all,
-   // then its id.
-      { "Player", 227, OpFlag, 1,  T2FieldTargetHere        },
-      { "Player", 226, OpRaw,  9,  T2FieldTarget            },
-
       { "Player", 26, OpFlag,  1,  T2FieldJetting      },
 
    // The action thread Player::unpackUpdate reads after the impact sound:
@@ -118,9 +110,6 @@ namespace T2Protocol
       { "Player", 37, OpFlag,  1,  T2FieldActionPosHere     },
       { "Player", 36, OpRaw,   6,  T2FieldActionPos         },
 
-      { "Player", 51, OpFlag,  1,  T2FieldInvincibleHere    },
-      { "Player", 50, OpRaw,  32,  T2FieldInvincibleTime    },
-      { "Player", 49, OpRaw,  32,  T2FieldInvincibleSpeed   },
    // ShapeBase's cloak block (CloakMask, 0x40), inside the group flag at 64:
    // flag 63 for the block, then whether it is cloaked (0x005ef937), then the
    // controlled flag and the fade.

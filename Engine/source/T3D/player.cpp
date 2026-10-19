@@ -1474,7 +1474,6 @@ Player::Player()
    mActionAnimation.atEnd = false;
    mState = MoveState;
    mJetting = false;
-   mT2Target = -1;
    mFalling = false;
    mSwimming = false;
    mInWater = false;
@@ -5184,14 +5183,13 @@ void Player::readT2Action(const T2Layout::Body &body)
 
 void Player::onT2BodyRead(const T2Layout::Body &body)
 {
-   if (body.hasTarget)
-      mT2Target = body.target;
-
    readT2Damage(body);
    readT2Invincible(body);
    readT2Shield(body);
    // HH: Added for Tribes 2 compatibility.
    readT2Cloak(body);
+   // Before the position, which a mounted player takes from its mount.
+   readT2Mount(body);
 
    if (body.hasJetting)
       mJetting = body.jetting;

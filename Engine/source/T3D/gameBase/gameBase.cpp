@@ -223,7 +223,8 @@ ConsoleDocClass( GameBase,
 GameBase::GameBase()
 : mDataBlock( NULL ),  
   mControllingClient( NULL ),
-  mCurrentWaterObject( NULL )
+  mCurrentWaterObject( NULL ),
+  mT2Target( -1 )
 {
    mNetFlags.set(Ghostable);
    mTypeMask |= GameBaseObjectType;
@@ -443,6 +444,10 @@ F32 GameBase::getUpdatePriority(CameraScopeQuery *camInfo, U32 updateMask, S32 u
 // before anything below reads its fields against it.
 void GameBase::onT2BodyHeadRead(const T2Layout::Body &body)
 {
+   // GameBase's own block (0x5e3426), the same in every class's body.
+   if(body.hasTarget)
+      mT2Target = body.target;
+
    if(!body.hasDataBlock)
       return;
 
