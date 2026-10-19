@@ -46,6 +46,7 @@
 #include "gfx/primBuilder.h"
 #include "gfx/gfxDrawUtil.h"
 #include "materials/materialDefinition.h"
+#include "T3D/gameBase/t2Layout.h"   // HH: Added for Tribes 2 compatibility.
 
 
 namespace {
@@ -150,7 +151,10 @@ VehicleData::VehicleData()
    softImpactSpeed = 25;
    hardImpactSpeed = 50;
    minRollSpeed = 0;
-   maxSteeringAngle = M_PI_F/4.0f; // 45 deg.
+   // HH: Modified for Tribes 2 compatibility.
+   // Retail's constructor (0x608a50) stores 0.785 itself, not a quarter of
+   // pi.
+   maxSteeringAngle = 0.785f;
 
    cameraRoll = true;
    cameraLag = 0;
@@ -172,20 +176,29 @@ VehicleData::VehicleData()
    jetEnergyDrain =  0.8f;
    minJetEnergy = 1;
 
+   // HH: Added for Tribes 2 compatibility.
+   stuckTimerTicks = 1;
+   stuckTimerAngle = 180;
+
+   // HH: Modified for Tribes 2 compatibility.
+   // Retail's none is -1, as id 0 is a datablock here.
    for (S32 i = 0; i < Body::MaxSounds; i++)
+   {
       body.sound[i] = 0;
+      bodySoundID[i] = -1;
+   }
 
    dustEmitter = NULL;
-   dustID = 0;
+   dustID = -1;
    triggerDustHeight = 3.0;
    dustHeight = 1.0;
 
    dMemset( damageEmitterList, 0, sizeof( damageEmitterList ) );
    dMemset( damageEmitterOffset, 0, sizeof( damageEmitterOffset ) );
-   dMemset( damageEmitterIDList, 0, sizeof( damageEmitterIDList ) );
+   dMemset( damageEmitterIDList, -1, sizeof( damageEmitterIDList ) );
    dMemset( damageLevelTolerance, 0, sizeof( damageLevelTolerance ) );
    dMemset( splashEmitterList, 0, sizeof( splashEmitterList ) );
-   dMemset( splashEmitterIDList, 0, sizeof( splashEmitterIDList ) );
+   dMemset( splashEmitterIDList, -1, sizeof( splashEmitterIDList ) );
 
    numDmgEmitterAreas = 0;
 
@@ -197,6 +210,7 @@ VehicleData::VehicleData()
    hardSplashSoundVel = 3.0;
 
    dMemset(waterSound, 0, sizeof(waterSound));
+   dMemset(waterSoundID, -1, sizeof(waterSoundID));   // HH: Added for Tribes 2 compatibility.
 
    collDamageThresholdVel = 20;
    collDamageMultiplier   = 0.05f;
@@ -211,20 +225,22 @@ bool VehicleData::preload(bool server, String &errorStr)
       return false;
 
    // Vehicle objects must define a collision detail
+   // HH: Retail's preload (0x608d50) has no such test, but every retail
+   // vehicle shape has a Collision-1 detail, and onNewDataBlock relies on it.
    if (!collisionDetails.size() || collisionDetails[0] == -1)
    {
       Con::errorf("VehicleData::preload failed: Vehicle models must define a collision-1 detail");
       return false;
    }
 
-   // Resolve objects transmitted from server
-   if (!server) {
-      for (S32 i = 0; i < Body::MaxSounds; i++)
-         if (body.sound[i])
-            Sim::findObject(SimObjectId((uintptr_t)body.sound[i]),body.sound[i]);
-   }
+   // HH: Modified for Tribes 2 compatibility.
+   // Retail resolves every id on server and client alike, and says nothing
+   // when an impact sound is missing.
+   for (S32 i = 0; i < Body::MaxSounds; i++)
+      if (!body.sound[i] && bodySoundID[i] != -1)
+         Sim::findObject(bodySoundID[i], body.sound[i]);
 
-   if( !dustEmitter && dustID != 0 )
+   if( !dustEmitter && dustID != -1 )
    {
       if( !Sim::findObject( dustID, dustEmitter ) )
       {
@@ -235,7 +251,7 @@ bool VehicleData::preload(bool server, String &errorStr)
    U32 i;
    for( i=0; i<VC_NUM_DAMAGE_EMITTERS; i++ )
    {
-      if( !damageEmitterList[i] && damageEmitterIDList[i] != 0 )
+      if( !damageEmitterList[i] && damageEmitterIDList[i] != -1 )
       {
          if( !Sim::findObject( damageEmitterIDList[i], damageEmitterList[i] ) )
          {
@@ -246,7 +262,7 @@ bool VehicleData::preload(bool server, String &errorStr)
 
    for( i=0; i<VC_NUM_SPLASH_EMITTERS; i++ )
    {
-      if( !splashEmitterList[i] && splashEmitterIDList[i] != 0 )
+      if( !splashEmitterList[i] && splashEmitterIDList[i] != -1 )
       {
          if( !Sim::findObject( splashEmitterIDList[i], splashEmitterList[i] ) )
          {
@@ -254,6 +270,108 @@ bool VehicleData::preload(bool server, String &errorStr)
          }
       }
    }
+
+   // HH: Added for Tribes 2 compatibility.
+   for( i=0; i<MaxSounds; i++ )
+   {
+      if( !waterSound[i] && waterSoundID[i] != -1 &&
+          !Sim::findObject( waterSoundID[i], waterSound[i] ) )
+         Con::errorf( ConsoleLogEntry::General, "VehicleData::preload: Invalid packet, bad datablockId(waterSound[%d]): 0x%x", i, waterSoundID[i] );
+   }
+
+   return true;
+}
+
+// HH: Added for Tribes 2 compatibility.
+// The Sim id of a datablock the last body named, or -1 where its flag said
+// none.
+S32 VehicleData::sentDataBlockId(U32 field)
+{
+   U32 id;
+   return T2Layout::lastDataBlockWord(field, &id) ?
+          S32(id + DataBlockObjectIdFirst) : -1;
+}
+
+// HH: Added for Tribes 2 compatibility.
+// The fields VehicleData::unpackData (0x609450) reads after ShapeBaseData's.
+bool VehicleData::unpackData(BitStream *stream, U32 classId)
+{
+   if (!Parent::unpackData(stream, classId))
+      return false;
+
+   // bodyRestitution opens the run, so a body without it is one whose layout
+   // the run was not found in.
+   F32 value;
+   if (isUnpackedInPlace() ||
+       !T2Layout::lastDataBlockField(T2Layout::T2DbBodyRestitution, &value))
+      return true;
+
+   body.restitution = value;
+   T2Layout::lastDataBlockField(T2Layout::T2DbBodyFriction, &body.friction);
+
+   static const struct { U32 field; F32 VehicleData::*member; } sFields[] =
+   {
+      { T2Layout::T2DbMinImpactSpeed,         &VehicleData::minImpactSpeed         },
+      { T2Layout::T2DbSoftImpactSpeed,        &VehicleData::softImpactSpeed        },
+      { T2Layout::T2DbHardImpactSpeed,        &VehicleData::hardImpactSpeed        },
+      { T2Layout::T2DbMinRollSpeed,           &VehicleData::minRollSpeed           },
+      { T2Layout::T2DbMaxSteerinAngle,        &VehicleData::maxSteeringAngle       },
+      { T2Layout::T2DbMaxDrag,                &VehicleData::maxDrag                },
+      { T2Layout::T2DbMinDrag,                &VehicleData::minDrag                },
+      { T2Layout::T2DbJetForce,               &VehicleData::jetForce               },
+      { T2Layout::T2DbJetEnergyDrain,         &VehicleData::jetEnergyDrain         },
+      { T2Layout::T2DbMinJetEnergy,           &VehicleData::minJetEnergy           },
+      { T2Layout::T2DbCameraOffset,           &VehicleData::cameraOffset           },
+      { T2Layout::T2DbCameraLag,              &VehicleData::cameraLag              },
+      { T2Layout::T2DbTriggerDustHeight,      &VehicleData::triggerDustHeight      },
+      { T2Layout::T2DbDustHeight,             &VehicleData::dustHeight             },
+      { T2Layout::T2DbNumDmgEmitterAreas,     &VehicleData::numDmgEmitterAreas     },
+      { T2Layout::T2DbExitSplashSoundVel,     &VehicleData::exitSplashSoundVel     },
+      { T2Layout::T2DbSoftSplashSoundVel,     &VehicleData::softSplashSoundVel     },
+      { T2Layout::T2DbMedSplashSoundVel,      &VehicleData::medSplashSoundVel      },
+      { T2Layout::T2DbHardSplashSoundVel,     &VehicleData::hardSplashSoundVel     },
+      { T2Layout::T2DbSplashFreqMod,          &VehicleData::splashFreqMod          },
+      { T2Layout::T2DbSplashVelEpsilon,       &VehicleData::splashVelEpsilon       },
+      { T2Layout::T2DbCollDamageThresholdVel, &VehicleData::collDamageThresholdVel },
+      { T2Layout::T2DbCollDamageMultiplier,   &VehicleData::collDamageMultiplier   },
+   };
+
+   for (U32 i = 0; i < sizeof(sFields) / sizeof(sFields[0]); i++)
+      T2Layout::lastDataBlockField(sFields[i].field, &(this->*sFields[i].member));
+
+   for (U32 i = 0; i < VC_NUM_DAMAGE_EMITTER_AREAS; i++)
+   {
+      const U32 at = T2Layout::T2DbDamageEmitterOffset + i * 3;
+      T2Layout::lastDataBlockField(at,     &damageEmitterOffset[i].x);
+      T2Layout::lastDataBlockField(at + 1, &damageEmitterOffset[i].y);
+      T2Layout::lastDataBlockField(at + 2, &damageEmitterOffset[i].z);
+   }
+
+   for (U32 i = 0; i < VC_NUM_DAMAGE_LEVELS; i++)
+      T2Layout::lastDataBlockField(T2Layout::T2DbDamageLevelTolerance + i,
+                                   &damageLevelTolerance[i]);
+
+   // Retail lets go of the sounds it had, to look the new ids up in preload,
+   // but keeps the emitters it had.
+   for (U32 i = 0; i < Body::MaxSounds; i++)
+   {
+      body.sound[i] = NULL;
+      bodySoundID[i] = sentDataBlockId(T2Layout::T2DbBodySound + i);
+   }
+
+   for (U32 i = 0; i < MaxSounds; i++)
+   {
+      waterSound[i] = NULL;
+      waterSoundID[i] = sentDataBlockId(T2Layout::T2DbWaterSound + i);
+   }
+
+   dustID = sentDataBlockId(T2Layout::T2DbDustEmitter);
+   for (U32 i = 0; i < VC_NUM_DAMAGE_EMITTERS; i++)
+      damageEmitterIDList[i] =
+         sentDataBlockId(T2Layout::T2DbDamageEmitter + i);
+   for (U32 i = 0; i < VC_NUM_SPLASH_EMITTERS; i++)
+      splashEmitterIDList[i] =
+         sentDataBlockId(T2Layout::T2DbSplashEmitter + i);
 
    return true;
 }
@@ -308,7 +426,10 @@ void VehicleData::initPersistFields()
       "Minimum collision speed for the hardImpactSound to be played." );
    addField( "minRollSpeed", TypeF32, Offset(minRollSpeed, VehicleData),
       "Unused" );
-   addField( "maxSteeringAngle", TypeF32, Offset(maxSteeringAngle, VehicleData),
+   // HH: Modified for Tribes 2 compatibility.
+   // Retail registers the name misspelt (0x609b00), so a script's
+   // maxSteeringAngle is a dynamic field and never reaches the engine.
+   addField( "maxSteerinAngle", TypeF32, Offset(maxSteeringAngle, VehicleData),
       "Maximum yaw (horizontal) and pitch (vertical) steering angle in radians." );
 
    addField( "maxDrag", TypeF32, Offset(maxDrag, VehicleData),
@@ -413,6 +534,12 @@ void VehicleData::initPersistFields()
    addField( "collDamageMultiplier", TypeF32, Offset(collDamageMultiplier, VehicleData),
       "@brief Damage to this vehicle after a collision (multiplied by collision "
       "velocity).\n\nCurrently unused." );
+
+   // HH: Added for Tribes 2 compatibility.
+   addField( "stuckTimerTicks", TypeS32, Offset(stuckTimerTicks, VehicleData),
+      "Ticks a vehicle may spend tipped past stuckTimerAngle before it is destroyed." );
+   addField( "stuckTimerAngle", TypeF32, Offset(stuckTimerAngle, VehicleData),
+      "How far a vehicle may tip before the stuck timer counts." );
 
    Parent::initPersistFields();
 }

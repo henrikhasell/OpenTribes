@@ -661,6 +661,10 @@ public:
    virtual bool preload(bool server, String &errorStr);
    // HH: Added for Tribes 2 compatibility.
    bool unpackData(BitStream *stream, U32 classId) override;
+   /// A server's own datablock, which GameConnection::transmitDataBlocks
+   /// unpacks in place for its local client, and which keeps what the
+   /// scripts gave it.
+   bool isUnpackedInPlace();
    void computeAccelerator(U32 i);
    S32  findMountPoint(U32 n);
 
