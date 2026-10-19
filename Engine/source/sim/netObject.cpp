@@ -332,6 +332,7 @@ bool NetObject::unpackUpdate(BitStream *stream, bool isInitial)
    if(!T2Layout::readGhost(stream, getClassName(), isInitial))
       return false;
 
+   onT2BodyHeadRead(T2Layout::lastBody());
    onT2BodyRead(T2Layout::lastBody());
    return true;
 }

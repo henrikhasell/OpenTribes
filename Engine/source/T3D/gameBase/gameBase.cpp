@@ -438,20 +438,17 @@ F32 GameBase::getUpdatePriority(CameraScopeQuery *camInfo, U32 updateMask, S32 u
 
 //----------------------------------------------------------------------------
 // HH: Added for Tribes 2 compatibility.
-bool GameBase::unpackUpdate(BitStream *stream, bool isInitial)
+// Retail's GameBase::unpackUpdate (0x005e3360) takes every datablock the
+// server sends, not only the first -- a new armour is one -- and takes it
+// before anything below reads its fields against it.
+void GameBase::onT2BodyHeadRead(const T2Layout::Body &body)
 {
-   if(!Parent::unpackUpdate(stream, isInitial))
-      return false;
-
-   const U32 id = T2Layout::firstDataBlockId();
-   if(!id || mDataBlock)
-      return true;
+   if(!body.hasDataBlock)
+      return;
 
    GameBaseData *data = NULL;
-   if(Sim::findObject(id, data) && data)
+   if(Sim::findObject(body.dataBlockId, data) && data)
       setDataBlock(data);
-
-   return true;
 }
 
 bool GameBase::setDataBlock(GameBaseData* dptr)

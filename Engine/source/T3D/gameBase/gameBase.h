@@ -421,7 +421,7 @@ public:
    #endif
 
    // HH: Added for Tribes 2 compatibility.
-   bool unpackUpdate(BitStream *stream, bool isInitial);
+   void onT2BodyHeadRead(const T2Layout::Body &body) override;
 
    DECLARE_CONOBJECT (GameBase );
 

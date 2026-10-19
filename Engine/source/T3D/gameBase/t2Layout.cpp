@@ -25,7 +25,6 @@ using namespace T2Protocol;
 static GhostClassFn sResolve = NULL;
 static void *sResolveCtx = NULL;
 static char sShapeName[256] = { 0 };
-static U32 sDataBlockId = 0;
 static Vector<U32> sDataBlockIds(__FILE__, __LINE__);
 static char sFirstString[256] = { 0 };
 static U32 sFirstWord32 = 0;
@@ -90,11 +89,6 @@ const Vector<U32> &lastDataBlockValues(U32 field)
 const char *lastShapeFile()
 {
    return sShapeName[0] ? sShapeName : NULL;
-}
-
-U32 firstDataBlockId()
-{
-   return sDataBlockId;
 }
 
 const Vector<U32> &lastDataBlockIds()
@@ -1285,8 +1279,16 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
                   sImageStates[state].sound = S32(dbId);
             }
 
-            if(!sDataBlockId && !isImage)
-               sDataBlockId = dbId;
+               // Every GameBase body opens with a flag and, when it is set, the
+               // object's own datablock; any other id in the body is something
+               // else's.
+            const T2DataNode &root = layout->nodes[layout->root];
+            if(!write && layout == sFieldsLayout && root.op == OpFlag &&
+               root.b == at)
+            {
+               sBody.hasDataBlock = true;
+               sBody.dataBlockId = dbId;
+            }
             if(isImage)
             {
                sBody.images[slot].hasDataBlock = true;
@@ -1845,7 +1847,8 @@ static void assembleBody()
 static bool runGhost(BitStream *stream, const char *className,
                      bool isInitial, bool write)
 {
-   sDataBlockId = 0;
+   sBody.hasDataBlock = false;
+   sBody.dataBlockId = 0;
    sFirstString[0] = 0;
    sHaveFirstWord32 = false;
    sFirstWord32 = 0;
