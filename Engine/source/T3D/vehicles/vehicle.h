@@ -243,6 +243,8 @@ class Vehicle: public ShapeBase
 
    // HH: Added for Tribes 2 compatibility.
    void onT2BodyRead(const T2Layout::Body &body) override;
+   void setRigidStateT2(const Point3F &pos, const QuatF &rot,
+                        const Point3F &linVel, const Point3F &angVel);
 
    void updateLiftoffDust( F32 dt );
    void updateDamageSmoke( F32 dt );
