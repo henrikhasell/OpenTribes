@@ -2171,6 +2171,7 @@ static void warnUnimplemented(const char *kind, const char *name, bool write)
 /// order in all of them. The recovery numbered each flagged value after the
 /// rest of its class, though, so one field is a different node in each. They
 /// are found from the root by their shape instead, and given rows there.
+/// VehicleData's fields and its subclasses' follow on in the same way.
 struct T2ShapeDataMap
 {
    const T2DataBlockLayout     *layout;
@@ -2212,8 +2213,8 @@ static void addShapeDataRow(T2ShapeDataMap *map, S32 at, U32 field)
 /// Finds, from the layout's root, each field in the order
 /// ShapeBaseData::unpackData (0x5e63e0) reads them. The fields this engine
 /// has no use for are matched all the same, since the run is only sure to be
-/// ShapeBaseData's as a whole.
-static bool matchShapeData(T2ShapeDataMap *map)
+/// ShapeBaseData's as a whole. *end is the node after shieldEffectScale.
+static bool matchShapeData(T2ShapeDataMap *map, S32 *end)
 {
    const T2DataBlockLayout *layout = map->layout;
    S32 at = layout->root;
@@ -2328,7 +2329,178 @@ static bool matchShapeData(T2ShapeDataMap *map)
    if(!isWord(nodeAt(layout, at), 32))
       return false;
    at = layout->nodes[at].a;
-   return flaggedRun(layout, at, OpRaw, 32, 3) >= 0;
+   if(flaggedRun(layout, at, OpRaw, 32, 3) < 0)
+      return false;
+   *end = layout->nodes[at].a;
+   return true;
+}
+
+/// Each of ShapeBaseData's eight hud blocks: a flag, then hudImageName, a
+/// flag for hudImageNameEnemy, and five bare flags.
+static bool isHudBlock(const T2DataBlockLayout *layout, S32 at)
+{
+   const T2DataNode *flag = nodeAt(layout, at);
+   if(!isBranch(flag))
+      return false;
+
+   const T2DataNode *name = nodeAt(layout, flag->b);
+   if(!name || name->op != OpString)
+      return false;
+
+   const T2DataNode *enemy = nodeAt(layout, name->a);
+   if(!isBranch(enemy))
+      return false;
+   const T2DataNode *enemyName = nodeAt(layout, enemy->b);
+   if(!enemyName || enemyName->op != OpString || enemyName->a != enemy->a)
+      return false;
+
+   S32 next = enemy->a;
+   for(U32 i = 0; i < 5; i++)
+   {
+      if(!isBareFlag(nodeAt(layout, next)))
+         return false;
+      next = layout->nodes[next].a;
+   }
+
+   return next == flag->a;
+}
+
+static bool matchWords(T2ShapeDataMap *map, S32 *at, const U32 *fields,
+                       U32 count)
+{
+   for(U32 i = 0; i < count; i++)
+   {
+      const T2DataNode *n = nodeAt(map->layout, *at);
+      if(!isWord(n, 32))
+         return false;
+      addShapeDataRow(map, *at, fields[i]);
+      *at = n->a;
+   }
+   return true;
+}
+
+/// A run of flagged datablock ids, which a clear flag sends as none.
+static bool matchIds(T2ShapeDataMap *map, S32 *at, U32 field, U32 count)
+{
+   for(U32 i = 0; i < count; i++)
+   {
+      const S32 id = flaggedRun(map->layout, *at, OpDataBlockId, 11);
+      if(id < 0)
+         return false;
+      addShapeDataRow(map, id, field + i);
+      *at = map->layout->nodes[*at].a;
+   }
+   return true;
+}
+
+/// VehicleData::unpackData (0x609450) reads its fields after ShapeBaseData's
+/// hud blocks, in the same order in every vehicle datablock. *end is the node
+/// its subclass carries on from.
+static bool matchVehicleData(T2ShapeDataMap *map, S32 at, S32 *end)
+{
+   const T2DataBlockLayout *layout = map->layout;
+
+   for(U32 i = 0; i < 8; i++)
+   {
+      if(!isHudBlock(layout, at))
+         return false;
+      at = layout->nodes[at].a;
+   }
+
+   static const U32 sBody[] = { T2DbBodyRestitution, T2DbBodyFriction };
+   if(!matchWords(map, &at, sBody, ELEMENTS(sBody)) ||
+      !matchIds(map, &at, T2DbBodySound, 2))
+      return false;
+
+   static const U32 sWords[] =
+   {
+      T2DbMinImpactSpeed, T2DbSoftImpactSpeed, T2DbHardImpactSpeed,
+      T2DbMinRollSpeed, T2DbMaxSteerinAngle, T2DbMaxDrag, T2DbMinDrag,
+      T2DbJetForce, T2DbJetEnergyDrain, T2DbMinJetEnergy, T2DbCameraOffset,
+      T2DbCameraLag, T2DbTriggerDustHeight, T2DbDustHeight,
+      T2DbNumDmgEmitterAreas, T2DbExitSplashSoundVel, T2DbSoftSplashSoundVel,
+      T2DbMedSplashSoundVel, T2DbHardSplashSoundVel,
+   };
+   if(!matchWords(map, &at, sWords, ELEMENTS(sWords)) ||
+      !matchIds(map, &at, T2DbWaterSound, 5) ||
+      !matchIds(map, &at, T2DbDustEmitter, 1) ||
+      !matchIds(map, &at, T2DbDamageEmitter, 3) ||
+      !matchIds(map, &at, T2DbSplashEmitter, 2))
+      return false;
+
+   static const U32 sTail[] =
+   {
+      T2DbDamageEmitterOffset,     T2DbDamageEmitterOffset + 1,
+      T2DbDamageEmitterOffset + 2, T2DbDamageEmitterOffset + 3,
+      T2DbDamageEmitterOffset + 4, T2DbDamageEmitterOffset + 5,
+      T2DbDamageLevelTolerance,    T2DbDamageLevelTolerance + 1,
+      T2DbSplashFreqMod, T2DbSplashVelEpsilon, T2DbCollDamageThresholdVel,
+      T2DbCollDamageMultiplier,
+   };
+   if(!matchWords(map, &at, sTail, ELEMENTS(sTail)))
+      return false;
+
+   *end = at;
+   return true;
+}
+
+static bool isEnd(const T2DataBlockLayout *layout, S32 at)
+{
+   const T2DataNode *n = nodeAt(layout, at);
+   return n && n->op == OpEnd;
+}
+
+/// FlyingVehicleData::unpackData (0x60fc40), after VehicleData's.
+static bool matchFlyingVehicleData(T2ShapeDataMap *map, S32 at)
+{
+   static const U32 sWords[] =
+   {
+      T2DbManeuveringForce, T2DbHorizontalSurfaceForce,
+      T2DbVerticalSurfaceForce, T2DbAutoInputDamping, T2DbSteeringForce,
+      T2DbSteeringRollForce, T2DbRollForce, T2DbAutoAngularForce,
+      T2DbRotationalDrag, T2DbAutoLinearForce, T2DbMaxAutoSpeed,
+      T2DbHoverHeight, T2DbCreateHoverHeight, T2DbMinTrailSpeed,
+      T2DbVertThrustMultiple, T2DbMaxForwardSpeed,
+   };
+   return matchIds(map, &at, T2DbVehicleSound, 2) &&
+          matchIds(map, &at, T2DbVehicleJetEmitter, 4) &&
+          matchWords(map, &at, sWords, ELEMENTS(sWords)) &&
+          isEnd(map->layout, at);
+}
+
+/// HoverVehicleData::unpackData (0x616a20), after VehicleData's.
+static bool matchHoverVehicleData(T2ShapeDataMap *map, S32 at)
+{
+   static const U32 sWords[] =
+   {
+      T2DbDragForce, T2DbVertFactor, T2DbFloatingThrustFactor,
+      T2DbMainThrustForce, T2DbReverseThrustForce, T2DbStrafeThrustForce,
+      T2DbTurboFactor, T2DbStabLenMin, T2DbStabLenMax,
+      T2DbStabSpringConstant, T2DbStabDampingConstant, T2DbGyroDrag,
+      T2DbNormalForce, T2DbRestorativeForce, T2DbSteeringForce,
+      T2DbRollForce, T2DbPitchForce, T2DbDustTrailOffset,
+      T2DbDustTrailOffset + 1, T2DbDustTrailOffset + 2,
+      T2DbTriggerTrailHeight, T2DbDustTrailFreqMod,
+   };
+   static const U32 sLast[] =
+   {
+      T2DbFloatingGravMag, T2DbBrakingForce, T2DbBrakingActivationSpeed,
+   };
+   return matchWords(map, &at, sWords, ELEMENTS(sWords)) &&
+          matchIds(map, &at, T2DbVehicleSound, 3) &&
+          matchIds(map, &at, T2DbVehicleJetEmitter, 3) &&
+          matchIds(map, &at, T2DbDustTrailEmitter, 1) &&
+          matchWords(map, &at, sLast, ELEMENTS(sLast)) &&
+          isEnd(map->layout, at);
+}
+
+/// Each run is kept only whole, so a layout it was not found in carries no
+/// rows of it at all.
+static bool keepRun(T2ShapeDataMap *map, U32 from, bool found)
+{
+   if(!found)
+      map->rows.setSize(from);
+   return found;
 }
 
 static const T2ShapeDataMap *resolveShapeData(const T2DataBlockLayout *layout)
@@ -2339,9 +2511,25 @@ static const T2ShapeDataMap *resolveShapeData(const T2DataBlockLayout *layout)
 
    T2ShapeDataMap *map = new T2ShapeDataMap;
    map->layout = layout;
-   if(matchShapeData(map))
+   S32 at;
+   if(matchShapeData(map, &at))
+   {
       Con::printf("T2 layout: %s opens with ShapeBaseData's fields",
                   layout->name);
+
+      U32 from = map->rows.size();
+      if(keepRun(map, from, matchVehicleData(map, at, &at)))
+      {
+         from = map->rows.size();
+         const char *tail = NULL;
+         if(keepRun(map, from, matchFlyingVehicleData(map, at)))
+            tail = "FlyingVehicleData's";
+         else if(keepRun(map, from, matchHoverVehicleData(map, at)))
+            tail = "HoverVehicleData's";
+         Con::printf("T2 layout: %s carries VehicleData's fields%s%s",
+                     layout->name, tail ? " and " : "", tail ? tail : "");
+      }
+   }
    else
       map->rows.clear();
 

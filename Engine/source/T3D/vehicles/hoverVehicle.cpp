@@ -37,6 +37,7 @@
 #include "T3D/fx/particleEmitter.h"
 #include "math/mathIO.h"
 #include "T3D/gameBase/gravityT2.h"   // HH: Added for Tribes 2 compatibility.
+#include "T3D/gameBase/t2Layout.h"    // HH: Added for Tribes 2 compatibility.
 
 
 IMPLEMENT_CO_DATABLOCK_V1(HoverVehicleData);
@@ -140,7 +141,7 @@ HoverVehicleData::HoverVehicleData()
    pitchForce = 2.5f;
 
    dustTrailEmitter = NULL;
-   dustTrailID = 0;
+   dustTrailID = -1;                // HH: Modified for Tribes 2 compatibility.
    dustTrailOffset.set( 0.0f, 0.0f, 0.0f );
    dustTrailFreqMod = 15.0f;
    triggerTrailHeight = 2.5f;
@@ -152,11 +153,18 @@ HoverVehicleData::HoverVehicleData()
    for (S32 k = 0; k < MaxJetNodes; k++)
       jetNode[k] = -1;
 
+   // HH: Modified for Tribes 2 compatibility.
    for (S32 j = 0; j < MaxJetEmitters; j++)
+   {
       jetEmitter[j] = 0;
+      jetEmitterID[j] = -1;
+   }
 
    for (S32 i = 0; i < MaxSounds; i++)
+   {
       sound[i] = 0;
+      soundID[i] = -1;
+   }
 }
 
 HoverVehicleData::~HoverVehicleData()
@@ -314,18 +322,18 @@ bool HoverVehicleData::preload(bool server, String &errorStr)
    massCenter = Point3F(0, 0, 0);
 
    // Resolve objects transmitted from server
+   // HH: Modified for Tribes 2 compatibility.
+   // Retail (0x6164b0) looks every id up again on a client, whatever it held
+   // before, and only a missing dust trail is reported.
    if (!server) {
       for (S32 i = 0; i < MaxSounds; i++)
-         if (sound[i])
-            Sim::findObject(SimObjectId((uintptr_t)sound[i]),sound[i]);
+         if (soundID[i] != -1)
+            Sim::findObject(soundID[i], sound[i]);
       for (S32 j = 0; j < MaxJetEmitters; j++)
-         if (jetEmitter[j])
-            Sim::findObject(SimObjectId((uintptr_t)jetEmitter[j]),jetEmitter[j]);
-   }
+         if (jetEmitterID[j] != -1)
+            Sim::findObject(jetEmitterID[j], jetEmitter[j]);
 
-   if( !dustTrailEmitter && dustTrailID != 0 )
-   {
-      if( !Sim::findObject( dustTrailID, dustTrailEmitter ) )
+      if( dustTrailID != -1 && !Sim::findObject( dustTrailID, dustTrailEmitter ) )
       {
          Con::errorf( ConsoleLogEntry::General, "HoverVehicleData::preload Invalid packet, bad datablockId(dustTrailEmitter): 0x%x", dustTrailID );
       }
@@ -333,6 +341,69 @@ bool HoverVehicleData::preload(bool server, String &errorStr)
    // Resolve jet nodes
    for (S32 j = 0; j < MaxJetNodes; j++)
       jetNode[j] = mShape->findNode(sJetNode[j]);
+
+   return true;
+}
+
+// HH: Added for Tribes 2 compatibility.
+// The fields HoverVehicleData::unpackData (0x616a20) reads after
+// VehicleData's.
+bool HoverVehicleData::unpackData(BitStream *stream, U32 classId)
+{
+   if (!Parent::unpackData(stream, classId))
+      return false;
+
+   F32 value;
+   if (isUnpackedInPlace() ||
+       !T2Layout::lastDataBlockField(T2Layout::T2DbDragForce, &value))
+      return true;
+
+   static const struct { U32 field; F32 HoverVehicleData::*member; } sFields[] =
+   {
+      { T2Layout::T2DbDragForce,              &HoverVehicleData::dragForce              },
+      { T2Layout::T2DbVertFactor,             &HoverVehicleData::vertFactor             },
+      { T2Layout::T2DbFloatingThrustFactor,   &HoverVehicleData::floatingThrustFactor   },
+      { T2Layout::T2DbMainThrustForce,        &HoverVehicleData::mainThrustForce        },
+      { T2Layout::T2DbReverseThrustForce,     &HoverVehicleData::reverseThrustForce     },
+      { T2Layout::T2DbStrafeThrustForce,      &HoverVehicleData::strafeThrustForce      },
+      { T2Layout::T2DbTurboFactor,            &HoverVehicleData::turboFactor            },
+      { T2Layout::T2DbStabLenMin,             &HoverVehicleData::stabLenMin             },
+      { T2Layout::T2DbStabLenMax,             &HoverVehicleData::stabLenMax             },
+      { T2Layout::T2DbStabSpringConstant,     &HoverVehicleData::stabSpringConstant     },
+      { T2Layout::T2DbStabDampingConstant,    &HoverVehicleData::stabDampingConstant    },
+      { T2Layout::T2DbGyroDrag,               &HoverVehicleData::gyroDrag               },
+      { T2Layout::T2DbNormalForce,            &HoverVehicleData::normalForce            },
+      { T2Layout::T2DbRestorativeForce,       &HoverVehicleData::restorativeForce       },
+      { T2Layout::T2DbSteeringForce,          &HoverVehicleData::steeringForce          },
+      { T2Layout::T2DbRollForce,              &HoverVehicleData::rollForce              },
+      { T2Layout::T2DbPitchForce,             &HoverVehicleData::pitchForce             },
+      { T2Layout::T2DbTriggerTrailHeight,     &HoverVehicleData::triggerTrailHeight     },
+      { T2Layout::T2DbDustTrailFreqMod,       &HoverVehicleData::dustTrailFreqMod       },
+      { T2Layout::T2DbFloatingGravMag,        &HoverVehicleData::floatingGravMag        },
+      { T2Layout::T2DbBrakingForce,           &HoverVehicleData::brakingForce           },
+      { T2Layout::T2DbBrakingActivationSpeed, &HoverVehicleData::brakingActivationSpeed },
+   };
+
+   for (U32 i = 0; i < sizeof(sFields) / sizeof(sFields[0]); i++)
+      T2Layout::lastDataBlockField(sFields[i].field, &(this->*sFields[i].member));
+
+   T2Layout::lastDataBlockField(T2Layout::T2DbDustTrailOffset,     &dustTrailOffset.x);
+   T2Layout::lastDataBlockField(T2Layout::T2DbDustTrailOffset + 1, &dustTrailOffset.y);
+   T2Layout::lastDataBlockField(T2Layout::T2DbDustTrailOffset + 2, &dustTrailOffset.z);
+
+   // Retail lets go of the sounds and jet emitters it had, and preload looks
+   // them up again.
+   for (U32 i = 0; i < MaxSounds; i++)
+   {
+      sound[i] = NULL;
+      soundID[i] = sentDataBlockId(T2Layout::T2DbVehicleSound + i);
+   }
+   for (U32 i = 0; i < MaxJetEmitters; i++)
+   {
+      jetEmitter[i] = NULL;
+      jetEmitterID[i] = sentDataBlockId(T2Layout::T2DbVehicleJetEmitter + i);
+   }
+   dustTrailID = sentDataBlockId(T2Layout::T2DbDustTrailEmitter);
 
    return true;
 }

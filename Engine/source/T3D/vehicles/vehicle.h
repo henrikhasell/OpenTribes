@@ -56,6 +56,10 @@ struct VehicleData: public ShapeBaseData
       F32 friction;
    } body;
 
+   // HH: Added for Tribes 2 compatibility.
+   // The ids a server sends for preload to resolve, -1 for none.
+   S32 bodySoundID[Body::MaxSounds];
+
    enum VehicleConsts
    {
       VC_NUM_DUST_EMITTERS = 1,
@@ -76,6 +80,7 @@ struct VehicleData: public ShapeBaseData
       MaxSounds
    };
    SFXProfile* waterSound[MaxSounds];
+   S32 waterSoundID[MaxSounds];     // HH: Added for Tribes 2 compatibility.
    F32 exitSplashSoundVel;
    F32 softSplashSoundVel;
    F32 medSplashSoundVel;
@@ -107,6 +112,11 @@ struct VehicleData: public ShapeBaseData
    F32 jetEnergyDrain;        ///< Energy drain/tick
    F32 minJetEnergy;
 
+   // HH: Added for Tribes 2 compatibility.
+   // Script fields a server keeps to itself.
+   S32 stuckTimerTicks;
+   F32 stuckTimerAngle;
+
    ParticleEmitterData * dustEmitter;
    S32 dustID;
    F32 triggerDustHeight;  ///< height vehicle has to be under to kick up dust
@@ -126,6 +136,9 @@ struct VehicleData: public ShapeBaseData
    //
    VehicleData();
    bool preload(bool server, String &errorStr);
+   // HH: Added for Tribes 2 compatibility.
+   bool unpackData(BitStream *stream, U32 classId) override;
+   static S32 sentDataBlockId(U32 field);
    static void initPersistFields();
 
    DECLARE_CONOBJECT(VehicleData);
