@@ -2763,6 +2763,31 @@ static bool matchHoverVehicleData(T2ShapeDataMap *map, S32 at)
           isEnd(map->layout, at);
 }
 
+/// WheeledVehicleData::unpackData (0x6128c0), after VehicleData's: the tire,
+/// its emitter, the four sounds, then the spring and drive.
+static bool matchWheeledVehicleData(T2ShapeDataMap *map, S32 at)
+{
+   static const U32 sTire[] =
+   {
+      T2DbTireFriction, T2DbTireRestitution, T2DbTireRadius,
+      T2DbTireLateralForce, T2DbTireLateralDamping, T2DbTireLateralRelaxation,
+      T2DbTireLongitudinalForce, T2DbTireLongitudinalDamping,
+      T2DbTireLongitudinalRelaxation,
+   };
+   static const U32 sDrive[] =
+   {
+      T2DbSpringForce, T2DbSpringDamping, T2DbAntiSwayForce,
+      T2DbAntiRockForce, T2DbMaxWheelSpeed, T2DbEngineTorque,
+      T2DbBrakeTorque, T2DbStaticLoadScale, T2DbStabilizerForce,
+      T2DbGyroForce, T2DbGyroDamping,
+   };
+   return matchWords(map, &at, sTire, ELEMENTS(sTire)) &&
+          matchIds(map, &at, T2DbTireEmitter, 1) &&
+          matchIds(map, &at, T2DbVehicleSound, 4) &&
+          matchWords(map, &at, sDrive, ELEMENTS(sDrive)) &&
+          isEnd(map->layout, at);
+}
+
 /// Each run is kept only whole, so a layout it was not found in carries no
 /// rows of it at all.
 static bool keepRun(T2ShapeDataMap *map, U32 from, bool found)
@@ -2795,6 +2820,8 @@ static const T2ShapeDataMap *resolveShapeData(const T2DataBlockLayout *layout)
             tail = "FlyingVehicleData's";
          else if(keepRun(map, from, matchHoverVehicleData(map, at)))
             tail = "HoverVehicleData's";
+         else if(keepRun(map, from, matchWheeledVehicleData(map, at)))
+            tail = "WheeledVehicleData's";
          Con::printf("T2 layout: %s carries VehicleData's fields%s%s",
                      layout->name, tail ? " and " : "", tail ? tail : "");
       }
