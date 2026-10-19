@@ -361,7 +361,8 @@ void ProcessedShaderMaterial::_determineFeatures(  U32 stageNum,
 
    fd.features.addFeature( MFT_Visibility );
 
-   if (  lastStage && 
+   // HH: Modified for Tribes 2 compatibility.
+   if (  lastStage && !mMaterial->mT2NoFog &&
          (  !gClientSceneGraph->usePostEffectFog() ||
             fd.features.hasFeature( MFT_IsTranslucent ) ||
             fd.features.hasFeature( MFT_ForwardShading )) )

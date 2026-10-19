@@ -3038,7 +3038,8 @@ void ShapeBase::_prepShieldRedraw( SceneRenderState *state,
 // its own.  Player (0x005dcc00) and ShapeBase (0x005ed5c4) each keep their
 // own count.  Alpha-always is only on below 0.99 (0x005dcd36), and above it
 // the texture is laid over the shape opaque.  A cloaked shape that is also
-// fading blends as any fading shape does (0x006a702d).
+// fading blends as any fading shape does (0x006a702d), and Player's has no
+// haze at all (0x005dd034).
 namespace
 {
    enum CloakKind
@@ -3100,6 +3101,7 @@ static Material *getCloakMaterial( bool player, bool translucent, bool faded,
                                                              : Material::LerpAlpha;
          mat->mTranslucentZWrite = faded && !translucent;
          mat->mT2FadeAlpha = faded;
+         mat->mT2NoFog = player;
          mat->mAnimFlags[0] = Material::Scroll;
          mat->mScrollSpeed[0] = 0.0f;
       }

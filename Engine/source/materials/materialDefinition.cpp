@@ -169,6 +169,7 @@ Material::Material()
    mTranslucentZWrite = false;
    // HH: Added for Tribes 2 compatibility.
    mT2FadeAlpha = false;
+   mT2NoFog = false;
 
    mAlphaTest = false;
    mAlphaRef = 1;

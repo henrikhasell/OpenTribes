@@ -293,6 +293,11 @@ public:
    /// Tribes 2 blended a fading shape (0x006a702d).
    bool mT2FadeAlpha;
 
+   // HH: Added for Tribes 2 compatibility.
+   /// Leave the haze out, as Tribes 2's Player drew its cloaked body with
+   /// none (0x005dd034).
+   bool mT2NoFog;
+
    /// A generic setting which tells the system to skip 
    /// generation of shadows from this material.
    bool mCastShadows;
