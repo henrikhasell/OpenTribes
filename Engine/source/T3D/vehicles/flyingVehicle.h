@@ -194,6 +194,8 @@ class FlyingVehicle: public Vehicle
 
    void writePacketData(GameConnection *conn, BitStream *stream);
    void readPacketData(GameConnection *conn, BitStream *stream);
+   // HH: Added for Tribes 2 compatibility.
+   void onT2BodyRead(const T2Layout::Body &body) override;
    void useCreateHeight(bool val);
 };
 

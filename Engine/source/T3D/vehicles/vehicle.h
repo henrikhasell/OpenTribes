@@ -199,6 +199,10 @@ class Vehicle: public ShapeBase
 
    // Rigid Body
    bool mDisableMove;
+   // HH: Added for Tribes 2 compatibility.
+   // Retail's +0x970, which vehicle.cs sets on a deployed MPB and on a
+   // destroyed vehicle until it is deleted.
+   bool mFrozen;
 
    GFXStateBlockRef  mSolidSB;
 
@@ -236,6 +240,9 @@ class Vehicle: public ShapeBase
 
    void writePacketData(GameConnection * conn, BitStream *stream);
    void readPacketData (GameConnection * conn, BitStream *stream);
+
+   // HH: Added for Tribes 2 compatibility.
+   void onT2BodyRead(const T2Layout::Body &body) override;
 
    void updateLiftoffDust( F32 dt );
    void updateDamageSmoke( F32 dt );

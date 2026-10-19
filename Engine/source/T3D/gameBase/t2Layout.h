@@ -166,6 +166,35 @@ namespace T2Layout
          S32    profile;            ///< an AudioProfile's id, or -1
       };
       Sound   sounds[MaxSounds];
+
+      /// What Vehicle::unpackUpdate (0x60dc30) reads after ShapeBase's body,
+      /// and what a hover or flying vehicle reads after that. The jetting
+      /// flag comes first and is kept in hasJetting and jetting.
+      struct VehicleTail
+      {
+         bool   present;            ///< the body carried a vehicle's tail
+         bool   controlled;         ///< this client drives it, so the rest
+                                    ///< comes in its packet data instead
+         F32    steering[2];        ///< readFloat(9): 0..1 of the datablock's
+                                    ///< range, which is not on the wire
+         bool   hasMoveRot[3];
+         U32    moveRot[3];         ///< the Move's yaw, pitch and roll words
+         U32    moveAxis[3];        ///< its x, y and z, six bits each
+         bool   freeLook;
+         bool   trigger[6];
+         bool   frozen;
+         bool   hasPosition;        ///< the PositionMask block followed
+         Point3F position;
+         U32    words[10];          ///< the quat, then linear and angular
+                                    ///< momentum, each sent whole
+         bool   hasEnergy;
+         F32    energy;             ///< readFloat(8): share of maxEnergy
+         bool   hasThrust;
+         U32    thrust;             ///< a hover or flyer's thrust direction
+         bool   hasCreateHeight;
+         bool   createHeightOn;     ///< a flyer still at its pad height
+      };
+      VehicleTail vehicle;
    };
 
    const Body &lastBody();
