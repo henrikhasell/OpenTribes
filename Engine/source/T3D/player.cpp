@@ -5189,6 +5189,7 @@ void Player::onT2BodyRead(const T2Layout::Body &body)
    readT2Cloak(body);
    // Before the position, which a mounted player takes from its mount.
    readT2Mount(body);
+   readT2Sounds(body);
 
    if (body.hasJetting)
       mJetting = body.jetting;
