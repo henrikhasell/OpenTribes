@@ -2079,6 +2079,14 @@ void VisibilityFeatGLSL::processPix(   Vector<ShaderComponent*> &componentList,
                                      "         discard;\r\n"
                                      "   }\r\n", finalVisibility, fizzMap, ssPos, ssPos, finalVisibility ) );
 	}
+   // HH: Modified for Tribes 2 compatibility.
+   // Tribes 2 replaced a fading shape's alpha with the fade itself, in the
+   // last texture stage (0x006a70ed), so an environment mask in a skin's
+   // alpha never thinned it.
+   else if( color && fd.features[ MFT_T2FadeAlpha ] )
+   {
+      meta->addStatement( new GenOp( "   @.w = @;\r\n", color, finalVisibility ) );
+   }
    else if( color )
    {
       meta->addStatement( new GenOp( "   @.w *= @;\r\n", color, finalVisibility ) );

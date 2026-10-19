@@ -322,7 +322,12 @@ bool ProjectedShadow::_updateDecal( const SceneRenderState *state )
    if ( !mDecalInstance )
       return false;
 
+   // HH: Modified for Tribes 2 compatibility.
+   // Tribes 2 drew a fading shape's shadow in the fade's colour, in place of
+   // its own falloff (0x006538db), so the shadow goes with the shape.
    mDecalInstance->mVisibility = fade;
+   if ( mShapeBase )
+      mDecalInstance->mVisibility *= mShapeBase->getFadeVal();
 
    // Setup decal parameters.
    mDecalInstance->mSize = mRadius * 2.0f;

@@ -170,5 +170,8 @@ DeclareFeatureType( MFT_ForwardShading );
 /// so that the rest of the material features can work on it.
 DeclareFeatureType( MFT_ImposterVert );
 
+// HH: Added for Tribes 2 compatibility.
+DeclareFeatureType( MFT_T2FadeAlpha );
+
 
 #endif // _MATERIALFEATURETYPES_H_

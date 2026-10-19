@@ -122,6 +122,11 @@ protected:
    bool mBlendAlways;
 
    // HH: Added for Tribes 2 compatibility.
+   /// Blend the shape with the fade as its alpha, as Tribes 2 drew a shape
+   /// fading in or out (0x006a702d), rather than dissolving it.
+   bool mFadeAlpha;
+
+   // HH: Added for Tribes 2 compatibility.
    /// Leave the shape's decals out, as Tribes 2's Player did for a cloaked
    /// body (0x005dcd0f), so its damage is not left hanging in the air.
    bool mNoDecals;
@@ -187,6 +192,10 @@ public:
    // HH: Added for Tribes 2 compatibility.
    void setBlendAlways( bool blend ) { mBlendAlways = blend; }
    bool isBlendAlways() const { return mBlendAlways; }
+
+   // HH: Added for Tribes 2 compatibility.
+   void setFadeAlpha( bool fadeAlpha ) { mFadeAlpha = fadeAlpha; }
+   bool isFadeAlpha() const { return mFadeAlpha; }
 
    // HH: Added for Tribes 2 compatibility.
    void setNoDecals( bool noDecals ) { mNoDecals = noDecals; }

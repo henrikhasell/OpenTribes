@@ -77,6 +77,11 @@ class BaseMatInstance;
 BaseMatInstance *TSGetBlendedMatInstance( BaseMatInstance *matInst,
                                           const GFXVertexFormat *format );
 
+// HH: Added for Tribes 2 compatibility.
+BaseMatInstance *TSGetFadedMatInstance( BaseMatInstance *matInst,
+                                        const GFXVertexFormat *format,
+                                        bool additive );
+
 struct TSDrawPrimitive
 {
    enum

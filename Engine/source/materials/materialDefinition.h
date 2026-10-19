@@ -288,6 +288,11 @@ public:
    BlendOp mTranslucentBlendOp;
    bool mTranslucentZWrite;
 
+   // HH: Added for Tribes 2 compatibility.
+   /// Blend by the visibility alone, whatever alpha the textures carry, as
+   /// Tribes 2 blended a fading shape (0x006a702d).
+   bool mT2FadeAlpha;
+
    /// A generic setting which tells the system to skip 
    /// generation of shadows from this material.
    bool mCastShadows;

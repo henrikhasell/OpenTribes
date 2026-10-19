@@ -39,6 +39,7 @@ TSRenderState::TSRenderState()
       mSelfIllumOverrideMaterial( NULL ),
       mMaterialOverride( NULL ),
       mBlendAlways( false ),
+      mFadeAlpha( false ),
       mNoDecals( false )
 {
 }
@@ -58,6 +59,7 @@ TSRenderState::TSRenderState( const TSRenderState &state )
       mSelfIllumOverrideMaterial( state.mSelfIllumOverrideMaterial ),
       mMaterialOverride( state.mMaterialOverride ),
       mBlendAlways( state.mBlendAlways ),
+      mFadeAlpha( state.mFadeAlpha ),
       mNoDecals( state.mNoDecals )
 {
 }
