@@ -597,6 +597,7 @@ Vehicle::Vehicle()
    dMemset( mSplashEmitterList, 0, sizeof( mSplashEmitterList ) );
 
    mDisableMove = false;
+   mFrozen = false;   // HH: Added for Tribes 2 compatibility.
    restCount = 0;
 
    inLiquid = false;
@@ -778,6 +779,18 @@ void Vehicle::processTick(const Move* move)
          }
          else
             move = &NullMove;
+      }
+
+      // HH: Added for Tribes 2 compatibility.
+      // Retail steps a frozen vehicle not at all (0x60a965): it stays where
+      // the server put it, and a ghost must not predict it off from there.
+      if (mFrozen)
+      {
+         mDelta.pos = mRigid.linPosition;
+         mDelta.posVec.set(0, 0, 0);
+         mDelta.rot[1] = mDelta.rot[0] = mRigid.angPosition;
+         setPosition(mRigid.linPosition, mRigid.angPosition);
+         return;
       }
 
       // Process input move
@@ -1523,6 +1536,130 @@ void Vehicle::readPacketData(GameConnection *connection, BitStream *stream)
 
    mDisableMove = stream->readFlag();
    stream->setCompressionPoint(mRigid.linPosition);
+}
+
+// HH: Added for Tribes 2 compatibility.
+// Vehicle::unpackUpdate (0x60dc30). TGE's has the same shape, but retail's
+// warp starts from where the object stands rather than from where it was
+// being drawn, holds a frozen vehicle where the server puts it, and has no
+// atRest or contacts flag to read.
+void Vehicle::onT2BodyRead(const T2Layout::Body &body)
+{
+   Parent::onT2BodyRead(body);
+
+   const T2Layout::Body::VehicleTail &tail = body.vehicle;
+   if (!tail.present)
+      return;
+
+   mJetting = body.jetting;
+   if (tail.controlled)
+      return;
+
+   // Retail scales these by the datablock the body has just named; a body
+   // read before any datablock is applied has none to scale by.
+   if (mDataBlock)
+   {
+      const F32 max = mDataBlock->maxSteeringAngle;
+      mSteering.x = tail.steering[0] * 2.0f * max - max;
+      mSteering.y = tail.steering[1] * 2.0f * max - max;
+   }
+
+   Move move = NullMove;
+   move.pyaw   = tail.hasMoveRot[0] ? tail.moveRot[0] : 0;
+   move.ppitch = tail.hasMoveRot[1] ? tail.moveRot[1] : 0;
+   move.proll  = tail.hasMoveRot[2] ? tail.moveRot[2] : 0;
+   move.px = tail.moveAxis[0];
+   move.py = tail.moveAxis[1];
+   move.pz = tail.moveAxis[2];
+   move.unclamp();
+   move.freeLook = tail.freeLook;
+   for (U32 i = 0; i < MaxTriggerKeys; i++)
+      move.trigger[i] = tail.trigger[i];
+   mDelta.move = move;
+
+   mFrozen = tail.frozen;
+
+   if (tail.hasPosition)
+   {
+      const F32 speed = mRigid.linVelocity.len();
+      mDelta.warpRot[0] = mRigid.angPosition;
+
+      F32 w[10];
+      dMemcpy(w, tail.words, sizeof(w));
+      mRigid.linPosition = tail.position;
+      mRigid.angPosition.set(w[0], w[1], w[2], w[3]);
+      // Retail's rigid body has a mass of 1 (0x60a338) and an inertia of 1
+      // (0x5c5d10 ignores the box it is given), so the momenta it sends are
+      // its velocities. Ours carries the datablock's mass and an inertia,
+      // so it is given the momenta that move it at those velocities.
+      mRigid.linVelocity.set(w[4], w[5], w[6]);
+      mRigid.angVelocity.set(w[7], w[8], w[9]);
+      mRigid.linMomentum = mRigid.linVelocity * mRigid.mass;
+      mRigid.updateInertialTensor();
+      MatrixF worldInertia = mRigid.invWorldInertia;
+      worldInertia.fullInverse();
+      worldInertia.mulV(mRigid.angVelocity, &mRigid.angMomentum);
+      // Torque's own rigid body keeps a world centre of mass beside the
+      // position; with massCenter inert it is the position.
+      mRigid.updateCenterOfMass();
+      mPredictionCount = sMaxPredictionTicks;
+
+      if (isProperlyAdded() && !mFrozen)
+      {
+         const Point3F cp = getPosition();
+         mDelta.warpOffset = mRigid.linPosition - cp;
+
+         // Retail times the warp by a tick of exactly 1/32 s (0x7a5630).
+         const F32 as = (speed + mRigid.linVelocity.len()) * 0.5f * 0.03125f;
+         F32 dt;
+         if (as == 0.0f || (dt = mDelta.warpOffset.len() / as) > sMaxWarpTicks)
+            dt = mDelta.dt + sMaxWarpTicks;
+         else
+            dt = (dt <= mDelta.dt) ? mDelta.dt
+                                   : mCeil(dt - mDelta.dt) + mDelta.dt;
+
+         if (mDelta.dt != 0.0f)
+         {
+            mDelta.pos = cp + mDelta.warpOffset * (mDelta.dt / dt);
+            mDelta.posVec = (cp - mDelta.pos) * (1.0f / mDelta.dt);
+            QuatF cr;
+            cr.interpolate(mDelta.rot[1], mDelta.rot[0], mDelta.dt);
+            mDelta.rot[1].interpolate(cr, mRigid.angPosition, mDelta.dt / dt);
+            mDelta.rot[0].extrapolate(mDelta.rot[1], cr, mDelta.dt);
+         }
+
+         mDelta.warpCount = 0;
+         mDelta.warpTicks = (S32)mFloor(dt);
+         if (mDelta.warpTicks)
+         {
+            mDelta.warpOffset = mRigid.linPosition - mDelta.pos;
+            mDelta.warpOffset *= 1.0f / mDelta.warpTicks;
+            mDelta.warpRot[0] = mDelta.rot[1];
+            mDelta.warpRot[1] = mRigid.angPosition;
+         }
+      }
+      else
+      {
+         mDelta.dt = 0;
+         mDelta.pos = mRigid.linPosition;
+         mDelta.posVec.set(0, 0, 0);
+         mDelta.rot[1] = mDelta.rot[0] = mRigid.angPosition;
+         mDelta.warpCount = mDelta.warpTicks = 0;
+         setPosition(mRigid.linPosition, mRigid.angPosition);
+      }
+   }
+
+   // Only a passenger is sent this: it is what the energy gauge shows.
+   if (tail.hasEnergy && mDataBlock)
+      setEnergyLevel(tail.energy * mDataBlock->maxEnergy);
+
+   if (Con::getBoolVariable("$pref::Net::traceGhostVehicles", false))
+      Con::printf("T2 vehicle: %s %d (ghost %d) jet %d frozen %d pos %d "
+                  "(%g %g %g) warp %d steer %g %g energy %d %g",
+                  getClassName(), getId(), getNetIndex(), mJetting, mFrozen,
+                  tail.hasPosition, tail.position.x, tail.position.y,
+                  tail.position.z, mDelta.warpTicks, mSteering.x,
+                  mSteering.y, tail.hasEnergy, tail.energy);
 }
 
 

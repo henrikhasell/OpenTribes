@@ -144,6 +144,8 @@ class HoverVehicle : public Vehicle
    // Vehicle overrides
   protected:
    void updateMove(const Move *move);
+   // HH: Added for Tribes 2 compatibility.
+   void onT2BodyRead(const T2Layout::Body &body) override;
 
    // Physics
   protected:
