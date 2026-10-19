@@ -771,12 +771,17 @@ DefineConsoleFunction( VectorLen, F32, ( VectorF v ),,
 
 //-----------------------------------------------------------------------------
 
-DefineConsoleFunction( VectorOrthoBasis, MatrixF, ( AngAxisF aa ),,
+DefineConsoleFunction( VectorOrthoBasis, MatrixF, ( const char* aaf ),,
    "Create an orthogonal basis from the given vector.\n"
    "@param aaf The vector to create the orthogonal basis from.\n"
    "@return A matrix representing the orthogonal basis.\n"
    "@ingroup Vectors" )
 {
+   // HH: Tribes 2's scripts pass the angle getTransform() gives, in radians,
+   // and retail's VectorOrthoBasis (0x550c90) uses it as read. TypeAngAxisF
+   // would take it as degrees and turn the basis by almost nothing.
+   AngAxisF aa( Point3F( 0, 0, 1 ), 0 );
+   dSscanf( aaf, "%g %g %g %g", &aa.axis.x, &aa.axis.y, &aa.axis.z, &aa.angle );
    MatrixF mat;
    aa.setMatrix(&mat);
    return mat;
