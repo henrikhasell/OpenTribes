@@ -484,6 +484,13 @@ static void RegisterGameFunctions()
    Con::setIntVariable("$TypeMasks::DebrisObjectType",         DebrisObjectType);
    Con::setIntVariable("$TypeMasks::PhysicalZoneObjectType",   PhysicalZoneObjectType);
    Con::setIntVariable("$TypeMasks::ForceFieldObjectType",     ForceFieldObjectType); // HH: Added for Tribes 2 compatibility.
+   // HH: Added for Tribes 2 compatibility. Retail registers no
+   // MoveableObjectType, so the scripts that name it read 0 and match
+   // nothing by it; it stays unregistered here for the same searches.
+   Con::setIntVariable("$TypeMasks::TurretObjectType",         TurretObjectType);
+   Con::setIntVariable("$TypeMasks::SensorObjectType",         SensorObjectType);
+   Con::setIntVariable("$TypeMasks::StationObjectType",        StationObjectType);
+   Con::setIntVariable("$TypeMasks::GeneratorObjectType",      GeneratorObjectType);
    Con::setIntVariable("$TypeMasks::LightObjectType",          LightObjectType);
 
    Con::addVariable("Ease::InOut", TypeS32, &gEaseInOut, 

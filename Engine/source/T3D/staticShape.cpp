@@ -37,7 +37,11 @@
 
 extern void wireCube(F32 size,Point3F pos);
 
-static const U32 sgAllowedDynamicTypes = 0xffffff;
+// HH: Tribes 2's StaticShape::onAdd keeps only these three of dynamicType,
+// so StationVehiclePad's StaticObjectType never reaches its type mask.
+static const U32 sgAllowedDynamicTypes = SensorObjectType |
+                                         StationObjectType |
+                                         GeneratorObjectType;
 
 //----------------------------------------------------------------------------
 

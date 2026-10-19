@@ -156,6 +156,25 @@ enum SceneObjectTypes
    /// @see ForceFieldBare
    ForceFieldObjectType = BIT( 24 ),
 
+   // HH: Added for Tribes 2 compatibility. Retail's Turret constructor sets
+   // it (0x6549ac). Ours is still a stub outside the scene, so nothing
+   // carries it until Turret is a real StaticShape.
+   /// A Tribes 2 turret.
+   TurretObjectType = BIT( 25 ),
+
+   // HH: Added for Tribes 2 compatibility. These three reach an object only
+   // through StaticShapeData::dynamicType, a number the scripts set and
+   // retail's datablock carries as a raw 32-bit word. Keeping retail's bits
+   // lets that value mean the same in both engines.
+   /// A Tribes 2 sensor: pulse sensors, beacons, motion sensors.
+   SensorObjectType = BIT( 28 ),
+
+   /// A Tribes 2 station: inventory, ammo, vehicle.
+   StationObjectType = BIT( 29 ),
+
+   /// A Tribes 2 generator or solar panel.
+   GeneratorObjectType = BIT( 30 ),
+
    /// @}
 };
 
