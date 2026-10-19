@@ -1502,6 +1502,12 @@ void Vehicle::findCallback(SceneObject* obj,void *key)
 
 //----------------------------------------------------------------------------
 
+// HH: Modified for Tribes 2 compatibility.
+// Vehicle::writePacketData (0x60d5a0). Retail sends its momenta, which are
+// near its velocities (see setRigidStateT2). Ours still has the datablock's
+// mass, so our velocities are the nearer match for the checksum a retail
+// server takes from us. There is no atRest or contacts flag, and the last
+// flag is the frozen state.
 void Vehicle::writePacketData(GameConnection *connection, BitStream *stream)
 {
    Parent::writePacketData(connection, stream);
@@ -1509,33 +1515,61 @@ void Vehicle::writePacketData(GameConnection *connection, BitStream *stream)
 
    mathWrite(*stream, mRigid.linPosition);
    mathWrite(*stream, mRigid.angPosition);
-   mathWrite(*stream, mRigid.linMomentum);
-   mathWrite(*stream, mRigid.angMomentum);
-   stream->writeFlag(mRigid.atRest);
-   stream->writeFlag(mContacts.getCount() == 0);
+   mathWrite(*stream, mRigid.linVelocity);
+   mathWrite(*stream, mRigid.angVelocity);
 
    stream->writeFlag(mDisableMove);
+   stream->writeFlag(mFrozen);
+   // Retail sets it on the connection (0x588a90), as Player's does.
    stream->setCompressionPoint(mRigid.linPosition);
 }
 
+// HH: Modified for Tribes 2 compatibility.
+// Vehicle::readPacketData (0x60d740). Retail refreshes only its velocities
+// from the momenta it reads (0x5c57a0), and leaves atRest and the contacts
+// as they were. Ours takes the momenta as velocities, as the write sends.
 void Vehicle::readPacketData(GameConnection *connection, BitStream *stream)
 {
    Parent::readPacketData(connection, stream);
    mathRead(*stream, &mSteering);
 
-   mathRead(*stream, &mRigid.linPosition);
-   mathRead(*stream, &mRigid.angPosition);
-   mathRead(*stream, &mRigid.linMomentum);
-   mathRead(*stream, &mRigid.angMomentum);
-   mRigid.atRest = stream->readFlag();
-   if (stream->readFlag())
-      mContacts.clear();
-   mRigid.updateInertialTensor();
-   mRigid.updateVelocity();
-   mRigid.updateCenterOfMass();
+   Point3F pos, linVel, angVel;
+   QuatF rot;
+   mathRead(*stream, &pos);
+   mathRead(*stream, &rot);
+   mathRead(*stream, &linVel);
+   mathRead(*stream, &angVel);
+   setRigidStateT2(pos, rot, linVel, angVel);
 
    mDisableMove = stream->readFlag();
+   mFrozen = stream->readFlag();
    stream->setCompressionPoint(mRigid.linPosition);
+}
+
+// HH: Added for Tribes 2 compatibility.
+// Retail's rigid body has a mass of 1 (0x60a338) and an object inertia of
+// identity (0x5c5d10 ignores the box it is given). So its linear momentum is
+// its velocity exactly, and its angular velocity is its momentum to the low
+// bits only: the world inertia is R*I*R^T rounded in floats, and 0x5c57a0
+// applies the one already stored, not one from the new rotation. Ours carries
+// the datablock's mass and an inertia until V08a, so it is given the momenta
+// that move it at those velocities. With unit mass, retail's own way applies:
+// keep the momenta read and derive the velocities as 0x5c57a0 does.
+void Vehicle::setRigidStateT2(const Point3F &pos, const QuatF &rot,
+                              const Point3F &linVel, const Point3F &angVel)
+{
+   mRigid.linPosition = pos;
+   mRigid.angPosition = rot;
+   mRigid.linVelocity = linVel;
+   mRigid.angVelocity = angVel;
+   mRigid.linMomentum = linVel * mRigid.mass;
+   mRigid.updateInertialTensor();
+   MatrixF worldInertia = mRigid.invWorldInertia;
+   worldInertia.fullInverse();
+   worldInertia.mulV(angVel, &mRigid.angMomentum);
+   // Torque's own rigid body keeps a world centre of mass beside the
+   // position; with massCenter inert it is the position.
+   mRigid.updateCenterOfMass();
 }
 
 // HH: Added for Tribes 2 compatibility.
@@ -1586,22 +1620,8 @@ void Vehicle::onT2BodyRead(const T2Layout::Body &body)
 
       F32 w[10];
       dMemcpy(w, tail.words, sizeof(w));
-      mRigid.linPosition = tail.position;
-      mRigid.angPosition.set(w[0], w[1], w[2], w[3]);
-      // Retail's rigid body has a mass of 1 (0x60a338) and an inertia of 1
-      // (0x5c5d10 ignores the box it is given), so the momenta it sends are
-      // its velocities. Ours carries the datablock's mass and an inertia,
-      // so it is given the momenta that move it at those velocities.
-      mRigid.linVelocity.set(w[4], w[5], w[6]);
-      mRigid.angVelocity.set(w[7], w[8], w[9]);
-      mRigid.linMomentum = mRigid.linVelocity * mRigid.mass;
-      mRigid.updateInertialTensor();
-      MatrixF worldInertia = mRigid.invWorldInertia;
-      worldInertia.fullInverse();
-      worldInertia.mulV(mRigid.angVelocity, &mRigid.angMomentum);
-      // Torque's own rigid body keeps a world centre of mass beside the
-      // position; with massCenter inert it is the position.
-      mRigid.updateCenterOfMass();
+      setRigidStateT2(tail.position, QuatF(w[0], w[1], w[2], w[3]),
+                      Point3F(w[4], w[5], w[6]), Point3F(w[7], w[8], w[9]));
       mPredictionCount = sMaxPredictionTicks;
 
       if (isProperlyAdded() && !mFrozen)
