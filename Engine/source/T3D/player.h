@@ -651,8 +651,7 @@ protected:
 
    /// @name Mounted objects
    /// @{
-   virtual void onUnmount( ShapeBase *obj, S32 node );
-   virtual void unmount();
+   void onUnmount( SceneObject *obj, S32 node ) override;
    /// @}
 
    void onT2BodyRead( const T2Layout::Body &body ) override;

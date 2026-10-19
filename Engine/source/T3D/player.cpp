@@ -1930,11 +1930,12 @@ void Player::processTick(const Move* move)
       else {
          pMove = NullMove;
          cMove = *move;
-         //if (isMounted()) {
-            // Filter Jump trigger if mounted
-            //pMove.trigger[2] = move->trigger[2];
-            //cMove.trigger[2] = false;
-         //}
+         // A seated player keeps the jump trigger, so jumping reaches
+         // doDismount rather than the vehicle or turret (0x5d1ef2).
+         if (isMounted()) {
+            pMove.trigger[sVehicleDismountTrigger] = move->trigger[sVehicleDismountTrigger];
+            cMove.trigger[sVehicleDismountTrigger] = false;
+         }
          if (move->freeLook) {
             // Filter yaw/picth/roll when freelooking.
             pMove.yaw = move->yaw;
@@ -2941,8 +2942,8 @@ void Player::updateMove(const Move* move)
       mFalling = vel.z < mDataBlock->fallingSpeedThreshold;
    }
    
-   // Vehicle Dismount   
-   if ( !isGhost() && move->trigger[sVehicleDismountTrigger] && canJump())
+   // Tribes 2 dismounts on jump whenever the player is seated (0x5d485e).
+   if ( !isGhost() && move->trigger[sVehicleDismountTrigger] && isMounted())
       mDataBlock->doDismount_callback( this );
 
    // Enter/Leave Liquid
@@ -4250,7 +4251,8 @@ void Player::onImageAnimThreadUpdate(U32 imageSlot, S32 imageShapeIndex, F32 dt)
    }
 }
 
-void Player::onUnmount( ShapeBase *obj, S32 node )
+// Tribes 2 runs this on every unmount (0x5d6450).
+void Player::onUnmount( SceneObject *obj, S32 node )
 {
    // Reset back to root position during dismount.
    setActionThread(PlayerData::RootAnim,true,false,false);
@@ -4265,17 +4267,6 @@ void Player::onUnmount( ShapeBase *obj, S32 node )
    // Parent function will call script
    Parent::onUnmount( obj, node );
 }
-
-void Player::unmount()
-{
-   // Reset back to root position during dismount.  This copies what is
-   // done on the server and corrects the fact that the RootAnim change
-   // is not sent across to the client using the standard ActionMask.
-   setActionThread(PlayerData::RootAnim,true,false,false);
-
-   Parent::unmount();
-}
-
 
 //----------------------------------------------------------------------------
 

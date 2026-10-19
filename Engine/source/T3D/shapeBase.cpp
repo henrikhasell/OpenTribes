@@ -1926,6 +1926,17 @@ void ShapeBase::blowUp()
 
 //----------------------------------------------------------------------------
 
+void ShapeBase::mountObject( SceneObject *obj, S32 node, const MatrixF &xfm )
+{
+   // Tribes 2 (0x5eaf10) takes an object already mounted here off first,
+   // so a change of seat runs onUnmount and then onMount, and it mounts a
+   // node outside the 32 mount points at node 0.
+   if ( obj->getObjectMount() == this )
+      obj->unmount();
+
+   Parent::mountObject( obj, ( node >= 0 && node < NumMountPoints ) ? node : 0, xfm );
+}
+
 void ShapeBase::onMount( SceneObject *obj, S32 node )
 {   
    mConvexList->nukeList();   
@@ -4015,14 +4026,40 @@ DefineEngineMethod( ShapeBase, getMuzzlePoint, Point3F, ( S32 slot ),,
    return pos;
 }
 
+DefineEngineMethod( ShapeBase, mountObject, bool, ( const char* objB, const char* node ),,
+   "@brief Mount objB on this shape at a mount point.\n\n"
+
+   "@param objB  Shape to mount onto us\n"
+   "@param node  Mount point, 0 to 31\n"
+   "@return false if objB is not a shape, true otherwise\n\n" )
+{
+   // Tribes 2's handler (0x5f0db0) takes exactly these two arguments, mounts
+   // only a shape, and ignores a node that is empty, unparsable or outside
+   // the 32 mount points while still answering true.
+   ShapeBase *shape;
+   if ( !Sim::findObject( objB, shape ) )
+      return false;
+
+   S32 n = -1;
+   dSscanf( node, "%d", &n );
+   if ( n >= 0 && n < ShapeBase::NumMountPoints )
+      object->mountObject( shape, n );
+
+   return true;
+}
+
 DefineEngineMethod( ShapeBase, getSlotTransform, TransformF, ( S32 slot ),,
    "@brief Get the world transform of the specified mount slot.\n\n"
 
    "@param slot Image slot to query\n"
    "@return the mount transform\n\n" )
 {
+   // Tribes 2 bounds the slot by its own image-slot count, eight
+   // (0x5f16bc), and findEmptySeat measures the Havoc's seats 4 and 5 with
+   // it; ours has only MaxMountedImages.
+   static const S32 T2MaxSlotTransform = 8;
    MatrixF xf(true);
-   if (slot >= 0 && slot < ShapeBase::MaxMountedImages)
+   if (slot >= 0 && slot < T2MaxSlotTransform)
       object->getMountTransform( slot, MatrixF::Identity, &xf );
 
    return xf;

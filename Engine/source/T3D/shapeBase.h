@@ -1440,6 +1440,7 @@ public:
 
    /// @name Mounted objects
    /// @{   
+   void mountObject( SceneObject *obj, S32 node, const MatrixF &xfm = MatrixF::Identity ) override;
    virtual void onMount( SceneObject *obj, S32 node );   
    virtual void onUnmount( SceneObject *obj,S32 node );   
    virtual void getMountTransform( S32 index, const MatrixF &xfm, MatrixF *outMat );
