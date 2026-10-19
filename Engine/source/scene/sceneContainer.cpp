@@ -1592,6 +1592,19 @@ DefineEngineFunction( containerSearchCurrRadiusDist, F32, ( bool useClientContai
    return pContainer->containerSearchCurrRadiusDist();
 }
 
+// HH: Added for Tribes 2 compatibility.
+// Tribes 2's name for containerSearchCurrRadiusDist (0x0058b1a0, which calls
+// 0x0058f5a0): the distance to the centre less the box's shortest side, never
+// below zero. RadiusExplosion and radiusVehicleExplosion scale damage by it.
+DefineEngineFunction( ContainerSearchCurrRadDamageDist, F32, (),,
+   "@brief Get the distance from the centre of the current initContainerRadiusSearch "
+   "to the current object's centre, less its shortest box side and never below zero.\n\n"
+   "@see containerSearchCurrRadiusDist\n"
+   "@ingroup Game")
+{
+   return gServerContainer.containerSearchCurrRadiusDist();
+}
+
 //-----------------------------------------------------------------------------
 
 //TODO: make RayInfo an API type

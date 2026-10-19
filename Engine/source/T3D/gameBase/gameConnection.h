@@ -216,6 +216,11 @@ protected:
 
    /// @}
 
+   // HH: Added for Tribes 2 compatibility.
+   // Whether a vehicle this client buys seats it on its own. Server state only,
+   // never sent: the client's own preference arrives as a command.
+   bool  mVehicleTeleportEnabled;
+
    /// @name Packet I/O
    /// @{
 
@@ -360,6 +365,10 @@ public:
 
    void setMissionCRC(U32 crc)           { mMissionCRC = crc; }
    U32  getMissionCRC()           { return(mMissionCRC); }
+
+   // HH: Added for Tribes 2 compatibility.
+   void setVehicleTeleportEnabled(bool enabled) { mVehicleTeleportEnabled = enabled; }
+   bool isVehicleTeleportEnabled() const        { return mVehicleTeleportEnabled; }
    /// @}
 
    static Signal<void(F32)> smFovUpdate;

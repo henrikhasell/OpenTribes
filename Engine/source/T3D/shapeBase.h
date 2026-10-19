@@ -990,6 +990,10 @@ protected:
    TSThread *mDamageThread;
    TSThread *mHulkThread;
    VectorF damageDir;
+   // HH: Added for Tribes 2 compatibility.
+   // Tribes 2's blowup flag (this+0x730); damageDir is its momentum vector
+   // (this+0x734), which setMomentumVector sets.
+   bool mBlowApart;
    /// @}
 
    /// @name Cloaking
@@ -1330,6 +1334,10 @@ public:
    /// (ShapeBase::getHeat 0x005eba10, setHeat 0x005eba40).
    F32  getHeat() const { return mHeat; }
    void setHeat(F32 heat) { mHeat = mClampF(heat, 0.f, 1.f); }
+
+   /// Tribes 2 keeps this until the object goes, and sends it in the damage
+   /// block beside the momentum vector, which is how a ghost learns to burst.
+   void setBlowApart() { mBlowApart = true; }
 
    /// Take the damage a Tribes 2 ghost body carried, where it carried one.
    void readT2Damage(const T2Layout::Body &body);

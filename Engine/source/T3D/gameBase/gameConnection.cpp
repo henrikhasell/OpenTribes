@@ -246,6 +246,11 @@ GameConnection::GameConnection()
    mBlackOutTimeMS = 0;
    mBlackOutStartTimeMS = 0;
    mFadeToBlack = false;
+
+   // HH: Added for Tribes 2 compatibility.
+   // Retail's constructor sets it (0x005fa68c), so a client that never says
+   // otherwise is seated in what it buys.
+   mVehicleTeleportEnabled = true;
 }
 
 GameConnection::~GameConnection()
@@ -2311,4 +2316,19 @@ DefineEngineMethod( GameConnection, setFirstPerson, void, (bool firstPerson),,
    "@param firstPerson Set to true to put the connection into first person mode.\n\n")
 {
    object->setFirstPerson(firstPerson);
+}
+
+// HH: Added for Tribes 2 compatibility.
+// Both are Tribes 2's, at 0x005fe4b0 and 0x005fe4d0. createVehicle
+// (serverVehicleHud.cs) asks the first whether to seat the buyer.
+DefineEngineMethod( GameConnection, isVehicleTeleportEnabled, bool, (),,
+   "@brief Whether a vehicle this client buys seats it on its own.\n\n")
+{
+   return object->isVehicleTeleportEnabled();
+}
+
+DefineEngineMethod( GameConnection, setVehicleTeleportEnabled, void, (bool enabled),,
+   "@brief Set whether a vehicle this client buys seats it on its own.\n\n")
+{
+   object->setVehicleTeleportEnabled(enabled);
 }

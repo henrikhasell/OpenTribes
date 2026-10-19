@@ -487,7 +487,11 @@ protected:
    bool  mAllowProne;
    bool  mAllowSwimming;
 
-   bool  mT2ControlFlagA;
+   // HH: Modified for Tribes 2 compatibility.
+   /// Set by disableMove (0x005de200): the player can look about but not
+   /// run or jet. It travels as the control data's first closing flag, so a
+   /// client predicting its own player stands still with the server.
+   bool  mMoveDisabled;
    bool  mT2ControlFlagB;
 
    S32 mContactTimer;               ///< Ticks since last contact
@@ -752,6 +756,10 @@ public:
    /// Get the rotation of the head of the player
    const Point3F& getHeadRotation() { return mHead; }
    void getDamageLocation(const Point3F& in_rPos, const char *&out_rpVert, const char *&out_rpQuad);
+   // HH: Added for Tribes 2 compatibility.
+   /// Tribes 2's +0xa09 (0x005de220), the control data's second closing flag.
+   /// It sets no mask bit, so only the player's own client ever learns it.
+   void setPilot(bool state) { mT2ControlFlagB = state; }
 
    void allowAllPoses();
    void allowJumping(bool state) { mAllowJumping = state; }
@@ -759,6 +767,8 @@ public:
    void allowCrouching(bool state) { mAllowCrouching = state; }
    void allowProne(bool state) { mAllowProne = state; }
    void allowSwimming(bool state) { mAllowSwimming = state; }
+   // HH: Added for Tribes 2 compatibility.
+   void setMoveDisabled(bool state) { mMoveDisabled = state; }
 
    bool canJump();                                         ///< Can the player jump?
    bool canJetJump();                                      ///< Can the player jet?

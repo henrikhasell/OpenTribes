@@ -807,6 +807,7 @@ ShapeBase::ShapeBase()
    mFadeDelay( 0.0f ),
    mFlipFadeVal( false ),
    damageDir( 0.0f, 0.0f, 1.0f ),
+   mBlowApart( false ),         // HH: Added for Tribes 2 compatibility.
    mShapeBaseMount( NULL ),
    mMass( 1.0f ),
    mOneOverMass( 1.0f ),
@@ -4229,6 +4230,28 @@ DefineEngineMethod( ShapeBase, setHeat, void, ( F32 heat ),,
    "@see getHeat()\n")
 {
    object->setHeat( heat );
+}
+
+// HH: Added for Tribes 2 compatibility.
+// Tribes 2's, at 0x005f25a0. Only this one dirties the damage block; the
+// StaticShape and Item overrides set the flag alone, so theirs goes out with
+// the next damage change.
+DefineEngineMethod( ShapeBase, blowup, void, (),,
+   "@brief Have clients burst the object into its explosion and debris and stop drawing it.\n\n")
+{
+   object->setBlowApart();
+   object->setMaskBits( ShapeBase::DamageMask );
+}
+
+// HH: Added for Tribes 2 compatibility.
+// Tribes 2's, at 0x005f25c0: setDamageVector by its Tribes 2 name, normalised
+// as retail's normalise (0x0054d2a0) does it, a zero vector becoming 0 0 1,
+// and sending nothing until the damage block goes.
+DefineEngineMethod( ShapeBase, setMomentumVector, void, ( Point3F vec ),,
+   "@brief Set the direction the object's explosion and debris are thrown.\n\n")
+{
+   vec.normalize();
+   object->setDamageDir( vec );
 }
 
 DefineEngineMethod( ShapeBase, setDamageLevel, void, ( F32 level ),,

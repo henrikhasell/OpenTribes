@@ -28,6 +28,7 @@
 #include "console/simBase.h"
 #include "console/console.h"
 #include "console/consoleTypes.h"
+#include "console/engineAPI.h"     // HH: Added for Tribes 2 compatibility.
 #include "T3D/gameBase/moveManager.h"
 #include "ts/tsShapeInstance.h"
 #include "T3D/staticShape.h"
@@ -276,4 +277,14 @@ ConsoleMethod( StaticShape, getPoweredState, bool, 2, 2, "@internal")
    if(!object->isServerObject())
       return(false);
    return(object->isPowered());
+}
+
+// HH: Added for Tribes 2 compatibility.
+// Tribes 2's, at 0x00602f00. Unlike ShapeBase's it leaves the damage block
+// alone, and it does nothing to a ghost.
+DefineEngineMethod( StaticShape, blowup, void, (),,
+   "@brief Have clients burst the object into its explosion and debris and stop drawing it.\n\n")
+{
+   if (!object->isGhost())
+      object->setBlowApart();
 }

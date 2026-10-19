@@ -2047,6 +2047,17 @@ DefineConsoleMethod( SimObject, setCanSave, void, ( bool value ), ( true ),
    object->setCanSave( value );
 }
 
+// HH: Added for Tribes 2 compatibility.
+// Tribes 2's name for setCanSave (0x00435b90): it flips the flag a set's
+// write tests before it saves a child (0x00437323), which is what keeps a pad's
+// vehicle station out of a saved mission.
+DefineEngineMethod( SimObject, setPersistent, void, ( bool value ),,
+   "Set whether the object will be included in saves.\n"
+   "@param value If true, the object will be included in saves; if false, it will be excluded." )
+{
+   object->setCanSave( value );
+}
+
 //-----------------------------------------------------------------------------
 
 DefineEngineMethod( SimObject, isEditorOnly, bool, (),,

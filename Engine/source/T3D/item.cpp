@@ -1221,6 +1221,15 @@ DefineEngineMethod( Item, getLastStickyNormal, const char *, (),,
    return ret;
 }
 
+// HH: Added for Tribes 2 compatibility.
+// Tribes 2's, at 0x006072b0. Unlike ShapeBase's it leaves the damage block
+// alone.
+DefineEngineMethod( Item, blowup, void, (),,
+   "@brief Have clients burst the object into its explosion and debris and stop drawing it.\n\n")
+{
+   object->setBlowApart();
+}
+
 //----------------------------------------------------------------------------
 
 void Item::initPersistFields()
