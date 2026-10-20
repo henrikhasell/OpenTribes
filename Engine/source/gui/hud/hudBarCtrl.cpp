@@ -15,6 +15,7 @@ IMPLEMENT_CONOBJECT(HudBarBaseCtrl);
 IMPLEMENT_CONOBJECT(HudEnergy);
 IMPLEMENT_CONOBJECT(HudDamage);
 IMPLEMENT_CONOBJECT(HudHeat);
+IMPLEMENT_CONOBJECT(HudCapacitor);
 IMPLEMENT_CONOBJECT(HudZoom);
 
 /// The double constant at 0x0077b330 retail compares a damage bar against.
@@ -229,6 +230,33 @@ F32 HudHeat::barValue()
    const F32 heat = object->getHeat();
    mWarning = heat > mHeatWarning;
    return mClampF(heat, 0.f, 1.f);
+}
+
+//-----------------------------------------------------------------------------
+/// HudCapacitor::barValue at 0x00501470.  Unlike its siblings it ignores
+/// displayMounted and a camera's orbit object, and never warns: it reads the
+/// turret at node 10 of whatever the control object rides, which is where
+/// the scripts mount the bomber's and the tank's (vehicle.cs:398, 443).
+F32 HudCapacitor::barValue()
+{
+   ShapeBase *object = controlObject();
+   if(!object)
+      return 0.f;
+
+   SceneObject *mount = object->getObjectMount();
+   if(!mount)
+      return 0.f;
+
+   ShapeBase *turret = dynamic_cast<ShapeBase*>(mount->getMountNodeObject(10));
+   if(!turret)
+      return 0.f;
+
+      // Capped at one before it is floored at zero (0x00501503, 0x00501522),
+      // so a NaN reads empty.
+   F32 value = turret->getCapacitorValue();
+   if(value > 1.f)
+      value = 1.f;
+   return value > 0.f ? value : 0.f;
 }
 
 //-----------------------------------------------------------------------------

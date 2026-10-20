@@ -1359,6 +1359,11 @@ public:
    F32  getHeat() const { return mHeat; }
    void setHeat(F32 heat) { mHeat = mClampF(heat, 0.f, 1.f); }
 
+   /// How full a Tribes 2 turret's capacitor is, 0 to 1 (Turret 0x00658070).
+   /// Nothing but a turret has one, so anything else reads empty, which is
+   /// what retail's HudCapacitor gets from its failed cast to Turret.
+   virtual F32 getCapacitorValue() { return 0.f; }
+
    /// Take the damage a Tribes 2 ghost body carried, where it carried one.
    void readT2Damage(const T2Layout::Body &body);
 

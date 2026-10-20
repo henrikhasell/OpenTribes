@@ -98,6 +98,17 @@ public:
    F32 barValue();
 };
 
+/// The bar under a bomber's or a tank's energy gauge (vCapBar), filled from
+/// the capacitor of the turret mounted on the vehicle.
+class HudCapacitor : public HudBarBaseCtrl
+{
+   typedef HudBarBaseCtrl Parent;
+public:
+   DECLARE_CONOBJECT(HudCapacitor);
+
+   F32 barValue();
+};
+
 //-----------------------------------------------------------------------------
 /// The corners that show how much of the view the next zoom level will fill.
 /// calcZoomFOV sizes it and shows it for five seconds each time the level is
