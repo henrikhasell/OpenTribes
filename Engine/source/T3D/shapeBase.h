@@ -62,6 +62,10 @@
 #ifndef _DYNAMIC_CONSOLETYPES_H_
    #include "console/dynamicTypes.h"
 #endif
+// HH: Added for Tribes 2 compatibility.
+#ifndef _SHIELDIMPACTT2_H_
+   #include "T3D/shieldImpactT2.h"
+#endif
 
 
 class GFXCubemap;
@@ -594,6 +598,10 @@ public:
    bool              observeThroughObject;   // observe this object through its camera transform and default fov
 
    // HH: Added for Tribes 2 compatibility.
+   S32               shieldEffectLifetimeMS; ///< How long a shield flash lasts.
+   Point3F           shieldEffectScale;      ///< The flash's sphere, per axis.
+
+   // HH: Added for Tribes 2 compatibility.
    struct Tribes2Rest
    {
       enum { NumSlots = 8, SlotFlags = 5, NumBits = 9 };
@@ -942,6 +950,9 @@ protected:
    /// Last shield direction (cur. unused)
    Point3F mShieldNormal;
 
+   // HH: Added for Tribes 2 compatibility.
+   ShieldImpactT2 mShieldImpact;
+
    /// Camera shake caused by weapon fire.
    CameraShake *mWeaponCamShake;
 
@@ -1157,6 +1168,23 @@ protected:
    /// bounds of all mounted shape images.
    void _renderBoundingBox( ObjectRenderInst *ri, SceneRenderState *state, BaseMatInstance* );
 
+   // HH: Added for Tribes 2 compatibility.
+   void _renderShieldImpact( ObjectRenderInst *ri, SceneRenderState *state, BaseMatInstance *overrideMat );
+
+   // HH: Added for Tribes 2 compatibility.
+   /// The shield flash $pref::useOldShieldEffect asks for, which draws this
+   /// shape over instead of a bubble round it.
+   void _prepShieldImpactRedraw( SceneRenderState *state );
+
+   /// Submit the images, and the shape when asked, drawn over grown and
+   /// faded with the flash's material (0x00694210).
+   void _prepShieldRedraw( SceneRenderState *state, BaseMatInstance *matInst,
+                           BaseMatInstance *selfIllumMatInst,
+                           F32 fade, F32 growth, bool drawShape );
+
+   /// Pick the detail this shape and its images are drawn at from here.
+   void _selectRenderDetail( SceneRenderState *state );
+
    void emitDust( ParticleEmitter* emitter, F32 triggerHeight, const Point3F& offset, U32 numMilliseconds, const Point3F& axis = Point3F::Zero );
 
 public:
@@ -1341,7 +1369,14 @@ public:
 
    void readT2Threads(const T2Layout::Body &body);
 
+   /// Flash the shield where a Tribes 2 ghost body said it took a hit.
+   void readT2Shield(const T2Layout::Body &body);
+
    void onT2BodyRead(const T2Layout::Body &body) override;
+
+   /// Tribes 2's ShapeBase::playShieldEffect (0x005eb8e0): the server marks
+   /// the hit for its clients and a client starts the flash.
+   void playShieldEffect(const Point3F &normal, F32 energy);
 
    bool unpackUpdate(BitStream *stream, bool isInitial) override;
 

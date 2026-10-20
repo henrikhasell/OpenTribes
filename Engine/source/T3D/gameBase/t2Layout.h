@@ -53,6 +53,9 @@ namespace T2Layout
       bool    blowApart;
       bool    hasDamageDir;
       Point3F damageDir;
+      bool    hasShield;            ///< the shield turned a hit away
+      Point3F shieldNormal;
+      F32     shieldEnergy;         ///< share of maxEnergy left, 0 to 1
       bool    hasExplodePoint;
       Point3F explodePoint;
       bool    hasCurrTick;
@@ -265,6 +268,10 @@ namespace T2Layout
       T2DbShapeExplosion,
       T2DbShapeUnderwaterExplosion,
       T2DbShapeDebris,
+      T2DbShieldEffectLifetimeMS,
+      T2DbShieldEffectScaleX,
+      T2DbShieldEffectScaleY,
+      T2DbShieldEffectScaleZ,
 
       T2DbItemFriction,
       T2DbItemElasticity,

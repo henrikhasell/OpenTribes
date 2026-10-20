@@ -368,6 +368,28 @@ namespace T2Protocol
       { "ItemData", 124, OpDataBlockId, 11, T2DbShapeUnderwaterExplosion  },
       { "ItemData", 123, OpDataBlockId, 11, T2DbShapeDebris               },
 
+   // The shield effect's lifetime and scale, which ShapeBaseData::unpackData
+   // (0x005e6b8a) reads after its two flags: the scale only when a flag
+   // says it is not the default. Every ShapeBaseData layout puts the
+   // lifetime at node 29.
+#define T2_SHIELD_EFFECT_ROWS( cls, x )                                       \
+      { cls, 29,    OpRaw, 32, T2DbShieldEffectLifetimeMS },                  \
+      { cls, x,     OpRaw, 32, T2DbShieldEffectScaleX     },                  \
+      { cls, x + 1, OpRaw, 32, T2DbShieldEffectScaleY     },                  \
+      { cls, x + 2, OpRaw, 32, T2DbShieldEffectScaleZ     },
+
+      T2_SHIELD_EFFECT_ROWS( "CameraData",         104 )
+      T2_SHIELD_EFFECT_ROWS( "FlyingVehicleData",  191 )
+      T2_SHIELD_EFFECT_ROWS( "HoverVehicleData",   202 )
+      T2_SHIELD_EFFECT_ROWS( "ItemData",           120 )
+      T2_SHIELD_EFFECT_ROWS( "MissionMarkerData",  104 )
+      T2_SHIELD_EFFECT_ROWS( "PlayerData",         252 )
+      T2_SHIELD_EFFECT_ROWS( "ShapeBaseData",      104 )
+      T2_SHIELD_EFFECT_ROWS( "StaticShapeData",    106 )
+      T2_SHIELD_EFFECT_ROWS( "TurretData",         113 )
+      T2_SHIELD_EFFECT_ROWS( "WheeledVehicleData", 193 )
+#undef T2_SHIELD_EFFECT_ROWS
+
       { "ItemData",  39, OpFloat, 10, T2DbItemFriction        },
       { "ItemData",  40, OpFloat, 10, T2DbItemElasticity      },
       { "ItemData",  41, OpFlag,   1, T2DbItemSticky          },

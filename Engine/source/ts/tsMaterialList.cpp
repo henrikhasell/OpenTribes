@@ -83,6 +83,8 @@ TSMaterialList::TSMaterialList(const TSMaterialList* pCopy)
    mDetailMaps        = pCopy->mDetailMaps;
    mDetailScales      = pCopy->mDetailScales;
    mReflectionAmounts = pCopy->mReflectionAmounts;
+   // HH: Added for Tribes 2 compatibility.
+   mShapeFlags        = pCopy->mShapeFlags;
    mNamesTransformed  = pCopy->mNamesTransformed;
 }
 
@@ -100,6 +102,8 @@ void TSMaterialList::free()
    mDetailMaps.clear();
    mDetailScales.clear();
    mReflectionAmounts.clear();
+   // HH: Added for Tribes 2 compatibility.
+   mShapeFlags.clear();
 
    Parent::free();
 }
@@ -149,6 +153,20 @@ void TSMaterialList::setFlags(U32 index, U32 value)
 {
    AssertFatal(index < size(),"TSMaterialList::getFlags: index out of range");
    mFlags[index] = value;
+}
+
+// HH: Added for Tribes 2 compatibility.
+U32 TSMaterialList::getShapeFlags(U32 index) const
+{
+   AssertFatal(index < size(),"TSMaterialList::getShapeFlags: index out of range");
+   return index < mShapeFlags.size() ? mShapeFlags[index] : mFlags[index];
+}
+
+// HH: Added for Tribes 2 compatibility.
+F32 TSMaterialList::getReflectionAmount(U32 index) const
+{
+   AssertFatal(index < size(),"TSMaterialList::getReflectionAmount: index out of range");
+   return index < mReflectionAmounts.size() ? mReflectionAmounts[index] : 1.0f;
 }
 
 bool TSMaterialList::write(Stream & s)
@@ -368,6 +386,11 @@ BaseMatInstance *TSMaterialList::createTSMatInstance( U32 i )
 void TSMaterialList::mapMaterial( U32 i )
 {
    // HH: Added for Tribes 2 compatibility.
+   // Kept before a slot is first mapped, which is what marks it translucent
+   // below.
+   while ( mShapeFlags.size() < mFlags.size() )
+      mShapeFlags.push_back( mFlags[ mShapeFlags.size() ] );
+
    if ( !mMatInstList[i] &&
         ( mFlags[i] & ( SelfIlluminating | Additive | Subtractive ) ) )
       mMatInstList[i] = createTSMatInstance( i );

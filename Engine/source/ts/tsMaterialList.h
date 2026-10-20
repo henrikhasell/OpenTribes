@@ -43,6 +43,11 @@ class TSMaterialList : public MaterialList
    Vector<F32> mDetailScales;
    Vector<F32> mReflectionAmounts;
 
+   // HH: Added for Tribes 2 compatibility.
+   /// The flags as the shape gave them, before a translucent material
+   /// marked its slot translucent too.
+   Vector<U32> mShapeFlags;
+
    bool mNamesTransformed;
 
    void allocate(U32 sz);
@@ -77,6 +82,12 @@ class TSMaterialList : public MaterialList
 
    U32 getFlags(U32 index);
    void setFlags(U32 index, U32 value);
+
+   // HH: Added for Tribes 2 compatibility.
+   /// The flags the shape itself gave a slot, which is all Tribes 2 has to
+   /// go on.
+   U32 getShapeFlags(U32 index) const;
+   F32 getReflectionAmount(U32 index) const;
 
    bool renameMaterial(U32 index, const String& newName); // use to support reskinning
 

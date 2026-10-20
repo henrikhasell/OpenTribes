@@ -64,6 +64,10 @@ MODULE_BEGIN( 3D )
       GameConnection::smFovUpdate.remove(GameSetCameraFov);
 
       Process::remove(Process3D);
+
+      // HH: Added for Tribes 2 compatibility.
+      // Ahead of Sim, which deletes the materials they were made from.
+      ShieldImpactT2::freeRedrawMaterials();
    }
 
 MODULE_END;
@@ -457,8 +461,14 @@ static void RegisterGameFunctions()
    Con::addVariable( "$pref::Camera::distanceScale", TypeF32, &sVisDistanceScale, 
       "A scale to apply to the normal visible distance, typically used for tuning performance.\n"
 	   "@ingroup Game");
-   Con::addVariable( "$cameraFov", TypeF32, &sConsoleCameraFov, 
+   Con::addVariable( "$cameraFov", TypeF32, &sConsoleCameraFov,
       "The camera's Field of View.\n\n"
+	   "@ingroup Game" );
+   // HH: Added for Tribes 2 compatibility.
+   // Tribes 2 registers it beside $cameraFov (0x005bba73) and the options
+   // dialog's "HI-RES SHIELD EFFECTS" toggle sets it.
+   Con::addVariable( "$pref::useOldShieldEffect", TypeBool, &ShieldImpactT2::smUseOldShieldEffect,
+      "Draw a shield's flash over the shape it covers instead of as a bubble.\n\n"
 	   "@ingroup Game" );
 
    // Stuff game types into the console

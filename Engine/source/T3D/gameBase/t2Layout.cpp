@@ -691,6 +691,144 @@ static void noteDamage(U32 part, U32 word, U32 bits)
    }
 }
 
+enum T2ShieldPart
+{
+   T2ShieldNormal,                  ///< the whole normal, or its phi alone
+   T2ShieldTheta,
+   T2ShieldEnergy,
+
+   T2ShieldParts
+};
+
+struct T2ShieldMap
+{
+   const T2DataBlockLayout *layout;
+   bool                     found;
+   S16                      part[T2ShieldParts];
+};
+
+static Vector<T2ShieldMap *> sShieldMaps(__FILE__, __LINE__);
+static const T2ShieldMap *sShield = NULL;
+
+/// ShapeBase::unpackUpdate (0x005efada) reads a flag, and under it a second
+/// that picks between a third flag and the shield's normal and energy, after
+/// either of which the body goes on in the same place.
+static bool matchShield(const T2DataBlockLayout *layout, S32 top, S16 *parts)
+{
+   const T2DataNode *pick = nodeAt(layout, top);
+   if(!pick || pick->op != OpFlag || pick->bits != 1 || pick->a == pick->b)
+      return false;
+
+   const T2DataNode *normal = nodeAt(layout, pick->a);
+   if(!normal)
+      return false;
+
+   S16 theta = -1;
+   const T2DataNode *energy = NULL;
+   if(isValue(normal, 17))
+      energy = nodeAt(layout, normal->a);
+   else if(isValue(normal, 9))
+   {
+      const T2DataNode *rest = nodeAt(layout, normal->a);
+      if(!isValue(rest, 8))
+         return false;
+      theta = S16(normal->a);
+      energy = nodeAt(layout, rest->a);
+   }
+   if(!isValue(energy, 5))
+      return false;
+
+   const T2DataNode *other = nodeAt(layout, pick->b);
+   if(!isBareFlag(other) || other->a != energy->a)
+      return false;
+
+   parts[T2ShieldNormal] = S16(pick->a);
+   parts[T2ShieldTheta]  = theta;
+   parts[T2ShieldEnergy] = theta >= 0 ? S16(nodeAt(layout, theta)->a)
+                                      : S16(normal->a);
+   return true;
+}
+
+static const T2ShieldMap *resolveShield(const T2DataBlockLayout *layout)
+{
+   for(U32 i = 0; i < sShieldMaps.size(); i++)
+      if(sShieldMaps[i]->layout == layout)
+         return sShieldMaps[i];
+
+   T2ShieldMap *map = new T2ShieldMap;
+   map->layout = layout;
+   map->found = false;
+   for(U32 p = 0; p < T2ShieldParts; p++)
+      map->part[p] = -1;
+
+   S16 parts[T2ShieldParts];
+   U32 blocks = 0;
+   for(U32 i = 0; i < layout->count; i++)
+      if(matchShield(layout, S32(i), parts))
+      {
+         blocks++;
+         if(!map->found)
+         {
+            map->found = true;
+            for(U32 p = 0; p < T2ShieldParts; p++)
+               map->part[p] = parts[p];
+         }
+      }
+
+   if(blocks > 1)
+      Con::warnf("T2 layout: %s has %d blocks shaped like ShapeBase's shield; "
+                 "the first is being taken", layout->name, blocks);
+
+   sShieldMaps.push_back(map);
+   return map;
+}
+
+static bool shieldAt(const T2DataBlockLayout *layout, S32 at, U32 *part)
+{
+   if(!sShield || sShield->layout != layout || !sShield->found || at < 0)
+      return false;
+
+   for(U32 p = 0; p < T2ShieldParts; p++)
+      if(sShield->part[p] == S16(at))
+      {
+         *part = p;
+         return true;
+      }
+
+   return false;
+}
+
+static F32 sShieldPhi = 0.0f;
+
+static void noteShield(U32 part, U32 word, U32 bits)
+{
+   switch(part)
+   {
+      case T2ShieldNormal:
+         if(bits == 17)
+            sBody.shieldNormal = normalVector(word, 8);
+         else
+            sShieldPhi = signedFloatOf(word, bits) * M_PI_F;
+         break;
+
+      case T2ShieldTheta:
+      {
+         const F32 theta = signedFloatOf(word, bits) * M_HALFPI_F;
+         sBody.shieldNormal.set(mSin(sShieldPhi) * mCos(theta),
+                                mCos(sShieldPhi) * mCos(theta), mSin(theta));
+         break;
+      }
+
+      case T2ShieldEnergy:
+         sBody.hasShield = true;
+         sBody.shieldEnergy = t2Float(word, bits);
+         break;
+
+      default:
+         break;
+   }
+}
+
 static bool threadAt(const T2DataBlockLayout *layout, S32 at, U32 *slot,
                      U32 *part)
 {
@@ -1358,6 +1496,8 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
             U32 part;
             if(!write && damageAt(layout, at, &part))
                noteDamage(part, word, n.bits);
+            if(!write && shieldAt(layout, at, &part))
+               noteShield(part, word, n.bits);
             break;
          }
 
@@ -1375,6 +1515,8 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
             U32 part;
             if(!write && damageAt(layout, at, &part))
                noteDamage(part, word, n.bits);
+            if(!write && shieldAt(layout, at, &part))
+               noteShield(part, word, n.bits);
             break;
          }
 
@@ -1501,6 +1643,8 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
 
                if(damageAt(layout, at, &part))
                   noteDamage(part, word, n.bits);
+               if(shieldAt(layout, at, &part))
+                  noteShield(part, word, n.bits);
 
                U32 state;
                if(stateAt(layout, at, &state, &part) && part == T2StateTimeout)
@@ -1755,6 +1899,7 @@ static void resolveGhostFields(const char *className)
    sImages = NULL;
    sThreads = NULL;
    sDamage = NULL;
+   sShield = NULL;
 
    const T2DataBlockLayout *layout =
       findNamed(className, sT2GhostsRecovered, ELEMENTS(sT2GhostsRecovered));
@@ -1765,6 +1910,7 @@ static void resolveGhostFields(const char *className)
    sImages = resolveImages(layout);
    sThreads = resolveThreads(layout);
    sDamage = resolveDamage(layout);
+   sShield = resolveShield(layout);
 
    for(U32 i = 0; i < ELEMENTS(sT2GhostFields); i++)
    {
@@ -1912,6 +2058,9 @@ static bool runGhost(BitStream *stream, const char *className,
    sBody.hasDamageState = false;
    sBody.blowApart = false;
    sBody.hasDamageDir = false;
+   sBody.hasShield = false;
+   sBody.shieldNormal.set(0.0f, 0.0f, 1.0f);
+   sBody.shieldEnergy = 0.0f;
    sBody.hasExplodePoint = false;
    sBody.hasCurrTick = false;
    sBody.hasSourceObject = false;
@@ -1992,6 +2141,7 @@ static bool runGhost(BitStream *stream, const char *className,
    sSpeed = 0.0f;
    sPhi = 0.0f;
    sDamagePhi = 0.0f;
+   sShieldPhi = 0.0f;
    resolveGhostFields(className);
    bool found = false;
    const bool ok = runNamed(stream, className, sT2GhostsRecovered,
