@@ -191,6 +191,11 @@ protected:
    S32         mLastPacketTime;
    bool        mLagging;
 
+   // HH: Added for Tribes 2 compatibility.
+   // The sensor group a server's scripts put this client in; 0 until they
+   // do (0x5fa5eb).
+   S32         mSensorGroup = 0;
+
    /// @name Flashing
    ////
    /// Note, these variables are not networked, they are for the local connection only.
@@ -261,6 +266,10 @@ public:
    { 
       return dynamic_cast<GameConnection*>((NetConnection *) mLocalClientConnection); 
    }
+
+   // HH: Added for Tribes 2 compatibility.
+   S32  getSensorGroup() const   { return mSensorGroup; }
+   void setSensorGroup(S32 group) { mSensorGroup = group; }
 
    /// @name Control object
    /// @{
