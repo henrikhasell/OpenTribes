@@ -1755,12 +1755,15 @@ void ShapeBase::readT2Images(const T2Layout::Body &body)
       if (trace)
       {
          Con::printf("T2 image: %s %d slot %d db %d skin %s%s loaded %d ammo "
-                     "%d trigger %d wet %d target %d fire %d",
+                     "%d trigger %d wet %d target %d fire %d (had %d) added %d "
+                     "firing %d",
                      getClassName(), getId(), i,
                      slot.hasDataBlock ? slot.dataBlockId : 0,
                      slot.hasSkinName ? slot.skinName.c_str() : "",
                      slot.hasSkinTag ? " (tag)" : "", slot.loaded, slot.ammo,
-                     slot.triggerDown, slot.wet, slot.target, slot.fireCount);
+                     slot.triggerDown, slot.wet, slot.target, slot.fireCount,
+                     mMountedImageList[i].fireCount, isProperlyAdded(),
+                     slot.fireOnInitial);
 
          // A slot being emptied carries no datablock to say any of this of.
          if (data)
@@ -1789,11 +1792,37 @@ void ShapeBase::readT2Images(const T2Layout::Body &body)
       mMountedImageList[i].triggerDown = slot.triggerDown;
 
             // A client waits for this count to go up; firing is the server's to
-            // decide.
-      if (slot.fireCount != mMountedImageList[i].fireCount)
+            // decide. getImageFireState is the lookup Tribes 2 calls, and it
+            // copes with an emptied slot.
+      bool fire = false;
+      if (isProperlyAdded())
       {
+               // An added ghost takes the count even into an emptied slot, as
+               // Tribes 2's does (0x5ef7ad), so a remounted weapon does not fire.
+         if (slot.fireCount != mMountedImageList[i].fireCount)
+         {
+            mMountedImageList[i].fireCount = slot.fireCount;
+            fire = true;
+         }
+      }
+      else if (data)
+      {
+               // A ghost's first body fires a slot only when the server says it
+               // is mid-shot (0x5ef838), whatever the count. Tribes 2 sends no
+               // emptied slot in a first body (0x5eeb46) but still checks
+               // (0x5ef832).
          mMountedImageList[i].fireCount = slot.fireCount;
-         setImageState(i, U32(data->fireState), true);
+         fire = slot.fireOnInitial;
+      }
+
+      if (fire)
+      {
+         setImageState(i, getImageFireState(i), true);
+         // An emptied slot has no state to name.
+         const char *state = getImageState(i);
+         if (trace)
+            Con::printf("T2 image: %s %d slot %d fired into %s", getClassName(),
+                        getId(), i, state ? state : "nothing");
       }
    }
 }
