@@ -422,6 +422,8 @@ public:
 
    // HH: Added for Tribes 2 compatibility.
    void onT2BodyHeadRead(const T2Layout::Body &body) override;
+   void getT2Subject(T2Layout::Subject *subject,
+                     NetConnection *conn) const override;
 
    // HH: Added for Tribes 2 compatibility.
    // The target the scripts gave this object, -1 for none. The server's

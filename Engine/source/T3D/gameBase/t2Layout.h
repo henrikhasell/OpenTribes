@@ -464,25 +464,46 @@ namespace T2Layout
 
    const Vector<U32> &lastDataBlockValues(U32 field);
 
+   /// What a body leaves out because retail reads it off the object and the
+   /// connection rather than the stream. A walk without one takes the object
+   /// for nobody's control object, with no wheels.
+   struct Subject
+   {
+      Subject() : isControlObject(false), dataBlockId(0), wheelCount(NULL) {}
+
+      /// The connection's control object is this object.
+      bool isControlObject;
+      /// The datablock the object already has, for a body that names none.
+      U32  dataBlockId;
+      /// The wheels a datablock has. The walk asks with the id the body named
+      /// where it named one, because a first body names it before the wheels.
+      U32 (*wheelCount)(U32 dataBlockId);
+   };
+
    bool readDataBlock(BitStream *stream, U32 classId);
 
    bool readGhost(BitStream *stream, const char *className,
-                  bool isInitial = false);
+                  bool isInitial = false, const Subject *subject = NULL);
    bool readEvent(BitStream *stream, const char *className);
 
-   typedef const char *(*GhostClassFn)(void *ctx, U32 ghostIndex);
+   /// The class of the object in a ghost slot, and its subject, for a layout
+   /// that goes on to read that object's packet data.
+   typedef const char *(*GhostClassFn)(void *ctx, U32 ghostIndex,
+                                       Subject *subject);
 
    bool readPacketData(BitStream *stream, const char *className,
-                       GhostClassFn resolve = NULL, void *ctx = NULL);
+                       GhostClassFn resolve = NULL, void *ctx = NULL,
+                       const Subject *subject = NULL);
 
    bool writeDataBlock(BitStream *stream, U32 classId);
 
    bool writeGhost(BitStream *stream, const char *className,
-                   bool isInitial = false);
+                   bool isInitial = false, const Subject *subject = NULL);
    bool writeEvent(BitStream *stream, const char *className);
 
    bool writePacketData(BitStream *stream, const char *className,
-                        GhostClassFn resolve = NULL, void *ctx = NULL);
+                        GhostClassFn resolve = NULL, void *ctx = NULL,
+                        const Subject *subject = NULL);
 
    const char *lastShapeFile();
 

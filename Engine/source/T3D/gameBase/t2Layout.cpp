@@ -24,6 +24,8 @@ using namespace T2Protocol;
 
 static GhostClassFn sResolve = NULL;
 static void *sResolveCtx = NULL;
+static Subject sSubject;
+static U32 sOwnDataBlockId = 0;
 static char sShapeName[256] = { 0 };
 static Vector<U32> sDataBlockIds(__FILE__, __LINE__);
 static char sFirstString[256] = { 0 };
@@ -1307,6 +1309,22 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
             at = isInitial ? n.b : n.a;
             continue;
 
+         case OpControlObject:
+            at = sSubject.isControlObject ? n.b : n.a;
+            continue;
+
+         case OpWheelCount:
+         {
+            // Retail has already taken the datablock a body names when it
+            // reaches the wheels, so that one counts before the object's.
+            const U32 id = sOwnDataBlockId ? sOwnDataBlockId
+                                           : sSubject.dataBlockId;
+            slots[n.b & 7] = sSubject.wheelCount && id ?
+                             sSubject.wheelCount(id) : 0;
+            at = n.a;
+            continue;
+         }
+
          case OpCountBits:
          {
             U32 v = xferInt(stream, n.bits, write, at, n.op);
@@ -1321,7 +1339,9 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
          case OpPacketDataOf:
          {
             const U32 idx = xferInt(stream, n.bits, write, at, n.op);
-            const char *cls = sResolve ? sResolve(sResolveCtx, idx) : NULL;
+            Subject subject;
+            const char *cls = sResolve ? sResolve(sResolveCtx, idx, &subject)
+                                       : NULL;
             if(!cls)
             {
                Con::warnf("T2 layout: %s %s the packet data of ghost %d, "
@@ -1331,10 +1351,12 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
             }
             if(write)
             {
-               if(!writePacketData(stream, cls, sResolve, sResolveCtx))
+               if(!writePacketData(stream, cls, sResolve, sResolveCtx,
+                                   &subject))
                   return false;
             }
-            else if(!readPacketData(stream, cls, sResolve, sResolveCtx))
+            else if(!readPacketData(stream, cls, sResolve, sResolveCtx,
+                                    &subject))
                return false;
             at = n.a;
             continue;
@@ -1472,6 +1494,10 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
                sBody.hasDataBlock = true;
                sBody.dataBlockId = dbId;
             }
+            // GameBase's own, under the flag every body opens with. The first
+            // id a body reads is not always it: a sound slot names a profile.
+            if(depth == 0 && at == root.b && root.op == OpFlag)
+               sOwnDataBlockId = dbId;
             if(isImage)
             {
                sBody.images[slot].hasDataBlock = true;
@@ -2056,10 +2082,12 @@ static void assembleBody()
 }
 
 static bool runGhost(BitStream *stream, const char *className,
-                     bool isInitial, bool write)
+                     bool isInitial, bool write, const Subject *subject)
 {
+   sSubject = subject ? *subject : Subject();
    sBody.hasDataBlock = false;
    sBody.dataBlockId = 0;
+   sOwnDataBlockId = 0;
    sFirstString[0] = 0;
    sHaveFirstWord32 = false;
    sFirstWord32 = 0;
@@ -2197,10 +2225,18 @@ static bool runEvent(BitStream *stream, const char *className, bool write)
 }
 
 static bool runPacketData(BitStream *stream, const char *className,
-                          GhostClassFn resolve, void *ctx, bool write)
+                          GhostClassFn resolve, void *ctx, bool write,
+                          const Subject *subject)
 {
    sResolve = resolve;
    sResolveCtx = ctx;
+
+   // A Player's packet data goes on into its vehicle's, which is another
+   // object's: the player's subject is back in force once that returns.
+   const Subject outer = sSubject;
+   const U32 outerOwn = sOwnDataBlockId;
+   sSubject = subject ? *subject : Subject();
+   sOwnDataBlockId = 0;
 
    bool found = false;
    bool ok = runNamed(stream, className, sT2PacketDataRecovered,
@@ -2210,6 +2246,9 @@ static bool runPacketData(BitStream *stream, const char *className,
                     ELEMENTS(sT2PacketData), &found, false, write);
    if(!found)
       warnUnimplemented("control object", className, write);
+
+   sSubject = outer;
+   sOwnDataBlockId = outerOwn;
    return ok;
 }
 
@@ -2218,9 +2257,10 @@ bool readDataBlock(BitStream *stream, U32 classId)
    return runDataBlock(stream, classId, false);
 }
 
-bool readGhost(BitStream *stream, const char *className, bool isInitial)
+bool readGhost(BitStream *stream, const char *className, bool isInitial,
+               const Subject *subject)
 {
-   return runGhost(stream, className, isInitial, false);
+   return runGhost(stream, className, isInitial, false, subject);
 }
 
 bool readEvent(BitStream *stream, const char *className)
@@ -2229,9 +2269,9 @@ bool readEvent(BitStream *stream, const char *className)
 }
 
 bool readPacketData(BitStream *stream, const char *className,
-                    GhostClassFn resolve, void *ctx)
+                    GhostClassFn resolve, void *ctx, const Subject *subject)
 {
-   return runPacketData(stream, className, resolve, ctx, false);
+   return runPacketData(stream, className, resolve, ctx, false, subject);
 }
 
 bool writeDataBlock(BitStream *stream, U32 classId)
@@ -2239,9 +2279,10 @@ bool writeDataBlock(BitStream *stream, U32 classId)
    return runDataBlock(stream, classId, true);
 }
 
-bool writeGhost(BitStream *stream, const char *className, bool isInitial)
+bool writeGhost(BitStream *stream, const char *className, bool isInitial,
+                const Subject *subject)
 {
-   return runGhost(stream, className, isInitial, true);
+   return runGhost(stream, className, isInitial, true, subject);
 }
 
 bool writeEvent(BitStream *stream, const char *className)
@@ -2250,9 +2291,9 @@ bool writeEvent(BitStream *stream, const char *className)
 }
 
 bool writePacketData(BitStream *stream, const char *className,
-                     GhostClassFn resolve, void *ctx)
+                     GhostClassFn resolve, void *ctx, const Subject *subject)
 {
-   return runPacketData(stream, className, resolve, ctx, true);
+   return runPacketData(stream, className, resolve, ctx, true, subject);
 }
 
 }

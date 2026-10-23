@@ -866,11 +866,15 @@ void GameConnection::setDisconnectReason(const char *str)
 // object's packet data.  Player::readPacketData does when it is piloting: the
 // width of what follows is the vehicle's, and only the ghost table says which
 // vehicle it is.
-static const char *ghostClassNameT2(void *ctx, U32 ghostIndex)
+static const char *ghostClassNameT2(void *ctx, U32 ghostIndex,
+                                    T2Layout::Subject *subject)
 {
    NetConnection *conn = (NetConnection *)ctx;
    NetObject *obj = conn ? conn->resolveGhost(ghostIndex) : NULL;
-   return obj ? obj->getClassName() : NULL;
+   if(!obj)
+      return NULL;
+   obj->getT2Subject(subject, conn);
+   return obj->getClassName();
 }
 
 //----------------------------------------------------------------------------
@@ -958,8 +962,10 @@ void GameConnection::writeDemoStartBlock(ResizeBitStream *stream)
       U32 beginPos = stream->getBitPosition();
 #endif
       // HH: Modified for Tribes 2 compatibility.
+      T2Layout::Subject subject;
+      mControlObject->getT2Subject(&subject, this);
       T2Layout::writePacketData(stream, mControlObject->getClassName(),
-         ghostClassNameT2, this);
+         ghostClassNameT2, this, &subject);
 #ifdef TORQUE_NET_STATS
 //      TYPEOF( mControlObject )->getNetInfo().updateNetStatWriteData( stream->getBitPosition() - beginPos );
       
@@ -975,8 +981,10 @@ void GameConnection::writeDemoStartBlock(ResizeBitStream *stream)
 #endif
 
       // HH: Modified for Tribes 2 compatibility.
+      T2Layout::Subject subject;
+      mCameraObject->getT2Subject(&subject, this);
       T2Layout::writePacketData(stream, mCameraObject->getClassName(),
-         ghostClassNameT2, this);
+         ghostClassNameT2, this, &subject);
 
 #ifdef TORQUE_NET_STATS
       mCameraObject->getClassRep()->updateNetStatWriteData( stream->getBitPosition() - beginPos);
@@ -1066,8 +1074,10 @@ bool GameConnection::readDemoStartBlock(BitStream *stream)
          Con::warnf("Demo start block: the control object is ghost %d (%s), "
             "which is not in the world, so nothing is driven.", idx,
             ghost->getClassName());
+      T2Layout::Subject subject;
+      ghost->getT2Subject(&subject, this);
       T2Layout::readPacketData(stream, ghost->getClassName(),
-         ghostClassNameT2, this);
+         ghostClassNameT2, this, &subject);
    }
 
    char missionName[256];

@@ -254,6 +254,7 @@ WheeledVehicleData::WheeledVehicleData()
    brakeLightSequence = -1;
    steeringSequence = -1;
    wheelCount = 0;
+   t2WheelCount = 0;
 
    for (S32 i = 0; i < MaxSounds; i++)
       sound[i] = 0;
@@ -336,6 +337,19 @@ bool WheeledVehicleData::preload(bool server, String &errorStr)
       }
    }
    wheelCount = wp - wheel;
+
+   // HH: Added for Tribes 2 compatibility.
+   // Tribes 2 counts a wheel for each i under eight with a ground%d node and
+   // a spring%d sequence (0x611f42-0x61217d), and its wire runs to that
+   // count. Its shapes have no hub%d, so the search above finds none.
+   t2WheelCount = 0;
+   for (S32 i = 0; i < MaxWheels; i++) {
+      dSprintf(buff,sizeof(buff),"ground%d",i);
+      const S32 ground = mShape->findNode(buff);
+      dSprintf(buff,sizeof(buff),"spring%d",i);
+      if (ground != -1 && mShape->findSequence(buff) != -1)
+         t2WheelCount++;
+   }
 
    // Check for steering. Should think about normalizing the
    // steering animation the way the suspension is, but I don't
@@ -1385,6 +1399,20 @@ void WheeledVehicle::readPacketData(GameConnection *connection, BitStream *strea
    setPosition(mRigid.linPosition,mRigid.angPosition);
    mDelta.pos = mRigid.linPosition;
    mDelta.rot[1] = mRigid.angPosition;
+}
+
+// HH: Added for Tribes 2 compatibility.
+static U32 t2WheelCountOf(U32 dataBlockId)
+{
+   WheeledVehicleData *data = NULL;
+   return Sim::findObject(dataBlockId, data) && data ? data->t2WheelCount : 0;
+}
+
+void WheeledVehicle::getT2Subject(T2Layout::Subject *subject,
+                                  NetConnection *conn) const
+{
+   Parent::getT2Subject(subject, conn);
+   subject->wheelCount = t2WheelCountOf;
 }
 
 

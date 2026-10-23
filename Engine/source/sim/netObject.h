@@ -373,6 +373,13 @@ public:
 
    virtual void onT2BodyRead(const T2Layout::Body &body) {}
 
+   /// HH: Added for Tribes 2 compatibility. What this object's bodies leave
+   /// out for the walk to be told: retail reads it off the object and the
+   /// connection. `conn` is the one a body is written for, or NULL for the
+   /// one a ghost arrived on.
+   virtual void getT2Subject(T2Layout::Subject *subject,
+                             NetConnection *conn) const {}
+
    /// Queries the object about information used to determine scope.
    ///
    /// Something that is 'in scope' is somehow interesting to the client.

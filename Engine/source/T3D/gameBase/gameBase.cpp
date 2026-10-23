@@ -451,6 +451,19 @@ void GameBase::onT2BodyHeadRead(const T2Layout::Body &body)
       setDataBlock(data);
 }
 
+void GameBase::getT2Subject(T2Layout::Subject *subject,
+                            NetConnection *conn) const
+{
+   Parent::getT2Subject(subject, conn);
+
+   // The connection's mControlObject, which is what retail compares at
+   // +0x825c: GameConnection::setControlObject (0x5fa970) stores it there.
+   GameConnection *con = conn ? dynamic_cast<GameConnection *>(conn)
+                              : GameConnection::getConnectionToServer();
+   subject->isControlObject = con && con->getControlObject() == this;
+   subject->dataBlockId = mDataBlock ? mDataBlock->getId() : 0;
+}
+
 bool GameBase::setDataBlock(GameBaseData* dptr)
 {
    if (isGhost() || isProperlyAdded()) {
