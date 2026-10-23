@@ -507,6 +507,12 @@ void SimDataBlockEvent::unpack(NetConnection *cptr, BitStream *bstream)
                               "being left at 0.", id, mountPoint,
                               SceneObject::NumMountPoints );
             }
+
+            // HH: Added for Tribes 2 compatibility.
+            U32 cloakable;
+            if( T2Layout::lastDataBlockWord( T2Layout::T2DbImageCloakable,
+                                             &cloakable ) )
+               si->cloakable = cloakable != 0;
          }
 
                // HH: Added for Tribes 2 compatibility.

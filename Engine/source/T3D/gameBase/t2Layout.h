@@ -107,6 +107,13 @@ namespace T2Layout
       Point3F appliedForce;
       bool    hasZoneActive;
       bool    zoneActive;
+      bool    hasCloaked;
+      bool    cloaked;
+      bool    hasFade;
+      bool    fading;
+      bool    fadeVisible;
+      bool    fadeOut;
+      F32     fadeTime;
 
       /// What a body said about one of its object's image slots -- the
       /// weapon in the hand, the pack on the back.
@@ -159,6 +166,7 @@ namespace T2Layout
       T2DbHeatIncreasePerSec,
       T2DbCameraMaxDist,
       T2DbImageMountPoint,
+      T2DbImageCloakable,
       T2DbProjectileVelocity,
       T2DbProjectileLifetime,
       T2DbProjectileSound,

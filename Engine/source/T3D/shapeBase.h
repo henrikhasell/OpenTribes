@@ -1366,6 +1366,11 @@ public:
 
    /// Take the damage a Tribes 2 ghost body carried, where it carried one.
    void readT2Damage(const T2Layout::Body &body);
+   // HH: Added for Tribes 2 compatibility.
+   void readT2Cloak(const T2Layout::Body &body);
+
+   // HH: Added for Tribes 2 compatibility.
+   virtual F32 getCloakAlpha(bool image) const;
 
    void readT2Invincible(const T2Layout::Body &body);
 

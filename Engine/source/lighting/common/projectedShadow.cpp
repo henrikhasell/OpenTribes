@@ -180,6 +180,17 @@ bool ProjectedShadow::_updateDecal( const SceneRenderState *state )
       t.mulP( decalPos );
    }
 
+   // HH: Added for Tribes 2 compatibility.
+   if ( mShapeBase && mShapeBase->getFadeVal() < TSMesh::VISIBILITY_EPSILON )
+   {
+      if ( mDecalInstance )
+      {
+         gDecalManager->removeDecal( mDecalInstance );
+         mDecalInstance = NULL;
+      }
+      return false;
+   }
+
    if ( mDecalInstance )
    {
       mDecalInstance->mPosition = decalPos;
@@ -295,6 +306,9 @@ bool ProjectedShadow::_updateDecal( const SceneRenderState *state )
    if ( data )
       mRadius *= data->shadowSphereAdjust;
 
+   // HH: Added for Tribes 2 compatibility.
+   const bool newDecal = !mDecalInstance;
+
    // Create the decal if we don't have one yet.
    if ( !mDecalInstance )
       mDecalInstance = gDecalManager->addDecal( decalPos, 
@@ -308,7 +322,12 @@ bool ProjectedShadow::_updateDecal( const SceneRenderState *state )
    if ( !mDecalInstance )
       return false;
 
+   // HH: Modified for Tribes 2 compatibility.
+   // Tribes 2 drew a fading shape's shadow in the fade's colour, in place of
+   // its own falloff (0x006538db), so the shadow goes with the shape.
    mDecalInstance->mVisibility = fade;
+   if ( mShapeBase )
+      mDecalInstance->mVisibility *= mShapeBase->getFadeVal();
 
    // Setup decal parameters.
    mDecalInstance->mSize = mRadius * 2.0f;
@@ -323,7 +342,8 @@ bool ProjectedShadow::_updateDecal( const SceneRenderState *state )
    // as the decal's position, and
    // the light direction has not 
    // changed, we don't need to clip.
-   bool shouldClip = lightDirChanged || hasMoved || hasScaled;
+   // HH: Modified for Tribes 2 compatibility.
+   bool shouldClip = lightDirChanged || hasMoved || hasScaled || newDecal;
 
    // Now, check and see if the object is visible.
    const Frustum &frust = state->getFrustum();

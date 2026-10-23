@@ -299,14 +299,20 @@ void ProcessedShaderMaterial::_determineFeatures(  U32 stageNum,
    {
       // Note: This is for decal blending into the prepass
       // for AL... it probably needs to be made clearer.
+      // HH: Modified for Tribes 2 compatibility.
       if (  mMaterial->mTranslucentBlendOp == Material::LerpAlpha &&
-            mMaterial->mTranslucentZWrite )
+            mMaterial->mTranslucentZWrite &&
+            !mMaterial->mT2FadeAlpha )
          fd.features.addFeature( MFT_IsTranslucentZWrite );
       else
       {
          fd.features.addFeature( MFT_IsTranslucent );
          fd.features.addFeature( MFT_ForwardShading );
       }
+
+      // HH: Added for Tribes 2 compatibility.
+      if ( mMaterial->mT2FadeAlpha )
+         fd.features.addFeature( MFT_T2FadeAlpha );
    }
 
    // TODO: This sort of sucks... BL should somehow force this
@@ -355,7 +361,8 @@ void ProcessedShaderMaterial::_determineFeatures(  U32 stageNum,
 
    fd.features.addFeature( MFT_Visibility );
 
-   if (  lastStage && 
+   // HH: Modified for Tribes 2 compatibility.
+   if (  lastStage && !mMaterial->mT2NoFog &&
          (  !gClientSceneGraph->usePostEffectFog() ||
             fd.features.hasFeature( MFT_IsTranslucent ) ||
             fd.features.hasFeature( MFT_ForwardShading )) )
