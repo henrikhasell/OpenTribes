@@ -831,6 +831,176 @@ static void noteShield(U32 part, U32 word, U32 bits)
    }
 }
 
+/// The blocks every shape's body shares whatever its class adds around them:
+/// the target GameBase reads, and the invincibility and mount ShapeBase ends
+/// on.
+enum T2ShapePart
+{
+   T2TargetChanged,
+   T2TargetId,
+   T2InvincibleHere,
+   T2InvincibleTime,
+   T2InvincibleSpeed,
+   T2MountChanged,
+   T2Mounted,
+   T2MountGhost,
+   T2MountNode,
+
+   T2ShapeParts
+};
+
+struct T2ShapeMap
+{
+   const T2DataBlockLayout *layout;
+   Vector<S16>              part;   ///< node -> part, or -1
+};
+
+static Vector<T2ShapeMap *> sShapeMaps(__FILE__, __LINE__);
+static const T2ShapeMap *sShape = NULL;
+
+/// A value read as a plain run of bits, which is how retail reads an id, a
+/// node and a float it sends whole.
+static bool isWord(const T2DataNode *n, U32 bits)
+{
+   return n && n->bits == bits && (n->op == OpInt || n->op == OpRaw);
+}
+
+static bool isBranch(const T2DataNode *n)
+{
+   return n && n->op == OpFlag && n->bits == 1 && n->a != n->b;
+}
+
+   /// GameBase::unpackUpdate (0x5e3426): a flag for a change, a flag for there
+   /// being a target at all, then its id, with every clear arm landing past it.
+static bool matchTarget(const T2DataBlockLayout *layout, S32 top, S16 *parts)
+{
+   const T2DataNode *changed = nodeAt(layout, top);
+   if(!isBranch(changed))
+      return false;
+
+   const T2DataNode *here = nodeAt(layout, changed->b);
+   if(!isBranch(here) || here->a != changed->a)
+      return false;
+
+   const T2DataNode *id = nodeAt(layout, here->b);
+   if(!isWord(id, 9) || id->a != changed->a)
+      return false;
+
+   parts[T2TargetChanged] = S16(top);
+   parts[T2TargetId]      = S16(here->b);
+   return true;
+}
+
+   /// The two blocks ShapeBase::unpackUpdate ends on, one straight after the
+   /// other: the invincibility's time and speed behind a flag (0x5efbe5), then
+   /// the mount (0x5efc26), which is a flag for a change, a flag for being
+   /// mounted at all, the mount's ghost index and the node. Either alone is
+   /// too plain a shape to be sure of; together they occur once per class.
+static bool matchShapeTail(const T2DataBlockLayout *layout, S32 top,
+                           S16 *parts)
+{
+   const T2DataNode *invincible = nodeAt(layout, top);
+   if(!isBranch(invincible))
+      return false;
+
+   const T2DataNode *time = nodeAt(layout, invincible->b);
+   if(!isWord(time, 32))
+      return false;
+
+   const T2DataNode *speed = nodeAt(layout, time->a);
+   if(!isWord(speed, 32) || speed->a != invincible->a)
+      return false;
+
+   const S32 mountAt = invincible->a;
+   const T2DataNode *changed = nodeAt(layout, mountAt);
+   if(!isBranch(changed))
+      return false;
+
+   const T2DataNode *mounted = nodeAt(layout, changed->b);
+   if(!isBranch(mounted) || mounted->a != changed->a)
+      return false;
+
+   const T2DataNode *ghost = nodeAt(layout, mounted->b);
+   if(!isWord(ghost, 10))
+      return false;
+
+   const T2DataNode *node = nodeAt(layout, ghost->a);
+   if(!isWord(node, 5) || node->a != changed->a)
+      return false;
+
+   parts[T2InvincibleHere]  = S16(top);
+   parts[T2InvincibleTime]  = S16(invincible->b);
+   parts[T2InvincibleSpeed] = S16(time->a);
+   parts[T2MountChanged]    = S16(mountAt);
+   parts[T2Mounted]         = S16(changed->b);
+   parts[T2MountGhost]      = S16(mounted->b);
+   parts[T2MountNode]       = S16(ghost->a);
+   return true;
+}
+
+static const T2ShapeMap *resolveShape(const T2DataBlockLayout *layout)
+{
+   for(U32 i = 0; i < sShapeMaps.size(); i++)
+      if(sShapeMaps[i]->layout == layout)
+         return sShapeMaps[i];
+
+   T2ShapeMap *map = new T2ShapeMap;
+   map->layout = layout;
+   map->part.setSize(layout->count);
+   for(U32 i = 0; i < layout->count; i++)
+      map->part[i] = -1;
+
+   S16 parts[T2ShapeParts];
+   U32 targets = 0;
+   U32 tails = 0;
+   S32 mountAt = -1;
+   for(U32 i = 0; i < layout->count; i++)
+   {
+      for(U32 p = 0; p < T2ShapeParts; p++)
+         parts[p] = -1;
+
+      if(matchTarget(layout, S32(i), parts))
+         targets++;
+
+      // Two tails would be two mounts to choose between, and nothing to
+      // choose by, so only the first one counts.
+      if(matchShapeTail(layout, S32(i), parts) && !tails++)
+         mountAt = parts[T2MountChanged];
+      else
+         for(U32 p = T2InvincibleHere; p <= T2MountNode; p++)
+            parts[p] = -1;
+
+      for(U32 p = 0; p < T2ShapeParts; p++)
+         if(parts[p] >= 0)
+            map->part[parts[p]] = S16(p);
+   }
+
+   if(tails > 1)
+      Con::warnf("T2 layout: %s has %d blocks shaped like ShapeBase's "
+                 "invincibility and mount; the first is being taken",
+                 layout->name, tails);
+   if(mountAt >= 0)
+      Con::printf("T2 layout: %s carries a mount at node %d", layout->name,
+                  mountAt);
+
+   sShapeMaps.push_back(map);
+   return map;
+}
+
+static bool shapeAt(const T2DataBlockLayout *layout, S32 at, U32 *part)
+{
+   if(!sShape || sShape->layout != layout || at < 0 ||
+      U32(at) >= sShape->part.size())
+      return false;
+
+   const S16 what = sShape->part[at];
+   if(what < 0)
+      return false;
+
+   *part = U32(what);
+   return true;
+}
+
 static bool threadAt(const T2DataBlockLayout *layout, S32 at, U32 *slot,
                      U32 *part)
 {
@@ -1199,6 +1369,8 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
                         sBody.hasWarp = true;
                         sBody.warp = set;
                         break;
+                     // ForceFieldBare names its target block by row; every
+                     // other class's is matched by shape.
                      case T2FieldTargetHere:
                         sBody.hasTarget = true;
                         sBody.target = -1;
@@ -1220,9 +1392,6 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
                         break;
                      case T2FieldActionPosHere:
                         sBody.hasActionPos = set;
-                        break;
-                     case T2FieldInvincibleHere:
-                        sBody.hasInvincible = set;
                         break;
                      case T2FieldZoneActive:
                         sBody.hasZoneActive = true;
@@ -1261,6 +1430,32 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
 
                if(damageAt(layout, at, &partOf) && partOf == T2DamageBlowApart)
                   sBody.blowApart = set;
+
+               if(shapeAt(layout, at, &partOf))
+                  switch(partOf)
+                  {
+                     // A change with nothing behind it is a target or a mount
+                     // taken away.
+                     case T2TargetChanged:
+                        if(set)
+                        {
+                           sBody.hasTarget = true;
+                           sBody.target = -1;
+                        }
+                        break;
+                     case T2InvincibleHere:
+                        sBody.hasInvincible = set;
+                        break;
+                     case T2MountChanged:
+                        if(set)
+                        {
+                           sBody.hasMount = true;
+                           sBody.mountGhost = -1;
+                        }
+                        break;
+                     default:
+                        break;
+                  }
 
                U32 state, part;
                if(stateAt(layout, at, &state, &part))
@@ -1628,9 +1823,6 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
                   case T2FieldSourceSlot:
                      sBody.sourceSlot = word;
                      break;
-                  case T2FieldTarget:
-                     sBody.target = S32(word);
-                     break;
                   case T2FieldVehicleObject:
                      sBody.hasVehicleObject = true;
                      sBody.vehicleObject = word;
@@ -1640,12 +1832,6 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
                      break;
                   case T2FieldActionPos:
                      sBody.actionPos = t2SignedFloat(word, n.bits);
-                     break;
-                  case T2FieldInvincibleTime:
-                     dMemcpy(&sBody.invincibleTime, &word, sizeof(F32));
-                     break;
-                  case T2FieldInvincibleSpeed:
-                     dMemcpy(&sBody.invincibleSpeed, &word, sizeof(F32));
                      break;
                   case T2FieldFieldFade:
                      sBody.fieldFade = word;
@@ -1689,6 +1875,28 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
                   noteDamage(part, word, n.bits);
                if(shieldAt(layout, at, &part))
                   noteShield(part, word, n.bits);
+
+               if(shapeAt(layout, at, &part))
+                  switch(part)
+                  {
+                     case T2TargetId:
+                        sBody.target = S32(word);
+                        break;
+                     case T2InvincibleTime:
+                        dMemcpy(&sBody.invincibleTime, &word, sizeof(F32));
+                        break;
+                     case T2InvincibleSpeed:
+                        dMemcpy(&sBody.invincibleSpeed, &word, sizeof(F32));
+                        break;
+                     case T2MountGhost:
+                        sBody.mountGhost = S32(word);
+                        break;
+                     case T2MountNode:
+                        sBody.mountNode = word;
+                        break;
+                     default:
+                        break;
+                  }
 
                U32 state;
                if(stateAt(layout, at, &state, &part) && part == T2StateTimeout)
@@ -1944,6 +2152,7 @@ static void resolveGhostFields(const char *className)
    sThreads = NULL;
    sDamage = NULL;
    sShield = NULL;
+   sShape = NULL;
 
    const T2DataBlockLayout *layout =
       findNamed(className, sT2GhostsRecovered, ELEMENTS(sT2GhostsRecovered));
@@ -1955,6 +2164,7 @@ static void resolveGhostFields(const char *className)
    sThreads = resolveThreads(layout);
    sDamage = resolveDamage(layout);
    sShield = resolveShield(layout);
+   sShape = resolveShape(layout);
 
    for(U32 i = 0; i < ELEMENTS(sT2GhostFields); i++)
    {
@@ -2155,6 +2365,9 @@ static bool runGhost(BitStream *stream, const char *className,
    sBody.fadeVisible = false;
    sBody.fadeOut = false;
    sBody.fadeTime = 0.0f;
+   sBody.hasMount = false;
+   sBody.mountGhost = -1;
+   sBody.mountNode = 0;
    for(U32 i = 0; i < MaxImages; i++)
    {
       Body::Image &image = sBody.images[i];

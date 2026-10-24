@@ -204,6 +204,9 @@ protected:
 
    /// The WaterObject we are currently within.
    WaterObject *mCurrentWaterObject;
+
+   // HH: Added for Tribes 2 compatibility.
+   S32 mT2Target;                   ///< the target manager's id, or -1
    
    static bool setDataBlockProperty( void *object, const char *index, const char *data );
 
@@ -258,6 +261,10 @@ public:
 
    /// Returns the datablock for this object.
    GameBaseData* getDataBlock()  { return mDataBlock; }
+
+   // HH: Added for Tribes 2 compatibility.
+   /// The target a Tribes 2 ghost body gave this object.
+   S32 getT2Target() const { return mT2Target; }
 
    /// Called when a new datablock is set. This allows subclasses to
    /// appropriately handle new datablocks.

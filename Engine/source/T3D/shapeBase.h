@@ -1374,6 +1374,10 @@ public:
 
    void readT2Invincible(const T2Layout::Body &body);
 
+   /// Get on or off what a Tribes 2 ghost body said this object is mounted
+   /// on.
+   void readT2Mount(const T2Layout::Body &body);
+
    /// Mount what a Tribes 2 ghost body said is in this object's image slots.
    void readT2Images(const T2Layout::Body &body);
 

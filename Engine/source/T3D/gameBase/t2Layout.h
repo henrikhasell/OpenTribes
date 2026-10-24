@@ -65,7 +65,7 @@ namespace T2Layout
       U32     sourceSlot;
       bool    hasVehicleObject;
       U32     vehicleObject;
-      bool    hasTarget;
+      bool    hasTarget;            ///< the body changed the target
       S32     target;               ///< the target manager's id, or -1
       bool    quickSplash;
       bool    hasJetting;
@@ -114,6 +114,11 @@ namespace T2Layout
       bool    fadeVisible;
       bool    fadeOut;
       F32     fadeTime;
+      bool    hasMount;             ///< the body said what the object sits
+                                    ///< on, which may be nothing
+      S32     mountGhost;           ///< the mount's ghost index, or -1 to
+                                    ///< get off
+      U32     mountNode;            ///< the mount point on the mount
 
       /// What a body said about one of its object's image slots -- the
       /// weapon in the hand, the pack on the back.
