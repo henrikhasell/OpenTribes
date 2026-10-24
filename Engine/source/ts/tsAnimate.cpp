@@ -21,7 +21,6 @@
 //-----------------------------------------------------------------------------
 
 #include "ts/tsShapeInstance.h"
-#include <utility>
 
 //----------------------------------------------------------------------------------
 // some utility functions
@@ -34,51 +33,11 @@ S32 QSORT_CALLBACK FN_CDECL compareThreads( const void* e1, const void* e2)
    return (*th1 < *th2);
 }
 
-// HH: Added for Tribes 2 compatibility.
-// Tribes 2 sorts threads with its C library's qsort (0x006fd220), a heapsort,
-// and a heapsort reorders threads that compare equal. The first thread to
-// name an object sets its visibility, so the order of a tie is something a
-// player sees: a flying vehicle's two jet activations are both blends of the
-// same priority, and a Shrike that arrives already running idles with its
-// lit engine housing in retail, where a stable sort shows the dark one.
-static void sortThreadsT2( TSThread **threads, S32 count )
-{
-   if ( count < 2 )
-      return;
-
-   // One-based heap indices, as retail keeps them.
-   S32 build = count / 2 + 1;
-   for ( ;; )
-   {
-      S32 i;
-      if ( build > 1 )
-         i = --build;
-      else
-      {
-         std::swap( threads[0], threads[count - 1] );
-         if ( --count == 1 )
-            return;
-         i = 1;
-      }
-
-      for ( S32 j = i * 2; j <= count; j = i * 2 )
-      {
-         if ( j < count && compareThreads( &threads[j - 1], &threads[j] ) < 0 )
-            j++;
-         if ( compareThreads( &threads[i - 1], &threads[j - 1] ) >= 0 )
-            break;
-         std::swap( threads[i - 1], threads[j - 1] );
-         i = j;
-      }
-   }
-}
-
 void TSShapeInstance::sortThreads()
 {
    PROFILE_SCOPE( TSShapeInstance_sortThreads );
-   // HH: Modified for Tribes 2 compatibility.
-   sortThreadsT2(mThreadList.address(),mThreadList.size());
-   sortThreadsT2(mTransitionThreads.address(),mTransitionThreads.size());
+   dQsort(mThreadList.address(),mThreadList.size(),sizeof(TSThread*),compareThreads);
+   dQsort(mTransitionThreads.address(),mTransitionThreads.size(),sizeof(TSThread*),compareThreads);
 }
 
 void TSShapeInstance::setDirty(U32 dirty)
