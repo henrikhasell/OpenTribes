@@ -62,7 +62,8 @@ public:
 /// update rate.
 class TimeManager
 {
-   PlatformTimer *mTimer;
+   // HH: Modified for Tribes 2 compatibility.
+   U64 mLastCount;
    S32 mForegroundThreshold, mBackgroundThreshold;
    bool mBackground;
    
