@@ -45,6 +45,7 @@ class GuiDashBoardCtrl : public GuiControl
    typedef GuiControl Parent;
 
    bool mWrap;
+   bool mInOnResize;
 
 public:
    GuiDashBoardCtrl();
