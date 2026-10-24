@@ -3023,6 +3023,92 @@ static bool isRawRun(const T2DataBlockLayout *layout, S32 at, U32 words)
    return true;
 }
 
+/// ShapeBase::unpackUpdate's cloak block (0x005ef937), for the classes whose
+/// rows do not name it: a flag for the block, whether the shape is cloaked,
+/// the controlled flag, then the fade -- whether one has begun; if not,
+/// whether the shape shows at all; if so, whether it goes out and over how
+/// long. Every arm ends where the block's clear one does.
+struct T2CloakRows
+{
+   const T2DataBlockLayout *layout;
+   Vector<T2GhostFieldRow>  rows;
+};
+
+static Vector<T2CloakRows *> sCloakRows(__FILE__, __LINE__);
+
+static bool matchCloak(const T2DataBlockLayout *layout, S32 top, S16 *nodes)
+{
+   const T2DataNode *block = nodeAt(layout, top);
+   if(!isBranch(block))
+      return false;
+
+   const T2DataNode *cloaked = nodeAt(layout, block->b);
+   if(!isBareFlag(cloaked))
+      return false;
+   const T2DataNode *controlled = nodeAt(layout, cloaked->a);
+   if(!isBareFlag(controlled))
+      return false;
+
+   const T2DataNode *fading = nodeAt(layout, controlled->a);
+   if(!isBranch(fading))
+      return false;
+   const T2DataNode *visible = nodeAt(layout, fading->a);
+   const T2DataNode *out = nodeAt(layout, fading->b);
+   if(!isBareFlag(visible) || visible->a != block->a || !isBareFlag(out))
+      return false;
+   const T2DataNode *time = nodeAt(layout, out->a);
+   if(!isWord(time, 32) || time->a != block->a)
+      return false;
+
+   nodes[0] = S16(block->b);
+   nodes[1] = S16(controlled->a);
+   nodes[2] = S16(fading->a);
+   nodes[3] = S16(fading->b);
+   nodes[4] = S16(out->a);
+   return true;
+}
+
+static const T2CloakRows *resolveCloak(const T2DataBlockLayout *layout)
+{
+   for(U32 i = 0; i < sCloakRows.size(); i++)
+      if(sCloakRows[i]->layout == layout)
+         return sCloakRows[i];
+
+   T2CloakRows *map = new T2CloakRows;
+   map->layout = layout;
+
+   static const T2GhostField sFields[5] =
+   {
+      T2FieldCloaked, T2FieldFading, T2FieldFadeVisible, T2FieldFadeOut,
+      T2FieldFadeTime,
+   };
+
+   S16 nodes[5];
+   U32 blocks = 0;
+   for(U32 i = 0; i < layout->count; i++)
+   {
+      // Two blocks would be two cloaks to choose between, and nothing to
+      // choose by, so only the first one counts.
+      if(!matchCloak(layout, S32(i), nodes) || blocks++)
+         continue;
+
+      for(U32 f = 0; f < 5; f++)
+      {
+         const T2DataNode &n = layout->nodes[nodes[f]];
+         T2GhostFieldRow row = { layout->name, nodes[f], n.op, n.bits,
+                                 sFields[f] };
+         map->rows.push_back(row);
+      }
+   }
+
+   if(blocks > 1)
+      Con::warnf("T2 layout: %s has %d blocks shaped like ShapeBase's cloak; "
+                 "the first is being taken", layout->name, blocks);
+
+   sCloakRows.push_back(map);
+   return map;
+}
+
 static void resolveGhostFields(const char *className)
 {
    if(className == sFieldsFor)
@@ -3096,6 +3182,24 @@ static void resolveGhostFields(const char *className)
       }
 
       sRows[sRowCount++] = &row;
+   }
+
+   // Only Player's rows name its cloak; every other shape's is found by its
+   // shape, so that a vehicle bought at a pad stays hidden until it is built.
+   bool named = false;
+   for(U32 i = 0; i < sRowCount; i++)
+      named |= sRows[i]->field == T2FieldCloaked;
+
+   const T2CloakRows *cloak = named ? NULL : resolveCloak(layout);
+   for(U32 i = 0; cloak && i < cloak->rows.size(); i++)
+   {
+      if(sRowCount >= ELEMENTS(sRows))
+      {
+         Con::errorf("T2 field: %s names more fields than there is room for; "
+                     "its cloak is being ignored.", className);
+         break;
+      }
+      sRows[sRowCount++] = &cloak->rows[i];
    }
 }
 
