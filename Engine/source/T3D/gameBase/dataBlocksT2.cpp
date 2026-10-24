@@ -113,7 +113,6 @@ IMPLEMENT_DATABLOCK_T2( ShockLanceProjectileData );
 IMPLEMENT_DATABLOCK_T2( ShockwaveData );
 IMPLEMENT_DATABLOCK_T2( SniperProjectileData );
 IMPLEMENT_DATABLOCK_T2( StationFXPersonalData );
-IMPLEMENT_DATABLOCK_T2( StationFXVehicleData );
 IMPLEMENT_DATABLOCK_T2( TargetProjectileData );
 IMPLEMENT_DATABLOCK_T2_SHAPE( TurretData, true );
 IMPLEMENT_DATABLOCK_T2( TurretImageData );

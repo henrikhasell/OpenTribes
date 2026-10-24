@@ -61,6 +61,8 @@ namespace T2Protocol
       T2FieldFadeVisible,
       T2FieldFadeOut,
       T2FieldFadeTime,
+      T2FieldStationObject,         ///< readInt(bits), the ghost index of the
+                                    ///< station a station effect plays on
    };
 
    inline U32 t2FieldWords(U32 field)
@@ -209,6 +211,10 @@ namespace T2Protocol
 
       { "AudioEmitter",         150, OpRaw,  32, T2FieldAffine   },
       { "AudioEmitter",         156, OpFlag,  1, T2FieldQuatSign },
+
+   // StationFXVehicle::unpackUpdate (0x0069eea0): under the initial mask, a
+   // flag and then the station's ghost index.
+      { "StationFXVehicle",       5, OpInt,  11, T2FieldStationObject },
 
 #define T2_LINEAR_PROJECTILE_FIELDS( cls )                             \
       { cls, 17, OpPoint,        0,  T2FieldPosition     },            \
