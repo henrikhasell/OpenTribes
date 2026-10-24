@@ -2273,6 +2273,10 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
                      sBody.hasVehicleObject = true;
                      sBody.vehicleObject = word;
                      break;
+                  case T2FieldStationObject:
+                     sBody.hasStationObject = true;
+                     sBody.stationObject = word;
+                     break;
                   case T2FieldAction:
                      sBody.action = word;
                      break;
@@ -3313,6 +3317,7 @@ static bool runGhost(BitStream *stream, const char *className,
    sBody.hasSourceObject = false;
    sBody.sourceSlot = 0;
    sBody.hasVehicleObject = false;
+   sBody.hasStationObject = false;
    sBody.hasTarget = false;
    sBody.target = -1;
    sBody.quickSplash = false;
