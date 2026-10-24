@@ -25,6 +25,7 @@
 #include "T3D/gameBase/gameConnection.h"
 #include "T3D/camera.h"
 #include "T3D/shapeBase.h"
+#include "terrain/terrData.h"
 #include "gfx/gfxDevice.h"
 #include "gfx/gfxTransformSaver.h"
 #include "gfx/primBuilder.h"
@@ -216,6 +217,75 @@ DefineEngineFunction( setFov, void, ( F32 FOV ),,
 				"@ingroup CameraSystem")
 {
    sTargetFov = mClampF(FOV, MinCameraFov, MaxCameraFov);
+}
+
+// HH: Added for Tribes 2 compatibility.
+// The vehicle dashboard's two read-outs, which client.cs polls twice a
+// second. A seated player reads what it sits in, so a pilot sees the
+// vehicle's speed and height.
+DefineEngineFunction( getControlObjectSpeed, const char *, (),,
+   "@brief The speed of the control object, or of what it is seated in.\n\n"
+   "@return Metres a second to a tenth, or \"0\" with no control object.\n"
+   "@ingroup Game")
+{
+   GameConnection *connection = GameConnection::getConnectionToServer();
+   ShapeBase *obj = connection ? dynamic_cast<ShapeBase*>(connection->getControlObject()) : NULL;
+   if (!obj)
+      return "0";
+
+   SceneObject *mount = obj->getObjectMount();
+   const F32 speed = (mount ? mount->getVelocity() : obj->getVelocity()).len();
+   const F32 whole = mFloor(speed);
+
+   char *ret = Con::getReturnBuffer(128);
+   dSprintf(ret, 128, "%g.%g", whole, mFloor((speed - whole) * 10.0f));
+   return ret;
+}
+
+DefineEngineFunction( getControlObjectAltitude, const char *, (),,
+   "@brief How far the control object, or what it is seated in, is above the terrain.\n\n"
+   "@return Whole metres, never below 0, or \"0\" with no control object.\n"
+   "@ingroup Game")
+{
+   GameConnection *connection = GameConnection::getConnectionToServer();
+   ShapeBase *obj = connection ? dynamic_cast<ShapeBase*>(connection->getControlObject()) : NULL;
+   if (!obj)
+      return "0";
+
+   // A seated player measures from the top corner of its seat's box. Retail
+   // means to take the lowest corner, but compares each one against a fixed
+   // 1e30 rather than the lowest so far, so it always keeps the last; a
+   // parked Shrike reads about 7 m.
+   Point3F from = obj->getPosition();
+   if (SceneObject *mount = obj->getObjectMount())
+   {
+      from = mount->getObjBox().maxExtents;
+      mount->getTransform().mulP(from);
+   }
+
+   F32 ground = 0.0f;
+   const Vector<SceneObject*> &terrains = gClientContainer.getTerrains();
+   for (U32 i = 0; i < terrains.size(); i++)
+   {
+      TerrainBlock *terrain = dynamic_cast<TerrainBlock*>(terrains[i]);
+      if (!terrain)
+         continue;
+
+      Point3F local = from;
+      terrain->getWorldTransform().mulP(local);
+      F32 height;
+      if (terrain->getHeight(Point2F(local.x, local.y), &height))
+      {
+         Point3F top(local.x, local.y, height);
+         terrain->getTransform().mulP(top);
+         ground = top.z;
+         break;
+      }
+   }
+
+   char *ret = Con::getReturnBuffer(64);
+   dSprintf(ret, 64, "%g", mFloor(getMax(from.z - ground, 0.0f)));
+   return ret;
 }
 
 F32 GameGetCameraFov()

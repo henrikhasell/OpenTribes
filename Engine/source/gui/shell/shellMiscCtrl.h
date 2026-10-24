@@ -51,6 +51,8 @@ public:
 
    DECLARE_CONOBJECT(GuiDashBoardCtrl);
    static void initPersistFields();
+
+   bool resize(const Point2I &newPosition, const Point2I &newExtent) override;
 };
 
 #endif // _SHELLMISCCTRL_H_

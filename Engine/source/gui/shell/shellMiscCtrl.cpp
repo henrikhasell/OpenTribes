@@ -45,3 +45,13 @@ void GuiDashBoardCtrl::initPersistFields()
 
    addField("wrap", TypeBool, Offset(mWrap, GuiDashBoardCtrl));
 }
+
+// hud.cs places the dashboard from dashboardHud::onResize, by screen size and
+// seat, so without the callback it stays where PlayGui.gui left it.
+bool GuiDashBoardCtrl::resize(const Point2I &newPosition, const Point2I &newExtent)
+{
+   const bool ret = Parent::resize(newPosition, newExtent);
+   if(isMethod("onResize"))
+      Con::executef(this, "onResize", Con::getIntArg(getWidth()), Con::getIntArg(getHeight()));
+   return ret;
+}
