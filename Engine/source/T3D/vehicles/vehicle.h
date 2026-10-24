@@ -56,6 +56,10 @@ struct VehicleData: public ShapeBaseData
       F32 friction;
    } body;
 
+   // HH: Added for Tribes 2 compatibility.
+   // The ids a server sends for preload to resolve, -1 for none.
+   S32 bodySoundID[Body::MaxSounds];
+
    enum VehicleConsts
    {
       VC_NUM_DUST_EMITTERS = 1,
@@ -76,6 +80,7 @@ struct VehicleData: public ShapeBaseData
       MaxSounds
    };
    SFXProfile* waterSound[MaxSounds];
+   S32 waterSoundID[MaxSounds];     // HH: Added for Tribes 2 compatibility.
    F32 exitSplashSoundVel;
    F32 softSplashSoundVel;
    F32 medSplashSoundVel;
@@ -107,6 +112,11 @@ struct VehicleData: public ShapeBaseData
    F32 jetEnergyDrain;        ///< Energy drain/tick
    F32 minJetEnergy;
 
+   // HH: Added for Tribes 2 compatibility.
+   // Script fields a server keeps to itself.
+   S32 stuckTimerTicks;
+   F32 stuckTimerAngle;
+
    ParticleEmitterData * dustEmitter;
    S32 dustID;
    F32 triggerDustHeight;  ///< height vehicle has to be under to kick up dust
@@ -126,6 +136,9 @@ struct VehicleData: public ShapeBaseData
    //
    VehicleData();
    bool preload(bool server, String &errorStr);
+   // HH: Added for Tribes 2 compatibility.
+   bool unpackData(BitStream *stream, U32 classId) override;
+   static S32 sentDataBlockId(U32 field);
    static void initPersistFields();
 
    DECLARE_CONOBJECT(VehicleData);
@@ -177,8 +190,6 @@ class Vehicle: public ShapeBase
    bool inLiquid;
    SFXSource* mWakeSound;
 
-   Point3F mCameraOffset; ///< 3rd person camera
-
    // Control
    Point2F mSteering;
    F32 mThrottle;
@@ -186,11 +197,12 @@ class Vehicle: public ShapeBase
 
    // Rigid Body
    bool mDisableMove;
+   // HH: Added for Tribes 2 compatibility.
+   // Retail's +0x970, which vehicle.cs sets on a deployed MPB and on a
+   // destroyed vehicle until it is deleted.
+   bool mFrozen;
 
    GFXStateBlockRef  mSolidSB;
-
-   Box3F         mWorkingQueryBox;
-   S32           mWorkingQueryBoxCountDown;
 
    CollisionList mCollisionList;
    CollisionList mContacts;
@@ -221,8 +233,19 @@ class Vehicle: public ShapeBase
    virtual void updateMove(const Move* move);
    virtual void updateForces(F32 dt);
 
+   // HH: Added for Tribes 2 compatibility.
+   // Tribes 2's slot 127 (Vehicle's 0x60a280 is empty): processTick calls it
+   // on each warp tick, once the vehicle stands at its new position, and
+   // WheeledVehicle extends its wheels there (0x6132f0).
+   virtual void onWarpTick() {}
+
    void writePacketData(GameConnection * conn, BitStream *stream);
    void readPacketData (GameConnection * conn, BitStream *stream);
+
+   // HH: Added for Tribes 2 compatibility.
+   void onT2BodyRead(const T2Layout::Body &body) override;
+   void setRigidStateT2(const Point3F &pos, const QuatF &rot,
+                        const Point3F &linMom, const Point3F &angMom);
 
    void updateLiftoffDust( F32 dt );
    void updateDamageSmoke( F32 dt );
@@ -287,13 +310,15 @@ public:
    void applyImpulse(const Point3F &r, const Point3F &impulse);
 
    void getCameraParameters(F32 *min, F32* max, Point3F* offset, MatrixF* rot);
-   void getCameraTransform(F32* pos, MatrixF* mat);
    ///@}
 
    /// @name Mounted objects
    /// @{
    virtual void mountObject( SceneObject *obj, S32 node, const MatrixF &xfm = MatrixF::Identity );
    /// @}
+
+   // HH: Added for Tribes 2 compatibility.
+   void setFrozenState(bool frozen) { mFrozen = frozen; }
 
    DECLARE_CONOBJECT(Vehicle);
 };

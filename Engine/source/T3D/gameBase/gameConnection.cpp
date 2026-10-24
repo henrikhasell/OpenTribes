@@ -1348,14 +1348,16 @@ void GameConnection::writePacket(BitStream *bstream, PacketNotify *note)
       // HH: Modified for Tribes 2 compatibility.
       // The camera, then the hash of the control object state we last took,
       // then the moves.  Sending a nought hash asks the server to send that
-      // state again, which we do on a timer so a drift cannot settle in.
+      // state again. Tribes 2 does that on a timer only while it records a
+      // demo, so the recording holds a full state now and then; otherwise
+      // every one of those is a correction the pilot did not need.
       bstream->writeFlag(mCameraPos == 0);
 
       U32 checksum = 0;
       if(!mControlObject.isNull())
       {
          U32 currentTime = Platform::getVirtualMilliseconds();
-         if(currentTime - mLastControlRequestTime > ControlRequestTime)
+         if(isRecording() && currentTime - mLastControlRequestTime > ControlRequestTime)
             mLastControlRequestTime = currentTime;
          else
             checksum = mControlObject->getPacketDataChecksum(this);

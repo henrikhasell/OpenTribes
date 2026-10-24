@@ -661,6 +661,10 @@ public:
    virtual bool preload(bool server, String &errorStr);
    // HH: Added for Tribes 2 compatibility.
    bool unpackData(BitStream *stream, U32 classId) override;
+   /// A server's own datablock, which GameConnection::transmitDataBlocks
+   /// unpacks in place for its local client, and which keeps what the
+   /// scripts gave it.
+   bool isUnpackedInPlace();
    void computeAccelerator(U32 i);
    S32  findMountPoint(U32 n);
 
@@ -1009,6 +1013,10 @@ protected:
    TSThread *mDamageThread;
    TSThread *mHulkThread;
    VectorF damageDir;
+   // HH: Added for Tribes 2 compatibility.
+   // Tribes 2's blowup flag (this+0x730); damageDir is its momentum vector
+   // (this+0x734), which setMomentumVector sets.
+   bool mBlowApart;
    /// @}
 
    /// @name Cloaking
@@ -1372,6 +1380,10 @@ public:
    /// what retail's HudCapacitor gets from its failed cast to Turret.
    virtual F32 getCapacitorValue() { return 0.f; }
 
+   /// Tribes 2 keeps this until the object goes, and sends it in the damage
+   /// block beside the momentum vector, which is how a ghost learns to burst.
+   void setBlowApart() { mBlowApart = true; }
+
    /// Take the damage a Tribes 2 ghost body carried, where it carried one.
    void readT2Damage(const T2Layout::Body &body);
    // HH: Added for Tribes 2 compatibility.
@@ -1385,6 +1397,10 @@ public:
    /// Get on or off what a Tribes 2 ghost body said this object is mounted
    /// on.
    void readT2Mount(const T2Layout::Body &body);
+
+   /// Start or stop what a Tribes 2 ghost body said plays in this object's
+   /// sound slots.
+   void readT2Sounds(const T2Layout::Body &body);
 
    /// Mount what a Tribes 2 ghost body said is in this object's image slots.
    void readT2Images(const T2Layout::Body &body);

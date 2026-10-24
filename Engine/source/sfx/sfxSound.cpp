@@ -627,7 +627,11 @@ S32 QSORT_CALLBACK SFXSound::qsortCompare( const void* item1, const void* item2 
    
    if( !source1IsPlaying && !source2IsPlaying )
       return 0;
-	else if( !source1IsPlaying && source1IsPlaying )
+	// HH: Changed for Tribes 2 compatibility.
+	// Tested source1 twice, so a stopped sound could sort above a playing
+	// one; voice assignment stops at the first stopped sound, and a server's
+	// far-off station hums then left every sound without a voice.
+	else if( !source1IsPlaying && source2IsPlaying )
 		return 1;
 	else if( source1IsPlaying && !source2IsPlaying )
 		return -1;
