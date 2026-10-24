@@ -46,6 +46,7 @@ struct FlyingVehicleData: public VehicleData {
       MaxSounds,
    };
    SFXProfile* sound[MaxSounds];
+   S32 soundID[MaxSounds];          // HH: Added for Tribes 2 compatibility.
 
    enum Jets {
       // These enums index into a static name list.
@@ -56,6 +57,7 @@ struct FlyingVehicleData: public VehicleData {
       MaxJetEmitters,
    };
    ParticleEmitterData* jetEmitter[MaxJetEmitters];
+   S32 jetEmitterID[MaxJetEmitters];   // HH: Added for Tribes 2 compatibility.
    F32 minTrailSpeed;
 
    //
@@ -74,6 +76,7 @@ struct FlyingVehicleData: public VehicleData {
    F32 createHoverHeight;
 
    F32 vertThrustMultiple;
+   F32 maxForwardSpeed;             // HH: Added for Tribes 2 compatibility.
 
    // Initialized in preload
    ClippedPolyList rigidBody;
@@ -108,6 +111,8 @@ struct FlyingVehicleData: public VehicleData {
    DECLARE_CONOBJECT(FlyingVehicleData);
    static void initPersistFields();
    bool preload(bool server, String &errorStr);
+   // HH: Added for Tribes 2 compatibility.
+   bool unpackData(BitStream *stream, U32 classId) override;
 };
 
 
@@ -189,6 +194,8 @@ class FlyingVehicle: public Vehicle
 
    void writePacketData(GameConnection *conn, BitStream *stream);
    void readPacketData(GameConnection *conn, BitStream *stream);
+   // HH: Added for Tribes 2 compatibility.
+   void onT2BodyRead(const T2Layout::Body &body) override;
    void useCreateHeight(bool val);
 };
 

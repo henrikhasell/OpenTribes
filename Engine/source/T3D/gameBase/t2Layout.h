@@ -28,6 +28,9 @@ namespace T2Layout
 
    enum { MaxThreads = 4 };
 
+   /// ShapeBase's playAudio slots.
+   enum { MaxSounds = 4 };
+
    struct Body
    {
       bool    hasDataBlock;         ///< the object's own datablock came with
@@ -154,6 +157,44 @@ namespace T2Layout
          bool   atEnd;
       };
       Thread  threads[MaxThreads];
+
+      /// A sound slot the server started or stopped on the object.
+      struct Sound
+      {
+         bool   present;            ///< the body changed this slot
+         bool   play;
+         S32    profile;            ///< an AudioProfile's id, or -1
+      };
+      Sound   sounds[MaxSounds];
+
+      /// What Vehicle::unpackUpdate (0x60dc30) reads after ShapeBase's body,
+      /// and what a hover or flying vehicle reads after that. The jetting
+      /// flag comes first and is kept in hasJetting and jetting.
+      struct VehicleTail
+      {
+         bool   present;            ///< the body carried a vehicle's tail
+         bool   controlled;         ///< this client drives it, so the rest
+                                    ///< comes in its packet data instead
+         F32    steering[2];        ///< readFloat(9): 0..1 of the datablock's
+                                    ///< range, which is not on the wire
+         bool   hasMoveRot[3];
+         U32    moveRot[3];         ///< the Move's yaw, pitch and roll words
+         U32    moveAxis[3];        ///< its x, y and z, six bits each
+         bool   freeLook;
+         bool   trigger[6];
+         bool   frozen;
+         bool   hasPosition;        ///< the PositionMask block followed
+         Point3F position;
+         U32    words[10];          ///< the quat, then linear and angular
+                                    ///< momentum, each sent whole
+         bool   hasEnergy;
+         F32    energy;             ///< readFloat(8): share of maxEnergy
+         bool   hasThrust;
+         U32    thrust;             ///< a hover or flyer's thrust direction
+         bool   hasCreateHeight;
+         bool   createHeightOn;     ///< a flyer still at its pad height
+      };
+      VehicleTail vehicle;
    };
 
    const Body &lastBody();
@@ -305,6 +346,82 @@ namespace T2Layout
       T2DbInheritEnergyFromMount,
       T2DbFirstPersonOnly,
       T2DbUseEyePoint,
+
+      // VehicleData's run, which every vehicle datablock carries next. Where
+      // a field shares a name with one a PlayerData sends, it shares that
+      // entry too.
+      T2DbBodyRestitution,
+      T2DbBodyFriction,
+      T2DbBodySound,
+      T2DbBodySoundLast = T2DbBodySound + 1,
+      T2DbSoftImpactSpeed,
+      T2DbHardImpactSpeed,
+      T2DbMinRollSpeed,
+      T2DbMaxSteerinAngle,
+      T2DbMaxDrag,
+      T2DbMinDrag,
+      T2DbCameraOffset,
+      T2DbCameraLag,
+      T2DbTriggerDustHeight,
+      T2DbDustHeight,
+      T2DbNumDmgEmitterAreas,
+      T2DbSoftSplashSoundVel,
+      T2DbWaterSound,
+      T2DbWaterSoundLast = T2DbWaterSound + 4,
+      T2DbDamageEmitter,
+      T2DbDamageEmitterLast = T2DbDamageEmitter + 2,
+      T2DbSplashEmitter,
+      T2DbSplashEmitterLast = T2DbSplashEmitter + 1,
+      T2DbDamageEmitterOffset,
+      T2DbDamageEmitterOffsetLast = T2DbDamageEmitterOffset + 5,
+      T2DbDamageLevelTolerance,
+      T2DbDamageLevelToleranceLast = T2DbDamageLevelTolerance + 1,
+      T2DbCollDamageThresholdVel,
+      T2DbCollDamageMultiplier,
+
+      // What a flying or hover vehicle datablock adds after it.
+      T2DbVehicleSound,
+      T2DbVehicleSoundLast = T2DbVehicleSound + 3,
+      T2DbVehicleJetEmitter,
+      T2DbVehicleJetEmitterLast = T2DbVehicleJetEmitter + 3,
+      T2DbManeuveringForce,
+      T2DbHorizontalSurfaceForce,
+      T2DbVerticalSurfaceForce,
+      T2DbAutoInputDamping,
+      T2DbSteeringForce,
+      T2DbSteeringRollForce,
+      T2DbRollForce,
+      T2DbAutoAngularForce,
+      T2DbRotationalDrag,
+      T2DbAutoLinearForce,
+      T2DbMaxAutoSpeed,
+      T2DbHoverHeight,
+      T2DbCreateHoverHeight,
+      T2DbMinTrailSpeed,
+      T2DbVertThrustMultiple,
+      T2DbDragForce,
+      T2DbVertFactor,
+      T2DbFloatingThrustFactor,
+      T2DbMainThrustForce,
+      T2DbReverseThrustForce,
+      T2DbStrafeThrustForce,
+      T2DbTurboFactor,
+      T2DbStabLenMin,
+      T2DbStabLenMax,
+      T2DbStabSpringConstant,
+      T2DbStabDampingConstant,
+      T2DbGyroDrag,
+      T2DbNormalForce,
+      T2DbRestorativeForce,
+      T2DbPitchForce,
+      T2DbDustTrailOffset,
+      T2DbDustTrailOffsetLast = T2DbDustTrailOffset + 2,
+      T2DbTriggerTrailHeight,
+      T2DbDustTrailFreqMod,
+      T2DbDustTrailEmitter,
+      T2DbFloatingGravMag,
+      T2DbBrakingForce,
+      T2DbBrakingActivationSpeed,
 
       T2DbItemFriction,
       T2DbItemElasticity,

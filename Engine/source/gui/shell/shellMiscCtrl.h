@@ -45,12 +45,15 @@ class GuiDashBoardCtrl : public GuiControl
    typedef GuiControl Parent;
 
    bool mWrap;
+   bool mInOnResize;
 
 public:
    GuiDashBoardCtrl();
 
    DECLARE_CONOBJECT(GuiDashBoardCtrl);
    static void initPersistFields();
+
+   bool resize(const Point2I &newPosition, const Point2I &newExtent) override;
 };
 
 #endif // _SHELLMISCCTRL_H_
