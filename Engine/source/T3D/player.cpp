@@ -2074,6 +2074,13 @@ void Player::interpolateTick(F32 dt)
 
 void Player::advanceTime(F32 dt)
 {
+   // HH: Added for Tribes 2 compatibility.
+   // The object this player controls stops ticking and leaves the process
+   // list, so nothing else advances it. Retail keeps it in the list, and a
+   // flown vehicle runs its jet animations, jet particles and contrail here.
+   if (mControlObject)
+      mControlObject->advanceTime(dt);
+
    // Client side animations
    Parent::advanceTime(dt);
    updateActionThread();
