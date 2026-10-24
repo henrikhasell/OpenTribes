@@ -518,13 +518,23 @@ void FlyingVehicle::updateForces(F32 /*dt*/)
    force += zv * vf;
 
    // Damping "surfaces"
-   force -= xv * mDot(xv,mRigid.linVelocity) * mDataBlock->horizontalSurfaceForce;
-   force -= zv * mDot(zv,mRigid.linVelocity) * mDataBlock->verticalSurfaceForce;
+   // HH: Modified for Tribes 2 compatibility.
+   // Tribes 2's surfaces bite with the square of the speed, as TGE's did:
+   // without it a Shrike side-slips and sinks at speed as if they were not
+   // there.
+   force -= xv * speed * mDot(xv,mRigid.linVelocity) * mDataBlock->horizontalSurfaceForce;
+   force -= zv * speed * mDot(zv,mRigid.linVelocity) * mDataBlock->verticalSurfaceForce;
 
    // Turbo Jet
+   // HH: Modified for Tribes 2 compatibility.
+   // At maxForwardSpeed the forward jet and the fore-and-aft thrust cut out,
+   // which is what holds a Shrike to its top speed; the rest never do.
+   const bool belowMaxForward = speed < mDataBlock->maxForwardSpeed;
    if (mJetting) {
-      if (mThrustDirection == ThrustForward)
-         force += yv * mDataBlock->jetForce * mCeilingFactor;
+      if (mThrustDirection == ThrustForward) {
+         if (belowMaxForward)
+            force += yv * mDataBlock->jetForce * mCeilingFactor;
+      }
       else if (mThrustDirection == ThrustBackward)
          force -= yv * mDataBlock->jetForce * mCeilingFactor;
       else
@@ -532,7 +542,8 @@ void FlyingVehicle::updateForces(F32 /*dt*/)
    }
 
    // Maneuvering jets
-   force += yv * (mThrust.y * mDataBlock->maneuveringForce * mCeilingFactor);
+   if (belowMaxForward)
+      force += yv * (mThrust.y * mDataBlock->maneuveringForce * mCeilingFactor);
    force += xv * (mThrust.x * mDataBlock->maneuveringForce * mCeilingFactor);
 
    // Steering
