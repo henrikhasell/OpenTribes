@@ -2783,7 +2783,9 @@ ConsoleMethod( GuiCanvas, setVideoMode, void, 5, 8,
 
 // HH: Added for Tribes 2 compatibility.
 // Tribes 2 asks for the screen's size as three words, and the shell lays the
-// Server Info window out against it.
+// Server Info window and the vehicle dashboard out against it. The size is the
+// window's as it is now: dragging the window resizes it without touching the
+// stored video mode.
 DefineEngineFunction( getResolution, const char *, ( ), ,
    "@brief The canvas's width, height and bit depth.\n\n"
    "@ingroup Rendering" )
@@ -2793,10 +2795,11 @@ DefineEngineFunction( getResolution, const char *, ( ), ,
    if ( !canvas || !canvas->getPlatformWindow() )
       return "0 0 0";
 
+   const Point2I size = canvas->getWindowSize();
    const GFXVideoMode mode = canvas->getPlatformWindow()->getVideoMode();
 
    char *buffer = Con::getReturnBuffer( 64 );
-   dSprintf( buffer, 64, "%d %d %d", mode.resolution.x, mode.resolution.y, mode.bitDepth );
+   dSprintf( buffer, 64, "%d %d %d", size.x, size.y, mode.bitDepth );
 
    return buffer;
 }
