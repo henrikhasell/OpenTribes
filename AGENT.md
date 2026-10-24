@@ -12,6 +12,15 @@ engine parses and runs through Torque 3D's TorqueScript interpreter, so
 whatever they expect of the engine beneath them, the engine has to
 provide. Retail Tribes 2 is the oracle every answer is checked against.
 
+Retail is that oracle for behaviour, not for structure. "The exe does it
+this way" is not on its own a reason to do the same: what has to match is
+what a player or a measurement can tell. Where retail's shape is an
+artefact of its own engine -- an order its loop happens to run in, a global
+it happens to keep -- copying the artefact buys nothing and costs every
+later reader. Match the observable; write the code this engine wants. When
+a disassembly is the only evidence for a change, say which observable it
+is there to fix; if there is none, the change is not needed.
+
 ## The port
 
 - Torque 3D's engine, Tribes 2's game data, build 25034.
