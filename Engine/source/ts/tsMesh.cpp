@@ -408,15 +408,7 @@ void TSMesh::innerRender( TSMaterialList *materials, const TSRenderState &rdata,
       *ri = *coreRI;
 
       ri->matInst = matInst;
-      // HH: Modified for Tribes 2 compatibility.
-      // Tribes 2 draws a shape's meshes one after another in object order, so
-      // where two of them lie on each other the later one shows: the Shrike's
-      // lit engine housing covers the dark one it shares a plane with while
-      // both are on. Sorting by material would put them in whichever order
-      // the two materials' names hash to, so they keep the order they came in.
-      static U32 sT2DrawOrder = 0;
-      ri->defaultKey = 0;
-      ri->defaultKey2 = sT2DrawOrder++;
+      ri->defaultKey = matInst->getStateHint();
       ri->primBuffIndex = run + i;
       // HH: Added for Tribes 2 compatibility.
       ri->visibility = visibility;
