@@ -464,6 +464,27 @@ namespace T2Protocol
       { "ForceFieldBareData",  9, OpRaw,   32, T2DbFieldScrollSpeed          },
       { "ForceFieldBareData", 10, OpRaw,   32, T2DbFieldUMapping             },
       { "ForceFieldBareData", 11, OpRaw,   32, T2DbFieldVMapping             },
+
+   // StationFXVehicleData::packData (0x0069d370) in its order: every field
+   // a whole word, the colour as four bytes, then eleven strings.
+      { "StationFXVehicleData",  0, OpRaw,   32, T2DbStationGlowTopHeight       },
+      { "StationFXVehicleData",  1, OpRaw,   32, T2DbStationGlowBottomHeight    },
+      { "StationFXVehicleData",  2, OpRaw,   32, T2DbStationGlowTopRadius       },
+      { "StationFXVehicleData",  3, OpRaw,   32, T2DbStationGlowBottomRadius    },
+      { "StationFXVehicleData",  4, OpRaw,   32, T2DbStationNumGlowSegments     },
+      { "StationFXVehicleData",  5, OpRaw,   32, T2DbStationGlowFadeTime        },
+      { "StationFXVehicleData",  6, OpRaw,   32, T2DbStationArmLightDelay       },
+      { "StationFXVehicleData",  7, OpRaw,   32, T2DbStationArmLightLifetime    },
+      { "StationFXVehicleData",  8, OpRaw,   32, T2DbStationArmLightFadeTime    },
+      { "StationFXVehicleData",  9, OpRaw,   32, T2DbStationLifetime            },
+      { "StationFXVehicleData", 10, OpRaw,   32, T2DbStationNumArcSegments      },
+      { "StationFXVehicleData", 11, OpColor, 32, T2DbStationSphereColor         },
+      { "StationFXVehicleData", 12, OpRaw,   32, T2DbStationSpherePhiSegments   },
+      { "StationFXVehicleData", 13, OpRaw,   32, T2DbStationSphereThetaSegments },
+      { "StationFXVehicleData", 14, OpRaw,   32, T2DbStationSphereRadius        },
+      { "StationFXVehicleData", 15, OpRaw,   32, T2DbStationSphereScaleX        },
+      { "StationFXVehicleData", 16, OpRaw,   32, T2DbStationSphereScaleY        },
+      { "StationFXVehicleData", 17, OpRaw,   32, T2DbStationSphereScaleZ        },
    };
 }
 
