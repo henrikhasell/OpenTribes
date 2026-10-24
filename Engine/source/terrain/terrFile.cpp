@@ -573,6 +573,45 @@ void TerrainFile::_loadLegacy(  FileStream &stream )
    _resolveMaterials( materials );
 }
 
+// HH: Added for Tribes 2 compatibility.
+// Tribes 2 keeps its holes in the mission, not in the file, so a file loaded
+// for an earlier mission may still carry that mission's; those squares get
+// back the layer _loadLegacy gave them before this mission's are cut.
+void TerrainFile::_setEmptySquares( const Vector<U32> &runs )
+{
+   const U32 sampleCount = mSize * mSize;
+   const U32 layerCount = mMaterials.size();
+
+   for ( U32 i=0; i < sampleCount; i++ )
+   {
+      if ( mLayerMap[i] != U8_MAX )
+         continue;
+
+      U32 layer = 0;
+      U32 lastValue = 0;
+      for ( U32 k=0; k < layerCount; k++ )
+      {
+         if ( getLayerAlpha( k, i ) > lastValue )
+         {
+            layer = k;
+            lastValue = getLayerAlpha( k, i );
+         }
+      }
+
+      mLayerMap[i] = layer;
+   }
+
+   for ( U32 i=0; i < runs.size(); i++ )
+   {
+      const U32 offset = runs[i] & 0xFFFF;
+      const U32 count = runs[i] >> 16;
+      for ( U32 j=0; j < count && offset + j < sampleCount; j++ )
+         mLayerMap[ offset + j ] = U8_MAX;
+   }
+
+   _buildGridMap();
+}
+
 void TerrainFile::_resolveMaterials( const Vector<String> &materials )
 {
    mMaterials.clear();

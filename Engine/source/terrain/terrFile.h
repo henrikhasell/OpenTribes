@@ -127,6 +127,10 @@ protected:
    /// TerrainMaterial objects by name.
    void _resolveMaterials( const Vector<String> &materials );
 
+   // HH: Added for Tribes 2 compatibility.
+   /// Cuts the mission's empty square runs out of drawing and collision.
+   void _setEmptySquares( const Vector<U32> &runs );
+
    /// 
    void _buildGridMap();
    
