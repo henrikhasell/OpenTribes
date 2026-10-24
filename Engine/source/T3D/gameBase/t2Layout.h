@@ -288,6 +288,24 @@ namespace T2Layout
       T2DbShieldEffectScaleY,
       T2DbShieldEffectScaleZ,
 
+      T2DbComputeCRC,
+      T2DbShapeCRC,
+      T2DbShapeFile,
+      T2DbCameraMinDist,
+      T2DbCameraDefaultFov,
+      T2DbCameraMinFov,
+      T2DbCameraMaxFov,
+      T2DbDebrisShapeName,
+      T2DbCmdCategory,
+      T2DbCmdMiniIconName,
+      T2DbCmdIcon,
+      T2DbObserveThroughObject,
+      T2DbIsInvincible,
+      T2DbRenderWhenDestroyed,
+      T2DbInheritEnergyFromMount,
+      T2DbFirstPersonOnly,
+      T2DbUseEyePoint,
+
       T2DbItemFriction,
       T2DbItemElasticity,
       T2DbItemSticky,
@@ -468,6 +486,9 @@ namespace T2Layout
    bool lastDataBlockWord(U32 field, U32 *out);
 
    const Vector<U32> &lastDataBlockValues(U32 field);
+
+   /// A field the last datablock sent as a string, or NULL where it sent none.
+   const char *lastDataBlockString(U32 field);
 
    /// What a body leaves out because retail reads it off the object and the
    /// connection rather than the stream. A walk without one takes the object

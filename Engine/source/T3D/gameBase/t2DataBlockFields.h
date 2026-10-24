@@ -14,13 +14,6 @@ namespace T2Protocol
 
    static const T2DataBlockFieldRow sT2DataBlockFields[] =
    {
-   // The ShapeBaseData layer a PlayerData opens with, whose values are gated
-   // by the flags at nodes 0 to 6 and so sit at the tail of the layout.
-      { "PlayerData", 273, OpRaw, 32, T2DbMass      },
-      { "PlayerData", 272, OpRaw, 32, T2DbDrag      },
-      { "PlayerData", 271, OpRaw, 32, T2DbDensity   },
-      { "PlayerData", 270, OpRaw, 32, T2DbMaxEnergy },
-
       { "PlayerData", 40, OpRaw, 32, T2DbMinLookAngle     },
       { "PlayerData", 41, OpRaw, 32, T2DbMaxLookAngle     },
       { "PlayerData", 42, OpRaw, 32, T2DbMaxFreelookAngle },
@@ -142,8 +135,6 @@ namespace T2Protocol
       { "PlayerData", 143, OpRaw, 32, T2DbGroundImpactShakeAmpZ     },
       { "PlayerData", 144, OpRaw, 32, T2DbGroundImpactShakeDuration },
       { "PlayerData", 145, OpRaw, 32, T2DbGroundImpactShakeFalloff  },
-
-      { "PlayerData", 269, OpRaw, 32, T2DbCameraMaxDist },
 
       { "ExplosionData",   7, OpInt,   14, T2DbPlaySpeed          },
       { "ExplosionData",  16, OpInt,   16, T2DbDelayMS            },
@@ -361,15 +352,6 @@ namespace T2Protocol
       { "GrenadeProjectileData", 31, OpRaw, 32, T2DbProjectileLifetime },
 
       { "GrenadeProjectileData", 51, OpDataBlockId, 11, T2DbExplosion   },
-
-      { "ItemData", 141, OpRaw, 32, T2DbMass      },
-      { "ItemData", 140, OpRaw, 32, T2DbDrag      },
-      { "ItemData", 139, OpRaw, 32, T2DbDensity   },
-      { "ItemData", 138, OpRaw, 32, T2DbMaxEnergy },
-
-      { "ItemData", 125, OpDataBlockId, 11, T2DbShapeExplosion            },
-      { "ItemData", 124, OpDataBlockId, 11, T2DbShapeUnderwaterExplosion  },
-      { "ItemData", 123, OpDataBlockId, 11, T2DbShapeDebris               },
 
    // The shield effect's lifetime and scale, which ShapeBaseData::unpackData
    // (0x005e6b8a) reads after its two flags: the scale only when a flag

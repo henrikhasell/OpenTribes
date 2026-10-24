@@ -467,11 +467,10 @@ void SimDataBlockEvent::unpack(NetConnection *cptr, BitStream *bstream)
             return;
          }
 
+         // A ShapeBaseData names its own shape as it unpacks.
          if( const char *shape = T2Layout::lastShapeFile() )
          {
-            if( ShapeBaseData *sb = dynamic_cast< ShapeBaseData * >( mObj ) )
-               sb->shapeName = StringTable->insert( shape );
-            else if( ShapeBaseImageData *si = dynamic_cast< ShapeBaseImageData * >( mObj ) )
+            if( ShapeBaseImageData *si = dynamic_cast< ShapeBaseImageData * >( mObj ) )
                si->shapeName = StringTable->insert( shape );
             else if( DataBlockT2 *db = dynamic_cast< DataBlockT2 * >( mObj ) )
                db->shapeName = StringTable->insert( shape );
