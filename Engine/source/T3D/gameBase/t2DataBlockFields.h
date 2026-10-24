@@ -362,6 +362,10 @@ namespace T2Protocol
       { "GrenadeProjectileData", 31, OpRaw, 32, T2DbProjectileLifetime },
 
       { "GrenadeProjectileData", 51, OpDataBlockId, 11, T2DbExplosion   },
+   // baseEmitter, the first of the run, which ProjectileData::packData
+   // writes from 0xe8 (0x631107).
+      { "GrenadeProjectileData", 54, OpDataBlockId, 11,
+        T2DbProjectileBaseEmitter },
 
    // The shield effect's lifetime and scale, which ShapeBaseData::unpackData
    // (0x005e6b8a) reads after its two flags: the scale only when a flag

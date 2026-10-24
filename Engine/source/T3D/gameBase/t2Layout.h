@@ -251,6 +251,7 @@ namespace T2Layout
       T2DbScaleY,
       T2DbScaleZ,
       T2DbExplosion,
+      T2DbProjectileBaseEmitter,
       T2DbFaceViewer,
       T2DbExplosionScaleX,
       T2DbExplosionScaleY,
