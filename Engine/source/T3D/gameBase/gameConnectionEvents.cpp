@@ -168,8 +168,11 @@ void SimDataBlockEvent::pack(NetConnection *conn, BitStream *bstream)
 }
 
 // HH: Added for Tribes 2 compatibility.
-/// No sequence name is on the wire: retail's client finds one by looking the
-/// state's own name up in the shape.
+/// A state carries one string, its name, and no sequence. Retail's client has
+/// none either: `stateSequence` is a field only a script fills (0x005f523d),
+/// zeroed at 0x005f429b and never written by unpackData, so the lookup its
+/// preload makes at 0x005f4ad1 finds nothing and no mounted image on a client
+/// is animated. Leave it empty here for the same reason.
 static void readT2ImageStates( ShapeBaseImageData *image )
 {
    const Vector< T2Layout::ImageState > &states = T2Layout::lastImageStates();
@@ -190,7 +193,6 @@ static void readT2ImageStates( ShapeBaseImageData *image )
          continue;
 
       image->stateName[i] = StringTable->insert( state.name.c_str() );
-      image->stateSequence[i] = image->stateName[i];
       image->stateTimeoutValue[i] = state.hasTimeout ? state.timeout : 0.0f;
       image->stateWaitForTimeout[i] = state.waitForTimeout;
       image->stateFire[i] = state.fire;
