@@ -23,10 +23,12 @@
 #include "T3D/gameBase/dataBlocksT2.h"
 #include "T3D/gameBase/processList.h"
 #include "T3D/fx/explosion.h"
+#include "T3D/fx/particleEmitter.h"
 #include "T3D/gameBase/t2Layout.h"
 #include "T3D/objectTypes.h"
 #include "T3D/gameBase/gravityT2.h"
 #include "T3D/shapeBase.h"
+#include "environment/waterBlock.h"
 #include "sim/netConnection.h"
 #include "ts/tsShapeInstance.h"
 
@@ -49,6 +51,8 @@ public:
    F32    density;
    U32    armingDelayMS;   ///< it bounces until this, and goes off after
    U32    explosionId;     ///< the ExplosionData it ends as
+   U32    baseEmitterId;   ///< the ParticleEmitterData it trails in flight
+   U32    bubbleEmitterId; ///< and the one it trails under water instead
    U32    soundId;         ///< the AudioProfile it flies to
    F32    blurLifetime;    ///< seconds a length of the trail lasts
    F32    blurWidth;
@@ -90,6 +94,8 @@ ProjectileDataT2::ProjectileDataT2()
      density(1.0f),
      armingDelayMS(0),
      explosionId(0),
+     baseEmitterId(0),
+     bubbleEmitterId(0),
      soundId(0),
      blurLifetime(0.0f),
      blurWidth(0.0f),
@@ -124,6 +130,10 @@ bool ProjectileDataT2::unpackData(BitStream *stream, U32 classId)
       armingDelayMS = word;
    if(T2Layout::lastDataBlockWord(T2Layout::T2DbExplosion, &word))
       explosionId = word;
+   if(T2Layout::lastDataBlockWord(T2Layout::T2DbProjectileBaseEmitter, &word))
+      baseEmitterId = word;
+   if(T2Layout::lastDataBlockWord(T2Layout::T2DbProjectileBubbleEmitter, &word))
+      bubbleEmitterId = word;
    if(T2Layout::lastDataBlockWord(T2Layout::T2DbProjectileSound, &word))
       soundId = word;
    if(T2Layout::lastDataBlockField(T2Layout::T2DbBlurLifetime, &value))
@@ -248,6 +258,10 @@ class ProjectileT2 : public GameBase
    bool    mExploded;         ///< it only goes off once
    VectorF mImpactNormal;
    SFXSource *mSound;         ///< what it is heard as on the way
+   SimObjectPtr<ParticleEmitter> mEmitter;  ///< the smoke it trails
+   SimObjectPtr<ParticleEmitter> mBubbleEmitter;
+   Point3F mEmitAt;           ///< where the smoke last got to
+   F32     mEmitMS;           ///< flight not yet handed to the emitter
 
    SimObjectId mSourceObject;
    SimObjectId mVehicleObject;
@@ -255,6 +269,8 @@ class ProjectileT2 : public GameBase
 
    GFXStateBlockRef boltStateBlock();
    TSThread *startThread(const char *name);
+   ParticleEmitter *createEmitter(U32 dataId);
+   bool isInWater(const Point3F &point);
    void step(F32 dt);
    void explode();
    void headingMatrix(MatrixF *mat);
@@ -310,6 +326,8 @@ ProjectileT2::ProjectileT2()
      mFlying(false),
      mExploded(false),
      mImpactNormal(0.0f, 0.0f, 1.0f),
+     mEmitAt(0.0f, 0.0f, 0.0f),
+     mEmitMS(0.0f),
      mSourceObject(0),
      mVehicleObject(0),
      mNoSourceHit(0.0f)
@@ -343,6 +361,14 @@ void ProjectileT2::onRemove()
 {
    SFX_DELETE(mSound);
 
+      // What it has already trailed is left to clear on its own.
+   if(bool(mEmitter))
+      mEmitter->deleteWhenEmpty();
+   mEmitter = NULL;
+   if(bool(mBubbleEmitter))
+      mBubbleEmitter->deleteWhenEmpty();
+   mBubbleEmitter = NULL;
+
    removeFromScene();
    Parent::onRemove();
 }
@@ -360,6 +386,14 @@ bool ProjectileT2::onNewDataBlock(GameBaseData *dptr, bool reload)
       if(Sim::findObject(mData->soundId, track))
          mSound = SFX->createSource(track, &getTransform());
    }
+
+   if(bool(mEmitter))
+      mEmitter->deleteWhenEmpty();
+   if(bool(mBubbleEmitter))
+      mBubbleEmitter->deleteWhenEmpty();
+
+   mEmitter = createEmitter(mData->baseEmitterId);
+   mBubbleEmitter = createEmitter(mData->bubbleEmitterId);
 
    delete mShapeInstance;
    mShapeInstance = NULL;
@@ -427,6 +461,43 @@ TSThread *ProjectileT2::startThread(const char *name)
    return thread;
 }
 
+ParticleEmitter *ProjectileT2::createEmitter(U32 dataId)
+{
+   ParticleEmitterData *data = NULL;
+   if(!isClientObject() || !dataId || !Sim::findObject(dataId, data))
+      return NULL;
+
+   ParticleEmitter *emitter = new ParticleEmitter;
+   emitter->onNewDataBlock(data, false);
+   if(emitter->registerObject())
+      return emitter;
+
+   Con::warnf("ProjectileT2: %s could not register its emitter.",
+              mData->getName());
+   delete emitter;
+   return NULL;
+}
+
+/// Water is any liquid but lava, which is the test retail makes of the
+/// water blocks a point is in (0x00632cd0).
+bool ProjectileT2::isInWater(const Point3F &point)
+{
+   Vector<SceneObject *> found;
+   const Point3F reach(0.01f, 0.01f, 0.01f);
+   getContainer()->findObjectList(Box3F(point - reach, point + reach),
+                                  WaterObjectType, &found);
+
+   for(U32 i = 0; i < found.size(); i++)
+   {
+      WaterObject *water = dynamic_cast<WaterObject *>(found[i]);
+      if(water && water->isUnderwater(point) &&
+         !WaterBlock::isLava(dAtoi(water->getLiquidType())))
+         return true;
+   }
+
+   return false;
+}
+
 void ProjectileT2::onT2BodyRead(const T2Layout::Body &body)
 {
    Parent::onT2BodyRead(body);
@@ -459,6 +530,8 @@ void ProjectileT2::onT2BodyRead(const T2Layout::Body &body)
       mStart = mPosition = body.position;
       if(mTrail.empty())
          mTrailAt = body.position;
+      if(!mFlying)
+         mEmitAt = body.position;
 
       if(body.hasVelocity)
       {
@@ -563,7 +636,7 @@ void ProjectileT2::advanceTime(F32 dt)
       if(mCatchUp > 0.0f)
       {
          mPosition = mStart + mVelocity * mCatchUp;
-         mTrailAt = mPosition;
+         mTrailAt = mEmitAt = mPosition;
          mCatchUp = 0.0f;
       }
    }
@@ -585,6 +658,35 @@ void ProjectileT2::advanceTime(F32 dt)
    }
 
    step(dt);
+
+      // The smoke runs from where the last of it was laid to where the
+      // flight has got, backwards along it: Projectile::emitParticles
+      // (0x00632530), which GrenadeProjectile calls a tick at a time
+      // (0x006359a6). Here it is a frame at a time, so the milliseconds a
+      // frame leaves over are kept for the next.
+      // Under water the smoke stops and the bubbles, if there are any,
+      // rise straight up instead (0x0063597e, 0x00636a48).
+   if(bool(mEmitter) || bool(mBubbleEmitter))
+   {
+      mEmitMS += dt * 1000.0f;
+      const U32 ms = U32(mEmitMS);
+      if(ms)
+      {
+         const bool inWater = isInWater(mPosition);
+         ParticleEmitter *emitter = inWater ? mBubbleEmitter : mEmitter;
+
+         VectorF axis = -mVelocity;
+         if(inWater || axis.isZero())
+            axis.set(0.0f, 0.0f, 1.0f);
+         else
+            axis.normalize();
+
+         if(emitter)
+            emitter->emitParticles(mEmitAt, mPosition, axis, mVelocity, ms);
+         mEmitAt = mPosition;
+         mEmitMS -= F32(ms);
+      }
+   }
 
       // One length of trail per tick, which is where retail lays one -- the
       // flight here is per frame, and a length a frame would be four of them
