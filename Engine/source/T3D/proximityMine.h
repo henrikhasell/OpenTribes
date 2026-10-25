@@ -69,8 +69,8 @@ class ProximityMine: public Item
 
 protected:
    // Parent::NextFreeMask is already the top bit -- the 32-bit netmask budget is
-   // exhausted (see turretShape.h). Shifting it left is UB; older compilers
-   // wrapped to 0. No subclasses, so nothing consumes NextFreeMask.
+   // exhausted. Shifting it left is UB; older compilers wrapped to 0. No
+   // subclasses, so nothing consumes NextFreeMask.
    enum MaskBits : U32 {
       DeployedMask   = U32(Parent::NextFreeMask),
       ExplosionMask  = U32(Parent::NextFreeMask) << 1,
