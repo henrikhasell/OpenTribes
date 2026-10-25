@@ -1099,8 +1099,14 @@ void ShapeBase::onRemove()
 
    // Stop any running sounds on the client
    if (isGhost())
+   {
       for (S32 i = 0; i < MaxSoundThreads; i++)
          stopAudio(i);
+
+      // HH: Added for Tribes 2 compatibility.
+      if (mVoiceSound)
+         SFX->stopAndDeleteSource( mVoiceSound );
+   }
 
    if ( isClientObject() )   
    {
@@ -2694,6 +2700,29 @@ void ShapeBase::updateAudioState(Sound& st)
       st.play = false;
 }
 
+// HH: Added for Tribes 2 compatibility.
+void ShapeBase::playVoiceAudio(SFXTrack *profile, F32 pitch)
+{
+   // A target speaks one line at a time: a taunt cut short by a grunt is one
+   // voice, not two speaking over each other.
+   if ( mVoiceSound )
+      SFX->stopAndDeleteSource( mVoiceSound );
+
+   if ( !profile )
+      return;
+
+   SFXSource *source = SFX->createSource( profile, &getTransform() );
+   if ( !source )
+      return;
+
+   source->setPitch( pitch );
+   source->play();
+
+   // The sound system owns it from here, and clears mVoiceSound with it.
+   SFX->deleteWhenStopped( source );
+   mVoiceSound = source;
+}
+
 void ShapeBase::updateAudioPos()
 {
    for (int i = 0; i < MaxSoundThreads; i++)
@@ -2702,6 +2731,12 @@ void ShapeBase::updateAudioPos()
       if ( source )
          source->setTransform( getTransform() );
    }
+
+   // HH: Added for Tribes 2 compatibility.
+   // A voice line is heard from wherever the speaker has got to, not from
+   // where it stood when it started speaking.
+   if ( mVoiceSound )
+      mVoiceSound->setTransform( getTransform() );
 }
 
 //----------------------------------------------------------------------------
