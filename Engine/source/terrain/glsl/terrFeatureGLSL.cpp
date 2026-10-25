@@ -402,6 +402,16 @@ void TerrainDetailMapFeatGLSL::processPix(   Vector<ShaderComponent*> &component
    
    MultiLine *meta = new MultiLine;
 
+   Var *layerSize = (Var*)LangElement::find( "layerSize" );
+   if ( !layerSize )
+   {
+      layerSize = new Var;
+      layerSize->setType( "float" );
+      layerSize->setName( "layerSize" );
+      layerSize->uniform = true;
+      layerSize->constSortPos = cspPass;
+   }
+
    // Get the layer samples.
    Var *layerSample = (Var*)LangElement::find( "layerSample" );
    if ( !layerSample )
@@ -419,18 +429,8 @@ void TerrainDetailMapFeatGLSL::processPix(   Vector<ShaderComponent*> &component
       layerTex->constNum = Var::getTexUnitNum();
 
       // Read the layer texture to get the samples.
-      meta->addStatement( new GenOp( "   @ = round( texture2D( @, @.xy ) * 255.0f );\r\n", 
-                                       new DecOp( layerSample ), layerTex, inTex ) );
-   }
-
-   Var *layerSize = (Var*)LangElement::find( "layerSize" );
-   if ( !layerSize )
-   {
-      layerSize = new Var;
-      layerSize->setType( "float" );
-      layerSize->setName( "layerSize" );
-      layerSize->uniform = true;
-      layerSize->constSortPos = cspPass;
+      meta->addStatement( new GenOp( "   @ = round( texture2D( @, @.xy + step( @, 0.0 ) * 0.5 / abs( @ ) ) * 255.0f );\r\n",
+                                       new DecOp( layerSample ), layerTex, inTex, layerSize, layerSize ) );
    }
 
    // Grab the incoming detail coord.
@@ -517,8 +517,8 @@ void TerrainDetailMapFeatGLSL::processPix(   Vector<ShaderComponent*> &component
    Var *outColor = (Var*)LangElement::find( "col" );
 
    meta->addStatement( new GenOp( "      if ( @ < 0.0 )\r\n", layerSize ) );
-   meta->addStatement( new GenOp( "         @ = mix( @, @, @ * @.w );\r\n",
-                                    outColor, outColor, detailColor, detailBlend, inDet ) );
+   meta->addStatement( new GenOp( "         @ = mix( @, @, @ * @.w / max( @, 0.0001 ) );\r\n",
+                                    outColor, outColor, detailColor, detailBlend, inDet, blendTotal ) );
    meta->addStatement( new GenOp( "      else\r\n" ) );
    meta->addStatement( new GenOp( "      {\r\n" ) );
 
