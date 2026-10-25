@@ -564,6 +564,7 @@ static void RegisterGameFunctions()
    Con::setIntVariable("$TypeMasks::DebrisObjectType",         DebrisObjectType);
    Con::setIntVariable("$TypeMasks::PhysicalZoneObjectType",   PhysicalZoneObjectType);
    Con::setIntVariable("$TypeMasks::ForceFieldObjectType",     ForceFieldObjectType); // HH: Added for Tribes 2 compatibility.
+   Con::setIntVariable("$TypeMasks::TurretObjectType",         TurretObjectType); // HH: Added for Tribes 2 compatibility.
    Con::setIntVariable("$TypeMasks::LightObjectType",          LightObjectType);
 
    Con::addVariable("Ease::InOut", TypeS32, &gEaseInOut, 

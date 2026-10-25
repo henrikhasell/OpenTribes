@@ -123,6 +123,14 @@ namespace T2Layout
                                     ///< get off
       U32     mountNode;            ///< the mount point on the mount
 
+      bool    hasPowered;
+      bool    powered;              ///< a StaticShape's power is on
+      bool    hasTurretAim;         ///< a turret's aim and activation came
+      F32     turretHeading;        ///< readFloat(10): share of a full turn
+      F32     turretPitch;          ///< readFloat(10): share of the way from
+                                    ///< its datablock's thetaMin to thetaMax
+      F32     turretActivation;     ///< readFloat(8): how far it has opened
+
       /// What a beam's body says besides its two ends, which come as the
       /// position and the explode point.
       bool    beamInitial;          ///< the first body, which carries it all
@@ -572,6 +580,21 @@ namespace T2Layout
       T2DbBeamMaxFlareSize,
       T2DbBeamPulseSpeed,
       T2DbBeamPulseLength,
+
+      // TurretData's run after StaticShapeData's, and TurretImageData's after
+      // ShapeBaseImageData's. thetaMin and thetaMax share the emitter's.
+      T2DbThetaNull,
+      T2DbNeverUpdateControl,
+      T2DbPrimaryAxis,
+      T2DbMaxCapacitorEnergy,
+      T2DbCapacitorRechargeRate,
+      T2DbActivationMS,
+      T2DbDeactivateDelayMS,
+      T2DbDegPerSecTheta,
+      T2DbDegPerSecPhi,
+      T2DbDontFireInsideDamageRadius,
+      T2DbDamageRadius,
+      T2DbUseCapacitor,
 
       T2DbFieldCount
    };

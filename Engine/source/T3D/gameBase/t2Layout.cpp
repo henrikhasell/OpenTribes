@@ -1752,6 +1752,13 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
                      case T2FieldBeamFollow:
                         sBody.beamFollow = set;
                         break;
+                     case T2FieldPowered:
+                        sBody.hasPowered = true;
+                        sBody.powered = set;
+                        break;
+                     case T2FieldTurretAim:
+                        sBody.hasTurretAim = set;
+                        break;
                      // One node for two flags: both arms of the body end in
                      // a flag, and the recovered graph merged them.
                      case T2FieldBeamLast:
@@ -2253,6 +2260,15 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
                      break;
                   case T2FieldFadeTime:
                      dMemcpy(&sBody.fadeTime, &word, sizeof(F32));
+                     break;
+                  case T2FieldTurretHeading:
+                     sBody.turretHeading = t2Float(word, n.bits);
+                     break;
+                  case T2FieldTurretPitch:
+                     sBody.turretPitch = t2Float(word, n.bits);
+                     break;
+                  case T2FieldTurretActivation:
+                     sBody.turretActivation = t2Float(word, n.bits);
                      break;
                   default:
                      break;
@@ -3203,6 +3219,12 @@ static bool runGhost(BitStream *stream, const char *className,
    sBody.hasMount = false;
    sBody.mountGhost = -1;
    sBody.mountNode = 0;
+   sBody.hasPowered = false;
+   sBody.powered = false;
+   sBody.hasTurretAim = false;
+   sBody.turretHeading = 0.0f;
+   sBody.turretPitch = 0.0f;
+   sBody.turretActivation = 0.0f;
    sBody.beamInitial = false;
    sBody.beamHit = false;
    sBody.beamWet = false;

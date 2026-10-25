@@ -154,6 +154,10 @@ enum SceneObjectTypes
    // HH: Added for Tribes 2 compatibility.
    ForceFieldObjectType = BIT( 24 ),
 
+   // HH: Added for Tribes 2 compatibility.
+   /// A Tribes 2 turret, which the scripts search for by this name.
+   TurretObjectType = BIT( 25 ),
+
    /// @}
 };
 

@@ -72,6 +72,11 @@ namespace T2Protocol
                                     ///< other
       T2FieldBeamEnergy,            ///< readFloat(bits) of the shot's
                                     ///< strength
+      T2FieldPowered,               ///< the flag that says it has power
+      T2FieldTurretAim,             ///< the flag a turret's aim follows
+      T2FieldTurretHeading,
+      T2FieldTurretPitch,
+      T2FieldTurretActivation,
    };
 
    inline U32 t2FieldWords(U32 field)
@@ -186,6 +191,15 @@ namespace T2Protocol
       { "Turret",                18, OpRaw,  32, T2FieldAffine   },
       { "Turret",                12, OpFlag,  1, T2FieldQuatSign },
       { "Turret",                11, OpRaw,  32, T2FieldScale    },
+
+   // Turret::unpackUpdate (0x00655f60), after StaticShape's power: the
+   // capacitor and the flag that sends its controller the aim in packet
+   // data instead, then the aim itself (0x00658010).
+      { "Turret",                 8, OpFlag,  1, T2FieldPowered          },
+      { "Turret",                 4, OpFlag,  1, T2FieldTurretAim        },
+      { "Turret",                 3, OpRaw,  10, T2FieldTurretHeading    },
+      { "Turret",                 2, OpRaw,  10, T2FieldTurretPitch      },
+      { "Turret",                 1, OpRaw,   8, T2FieldTurretActivation },
 
       { "MissionMarker",         10, OpRaw,  32, T2FieldAffine   },
       { "MissionMarker",          4, OpFlag,  1, T2FieldQuatSign },
