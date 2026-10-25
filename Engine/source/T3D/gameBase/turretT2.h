@@ -77,18 +77,57 @@ class Turret : public StaticShape
 {
    typedef StaticShape Parent;
 
+   /// What a turret is doing, which its controller is sent in three bits.
+   enum State
+   {
+      Closed,
+      Activating,
+      Deactivating,
+      Active,
+      BarrelSwap,
+   };
+
    TurretData *mDataBlock;
 
+   U32 mState;
    F32 mActivation;              ///< 0 closed to 1 open
    F32 mHeading;                 ///< degrees about its axis, [0, 360)
    F32 mPitch;                   ///< degrees from it; 90 is level
+
+   SimObjectPtr<GameBase> mTarget;
+   U32 mTargetMS;                ///< since it last had a target
+   F32 mCapacitor;
+   F32 mCapacitorRate;
+
+   /// What is drawn between ticks: the last tick's values, and the step
+   /// back to the one before it.
+   F32 mRenderActivation;
+   F32 mRenderHeading;
+   F32 mRenderPitch;
+   F32 mActivationDelta;
+   F32 mHeadingDelta;
+   F32 mPitchDelta;
 
    TSThread *mActivateThread;
    TSThread *mElevateThread;
    TSThread *mTurnThread;
 
    void destroyThreads();
-   void updateThreads();
+   void createAimThreads();
+   void destroyAimThreads();
+   void updateActivateThread(F32 activation);
+   void setAimThreads(F32 heading, F32 pitch);
+   void snapToLastUpdate();
+
+   F32 getRestingPitch() const;
+   F32 getHeadingStep();
+   F32 getPitchStep();
+   F32 getActivationStep();
+
+   void updateState(bool controlled);
+   void activate();
+   void deactivate();
+   void aim(const Move *move, bool controlled);
 
 public:
    Turret();
@@ -96,6 +135,9 @@ public:
    bool onNewDataBlock(GameBaseData *dptr, bool reload);
    void onT2BodyRead(const T2Layout::Body &body);
    void processTick(const Move *move);
+   void interpolateTick(F32 delta);
+   void writePacketData(GameConnection *conn, BitStream *stream);
+   void readPacketData(GameConnection *conn, BitStream *stream);
 
    DECLARE_CONOBJECT(Turret);
 };
