@@ -366,6 +366,8 @@ namespace T2Protocol
    // writes from 0xe8 (0x631107).
       { "GrenadeProjectileData", 54, OpDataBlockId, 11,
         T2DbProjectileBaseEmitter },
+      { "GrenadeProjectileData", 52, OpDataBlockId, 11,
+        T2DbProjectileBubbleEmitter },
 
    // The shield effect's lifetime and scale, which ShapeBaseData::unpackData
    // (0x005e6b8a) reads after its two flags: the scale only when a flag
