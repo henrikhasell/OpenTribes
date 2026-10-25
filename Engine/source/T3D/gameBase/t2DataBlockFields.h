@@ -314,6 +314,16 @@ namespace T2Protocol
       { "LinearFlareProjectileData", 65, OpRaw, 32, T2DbScaleY             },
       { "LinearFlareProjectileData", 66, OpRaw, 32, T2DbScaleZ             },
       { "LinearFlareProjectileData", 60, OpDataBlockId, 11, T2DbExplosion   },
+   // The flag ProjectileData writes after its shape and two words, which
+   // turns a plasma bolt's flat shape to the camera (0x0063105d), and what
+   // LinearFlareProjectileData writes after the run every projectile shares
+   // (0x0063dbf0): the flares, their colour, two textures and three sizes.
+      { "LinearFlareProjectileData",  3, OpFlag,   1, T2DbFaceViewer },
+      { "LinearFlareProjectileData", 34, OpRaw,   32, T2DbNumFlares  },
+      { "LinearFlareProjectileData", 35, OpColor, 32, T2DbFlareColor },
+      { "LinearFlareProjectileData", 38, OpRaw,   32, T2DbFlareSize0 },
+      { "LinearFlareProjectileData", 39, OpRaw,   32, T2DbFlareSize1 },
+      { "LinearFlareProjectileData", 40, OpRaw,   32, T2DbFlareSize2 },
 
       { "TracerProjectileData",      24, OpRaw, 32, T2DbProjectileVelocity },
       { "TracerProjectileData",      27, OpRaw, 32, T2DbProjectileLifetime },
