@@ -14,7 +14,9 @@
 #include "core/crc.h"
 #include "core/stream/fileStream.h"
 #include "ts/tsShape.h"
+#include "ts/tsShapeInstance.h"
 #include "ts/tsMaterialList.h"
+#include "core/volume.h"
 #include "T3D/gameBase/dataBlocksT2.h"
 #include "sfx/sfxDescription.h"
 #include "sfx/sfxProfile.h"
@@ -411,13 +413,90 @@ U32 T2Targets::sensorGroup(S32 target)
    return sClientTargets[target].sensorGroup;
 }
 
+bool T2Targets::smUsePrefSkins = false;
+
+namespace
+{
+   /// What the material of a shape wearing this skin is called. Tribes 2's
+   /// skinning (0x005e76f0) takes the "base" part of a name holding "base."
+   /// and puts the skin's own name there, leaving the directory alone: the
+   /// one material of flag.dts goes from skins/base.flag to skins/swolf.flag.
+   bool skinnedName(const String &material, const char *skin, String *out)
+   {
+      const String::SizeType at = material.find("base.");
+      if (at == String::NPos)
+         return false;
+
+      // Only where it is the whole of the file's first part; a material called
+      // database.foo is not a skinned one.
+      if (at > 0 && material[at - 1] != '/' && material[at - 1] != '\\')
+         return false;
+
+      *out = material.substr(0, at) + skin + material.substr(at + 4);
+      return true;
+   }
+
+   /// Whether this skin has a texture for this shape. Retail asks before it
+   /// uses a skin: it tries the player's own, then the team's, and leaves the
+   /// material as it found it if neither resolves. Every texture lives under
+   /// "textures", and stock tries exactly two extensions there.
+   bool skinResolves(ShapeBase *shape, const NetStringHandle &skin)
+   {
+      // Nothing to resolve: the shape keeps the name it was built with.
+      if (!skin.isValidString())
+         return true;
+
+      TSShapeInstance *inst = shape->getShapeInstance();
+      if (!inst || !inst->getShape() || !inst->getShape()->materialList)
+         return false;
+
+      // The shape's own list, not the instance's: a reskin clones the list and
+      // renames the copy, so only the resource still holds the "base" name.
+      const Vector<String> &names =
+         inst->getShape()->materialList->getMaterialNameList();
+
+      for (S32 i = 0; i < names.size(); i++)
+      {
+         String skinned;
+         if (!skinnedName(names[i], skin.getString(), &skinned))
+            continue;
+
+         skinned.replace('\\', '/');
+         const String under = String("textures/") + skinned;
+         if (Torque::FS::IsFile(under + ".png") ||
+             Torque::FS::IsFile(under + ".bm8"))
+            return true;
+
+         // One shape has at most one skinned material, so the first answers.
+         return false;
+      }
+
+      // No material a skin could rename, so no skin can fail to resolve.
+      return true;
+   }
+}
+
 void T2Targets::applySkin(ShapeBase *shape)
 {
    const S32 target = shape->getT2Target();
    if (target < 0 || target >= NumTargets)
       return;
 
-   shape->setTargetSkin(sClientTargets[target].tags[ClientTarget::Skin]);
+   const ClientTarget &info = sClientTargets[target];
+
+   // A player's own skin where this client asks for it and the skin has an
+   // artwork for the armour; the team's otherwise. A team skin that does not
+   // resolve either leaves the shape as it was: the tribe skins carry no
+   // bioderm artwork, so a bioderm on a tribe-skinned team stays base.
+   if (smUsePrefSkins && info.tags[ClientTarget::PrefSkin].isValidString() &&
+       skinResolves(shape, info.tags[ClientTarget::PrefSkin]))
+   {
+      shape->setTargetSkin(info.tags[ClientTarget::PrefSkin]);
+      return;
+   }
+
+   if (skinResolves(shape, info.tags[ClientTarget::Skin]))
+      shape->setTargetSkin(info.tags[ClientTarget::Skin]);
 }
 
 class TargetInfoEvent : public NetEvent
