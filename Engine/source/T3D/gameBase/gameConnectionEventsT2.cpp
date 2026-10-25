@@ -414,9 +414,30 @@ U32 T2Targets::sensorGroup(S32 target)
 }
 
 bool T2Targets::smUsePrefSkins = false;
+bool T2Targets::smUse512PlayerSkins = false;
 
 namespace
 {
+   /// The part of a material name after its directory, which is the part a
+   /// reskin matches and replaces.
+   String fileOf(const String &name)
+   {
+      String::SizeType at = 0;
+      for (String::SizeType i = 0; i < name.length(); i++)
+         if (name[i] == '/' || name[i] == '\\')
+            at = i + 1;
+
+      return name.substr(at);
+   }
+
+   /// Whether a name starts with this, ignoring case.
+   bool startsWith(const String &name, const char *head)
+   {
+      const String::SizeType len = (String::SizeType)dStrlen(head);
+      return name.length() >= len &&
+             name.compare(head, len, String::NoCase) == 0;
+   }
+
    /// What the material of a shape wearing this skin is called. Tribes 2's
    /// skinning (0x005e76f0) takes the "base" part of a name holding "base."
    /// and puts the skin's own name there, leaving the directory alone: the
@@ -436,43 +457,121 @@ namespace
       return true;
    }
 
-   /// Whether this skin has a texture for this shape. Retail asks before it
-   /// uses a skin: it tries the player's own, then the team's, and leaves the
-   /// material as it found it if neither resolves. Every texture lives under
-   /// "textures", and stock tries exactly two extensions there.
-   bool skinResolves(ShapeBase *shape, const NetStringHandle &skin)
+   /// The larger artwork of a skinned material name, which retail builds at
+   /// 0x005eff80. Only names under "skins" have one, and each tribe's own
+   /// prefix is rewritten before "_512" goes on the end -- the separator moves
+   /// for two of them and the stem changes for a third, which is why this is
+   /// not a suffix a reskin could bolt on:
+   ///
+   ///     skins/basebot.lmale  -> skins/a.lrobot_512
+   ///     skins/basebbot.lmale -> skins/b.lrobot_512
+   ///     skins/base.lbioderm  -> skins/a.lbioderm_512
+   ///     skins/baseb.lbioderm -> skins/b.lbioderm_512
+   ///     skins/horde.lbioderm -> skins/base.lbioderm_512
+   ///     skins/cotp.lmale     -> skins/cotp_lmale_512
+   ///     skins/swolf.lmale    -> skins/swolf_lmale_512
+   ///     skins/dsword.lmale   -> skins/ds.lmale_512
+   ///     skins/beagle.lmale   -> skins/beagle.lmale_512
+   ///
+   /// Every one of those names is in skins.vl2, and the thirty-five the game
+   /// ships are exactly the ones these rules reach. The bot rules keep only
+   /// the armour's size letter; the two bioderm rules ask for that word and
+   /// nothing else, which is what tells a bioderm from a human of the same
+   /// team. Retail tests for "skins/" and the .dts wrote "skins\", so the
+   /// separator is turned round first -- the stock formula resolves either way
+   /// once it is.
+   bool name512(const String &skinned, String *out)
    {
-      // Nothing to resolve: the shape keeps the name it was built with.
-      if (!skin.isValidString())
-         return true;
+      const String file = fileOf(skinned);
+      String dir = skinned.substr(0, skinned.length() - file.length());
 
-      TSShapeInstance *inst = shape->getShapeInstance();
-      if (!inst || !inst->getShape() || !inst->getShape()->materialList)
+      String slashed(dir);
+      slashed.replace('\\', '/');
+      if (!slashed.equal("skins/", String::NoCase))
          return false;
 
-      // The shape's own list, not the instance's: a reskin clones the list and
-      // renames the copy, so only the resource still holds the "base" name.
+      String mapped;
+      if (startsWith(file, "basebot.") && file.length() > 8)
+         mapped = String("a.") + file.substr(8, 1) + "robot";
+      else if (startsWith(file, "basebbot.") && file.length() > 9)
+         mapped = String("b.") + file.substr(9, 1) + "robot";
+      else if (startsWith(file, "base.") && file.length() > 6 &&
+               file.substr(6).equal("bioderm", String::NoCase))
+         mapped = String("a.") + file.substr(5);
+      else if (startsWith(file, "baseb.") && file.length() > 7 &&
+               file.substr(7).equal("bioderm", String::NoCase))
+         mapped = String("b.") + file.substr(6);
+      else if (startsWith(file, "horde."))
+         mapped = String("base.") + file.substr(6);
+      else if (startsWith(file, "cotp."))
+         mapped = String("cotp_") + file.substr(5);
+      else if (startsWith(file, "swolf."))
+         mapped = String("swolf_") + file.substr(6);
+      else if (startsWith(file, "dsword."))
+         mapped = String("ds.") + file.substr(7);
+      else
+         mapped = file;
+
+      *out = dir + mapped + "_512";
+      return true;
+   }
+
+   /// Whether the game has this material's texture. Stock resolves one by
+   /// formula -- under "textures", with the separator its tools wrote turned
+   /// round, and exactly two extensions tried.
+   bool textureExists(const String &material)
+   {
+      String path(material);
+      path.replace('\\', '/');
+      path = String("textures/") + path;
+
+      return Torque::FS::IsFile(path + ".png") ||
+             Torque::FS::IsFile(path + ".bm8");
+   }
+
+   /// Where in the material list the one material a skin renames sits, or -1
+   /// where the shape has none. Found on the shape and not on the instance:
+   /// a reskin clones the list and renames the copy, so only the resource
+   /// still holds the "base" name a skin is recognised by.
+   S32 baseMaterialIndex(ShapeBase *shape)
+   {
+      TSShapeInstance *inst = shape->getShapeInstance();
+      if (!inst || !inst->getShape() || !inst->getShape()->materialList ||
+          !inst->getMaterialList())
+         return -1;
+
       const Vector<String> &names =
          inst->getShape()->materialList->getMaterialNameList();
 
       for (S32 i = 0; i < names.size(); i++)
       {
          String skinned;
-         if (!skinnedName(names[i], skin.getString(), &skinned))
-            continue;
-
-         skinned.replace('\\', '/');
-         const String under = String("textures/") + skinned;
-         if (Torque::FS::IsFile(under + ".png") ||
-             Torque::FS::IsFile(under + ".bm8"))
-            return true;
-
-         // One shape has at most one skinned material, so the first answers.
-         return false;
+         if (skinnedName(names[i], "x", &skinned))
+            return i;
       }
 
-      // No material a skin could rename, so no skin can fail to resolve.
-      return true;
+      return -1;
+   }
+
+   /// The material this skin asks for, in its larger artwork where the client
+   /// wants that and the game has it. Empty where the skin has no artwork for
+   /// this shape at all, which is retail's reason to leave a material alone.
+   String skinnedTarget(const String &base, const NetStringHandle &skin,
+                        bool allow512)
+   {
+      String name;
+      if (!skin.isValidString() ||
+          !skinnedName(base, skin.getString(), &name))
+         return String::EmptyString;
+
+      if (allow512)
+      {
+         String bigger;
+         if (name512(name, &bigger) && textureExists(bigger))
+            return bigger;
+      }
+
+      return textureExists(name) ? name : String::EmptyString;
    }
 }
 
@@ -484,19 +583,42 @@ void T2Targets::applySkin(ShapeBase *shape)
 
    const ClientTarget &info = sClientTargets[target];
 
-   // A player's own skin where this client asks for it and the skin has an
-   // artwork for the armour; the team's otherwise. A team skin that does not
-   // resolve either leaves the shape as it was: the tribe skins carry no
-   // bioderm artwork, so a bioderm on a tribe-skinned team stays base.
-   if (smUsePrefSkins && info.tags[ClientTarget::PrefSkin].isValidString() &&
-       skinResolves(shape, info.tags[ClientTarget::PrefSkin]))
-   {
-      shape->setTargetSkin(info.tags[ClientTarget::PrefSkin]);
+   TSShapeInstance *inst = shape->getShapeInstance();
+   const S32 slot = baseMaterialIndex(shape);
+   if (slot < 0)
       return;
-   }
 
-   if (skinResolves(shape, info.tags[ClientTarget::Skin]))
-      shape->setTargetSkin(info.tags[ClientTarget::Skin]);
+   const String base =
+      inst->getShape()->materialList->getMaterialNameList()[slot];
+
+   // A player's own skin where this client asks for it, in the larger artwork
+   // where it asks for that too; the team's otherwise, and never its larger
+   // artwork -- retail asks about 512 inside the preferred-skin arm and
+   // nowhere else. A skin with no artwork for this armour is not worn at all:
+   // the tribe skins carry no bioderm, so a bioderm on a tribe-skinned team
+   // stays base rather than losing its texture.
+   String want;
+   if (smUsePrefSkins)
+      want = skinnedTarget(base, info.tags[ClientTarget::PrefSkin],
+                           smUse512PlayerSkins);
+   if (want.isEmpty())
+      want = skinnedTarget(base, info.tags[ClientTarget::Skin], false);
+   if (want.isEmpty())
+      return;
+
+   // The rename replaces whatever this instance wears now, which is read off
+   // its own list rather than remembered: a shape that changes -- a player
+   // respawning in another armour -- gets a fresh list holding "base" again,
+   // and a remembered name would no longer be in it. Saying the old name
+   // outright with Torque's own "old=new" is also what lets a 512 name be
+   // worn at all, since that renames the whole file and not its first part.
+   const String was =
+      fileOf(inst->getMaterialList()->getMaterialNameList()[slot]);
+   const String now = fileOf(want);
+   if (was.equal(now, String::NoCase))
+      return;
+
+   shape->setTargetSkin(NetStringHandle((was + "=" + now).c_str()));
 }
 
 class TargetInfoEvent : public NetEvent
