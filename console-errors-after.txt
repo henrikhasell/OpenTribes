@@ -1,0 +1,16 @@
+     96 scripts/defaultGame.cs (0): Unable to find function setSensorGroupColor
+      2 scripts/station.cs (0): Unknown command setPersistent.
+      2 scripts/server.cs (0): Unable to find function purgeResources
+      2 scripts/server.cs (0): Unable to find function disableCyclingConnections
+      2 scripts/mpbTeleporter.cs (0): Unknown command setPersistent.
+      2 scripts/CTFGame.cs (0): Unknown command scopeWhenSensorVisible.
+      2 scripts/CTFGame.cs (0): Unable to find function setTargetSkin
+      2 scripts/CTFGame.cs (0): Unable to find function setTargetRenderMask
+      2 scripts/CTFGame.cs (0): Unable to find function setTargetName
+      2 scripts/CTFGame.cs (0): Unable to find function getTargetRenderMask
+      1 scripts/server.cs (0): Unable to find function AISystemEnabled
+      1 scripts/defaultGame.cs (0): Unable to find function setSensorGroupCount
+      1 scripts/defaultGame.cs (0): Unable to find function AISystemEnabled
+      1 scripts/ai.cs (0): Unable to find function NavDetectForceFields
+      1 scripts/ai.cs (0): Unable to find function AISlicerInit
+      1 onLightManagerDeactivate: Unknown command.

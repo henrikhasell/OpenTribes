@@ -1,0 +1,88 @@
+== retail3.telnet (times from ENEMY)
+ -1352 SELECT 2226 0 -> 0
+  -500 W tgt=0 state=Dead head=0.0 elev=-0.0
+     0 ENEMY 2227 76 2 135 -122 126.15
+    88 SELECT 2226 0 -> 2227
+   172 W tgt=2227 state=ActivateReady head=0.0 elev=-0.0
+  1228 W tgt=2227 state=Ready head=-91.0 elev=36.6
+  4500 SWAP 2228 AABarrelPackImage PlasmaBarrelLarge
+  4500 SWAPPED 1 PlasmaBarrelLarge
+  4780 W tgt=2227 state=Deactivate head=0.0 elev=-0.0
+  5369 REPLACE 2226 2228 PlasmaBarrelLarge
+  5369 REPLACED AABarrelLarge AABarrelLarge
+  5452 W tgt=2227 state=ActivateReady head=0.0 elev=-0.0
+  5527 SELECT 2226 0 -> 0
+  5548 W tgt=0 state=ActivateReady head=0.0 elev=-0.0
+  6508 W tgt=0 state=Deactivate head=0.0 elev=-0.0
+  7564 W tgt=0 state=Dead head=0.0 elev=-0.0
+ 10500 SWAP 2229 PlasmaBarrelPackImage AABarrelLarge
+ 10500 REPLACE 2226 2229 AABarrelLarge
+ 10500 REPLACED PlasmaBarrelLarge PlasmaBarrelLarge
+ 10500 SWAPPED 1 PlasmaBarrelLarge
+ 10647 SELECT 2226 0 -> 2227
+ 10732 W tgt=2227 state=ActivateReady head=0.0 elev=-0.0
+ 11788 W tgt=2227 state=Ready head=-91.0 elev=35.4
+ 16500 AWAY
+ 16567 SELECT 2226 0 -> 0
+ 16588 W tgt=0 state=Ready head=-91.0 elev=35.4
+ 18316 W tgt=0 state=Deactivate head=0.0 elev=-0.0
+ 19276 W tgt=0 state=Dead head=0.0 elev=-0.0
+ 21500 SKILL 0.3
+ 22000 BACK
+ 22007 SELECT 2226 0 -> 2227
+ 22060 W tgt=2227 state=ActivateReady head=0.0 elev=-0.0
+ 23116 W tgt=2227 state=Ready head=-91.8 elev=33.8
+ 23596 W tgt=2227 state=Fire head=-89.8 elev=35.9
+ 23980 W tgt=2227 state=Reload head=-90.2 elev=36.8
+ 24748 W tgt=2227 state=Fire head=-90.3 elev=36.0
+ 25132 W tgt=2227 state=Reload head=-91.3 elev=37.5
+ 25900 W tgt=2227 state=Fire head=-91.1 elev=36.1
+ 26284 W tgt=2227 state=Reload head=-91.2 elev=34.8
+ 27052 W tgt=2227 state=Ready head=-90.3 elev=35.1
+ 27628 W tgt=2227 state=Fire head=-91.4 elev=37.2
+ 27916 W tgt=2227 state=Reload head=-92.3 elev=35.5
+ 28500 AWAY
+ 28569 SELECT 2226 0 -> 0
+ 28588 W tgt=0 state=Reload head=-90.0 elev=34.8
+ 28780 W tgt=0 state=Ready head=-90.0 elev=34.8
+ 30316 W tgt=0 state=Deactivate head=0.0 elev=-0.0
+ 31276 W tgt=0 state=Dead head=0.0 elev=-0.0
+== run4.console.log (times from ENEMY)
+ -1357 SELECT 6404 0 -> 0
+  -500 W tgt=0 state=Dead head=0.0 elev=0.0
+     0 ENEMY 6405 76 2 135 -122 126.15
+    83 SELECT 6404 0 -> 6405
+   172 W tgt=6405 state=ActivateReady head=0.0 elev=0.0
+  1228 W tgt=6405 state=Ready head=-90.9 elev=36.0
+  4500 SWAP 6406 AABarrelPackImage PlasmaBarrelLarge
+  4500 SWAPPED 1 PlasmaBarrelLarge
+  4780 W tgt=6405 state=Deactivate head=0.0 elev=0.6
+  5395 REPLACE 6404 6406 PlasmaBarrelLarge
+  5395 REPLACED AABarrelLarge AABarrelLarge
+  5452 W tgt=6405 state=Dead head=0.0 elev=0.0
+  5523 SELECT 6404 0 -> 0
+  5548 W tgt=0 state=ActivateReady head=0.0 elev=0.0
+  6508 W tgt=0 state=Deactivate head=0.0 elev=0.0
+  7564 W tgt=0 state=Dead head=0.0 elev=0.0
+ 10500 SWAP 6407 PlasmaBarrelPackImage AABarrelLarge
+ 10500 REPLACE 6404 6407 AABarrelLarge
+ 10500 REPLACED PlasmaBarrelLarge PlasmaBarrelLarge
+ 10500 SWAPPED 1 PlasmaBarrelLarge
+ 10643 SELECT 6404 0 -> 6405
+ 10732 W tgt=6405 state=ActivateReady head=0.0 elev=0.0
+ 11788 W tgt=6405 state=Ready head=-90.9 elev=36.0
+ 16500 AWAY
+ 16563 SELECT 6404 0 -> 0
+ 16588 W tgt=0 state=Ready head=-75.9 elev=25.8
+ 18316 W tgt=0 state=Deactivate head=0.0 elev=0.5
+ 19372 W tgt=0 state=Dead head=0.0 elev=0.0
+ 21500 SKILL 0.3
+ 22000 BACK
+ 22003 SELECT 6404 0 -> 6405
+ 22060 W tgt=6405 state=ActivateReady head=0.0 elev=0.0
+ 23116 W tgt=6405 state=Ready head=-91.8 elev=34.8
+ 28500 AWAY
+ 28563 SELECT 6404 0 -> 0
+ 28588 W tgt=0 state=Ready head=-75.3 elev=25.6
+ 30316 W tgt=0 state=Deactivate head=0.0 elev=0.5
+ 31372 W tgt=0 state=Dead head=0.0 elev=0.0

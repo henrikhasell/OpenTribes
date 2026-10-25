@@ -1,0 +1,1397 @@
+T5 16795 TURRET 6072 Team1TurretBaseLarge1 TurretBaseLarge 1 1 AABarrelLarge AABarrelLarge Enabled 35 1 0 Dead
+T5 16795 TURRET 6073 Team1TurretBaseLarge2 TurretBaseLarge 1 1 PlasmaBarrelLarge PlasmaBarrelLarge Enabled 36 1 0 Dead
+T5 16795 TURRET 6123 Team1SentryTurret1 SentryTurret 1 1 SentryTurretBarrel SentryTurretBarrel Enabled 46 1 0 Ready
+T5 16795 TURRET 6208 Team2TurretBaseLarge1 TurretBaseLarge 2 1 PlasmaBarrelLarge PlasmaBarrelLarge Enabled 52 2 0 Dead
+T5 16795 TURRET 6209 Team2TurretBaseLarge2 TurretBaseLarge 2 1 AABarrelLarge AABarrelLarge Enabled 53 2 0 Dead
+T5 16795 TURRET 6280 Team2SentryTurret1 SentryTurret 2 1 SentryTurretBarrel SentryTurretBarrel Enabled 66 2 0 Ready
+T5 16795 DROT 0 0 1 : 10 20 30 1 0 0 0 : 0 1 0 : 0 0 1
+T5 16795 DROT 0 0 -1 : 10 20 30 0 1 0 3.14159 : 0 1 0 : 0 0 -1
+T5 16795 DROT 1 0 0 : 10 20 30 0.57735 0.57735 0.57735 4.18879 : 0 0 1 : 1 0 0
+T5 16795 DROT 0 1 0 : 10 20 30 0 0.707107 0.707107 3.14159 : 0 -0 1 : 0 1 0
+T5 16795 DROT -1 0 0 : 10 20 30 0.57735 -0.57735 -0.57735 4.18879 : 0 0 1 : -1 0 0
+T5 16795 DROT 0 -1 0 : 10 20 30 -1 -0 0 1.5708 : 0 0 1 : 0 -1 0
+T5 16795 DROT 0.6 0 0.8 : 10 20 30 0 -1 -0 0.643501 : -0 1 0 : 0.6 0 0.8
+T5 16795 DROT 0 -0.6 0.8 : 10 20 30 -1 -0 0 0.643501 : 0 0.64 0.48 : 0 -0.6 0.8
+T5 16795 DROT 0.48 0.64 0.6 : 10 20 30 0.162231 0.432616 0.886862 3.64952 : -0.288 -0.384 0.64 : 0.48 0.64 0.6
+T5 16795 DROT 0.8 0.6 0 : 10 20 30 0.333333 0.666667 0.666667 3.78509 : 0 -0 1 : 0.8 0.6 0
+T5 16795 DROT 0 0 2 : 10 20 30 1 0 0 0 : 0 1 0 : 0 0 1
+T5 16795 OUTDOOR 6403 DeployableOutdoorBarrel DeployableOutdoorBarrel
+T5 16795 DEPLOYED 6404 TurretBaseLarge PlasmaBarrelLarge PlasmaBarrelLarge 75 1 1
+T5D 16799 st 0 act 0.000 head 0.00 pitch 90.00 tgt 0 tms 0 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5 16927 SELECT 6404 0 -> 0
+T5 17087 SELECT 6404 0 -> 0
+T5 17247 SELECT 6404 0 -> 0
+T5 17406 SELECT 6404 0 -> 0
+T5 17567 SELECT 6404 0 -> 0
+T5 17727 SELECT 6404 0 -> 0
+T5 17795 W 0 Dead 0 0
+T5 17887 SELECT 6404 0 -> 0
+T5 17891 W 0 Dead 0 0
+T5 17987 W 0 Dead 0 0
+T5 18047 SELECT 6404 0 -> 0
+T5 18083 W 0 Dead 0 0
+T5 18179 W 0 Dead 0 0
+T5 18207 SELECT 6404 0 -> 0
+T5 18275 W 0 Dead 0 0
+T5 18295 ENEMY 6405 76 2 135 -122 126.15
+T5 18367 SELECT 6404 0 -> 6405
+T5D 18367 st 1 act 0.048 head 0.00 pitch 90.00 tgt 6405 tms 0 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5 18371 W 6405 Dead 0 0
+T5D 18399 st 1 act 0.095 head 0.00 pitch 90.00 tgt 6405 tms 0 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5D 18431 st 1 act 0.143 head 0.00 pitch 90.00 tgt 6405 tms 0 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5D 18463 st 1 act 0.190 head 0.00 pitch 90.00 tgt 6405 tms 0 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5 18467 W 6405 ActivateReady 0 0
+T5D 18495 st 1 act 0.238 head 0.00 pitch 90.00 tgt 6405 tms 0 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5D 18527 st 1 act 0.286 head 0.00 pitch 90.00 tgt 6405 tms 0 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5D 18559 st 1 act 0.333 head 0.00 pitch 90.00 tgt 6405 tms 0 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5 18563 W 6405 ActivateReady 0 0
+T5D 18591 st 1 act 0.381 head 0.00 pitch 90.00 tgt 6405 tms 0 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5 18595 P muzzle 165 -120.536 103.368 centre 135 -122 125.887 pos 165 -122 101.3 valid 1
+T5 18595 P ray terrain 0
+T5 18595 P ray interior 0
+T5 18595 P ray vehicle 0
+T5 18595 P down 0
+T5 18595 P downt 0
+T5 18595 P groups 1 2 1 150
+T5 18595 P found 6405 Player 1
+T5D 18623 st 1 act 0.429 head 0.00 pitch 90.00 tgt 6405 tms 0 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5D 18655 st 1 act 0.476 head 0.00 pitch 90.00 tgt 6405 tms 0 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5 18659 W 6405 ActivateReady 0 0
+T5D 18687 st 1 act 0.524 head 0.00 pitch 90.00 tgt 6405 tms 0 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5D 18719 st 1 act 0.571 head 0.00 pitch 90.00 tgt 6405 tms 0 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5D 18751 st 1 act 0.619 head 0.00 pitch 90.00 tgt 6405 tms 0 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5 18755 W 6405 ActivateReady 0 0
+T5D 18783 st 1 act 0.667 head 0.00 pitch 90.00 tgt 6405 tms 0 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5D 18815 st 1 act 0.714 head 0.00 pitch 90.00 tgt 6405 tms 0 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5D 18847 st 1 act 0.762 head 0.00 pitch 90.00 tgt 6405 tms 0 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5 18851 W 6405 ActivateReady 0 0
+T5D 18879 st 1 act 0.810 head 0.00 pitch 90.00 tgt 6405 tms 0 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5D 18911 st 1 act 0.857 head 0.00 pitch 90.00 tgt 6405 tms 0 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5D 18943 st 1 act 0.905 head 0.00 pitch 90.00 tgt 6405 tms 0 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5 18947 W 6405 ActivateReady 0 0.569426
+T5D 18975 st 1 act 0.952 head 0.00 pitch 90.00 tgt 6405 tms 0 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5D 19007 st 3 act 1.000 head 0.00 pitch 90.00 tgt 6405 tms 0 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5D 19039 st 3 act 1.000 head 344.00 pitch 80.40 tgt 6405 tms 0 yaw -93.93 pit -36.33 trig 0 proj (nil)
+T5 19043 W 6405 ActivateReady -15.1083 8.90313
+T5D 19071 st 3 act 1.000 head 328.00 pitch 70.80 tgt 6405 tms 0 yaw -77.84 pit -26.71 trig 0 proj (nil)
+T5D 19103 st 3 act 1.000 head 312.00 pitch 61.20 tgt 6405 tms 0 yaw -61.45 pit -17.32 trig 0 proj (nil)
+T5D 19135 st 3 act 1.000 head 296.00 pitch 53.60 tgt 6405 tms 0 yaw -44.81 pit -7.60 trig 0 proj (nil)
+T5 19139 W 6405 ActivateReady -64.8428 35.9497
+T5D 19167 st 3 act 1.000 head 280.00 pitch 53.80 tgt 6405 tms 0 yaw -28.07 pit 0.21 trig 0 proj (nil)
+T5D 19199 st 3 act 1.000 head 268.57 pitch 53.52 tgt 6405 tms 0 yaw -11.43 pit -0.28 trig 0 proj (nil)
+T5D 19231 st 3 act 1.000 head 269.03 pitch 53.58 tgt 6405 tms 0 yaw 0.46 pit 0.06 trig 0 proj (nil)
+T5 19235 W 6405 ActivateReady -90.8791 35.9693
+T5D 19263 st 3 act 1.000 head 269.01 pitch 53.68 tgt 6405 tms 0 yaw -0.02 pit 0.10 trig 0 proj (nil)
+T5D 19295 st 3 act 1.000 head 269.01 pitch 53.50 tgt 6405 tms 0 yaw 0.00 pit -0.17 trig 0 proj (nil)
+T5D 19327 st 3 act 1.000 head 269.01 pitch 53.58 tgt 6405 tms 0 yaw -0.00 pit 0.08 trig 0 proj (nil)
+T5 19331 W 6405 ActivateReady -90.8946 35.9686
+T5D 19359 st 3 act 1.000 head 269.01 pitch 53.68 tgt 6405 tms 0 yaw 0.00 pit 0.10 trig 0 proj (nil)
+T5D 19391 st 3 act 1.000 head 269.01 pitch 53.81 tgt 6405 tms 0 yaw 0.00 pit 0.13 trig 0 proj (nil)
+T5D 19423 st 3 act 1.000 head 269.01 pitch 53.50 tgt 6405 tms 0 yaw 0.00 pit -0.31 trig 0 proj (nil)
+T5 19427 W 6405 Ready -90.8946 36.0538
+T5D 19455 st 3 act 1.000 head 269.01 pitch 53.58 tgt 6405 tms 0 yaw 0.00 pit 0.08 trig 0 proj (nil)
+T5D 19487 st 3 act 1.000 head 269.01 pitch 53.68 tgt 6405 tms 0 yaw 0.00 pit 0.10 trig 0 proj (nil)
+T5D 19519 st 3 act 1.000 head 269.01 pitch 53.50 tgt 6405 tms 0 yaw 0.00 pit -0.17 trig 0 proj (nil)
+T5 19523 W 6405 Ready -90.8946 36.0476
+T5D 19551 st 3 act 1.000 head 269.01 pitch 53.58 tgt 6405 tms 0 yaw 0.00 pit 0.08 trig 0 proj (nil)
+T5D 19583 st 3 act 1.000 head 269.01 pitch 53.68 tgt 6405 tms 0 yaw 0.00 pit 0.10 trig 0 proj (nil)
+T5D 19614 st 3 act 1.000 head 269.01 pitch 53.50 tgt 6405 tms 0 yaw 0.00 pit -0.17 trig 0 proj (nil)
+T5 19619 W 6405 Ready -90.8946 36.0476
+T5D 19647 st 3 act 1.000 head 269.01 pitch 53.58 tgt 6405 tms 0 yaw 0.00 pit 0.08 trig 0 proj (nil)
+T5D 19679 st 3 act 1.000 head 269.01 pitch 53.68 tgt 6405 tms 0 yaw 0.00 pit 0.10 trig 0 proj (nil)
+T5D 19711 st 3 act 1.000 head 269.01 pitch 53.50 tgt 6405 tms 0 yaw 0.00 pit -0.17 trig 0 proj (nil)
+T5 19715 W 6405 Ready -90.8946 36.0476
+T5D 19743 st 3 act 1.000 head 269.01 pitch 53.58 tgt 6405 tms 0 yaw 0.00 pit 0.08 trig 0 proj (nil)
+T5D 19775 st 3 act 1.000 head 269.01 pitch 53.68 tgt 6405 tms 0 yaw 0.00 pit 0.10 trig 0 proj (nil)
+T5D 19807 st 3 act 1.000 head 269.01 pitch 53.50 tgt 6405 tms 0 yaw 0.00 pit -0.17 trig 0 proj (nil)
+T5 19811 W 6405 Ready -90.8946 36.0476
+T5D 19839 st 3 act 1.000 head 269.01 pitch 53.58 tgt 6405 tms 0 yaw 0.00 pit 0.08 trig 0 proj (nil)
+T5D 19871 st 3 act 1.000 head 269.01 pitch 53.68 tgt 6405 tms 0 yaw 0.00 pit 0.10 trig 0 proj (nil)
+T5D 19903 st 3 act 1.000 head 269.01 pitch 53.50 tgt 6405 tms 0 yaw 0.00 pit -0.17 trig 0 proj (nil)
+T5 19907 W 6405 Ready -90.8946 36.0476
+T5D 19935 st 3 act 1.000 head 269.01 pitch 53.58 tgt 6405 tms 0 yaw 0.00 pit 0.08 trig 0 proj (nil)
+T5D 19967 st 3 act 1.000 head 269.01 pitch 53.68 tgt 6405 tms 0 yaw 0.00 pit 0.10 trig 0 proj (nil)
+T5D 19999 st 3 act 1.000 head 269.01 pitch 53.50 tgt 6405 tms 0 yaw 0.00 pit -0.17 trig 0 proj (nil)
+T5 20003 W 6405 Ready -90.8946 36.0476
+T5D 20031 st 3 act 1.000 head 269.01 pitch 53.58 tgt 6405 tms 0 yaw 0.00 pit 0.08 trig 0 proj (nil)
+T5D 20062 st 3 act 1.000 head 269.01 pitch 53.68 tgt 6405 tms 0 yaw 0.00 pit 0.10 trig 0 proj (nil)
+T5D 20095 st 3 act 1.000 head 269.01 pitch 53.50 tgt 6405 tms 0 yaw 0.00 pit -0.17 trig 0 proj (nil)
+T5 20099 W 6405 Ready -90.8946 36.0476
+T5D 20127 st 3 act 1.000 head 269.01 pitch 53.58 tgt 6405 tms 0 yaw 0.00 pit 0.08 trig 0 proj (nil)
+T5D 20159 st 3 act 1.000 head 269.01 pitch 53.68 tgt 6405 tms 0 yaw 0.00 pit 0.10 trig 0 proj (nil)
+T5D 20191 st 3 act 1.000 head 269.01 pitch 53.81 tgt 6405 tms 0 yaw 0.00 pit 0.13 trig 0 proj (nil)
+T5 20195 W 6405 Ready -90.8946 35.7275
+T5D 20222 st 3 act 1.000 head 269.01 pitch 53.50 tgt 6405 tms 0 yaw 0.00 pit -0.31 trig 0 proj (nil)
+T5D 20255 st 3 act 1.000 head 269.01 pitch 53.58 tgt 6405 tms 0 yaw 0.00 pit 0.08 trig 0 proj (nil)
+T5D 20287 st 3 act 1.000 head 269.01 pitch 53.68 tgt 6405 tms 0 yaw 0.00 pit 0.10 trig 0 proj (nil)
+T5 20291 W 6405 Ready -90.8946 35.8654
+T5D 20319 st 3 act 1.000 head 269.01 pitch 53.50 tgt 6405 tms 0 yaw 0.00 pit -0.17 trig 0 proj (nil)
+T5D 20351 st 3 act 1.000 head 269.01 pitch 53.58 tgt 6405 tms 0 yaw 0.00 pit 0.08 trig 0 proj (nil)
+T5D 20382 st 3 act 1.000 head 269.01 pitch 53.68 tgt 6405 tms 0 yaw 0.00 pit 0.10 trig 0 proj (nil)
+T5 20387 W 6405 Ready -90.8946 35.8654
+T5D 20415 st 3 act 1.000 head 269.01 pitch 53.50 tgt 6405 tms 0 yaw 0.00 pit -0.17 trig 0 proj (nil)
+T5D 20447 st 3 act 1.000 head 269.01 pitch 53.58 tgt 6405 tms 0 yaw 0.00 pit 0.08 trig 0 proj (nil)
+T5D 20479 st 3 act 1.000 head 269.01 pitch 53.68 tgt 6405 tms 0 yaw 0.00 pit 0.10 trig 0 proj (nil)
+T5 20483 W 6405 Ready -90.8946 35.8654
+T5D 20511 st 3 act 1.000 head 269.01 pitch 53.50 tgt 6405 tms 0 yaw 0.00 pit -0.17 trig 0 proj (nil)
+T5D 20543 st 3 act 1.000 head 269.01 pitch 53.58 tgt 6405 tms 0 yaw 0.00 pit 0.08 trig 0 proj (nil)
+T5D 20575 st 3 act 1.000 head 269.01 pitch 53.68 tgt 6405 tms 0 yaw 0.00 pit 0.10 trig 0 proj (nil)
+T5 20579 W 6405 Ready -90.8946 35.8654
+T5D 20607 st 3 act 1.000 head 269.01 pitch 53.50 tgt 6405 tms 0 yaw 0.00 pit -0.17 trig 0 proj (nil)
+T5D 20639 st 3 act 1.000 head 269.01 pitch 53.58 tgt 6405 tms 0 yaw 0.00 pit 0.08 trig 0 proj (nil)
+T5D 20671 st 3 act 1.000 head 269.01 pitch 53.68 tgt 6405 tms 0 yaw 0.00 pit 0.10 trig 0 proj (nil)
+T5 20675 W 6405 Ready -90.8946 35.8654
+T5D 20703 st 3 act 1.000 head 269.01 pitch 53.50 tgt 6405 tms 0 yaw 0.00 pit -0.17 trig 0 proj (nil)
+T5D 20735 st 3 act 1.000 head 269.01 pitch 53.58 tgt 6405 tms 0 yaw 0.00 pit 0.08 trig 0 proj (nil)
+T5D 20767 st 3 act 1.000 head 269.01 pitch 53.68 tgt 6405 tms 0 yaw 0.00 pit 0.10 trig 0 proj (nil)
+T5 20771 W 6405 Ready -90.8946 35.8654
+T5D 20799 st 3 act 1.000 head 269.01 pitch 53.50 tgt 6405 tms 0 yaw 0.00 pit -0.17 trig 0 proj (nil)
+T5D 20831 st 3 act 1.000 head 269.01 pitch 53.58 tgt 6405 tms 0 yaw 0.00 pit 0.08 trig 0 proj (nil)
+T5D 20863 st 3 act 1.000 head 269.01 pitch 53.68 tgt 6405 tms 0 yaw 0.00 pit 0.10 trig 0 proj (nil)
+T5 20867 W 6405 Ready -90.8946 35.8654
+T5D 20895 st 3 act 1.000 head 269.01 pitch 53.50 tgt 6405 tms 0 yaw 0.00 pit -0.17 trig 0 proj (nil)
+T5D 20927 st 3 act 1.000 head 269.01 pitch 53.58 tgt 6405 tms 0 yaw 0.00 pit 0.08 trig 0 proj (nil)
+T5D 20959 st 3 act 1.000 head 269.01 pitch 53.68 tgt 6405 tms 0 yaw 0.00 pit 0.10 trig 0 proj (nil)
+T5 20963 W 6405 Ready -90.8946 35.8654
+T5D 20991 st 3 act 1.000 head 269.01 pitch 53.81 tgt 6405 tms 0 yaw 0.00 pit 0.13 trig 0 proj (nil)
+T5D 21023 st 3 act 1.000 head 269.01 pitch 53.50 tgt 6405 tms 0 yaw 0.00 pit -0.31 trig 0 proj (nil)
+T5D 21055 st 3 act 1.000 head 269.01 pitch 53.58 tgt 6405 tms 0 yaw 0.00 pit 0.08 trig 0 proj (nil)
+T5 21059 W 6405 Ready -90.8946 35.9683
+T5D 21087 st 3 act 1.000 head 269.01 pitch 53.68 tgt 6405 tms 0 yaw 0.00 pit 0.10 trig 0 proj (nil)
+T5D 21119 st 3 act 1.000 head 269.01 pitch 53.50 tgt 6405 tms 0 yaw 0.00 pit -0.17 trig 0 proj (nil)
+T5D 21151 st 3 act 1.000 head 269.01 pitch 53.58 tgt 6405 tms 0 yaw 0.00 pit 0.08 trig 0 proj (nil)
+T5 21155 W 6405 Ready -90.8946 35.9686
+T5D 21182 st 3 act 1.000 head 269.01 pitch 53.68 tgt 6405 tms 0 yaw 0.00 pit 0.10 trig 0 proj (nil)
+T5D 21215 st 3 act 1.000 head 269.01 pitch 53.50 tgt 6405 tms 0 yaw 0.00 pit -0.17 trig 0 proj (nil)
+T5D 21247 st 3 act 1.000 head 269.01 pitch 53.58 tgt 6405 tms 0 yaw 0.00 pit 0.08 trig 0 proj (nil)
+T5 21251 W 6405 Ready -90.8946 35.9686
+T5D 21279 st 3 act 1.000 head 269.01 pitch 53.68 tgt 6405 tms 0 yaw 0.00 pit 0.10 trig 0 proj (nil)
+T5D 21311 st 3 act 1.000 head 269.01 pitch 53.50 tgt 6405 tms 0 yaw 0.00 pit -0.17 trig 0 proj (nil)
+T5D 21343 st 3 act 1.000 head 269.01 pitch 53.58 tgt 6405 tms 0 yaw 0.00 pit 0.08 trig 0 proj (nil)
+T5 21347 W 6405 Ready -90.8946 35.9686
+T5D 21375 st 3 act 1.000 head 269.01 pitch 53.68 tgt 6405 tms 0 yaw 0.00 pit 0.10 trig 0 proj (nil)
+T5D 21407 st 3 act 1.000 head 269.01 pitch 53.50 tgt 6405 tms 0 yaw 0.00 pit -0.17 trig 0 proj (nil)
+T5D 21439 st 3 act 1.000 head 269.01 pitch 53.58 tgt 6405 tms 0 yaw 0.00 pit 0.08 trig 0 proj (nil)
+T5 21443 W 6405 Ready -90.8946 35.9686
+T5D 21471 st 3 act 1.000 head 269.01 pitch 53.68 tgt 6405 tms 0 yaw 0.00 pit 0.10 trig 0 proj (nil)
+T5D 21503 st 3 act 1.000 head 269.01 pitch 53.50 tgt 6405 tms 0 yaw 0.00 pit -0.17 trig 0 proj (nil)
+T5D 21535 st 3 act 1.000 head 269.01 pitch 53.58 tgt 6405 tms 0 yaw 0.00 pit 0.08 trig 0 proj (nil)
+T5 21539 W 6405 Ready -90.8946 35.9686
+T5D 21567 st 3 act 1.000 head 269.01 pitch 53.68 tgt 6405 tms 0 yaw 0.00 pit 0.10 trig 0 proj (nil)
+T5D 21599 st 3 act 1.000 head 269.01 pitch 53.50 tgt 6405 tms 0 yaw 0.00 pit -0.17 trig 0 proj (nil)
+T5D 21631 st 3 act 1.000 head 269.01 pitch 53.58 tgt 6405 tms 0 yaw 0.00 pit 0.08 trig 0 proj (nil)
+T5 21635 W 6405 Ready -90.8946 35.9686
+T5D 21663 st 3 act 1.000 head 269.01 pitch 53.68 tgt 6405 tms 0 yaw 0.00 pit 0.10 trig 0 proj (nil)
+T5D 21695 st 3 act 1.000 head 269.01 pitch 53.50 tgt 6405 tms 0 yaw 0.00 pit -0.17 trig 0 proj (nil)
+T5D 21727 st 3 act 1.000 head 269.01 pitch 53.58 tgt 6405 tms 0 yaw 0.00 pit 0.08 trig 0 proj (nil)
+T5 21731 W 6405 Ready -90.8946 35.9686
+T5D 21759 st 3 act 1.000 head 269.01 pitch 53.68 tgt 6405 tms 0 yaw 0.00 pit 0.10 trig 0 proj (nil)
+T5D 21791 st 3 act 1.000 head 269.01 pitch 53.81 tgt 6405 tms 0 yaw 0.00 pit 0.13 trig 0 proj (nil)
+T5D 21823 st 3 act 1.000 head 269.01 pitch 53.50 tgt 6405 tms 0 yaw 0.00 pit -0.31 trig 0 proj (nil)
+T5 21827 W 6405 Ready -90.8946 36.0538
+T5D 21855 st 3 act 1.000 head 269.01 pitch 53.58 tgt 6405 tms 0 yaw 0.00 pit 0.08 trig 0 proj (nil)
+T5D 21887 st 3 act 1.000 head 269.01 pitch 53.68 tgt 6405 tms 0 yaw 0.00 pit 0.10 trig 0 proj (nil)
+T5D 21919 st 3 act 1.000 head 269.01 pitch 53.50 tgt 6405 tms 0 yaw 0.00 pit -0.17 trig 0 proj (nil)
+T5 21923 W 6405 Ready -90.8946 36.0476
+T5D 21951 st 3 act 1.000 head 269.01 pitch 53.58 tgt 6405 tms 0 yaw 0.00 pit 0.08 trig 0 proj (nil)
+T5D 21983 st 3 act 1.000 head 269.01 pitch 53.68 tgt 6405 tms 0 yaw 0.00 pit 0.10 trig 0 proj (nil)
+T5D 22015 st 3 act 1.000 head 269.01 pitch 53.50 tgt 6405 tms 0 yaw 0.00 pit -0.17 trig 0 proj (nil)
+T5 22019 W 6405 Ready -90.8946 36.0476
+T5D 22047 st 3 act 1.000 head 269.01 pitch 53.58 tgt 6405 tms 0 yaw 0.00 pit 0.08 trig 0 proj (nil)
+T5D 22079 st 3 act 1.000 head 269.01 pitch 53.68 tgt 6405 tms 0 yaw 0.00 pit 0.10 trig 0 proj (nil)
+T5D 22111 st 3 act 1.000 head 269.01 pitch 53.50 tgt 6405 tms 0 yaw 0.00 pit -0.17 trig 0 proj (nil)
+T5 22115 W 6405 Ready -90.8946 36.0476
+T5D 22143 st 3 act 1.000 head 269.01 pitch 53.58 tgt 6405 tms 0 yaw 0.00 pit 0.08 trig 0 proj (nil)
+T5D 22175 st 3 act 1.000 head 269.01 pitch 53.68 tgt 6405 tms 0 yaw 0.00 pit 0.10 trig 0 proj (nil)
+T5D 22207 st 3 act 1.000 head 269.01 pitch 53.50 tgt 6405 tms 0 yaw 0.00 pit -0.17 trig 0 proj (nil)
+T5 22211 W 6405 Ready -90.8946 36.0476
+T5D 22239 st 3 act 1.000 head 269.01 pitch 53.58 tgt 6405 tms 0 yaw 0.00 pit 0.08 trig 0 proj (nil)
+T5D 22271 st 3 act 1.000 head 269.01 pitch 53.68 tgt 6405 tms 0 yaw 0.00 pit 0.10 trig 0 proj (nil)
+T5D 22303 st 3 act 1.000 head 269.01 pitch 53.50 tgt 6405 tms 0 yaw 0.00 pit -0.17 trig 0 proj (nil)
+T5 22307 W 6405 Ready -90.8946 36.0476
+T5D 22335 st 3 act 1.000 head 269.01 pitch 53.58 tgt 6405 tms 0 yaw 0.00 pit 0.08 trig 0 proj (nil)
+T5D 22367 st 3 act 1.000 head 269.01 pitch 53.68 tgt 6405 tms 0 yaw 0.00 pit 0.10 trig 0 proj (nil)
+T5D 22399 st 3 act 1.000 head 269.01 pitch 53.50 tgt 6405 tms 0 yaw 0.00 pit -0.17 trig 0 proj (nil)
+T5 22403 W 6405 Ready -90.8946 36.0476
+T5D 22431 st 3 act 1.000 head 269.01 pitch 53.58 tgt 6405 tms 0 yaw 0.00 pit 0.08 trig 0 proj (nil)
+T5D 22463 st 3 act 1.000 head 269.01 pitch 53.68 tgt 6405 tms 0 yaw 0.00 pit 0.10 trig 0 proj (nil)
+T5D 22495 st 3 act 1.000 head 269.01 pitch 53.50 tgt 6405 tms 0 yaw 0.00 pit -0.17 trig 0 proj (nil)
+T5 22499 W 6405 Ready -90.8946 36.0476
+T5D 22527 st 3 act 1.000 head 269.01 pitch 53.58 tgt 6405 tms 0 yaw 0.00 pit 0.08 trig 0 proj (nil)
+T5D 22559 st 3 act 1.000 head 269.01 pitch 53.68 tgt 6405 tms 0 yaw 0.00 pit 0.10 trig 0 proj (nil)
+T5D 22591 st 3 act 1.000 head 269.01 pitch 53.81 tgt 6405 tms 0 yaw 0.00 pit 0.13 trig 0 proj (nil)
+T5 22595 W 6405 Ready -90.8946 35.7275
+T5D 22623 st 3 act 1.000 head 269.01 pitch 53.50 tgt 6405 tms 0 yaw 0.00 pit -0.31 trig 0 proj (nil)
+T5D 22655 st 3 act 1.000 head 269.01 pitch 53.58 tgt 6405 tms 0 yaw 0.00 pit 0.08 trig 0 proj (nil)
+T5D 22687 st 3 act 1.000 head 269.01 pitch 53.68 tgt 6405 tms 0 yaw 0.00 pit 0.10 trig 0 proj (nil)
+T5 22691 W 6405 Ready -90.8946 35.8654
+T5D 22719 st 3 act 1.000 head 269.01 pitch 53.50 tgt 6405 tms 0 yaw 0.00 pit -0.17 trig 0 proj (nil)
+T5D 22751 st 3 act 1.000 head 269.01 pitch 53.58 tgt 6405 tms 0 yaw 0.00 pit 0.08 trig 0 proj (nil)
+T5D 22783 st 3 act 1.000 head 269.01 pitch 53.68 tgt 6405 tms 0 yaw 0.00 pit 0.10 trig 0 proj (nil)
+T5 22787 W 6405 Ready -90.8946 35.8654
+T5 22795 SWAP 6406 AABarrelPackImage PlasmaBarrelLarge
+active replace
+T5 22795 SWAPPED 1 PlasmaBarrelLarge
+T5D 22815 st 4 act 1.000 head 285.01 pitch 63.28 tgt 6405 tms 0 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5D 22847 st 4 act 1.000 head 301.01 pitch 72.88 tgt 6405 tms 0 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5D 22879 st 4 act 1.000 head 317.01 pitch 82.48 tgt 6405 tms 0 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5 22883 W 6405 Ready -42.8818 6.93508
+T5D 22911 st 4 act 1.000 head 333.01 pitch 90.00 tgt 6405 tms 0 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5D 22943 st 4 act 1.000 head 349.01 pitch 90.00 tgt 6405 tms 0 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5D 22975 st 4 act 1.000 head 0.00 pitch 90.00 tgt 6405 tms 0 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5 22979 W 6405 Ready 0 0
+T5D 23007 st 4 act 0.952 head 0.00 pitch 90.00 tgt 6405 tms 0 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5D 23039 st 4 act 0.905 head 0.00 pitch 90.00 tgt 6405 tms 0 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5D 23070 st 4 act 0.857 head 0.00 pitch 90.00 tgt 6405 tms 0 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5 23075 W 6405 Deactivate 0 0.469165
+T5D 23103 st 4 act 0.810 head 0.00 pitch 90.00 tgt 6405 tms 0 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5D 23135 st 4 act 0.762 head 0.00 pitch 90.00 tgt 6405 tms 0 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5D 23167 st 4 act 0.714 head 0.00 pitch 90.00 tgt 6405 tms 0 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5 23171 W 6405 Deactivate 0 0
+T5D 23199 st 4 act 0.667 head 0.00 pitch 90.00 tgt 6405 tms 0 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5D 23230 st 4 act 0.619 head 0.00 pitch 90.00 tgt 6405 tms 0 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5D 23262 st 4 act 0.571 head 0.00 pitch 90.00 tgt 6405 tms 0 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5 23267 W 6405 Deactivate 0 0
+T5D 23295 st 4 act 0.524 head 0.00 pitch 90.00 tgt 6405 tms 0 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5D 23327 st 4 act 0.476 head 0.00 pitch 90.00 tgt 6405 tms 0 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5D 23358 st 4 act 0.429 head 0.00 pitch 90.00 tgt 6405 tms 0 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5 23363 W 6405 Deactivate 0 0
+T5D 23391 st 4 act 0.381 head 0.00 pitch 90.00 tgt 6405 tms 0 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5D 23423 st 4 act 0.333 head 0.00 pitch 90.00 tgt 6405 tms 0 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5D 23455 st 4 act 0.286 head 0.00 pitch 90.00 tgt 6405 tms 0 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5 23459 W 6405 Deactivate 0 0
+T5D 23487 st 4 act 0.238 head 0.00 pitch 90.00 tgt 6405 tms 0 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5D 23519 st 4 act 0.190 head 0.00 pitch 90.00 tgt 6405 tms 0 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5D 23551 st 4 act 0.143 head 0.00 pitch 90.00 tgt 6405 tms 0 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5 23555 W 6405 Deactivate 0 0
+T5D 23583 st 4 act 0.095 head 0.00 pitch 90.00 tgt 6405 tms 0 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5D 23615 st 4 act 0.048 head 0.00 pitch 90.00 tgt 6405 tms 0 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5D 23647 st 4 act 0.000 head 0.00 pitch 90.00 tgt 6405 tms 0 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5 23651 W 6405 Deactivate 0 0
+T5 23679 REPLACE 6404 6406 PlasmaBarrelLarge
+T5 23679 REPLACED AABarrelLarge AABarrelLarge
+T5D 23679 st 0 act 0.000 head 0.00 pitch 90.00 tgt 6405 tms 0 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5D 23710 st 1 act 0.200 head 0.00 pitch 90.00 tgt 6405 tms 0 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5D 23743 st 1 act 0.400 head 0.00 pitch 90.00 tgt 6405 tms 0 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5 23747 W 6405 ActivateReady 0 0
+T5D 23775 st 1 act 0.600 head 0.00 pitch 90.00 tgt 6405 tms 0 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5 23807 SELECT 6404 0 -> 0
+T5D 23807 st 1 act 0.800 head 0.00 pitch 90.00 tgt 0 tms 0 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5D 23839 st 3 act 1.000 head 0.00 pitch 90.00 tgt 0 tms 0 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5 23843 W 0 ActivateReady 0 0
+T5D 23871 st 3 act 1.000 head 0.00 pitch 90.00 tgt 0 tms 32 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5D 23903 st 3 act 1.000 head 0.00 pitch 90.00 tgt 0 tms 64 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5D 23935 st 3 act 1.000 head 0.00 pitch 90.00 tgt 0 tms 96 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5 23939 W 0 ActivateReady 0 0
+T5 23966 SELECT 6404 0 -> 0
+T5D 23966 st 3 act 1.000 head 0.00 pitch 90.00 tgt 0 tms 128 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5D 23999 st 3 act 1.000 head 0.00 pitch 90.00 tgt 0 tms 160 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5D 24031 st 3 act 1.000 head 0.00 pitch 90.00 tgt 0 tms 192 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5 24035 W 0 ActivateReady 0 0
+T5D 24063 st 3 act 1.000 head 0.00 pitch 90.00 tgt 0 tms 224 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5D 24095 st 3 act 1.000 head 0.00 pitch 90.00 tgt 0 tms 256 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5 24127 SELECT 6404 0 -> 0
+T5D 24127 st 3 act 1.000 head 0.00 pitch 90.00 tgt 0 tms 288 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5 24131 W 0 ActivateReady 0 0
+T5D 24159 st 3 act 1.000 head 0.00 pitch 90.00 tgt 0 tms 320 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5D 24191 st 3 act 1.000 head 0.00 pitch 90.00 tgt 0 tms 352 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5D 24223 st 3 act 1.000 head 0.00 pitch 90.00 tgt 0 tms 384 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5 24227 W 0 ActivateReady 0 0
+T5D 24255 st 3 act 1.000 head 0.00 pitch 90.00 tgt 0 tms 416 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5 24287 SELECT 6404 0 -> 0
+T5D 24287 st 3 act 1.000 head 0.00 pitch 90.00 tgt 0 tms 448 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5D 24319 st 3 act 1.000 head 0.00 pitch 90.00 tgt 0 tms 480 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5 24323 W 0 ActivateReady 0 0
+T5D 24351 st 3 act 1.000 head 0.00 pitch 90.00 tgt 0 tms 512 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5D 24383 st 2 act 0.800 head 0.00 pitch 90.00 tgt 0 tms 512 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5D 24415 st 2 act 0.600 head 0.00 pitch 90.00 tgt 0 tms 512 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5 24419 W 0 ActivateReady 0 0
+T5 24447 SELECT 6404 0 -> 0
+T5D 24447 st 2 act 0.400 head 0.00 pitch 90.00 tgt 0 tms 512 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5D 24479 st 2 act 0.200 head 0.00 pitch 90.00 tgt 0 tms 512 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5D 24511 st 2 act 0.000 head 0.00 pitch 90.00 tgt 0 tms 512 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5 24515 W 0 ActivateReady 0 0
+T5D 24543 st 0 act 0.000 head 0.00 pitch 90.00 tgt 0 tms 512 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5 24607 SELECT 6404 0 -> 0
+T5 24611 W 0 ActivateReady 0 0
+T5 24707 W 0 ActivateReady 0 0
+T5 24767 SELECT 6404 0 -> 0
+T5 24803 W 0 Deactivate 0 0
+T5 24899 W 0 Deactivate 0 0
+T5 24927 SELECT 6404 0 -> 0
+T5 24995 W 0 Deactivate 0 0
+T5 25087 SELECT 6404 0 -> 0
+T5 25091 W 0 Deactivate 0 0
+T5 25187 W 0 Deactivate 0 0
+T5 25247 SELECT 6404 0 -> 0
+T5 25283 W 0 Deactivate 0 0
+T5 25379 W 0 Deactivate 0 0
+T5 25407 SELECT 6404 0 -> 0
+T5 25475 W 0 Deactivate 0 0
+T5 25567 SELECT 6404 0 -> 0
+T5 25571 W 0 Deactivate 0 0
+T5 25667 W 0 Deactivate 0 0
+T5 25727 SELECT 6404 0 -> 0
+T5 25763 W 0 Deactivate 0 0
+T5 25859 W 0 Dead 0 0
+T5 25887 SELECT 6404 0 -> 0
+T5 25955 W 0 Dead 0 0
+T5 26047 SELECT 6404 0 -> 0
+T5 26051 W 0 Dead 0 0
+T5 26147 W 0 Dead 0 0
+T5 26207 SELECT 6404 0 -> 0
+T5 26243 W 0 Dead 0 0
+T5 26339 W 0 Dead 0 0
+T5 26367 SELECT 6404 0 -> 0
+T5 26435 W 0 Dead 0 0
+T5 26527 SELECT 6404 0 -> 0
+T5 26531 W 0 Dead 0 0
+T5 26627 W 0 Dead 0 0
+T5 26687 SELECT 6404 0 -> 0
+T5 26723 W 0 Dead 0 0
+T5 26819 W 0 Dead 0 0
+T5 26847 SELECT 6404 0 -> 0
+T5 26915 W 0 Dead 0 0
+T5 27007 SELECT 6404 0 -> 0
+T5 27011 W 0 Dead 0 0
+T5 27107 W 0 Dead 0 0
+T5 27167 SELECT 6404 0 -> 0
+T5 27203 W 0 Dead 0 0
+T5 27299 W 0 Dead 0 0
+T5 27326 SELECT 6404 0 -> 0
+T5 27395 W 0 Dead 0 0
+T5 27487 SELECT 6404 0 -> 0
+T5 27491 W 0 Dead 0 0
+T5 27587 W 0 Dead 0 0
+T5 27647 SELECT 6404 0 -> 0
+T5 27683 W 0 Dead 0 0
+T5 27779 W 0 Dead 0 0
+T5 27807 SELECT 6404 0 -> 0
+T5 27875 W 0 Dead 0 0
+T5 27966 SELECT 6404 0 -> 0
+T5 27971 W 0 Dead 0 0
+T5 28067 W 0 Dead 0 0
+T5 28127 SELECT 6404 0 -> 0
+T5 28163 W 0 Dead 0 0
+T5 28259 W 0 Dead 0 0
+T5 28287 SELECT 6404 0 -> 0
+T5 28355 W 0 Dead 0 0
+T5 28447 SELECT 6404 0 -> 0
+T5 28451 W 0 Dead 0 0
+T5 28547 W 0 Dead 0 0
+T5 28607 SELECT 6404 0 -> 0
+T5 28643 W 0 Dead 0 0
+T5 28739 W 0 Dead 0 0
+T5 28767 SELECT 6404 0 -> 0
+T5 28795 SWAP 6407 PlasmaBarrelPackImage AABarrelLarge
+T5 28795 REPLACE 6404 6407 AABarrelLarge
+T5 28795 REPLACED PlasmaBarrelLarge PlasmaBarrelLarge
+instant replace
+T5 28795 SWAPPED 1 PlasmaBarrelLarge
+T5 28835 W 0 Dead 0 0
+T5 28927 SELECT 6404 0 -> 6405
+T5D 28927 st 1 act 0.048 head 0.00 pitch 90.00 tgt 6405 tms 0 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5 28931 W 6405 Dead 0 0
+T5D 28959 st 1 act 0.095 head 0.00 pitch 90.00 tgt 6405 tms 0 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5D 28991 st 1 act 0.143 head 0.00 pitch 90.00 tgt 6405 tms 0 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5D 29023 st 1 act 0.190 head 0.00 pitch 90.00 tgt 6405 tms 0 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5 29027 W 6405 ActivateReady 0 0
+T5D 29055 st 1 act 0.238 head 0.00 pitch 90.00 tgt 6405 tms 0 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5D 29087 st 1 act 0.286 head 0.00 pitch 90.00 tgt 6405 tms 0 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5D 29119 st 1 act 0.333 head 0.00 pitch 90.00 tgt 6405 tms 0 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5 29123 W 6405 ActivateReady 0 0
+T5D 29151 st 1 act 0.381 head 0.00 pitch 90.00 tgt 6405 tms 0 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5D 29183 st 1 act 0.429 head 0.00 pitch 90.00 tgt 6405 tms 0 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5D 29215 st 1 act 0.476 head 0.00 pitch 90.00 tgt 6405 tms 0 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5 29219 W 6405 ActivateReady 0 0
+T5D 29247 st 1 act 0.524 head 0.00 pitch 90.00 tgt 6405 tms 0 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5D 29279 st 1 act 0.571 head 0.00 pitch 90.00 tgt 6405 tms 0 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5D 29311 st 1 act 0.619 head 0.00 pitch 90.00 tgt 6405 tms 0 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5 29315 W 6405 ActivateReady 0 0
+T5D 29343 st 1 act 0.667 head 0.00 pitch 90.00 tgt 6405 tms 0 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5D 29375 st 1 act 0.714 head 0.00 pitch 90.00 tgt 6405 tms 0 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5D 29406 st 1 act 0.762 head 0.00 pitch 90.00 tgt 6405 tms 0 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5 29411 W 6405 ActivateReady 0 0
+T5D 29439 st 1 act 0.810 head 0.00 pitch 90.00 tgt 6405 tms 0 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5D 29471 st 1 act 0.857 head 0.00 pitch 90.00 tgt 6405 tms 0 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5D 29503 st 1 act 0.905 head 0.00 pitch 90.00 tgt 6405 tms 0 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5 29507 W 6405 ActivateReady 0 0.569426
+T5D 29535 st 1 act 0.952 head 0.00 pitch 90.00 tgt 6405 tms 0 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5D 29566 st 3 act 1.000 head 0.00 pitch 90.00 tgt 6405 tms 0 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5D 29599 st 3 act 1.000 head 344.00 pitch 80.40 tgt 6405 tms 0 yaw -93.93 pit -36.40 trig 0 proj (nil)
+T5 29603 W 6405 ActivateReady -15.1083 8.90313
+T5D 29631 st 3 act 1.000 head 328.00 pitch 70.80 tgt 6405 tms 0 yaw -77.84 pit -26.81 trig 0 proj (nil)
+T5D 29663 st 3 act 1.000 head 312.00 pitch 61.20 tgt 6405 tms 0 yaw -61.45 pit -17.15 trig 0 proj (nil)
+T5D 29684 st 3 act 1.000 head 296.00 pitch 53.83 tgt 6405 tms 0 yaw -44.81 pit -7.37 trig 0 proj (nil)
+T5 29699 W 6405 ActivateReady -64.8428 35.7026
+T5D 29727 st 3 act 1.000 head 280.00 pitch 53.62 tgt 6405 tms 0 yaw -28.07 pit -0.21 trig 0 proj (nil)
+T5D 29759 st 3 act 1.000 head 268.57 pitch 53.59 tgt 6405 tms 0 yaw -11.43 pit -0.03 trig 0 proj (nil)
+T5D 29791 st 3 act 1.000 head 269.03 pitch 53.68 tgt 6405 tms 0 yaw 0.45 pit 0.08 trig 0 proj (nil)
+T5 29795 W 6405 ActivateReady -90.8791 35.8661
+T5D 29823 st 3 act 1.000 head 269.01 pitch 53.50 tgt 6405 tms 0 yaw -0.02 pit -0.17 trig 0 proj (nil)
+T5D 29855 st 3 act 1.000 head 269.01 pitch 53.58 tgt 6405 tms 0 yaw 0.00 pit 0.08 trig 0 proj (nil)
+T5D 29887 st 3 act 1.000 head 269.01 pitch 53.68 tgt 6405 tms 0 yaw -0.00 pit 0.10 trig 0 proj (nil)
+T5 29891 W 6405 ActivateReady -90.8946 35.8654
+T5D 29919 st 3 act 1.000 head 269.01 pitch 53.50 tgt 6405 tms 0 yaw 0.00 pit -0.17 trig 0 proj (nil)
+T5D 29951 st 3 act 1.000 head 269.01 pitch 53.58 tgt 6405 tms 0 yaw 0.00 pit 0.08 trig 0 proj (nil)
+T5D 29983 st 3 act 1.000 head 269.01 pitch 53.68 tgt 6405 tms 0 yaw 0.00 pit 0.10 trig 0 proj (nil)
+T5 29987 W 6405 Ready -90.8946 35.8654
+T5D 30015 st 3 act 1.000 head 269.01 pitch 53.50 tgt 6405 tms 0 yaw 0.00 pit -0.17 trig 0 proj (nil)
+T5D 30047 st 3 act 1.000 head 269.01 pitch 53.58 tgt 6405 tms 0 yaw 0.00 pit 0.08 trig 0 proj (nil)
+T5D 30079 st 3 act 1.000 head 269.01 pitch 53.68 tgt 6405 tms 0 yaw 0.00 pit 0.10 trig 0 proj (nil)
+T5 30083 W 6405 Ready -90.8946 35.8654
+T5D 30111 st 3 act 1.000 head 269.01 pitch 53.50 tgt 6405 tms 0 yaw 0.00 pit -0.17 trig 0 proj (nil)
+T5D 30143 st 3 act 1.000 head 269.01 pitch 53.58 tgt 6405 tms 0 yaw 0.00 pit 0.08 trig 0 proj (nil)
+T5D 30175 st 3 act 1.000 head 269.01 pitch 53.68 tgt 6405 tms 0 yaw 0.00 pit 0.10 trig 0 proj (nil)
+T5 30179 W 6405 Ready -90.8946 35.8654
+T5D 30207 st 3 act 1.000 head 269.01 pitch 53.50 tgt 6405 tms 0 yaw 0.00 pit -0.17 trig 0 proj (nil)
+T5D 30239 st 3 act 1.000 head 269.01 pitch 53.58 tgt 6405 tms 0 yaw 0.00 pit 0.08 trig 0 proj (nil)
+T5D 30270 st 3 act 1.000 head 269.01 pitch 53.68 tgt 6405 tms 0 yaw 0.00 pit 0.10 trig 0 proj (nil)
+T5 30275 W 6405 Ready -90.8946 35.8654
+T5D 30303 st 3 act 1.000 head 269.01 pitch 53.50 tgt 6405 tms 0 yaw 0.00 pit -0.17 trig 0 proj (nil)
+T5D 30335 st 3 act 1.000 head 269.01 pitch 53.58 tgt 6405 tms 0 yaw 0.00 pit 0.08 trig 0 proj (nil)
+T5D 30367 st 3 act 1.000 head 269.01 pitch 53.68 tgt 6405 tms 0 yaw 0.00 pit 0.10 trig 0 proj (nil)
+T5 30371 W 6405 Ready -90.8946 35.8654
+T5D 30399 st 3 act 1.000 head 269.01 pitch 53.50 tgt 6405 tms 0 yaw 0.00 pit -0.17 trig 0 proj (nil)
+T5D 30431 st 3 act 1.000 head 269.01 pitch 53.58 tgt 6405 tms 0 yaw 0.00 pit 0.08 trig 0 proj (nil)
+T5D 30463 st 3 act 1.000 head 269.01 pitch 53.68 tgt 6405 tms 0 yaw 0.00 pit 0.10 trig 0 proj (nil)
+T5 30467 W 6405 Ready -90.8946 35.8654
+T5D 30495 st 3 act 1.000 head 269.01 pitch 53.50 tgt 6405 tms 0 yaw 0.00 pit -0.17 trig 0 proj (nil)
+T5D 30527 st 3 act 1.000 head 269.01 pitch 53.58 tgt 6405 tms 0 yaw 0.00 pit 0.08 trig 0 proj (nil)
+T5D 30559 st 3 act 1.000 head 269.01 pitch 53.68 tgt 6405 tms 0 yaw 0.00 pit 0.10 trig 0 proj (nil)
+T5 30563 W 6405 Ready -90.8946 35.8654
+T5D 30590 st 3 act 1.000 head 269.01 pitch 53.81 tgt 6405 tms 0 yaw 0.00 pit 0.13 trig 0 proj (nil)
+T5D 30623 st 3 act 1.000 head 269.01 pitch 53.50 tgt 6405 tms 0 yaw 0.00 pit -0.31 trig 0 proj (nil)
+T5D 30655 st 3 act 1.000 head 269.01 pitch 53.58 tgt 6405 tms 0 yaw 0.00 pit 0.08 trig 0 proj (nil)
+T5 30659 W 6405 Ready -90.8946 35.9683
+T5D 30687 st 3 act 1.000 head 269.01 pitch 53.68 tgt 6405 tms 0 yaw 0.00 pit 0.10 trig 0 proj (nil)
+T5D 30719 st 3 act 1.000 head 269.01 pitch 53.50 tgt 6405 tms 0 yaw 0.00 pit -0.17 trig 0 proj (nil)
+T5D 30751 st 3 act 1.000 head 269.01 pitch 53.58 tgt 6405 tms 0 yaw 0.00 pit 0.08 trig 0 proj (nil)
+T5 30755 W 6405 Ready -90.8946 35.9686
+T5D 30783 st 3 act 1.000 head 269.01 pitch 53.68 tgt 6405 tms 0 yaw 0.00 pit 0.10 trig 0 proj (nil)
+T5D 30815 st 3 act 1.000 head 269.01 pitch 53.50 tgt 6405 tms 0 yaw 0.00 pit -0.17 trig 0 proj (nil)
+T5D 30847 st 3 act 1.000 head 269.01 pitch 53.58 tgt 6405 tms 0 yaw 0.00 pit 0.08 trig 0 proj (nil)
+T5 30851 W 6405 Ready -90.8946 35.9686
+T5D 30879 st 3 act 1.000 head 269.01 pitch 53.68 tgt 6405 tms 0 yaw 0.00 pit 0.10 trig 0 proj (nil)
+T5D 30911 st 3 act 1.000 head 269.01 pitch 53.50 tgt 6405 tms 0 yaw 0.00 pit -0.17 trig 0 proj (nil)
+T5D 30943 st 3 act 1.000 head 269.01 pitch 53.58 tgt 6405 tms 0 yaw 0.00 pit 0.08 trig 0 proj (nil)
+T5 30947 W 6405 Ready -90.8946 35.9686
+T5D 30975 st 3 act 1.000 head 269.01 pitch 53.68 tgt 6405 tms 0 yaw 0.00 pit 0.10 trig 0 proj (nil)
+T5D 31007 st 3 act 1.000 head 269.01 pitch 53.50 tgt 6405 tms 0 yaw 0.00 pit -0.17 trig 0 proj (nil)
+T5D 31039 st 3 act 1.000 head 269.01 pitch 53.58 tgt 6405 tms 0 yaw 0.00 pit 0.08 trig 0 proj (nil)
+T5 31043 W 6405 Ready -90.8946 35.9686
+T5D 31071 st 3 act 1.000 head 269.01 pitch 53.68 tgt 6405 tms 0 yaw 0.00 pit 0.10 trig 0 proj (nil)
+T5D 31103 st 3 act 1.000 head 269.01 pitch 53.50 tgt 6405 tms 0 yaw 0.00 pit -0.17 trig 0 proj (nil)
+T5D 31135 st 3 act 1.000 head 269.01 pitch 53.58 tgt 6405 tms 0 yaw 0.00 pit 0.08 trig 0 proj (nil)
+T5 31139 W 6405 Ready -90.8946 35.9686
+T5D 31167 st 3 act 1.000 head 269.01 pitch 53.68 tgt 6405 tms 0 yaw 0.00 pit 0.10 trig 0 proj (nil)
+T5D 31199 st 3 act 1.000 head 269.01 pitch 53.50 tgt 6405 tms 0 yaw 0.00 pit -0.17 trig 0 proj (nil)
+T5D 31231 st 3 act 1.000 head 269.01 pitch 53.58 tgt 6405 tms 0 yaw 0.00 pit 0.08 trig 0 proj (nil)
+T5 31235 W 6405 Ready -90.8946 35.9686
+T5D 31263 st 3 act 1.000 head 269.01 pitch 53.68 tgt 6405 tms 0 yaw 0.00 pit 0.10 trig 0 proj (nil)
+T5D 31295 st 3 act 1.000 head 269.01 pitch 53.50 tgt 6405 tms 0 yaw 0.00 pit -0.17 trig 0 proj (nil)
+T5D 31327 st 3 act 1.000 head 269.01 pitch 53.58 tgt 6405 tms 0 yaw 0.00 pit 0.08 trig 0 proj (nil)
+T5 31331 W 6405 Ready -90.8946 35.9686
+T5D 31359 st 3 act 1.000 head 269.01 pitch 53.68 tgt 6405 tms 0 yaw 0.00 pit 0.10 trig 0 proj (nil)
+T5D 31391 st 3 act 1.000 head 269.01 pitch 53.81 tgt 6405 tms 0 yaw 0.00 pit 0.13 trig 0 proj (nil)
+T5D 31423 st 3 act 1.000 head 269.01 pitch 53.50 tgt 6405 tms 0 yaw 0.00 pit -0.31 trig 0 proj (nil)
+T5 31427 W 6405 Ready -90.8946 36.0538
+T5D 31455 st 3 act 1.000 head 269.01 pitch 53.58 tgt 6405 tms 0 yaw 0.00 pit 0.08 trig 0 proj (nil)
+T5D 31487 st 3 act 1.000 head 269.01 pitch 53.68 tgt 6405 tms 0 yaw 0.00 pit 0.10 trig 0 proj (nil)
+T5D 31519 st 3 act 1.000 head 269.01 pitch 53.50 tgt 6405 tms 0 yaw 0.00 pit -0.17 trig 0 proj (nil)
+T5 31523 W 6405 Ready -90.8946 36.0476
+T5D 31551 st 3 act 1.000 head 269.01 pitch 53.58 tgt 6405 tms 0 yaw 0.00 pit 0.08 trig 0 proj (nil)
+T5D 31583 st 3 act 1.000 head 269.01 pitch 53.68 tgt 6405 tms 0 yaw 0.00 pit 0.10 trig 0 proj (nil)
+T5D 31615 st 3 act 1.000 head 269.01 pitch 53.50 tgt 6405 tms 0 yaw 0.00 pit -0.17 trig 0 proj (nil)
+T5 31619 W 6405 Ready -90.8946 36.0476
+T5D 31647 st 3 act 1.000 head 269.01 pitch 53.58 tgt 6405 tms 0 yaw 0.00 pit 0.08 trig 0 proj (nil)
+T5D 31679 st 3 act 1.000 head 269.01 pitch 53.68 tgt 6405 tms 0 yaw 0.00 pit 0.10 trig 0 proj (nil)
+T5D 31711 st 3 act 1.000 head 269.01 pitch 53.50 tgt 6405 tms 0 yaw 0.00 pit -0.17 trig 0 proj (nil)
+T5 31715 W 6405 Ready -90.8946 36.0476
+T5D 31743 st 3 act 1.000 head 269.01 pitch 53.58 tgt 6405 tms 0 yaw 0.00 pit 0.08 trig 0 proj (nil)
+T5D 31775 st 3 act 1.000 head 269.01 pitch 53.68 tgt 6405 tms 0 yaw 0.00 pit 0.10 trig 0 proj (nil)
+T5D 31807 st 3 act 1.000 head 269.01 pitch 53.50 tgt 6405 tms 0 yaw 0.00 pit -0.17 trig 0 proj (nil)
+T5 31811 W 6405 Ready -90.8946 36.0476
+T5D 31839 st 3 act 1.000 head 269.01 pitch 53.58 tgt 6405 tms 0 yaw 0.00 pit 0.08 trig 0 proj (nil)
+T5D 31871 st 3 act 1.000 head 269.01 pitch 53.68 tgt 6405 tms 0 yaw 0.00 pit 0.10 trig 0 proj (nil)
+T5D 31903 st 3 act 1.000 head 269.01 pitch 53.50 tgt 6405 tms 0 yaw 0.00 pit -0.17 trig 0 proj (nil)
+T5 31907 W 6405 Ready -90.8946 36.0476
+T5D 31935 st 3 act 1.000 head 269.01 pitch 53.58 tgt 6405 tms 0 yaw 0.00 pit 0.08 trig 0 proj (nil)
+T5D 31967 st 3 act 1.000 head 269.01 pitch 53.68 tgt 6405 tms 0 yaw 0.00 pit 0.10 trig 0 proj (nil)
+T5D 31999 st 3 act 1.000 head 269.01 pitch 53.50 tgt 6405 tms 0 yaw 0.00 pit -0.17 trig 0 proj (nil)
+T5 32003 W 6405 Ready -90.8946 36.0476
+T5D 32031 st 3 act 1.000 head 269.01 pitch 53.58 tgt 6405 tms 0 yaw 0.00 pit 0.08 trig 0 proj (nil)
+T5D 32063 st 3 act 1.000 head 269.01 pitch 53.68 tgt 6405 tms 0 yaw 0.00 pit 0.10 trig 0 proj (nil)
+T5D 32095 st 3 act 1.000 head 269.01 pitch 53.50 tgt 6405 tms 0 yaw 0.00 pit -0.17 trig 0 proj (nil)
+T5 32099 W 6405 Ready -90.8946 36.0476
+T5D 32127 st 3 act 1.000 head 269.01 pitch 53.58 tgt 6405 tms 0 yaw 0.00 pit 0.08 trig 0 proj (nil)
+T5D 32159 st 3 act 1.000 head 269.01 pitch 53.68 tgt 6405 tms 0 yaw 0.00 pit 0.10 trig 0 proj (nil)
+T5D 32191 st 3 act 1.000 head 269.01 pitch 53.81 tgt 6405 tms 0 yaw 0.00 pit 0.13 trig 0 proj (nil)
+T5 32195 W 6405 Ready -90.8946 35.7275
+T5D 32223 st 3 act 1.000 head 269.01 pitch 53.50 tgt 6405 tms 0 yaw 0.00 pit -0.31 trig 0 proj (nil)
+T5D 32255 st 3 act 1.000 head 269.01 pitch 53.58 tgt 6405 tms 0 yaw 0.00 pit 0.08 trig 0 proj (nil)
+T5D 32287 st 3 act 1.000 head 269.01 pitch 53.68 tgt 6405 tms 0 yaw 0.00 pit 0.10 trig 0 proj (nil)
+T5 32291 W 6405 Ready -90.8946 35.8654
+T5D 32319 st 3 act 1.000 head 269.01 pitch 53.50 tgt 6405 tms 0 yaw 0.00 pit -0.17 trig 0 proj (nil)
+T5D 32351 st 3 act 1.000 head 269.01 pitch 53.58 tgt 6405 tms 0 yaw 0.00 pit 0.08 trig 0 proj (nil)
+T5D 32383 st 3 act 1.000 head 269.01 pitch 53.68 tgt 6405 tms 0 yaw 0.00 pit 0.10 trig 0 proj (nil)
+T5 32387 W 6405 Ready -90.8946 35.8654
+T5D 32415 st 3 act 1.000 head 269.01 pitch 53.50 tgt 6405 tms 0 yaw 0.00 pit -0.17 trig 0 proj (nil)
+T5D 32447 st 3 act 1.000 head 269.01 pitch 53.58 tgt 6405 tms 0 yaw 0.00 pit 0.08 trig 0 proj (nil)
+T5D 32479 st 3 act 1.000 head 269.01 pitch 53.68 tgt 6405 tms 0 yaw 0.00 pit 0.10 trig 0 proj (nil)
+T5 32483 W 6405 Ready -90.8946 35.8654
+T5D 32511 st 3 act 1.000 head 269.01 pitch 53.50 tgt 6405 tms 0 yaw 0.00 pit -0.17 trig 0 proj (nil)
+T5D 32543 st 3 act 1.000 head 269.01 pitch 53.58 tgt 6405 tms 0 yaw 0.00 pit 0.08 trig 0 proj (nil)
+T5D 32574 st 3 act 1.000 head 269.01 pitch 53.68 tgt 6405 tms 0 yaw 0.00 pit 0.10 trig 0 proj (nil)
+T5 32579 W 6405 Ready -90.8946 35.8654
+T5D 32607 st 3 act 1.000 head 269.01 pitch 53.50 tgt 6405 tms 0 yaw 0.00 pit -0.17 trig 0 proj (nil)
+T5D 32639 st 3 act 1.000 head 269.01 pitch 53.58 tgt 6405 tms 0 yaw 0.00 pit 0.08 trig 0 proj (nil)
+T5D 32671 st 3 act 1.000 head 269.01 pitch 53.68 tgt 6405 tms 0 yaw 0.00 pit 0.10 trig 0 proj (nil)
+T5 32675 W 6405 Ready -90.8946 35.8654
+T5D 32703 st 3 act 1.000 head 269.01 pitch 53.50 tgt 6405 tms 0 yaw 0.00 pit -0.17 trig 0 proj (nil)
+T5D 32734 st 3 act 1.000 head 269.01 pitch 53.58 tgt 6405 tms 0 yaw 0.00 pit 0.08 trig 0 proj (nil)
+T5D 32767 st 3 act 1.000 head 269.01 pitch 53.68 tgt 6405 tms 0 yaw 0.00 pit 0.10 trig 0 proj (nil)
+T5 32771 W 6405 Ready -90.8946 35.8654
+T5D 32799 st 3 act 1.000 head 269.01 pitch 53.50 tgt 6405 tms 0 yaw 0.00 pit -0.17 trig 0 proj (nil)
+T5D 32831 st 3 act 1.000 head 269.01 pitch 53.58 tgt 6405 tms 0 yaw 0.00 pit 0.08 trig 0 proj (nil)
+T5D 32863 st 3 act 1.000 head 269.01 pitch 53.68 tgt 6405 tms 0 yaw 0.00 pit 0.10 trig 0 proj (nil)
+T5 32867 W 6405 Ready -90.8946 35.8654
+T5D 32894 st 3 act 1.000 head 269.01 pitch 53.81 tgt 6405 tms 0 yaw 0.00 pit 0.13 trig 0 proj (nil)
+T5D 32926 st 3 act 1.000 head 269.01 pitch 53.50 tgt 6405 tms 0 yaw 0.00 pit -0.31 trig 0 proj (nil)
+T5D 32959 st 3 act 1.000 head 269.01 pitch 53.58 tgt 6405 tms 0 yaw 0.00 pit 0.08 trig 0 proj (nil)
+T5 32963 W 6405 Ready -90.8946 35.9683
+T5D 32991 st 3 act 1.000 head 269.01 pitch 53.68 tgt 6405 tms 0 yaw 0.00 pit 0.10 trig 0 proj (nil)
+T5D 33023 st 3 act 1.000 head 269.01 pitch 53.50 tgt 6405 tms 0 yaw 0.00 pit -0.17 trig 0 proj (nil)
+T5D 33055 st 3 act 1.000 head 269.01 pitch 53.58 tgt 6405 tms 0 yaw 0.00 pit 0.08 trig 0 proj (nil)
+T5 33059 W 6405 Ready -90.8946 35.9686
+T5D 33087 st 3 act 1.000 head 269.01 pitch 53.68 tgt 6405 tms 0 yaw 0.00 pit 0.10 trig 0 proj (nil)
+T5D 33119 st 3 act 1.000 head 269.01 pitch 53.50 tgt 6405 tms 0 yaw 0.00 pit -0.17 trig 0 proj (nil)
+T5D 33151 st 3 act 1.000 head 269.01 pitch 53.58 tgt 6405 tms 0 yaw 0.00 pit 0.08 trig 0 proj (nil)
+T5 33155 W 6405 Ready -90.8946 35.9686
+T5D 33182 st 3 act 1.000 head 269.01 pitch 53.68 tgt 6405 tms 0 yaw 0.00 pit 0.10 trig 0 proj (nil)
+T5D 33215 st 3 act 1.000 head 269.01 pitch 53.50 tgt 6405 tms 0 yaw 0.00 pit -0.17 trig 0 proj (nil)
+T5D 33247 st 3 act 1.000 head 269.01 pitch 53.58 tgt 6405 tms 0 yaw 0.00 pit 0.08 trig 0 proj (nil)
+T5 33251 W 6405 Ready -90.8946 35.9686
+T5D 33279 st 3 act 1.000 head 269.01 pitch 53.68 tgt 6405 tms 0 yaw 0.00 pit 0.10 trig 0 proj (nil)
+T5D 33311 st 3 act 1.000 head 269.01 pitch 53.50 tgt 6405 tms 0 yaw 0.00 pit -0.17 trig 0 proj (nil)
+T5D 33343 st 3 act 1.000 head 269.01 pitch 53.58 tgt 6405 tms 0 yaw 0.00 pit 0.08 trig 0 proj (nil)
+T5 33347 W 6405 Ready -90.8946 35.9686
+T5D 33375 st 3 act 1.000 head 269.01 pitch 53.68 tgt 6405 tms 0 yaw 0.00 pit 0.10 trig 0 proj (nil)
+T5D 33406 st 3 act 1.000 head 269.01 pitch 53.50 tgt 6405 tms 0 yaw 0.00 pit -0.17 trig 0 proj (nil)
+T5D 33439 st 3 act 1.000 head 269.01 pitch 53.58 tgt 6405 tms 0 yaw 0.00 pit 0.08 trig 0 proj (nil)
+T5 33443 W 6405 Ready -90.8946 35.9686
+T5D 33471 st 3 act 1.000 head 269.01 pitch 53.68 tgt 6405 tms 0 yaw 0.00 pit 0.10 trig 0 proj (nil)
+T5D 33503 st 3 act 1.000 head 269.01 pitch 53.50 tgt 6405 tms 0 yaw 0.00 pit -0.17 trig 0 proj (nil)
+T5D 33535 st 3 act 1.000 head 269.01 pitch 53.58 tgt 6405 tms 0 yaw 0.00 pit 0.08 trig 0 proj (nil)
+T5 33539 W 6405 Ready -90.8946 35.9686
+T5D 33567 st 3 act 1.000 head 269.01 pitch 53.68 tgt 6405 tms 0 yaw 0.00 pit 0.10 trig 0 proj (nil)
+T5D 33599 st 3 act 1.000 head 269.01 pitch 53.50 tgt 6405 tms 0 yaw 0.00 pit -0.17 trig 0 proj (nil)
+T5D 33631 st 3 act 1.000 head 269.01 pitch 53.58 tgt 6405 tms 0 yaw 0.00 pit 0.08 trig 0 proj (nil)
+T5 33635 W 6405 Ready -90.8946 35.9686
+T5D 33663 st 3 act 1.000 head 269.01 pitch 53.68 tgt 6405 tms 0 yaw 0.00 pit 0.10 trig 0 proj (nil)
+T5D 33695 st 3 act 1.000 head 269.01 pitch 53.50 tgt 6405 tms 0 yaw 0.00 pit -0.17 trig 0 proj (nil)
+T5D 33727 st 3 act 1.000 head 269.01 pitch 53.58 tgt 6405 tms 0 yaw 0.00 pit 0.08 trig 0 proj (nil)
+T5 33731 W 6405 Ready -90.8946 35.9686
+T5D 33759 st 3 act 1.000 head 269.01 pitch 53.68 tgt 6405 tms 0 yaw 0.00 pit 0.10 trig 0 proj (nil)
+T5D 33791 st 3 act 1.000 head 269.01 pitch 53.81 tgt 6405 tms 0 yaw 0.00 pit 0.13 trig 0 proj (nil)
+T5D 33823 st 3 act 1.000 head 269.01 pitch 53.50 tgt 6405 tms 0 yaw 0.00 pit -0.31 trig 0 proj (nil)
+T5 33827 W 6405 Ready -90.8946 36.0538
+T5D 33855 st 3 act 1.000 head 269.01 pitch 53.58 tgt 6405 tms 0 yaw 0.00 pit 0.08 trig 0 proj (nil)
+T5D 33887 st 3 act 1.000 head 269.01 pitch 53.68 tgt 6405 tms 0 yaw 0.00 pit 0.10 trig 0 proj (nil)
+T5D 33919 st 3 act 1.000 head 269.01 pitch 53.50 tgt 6405 tms 0 yaw 0.00 pit -0.17 trig 0 proj (nil)
+T5 33923 W 6405 Ready -90.8946 36.0476
+T5D 33951 st 3 act 1.000 head 269.01 pitch 53.58 tgt 6405 tms 0 yaw 0.00 pit 0.08 trig 0 proj (nil)
+T5D 33982 st 3 act 1.000 head 269.01 pitch 53.68 tgt 6405 tms 0 yaw 0.00 pit 0.10 trig 0 proj (nil)
+T5D 34015 st 3 act 1.000 head 269.01 pitch 53.50 tgt 6405 tms 0 yaw 0.00 pit -0.17 trig 0 proj (nil)
+T5 34019 W 6405 Ready -90.8946 36.0476
+T5D 34047 st 3 act 1.000 head 269.01 pitch 53.58 tgt 6405 tms 0 yaw 0.00 pit 0.08 trig 0 proj (nil)
+T5D 34079 st 3 act 1.000 head 269.01 pitch 53.68 tgt 6405 tms 0 yaw 0.00 pit 0.10 trig 0 proj (nil)
+T5D 34111 st 3 act 1.000 head 269.01 pitch 53.50 tgt 6405 tms 0 yaw 0.00 pit -0.17 trig 0 proj (nil)
+T5 34115 W 6405 Ready -90.8946 36.0476
+T5D 34143 st 3 act 1.000 head 269.01 pitch 53.58 tgt 6405 tms 0 yaw 0.00 pit 0.08 trig 0 proj (nil)
+T5D 34175 st 3 act 1.000 head 269.01 pitch 53.68 tgt 6405 tms 0 yaw 0.00 pit 0.10 trig 0 proj (nil)
+T5D 34207 st 3 act 1.000 head 269.01 pitch 53.50 tgt 6405 tms 0 yaw 0.00 pit -0.17 trig 0 proj (nil)
+T5 34211 W 6405 Ready -90.8946 36.0476
+T5D 34239 st 3 act 1.000 head 269.01 pitch 53.58 tgt 6405 tms 0 yaw 0.00 pit 0.08 trig 0 proj (nil)
+T5D 34271 st 3 act 1.000 head 269.01 pitch 53.68 tgt 6405 tms 0 yaw 0.00 pit 0.10 trig 0 proj (nil)
+T5D 34303 st 3 act 1.000 head 269.01 pitch 53.50 tgt 6405 tms 0 yaw 0.00 pit -0.17 trig 0 proj (nil)
+T5 34307 W 6405 Ready -90.8946 36.0476
+T5D 34335 st 3 act 1.000 head 269.01 pitch 53.58 tgt 6405 tms 0 yaw 0.00 pit 0.08 trig 0 proj (nil)
+T5D 34367 st 3 act 1.000 head 269.01 pitch 53.68 tgt 6405 tms 0 yaw 0.00 pit 0.10 trig 0 proj (nil)
+T5D 34399 st 3 act 1.000 head 269.01 pitch 53.50 tgt 6405 tms 0 yaw 0.00 pit -0.17 trig 0 proj (nil)
+T5 34403 W 6405 Ready -90.8946 36.0476
+T5D 34431 st 3 act 1.000 head 269.01 pitch 53.58 tgt 6405 tms 0 yaw 0.00 pit 0.08 trig 0 proj (nil)
+T5D 34463 st 3 act 1.000 head 269.01 pitch 53.68 tgt 6405 tms 0 yaw 0.00 pit 0.10 trig 0 proj (nil)
+T5D 34495 st 3 act 1.000 head 269.01 pitch 53.50 tgt 6405 tms 0 yaw 0.00 pit -0.17 trig 0 proj (nil)
+T5 34499 W 6405 Ready -90.8946 36.0476
+T5D 34527 st 3 act 1.000 head 269.01 pitch 53.58 tgt 6405 tms 0 yaw 0.00 pit 0.08 trig 0 proj (nil)
+T5D 34559 st 3 act 1.000 head 269.01 pitch 53.68 tgt 6405 tms 0 yaw 0.00 pit 0.10 trig 0 proj (nil)
+T5D 34590 st 3 act 1.000 head 269.01 pitch 53.81 tgt 6405 tms 0 yaw 0.00 pit 0.13 trig 0 proj (nil)
+T5 34595 W 6405 Ready -90.8946 35.7275
+T5D 34622 st 3 act 1.000 head 269.01 pitch 53.50 tgt 6405 tms 0 yaw 0.00 pit -0.31 trig 0 proj (nil)
+T5D 34654 st 3 act 1.000 head 269.01 pitch 53.58 tgt 6405 tms 0 yaw 0.00 pit 0.08 trig 0 proj (nil)
+T5D 34687 st 3 act 1.000 head 269.01 pitch 53.68 tgt 6405 tms 0 yaw 0.00 pit 0.10 trig 0 proj (nil)
+T5 34691 W 6405 Ready -90.8946 35.8654
+T5D 34719 st 3 act 1.000 head 269.01 pitch 53.50 tgt 6405 tms 0 yaw 0.00 pit -0.17 trig 0 proj (nil)
+T5D 34751 st 3 act 1.000 head 269.01 pitch 53.58 tgt 6405 tms 0 yaw 0.00 pit 0.08 trig 0 proj (nil)
+T5D 34782 st 3 act 1.000 head 269.01 pitch 53.68 tgt 6405 tms 0 yaw 0.00 pit 0.10 trig 0 proj (nil)
+T5 34787 W 6405 Ready -90.8946 35.8654
+T5 34795 AWAY
+T5D 34815 st 3 act 1.000 head 285.01 pitch 63.28 tgt 6405 tms 0 yaw 64.23 pit 29.53 trig 0 proj (nil)
+T5 34847 SELECT 6404 0 -> 0
+T5D 34847 st 3 act 1.000 head 285.01 pitch 63.28 tgt 0 tms 32 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5D 34879 st 3 act 1.000 head 285.01 pitch 63.28 tgt 0 tms 64 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5 34883 W 0 Ready -75.8642 25.9026
+T5D 34911 st 3 act 1.000 head 285.01 pitch 63.28 tgt 0 tms 96 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5D 34943 st 3 act 1.000 head 285.01 pitch 63.28 tgt 0 tms 128 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5D 34975 st 3 act 1.000 head 285.01 pitch 63.28 tgt 0 tms 160 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5 34979 W 0 Ready -75.8642 25.9026
+T5 35007 SELECT 6404 0 -> 0
+T5D 35007 st 3 act 1.000 head 285.01 pitch 63.28 tgt 0 tms 192 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5D 35039 st 3 act 1.000 head 285.01 pitch 63.28 tgt 0 tms 224 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5D 35071 st 3 act 1.000 head 285.01 pitch 63.28 tgt 0 tms 256 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5 35075 W 0 Ready -75.8642 25.9026
+T5D 35102 st 3 act 1.000 head 285.01 pitch 63.28 tgt 0 tms 288 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5D 35135 st 3 act 1.000 head 285.01 pitch 63.28 tgt 0 tms 320 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5 35167 SELECT 6404 0 -> 0
+T5D 35167 st 3 act 1.000 head 285.01 pitch 63.28 tgt 0 tms 352 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5 35171 W 0 Ready -75.8642 25.9026
+T5D 35199 st 3 act 1.000 head 285.01 pitch 63.28 tgt 0 tms 384 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5D 35231 st 3 act 1.000 head 285.01 pitch 63.28 tgt 0 tms 416 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5D 35263 st 3 act 1.000 head 285.01 pitch 63.28 tgt 0 tms 448 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5 35267 W 0 Ready -75.8642 25.9026
+T5D 35295 st 3 act 1.000 head 285.01 pitch 63.28 tgt 0 tms 480 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5 35327 SELECT 6404 0 -> 0
+T5D 35327 st 3 act 1.000 head 285.01 pitch 63.28 tgt 0 tms 512 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5D 35359 st 3 act 1.000 head 285.01 pitch 63.28 tgt 0 tms 544 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5 35363 W 0 Ready -75.8642 25.9026
+T5D 35391 st 3 act 1.000 head 285.01 pitch 63.28 tgt 0 tms 576 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5D 35423 st 3 act 1.000 head 285.01 pitch 63.28 tgt 0 tms 608 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5D 35455 st 3 act 1.000 head 285.01 pitch 63.28 tgt 0 tms 640 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5 35459 W 0 Ready -75.8642 25.9026
+T5 35487 SELECT 6404 0 -> 0
+T5D 35487 st 3 act 1.000 head 285.01 pitch 63.28 tgt 0 tms 672 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5D 35519 st 3 act 1.000 head 285.01 pitch 63.28 tgt 0 tms 704 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5D 35551 st 3 act 1.000 head 285.01 pitch 63.28 tgt 0 tms 736 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5 35555 W 0 Ready -75.8642 25.9026
+T5D 35583 st 3 act 1.000 head 285.01 pitch 63.28 tgt 0 tms 768 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5D 35615 st 3 act 1.000 head 285.01 pitch 63.28 tgt 0 tms 800 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5 35647 SELECT 6404 0 -> 0
+T5D 35647 st 3 act 1.000 head 285.01 pitch 63.28 tgt 0 tms 832 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5 35651 W 0 Ready -75.8642 25.9026
+T5D 35679 st 3 act 1.000 head 285.01 pitch 63.28 tgt 0 tms 864 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5D 35711 st 3 act 1.000 head 285.01 pitch 63.28 tgt 0 tms 896 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5D 35743 st 3 act 1.000 head 285.01 pitch 63.28 tgt 0 tms 928 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5 35747 W 0 Ready -75.8642 25.9026
+T5D 35775 st 3 act 1.000 head 285.01 pitch 63.28 tgt 0 tms 960 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5 35807 SELECT 6404 0 -> 0
+T5D 35807 st 3 act 1.000 head 285.01 pitch 63.28 tgt 0 tms 992 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5D 35839 st 3 act 1.000 head 285.01 pitch 63.28 tgt 0 tms 1024 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5 35843 W 0 Ready -75.8642 25.9026
+T5D 35871 st 3 act 1.000 head 285.01 pitch 63.28 tgt 0 tms 1056 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5D 35903 st 3 act 1.000 head 285.01 pitch 63.28 tgt 0 tms 1088 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5D 35935 st 3 act 1.000 head 285.01 pitch 63.28 tgt 0 tms 1120 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5 35939 W 0 Ready -75.8642 25.9026
+T5 35967 SELECT 6404 0 -> 0
+T5D 35967 st 3 act 1.000 head 285.01 pitch 63.28 tgt 0 tms 1152 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5D 35999 st 3 act 1.000 head 285.01 pitch 63.28 tgt 0 tms 1184 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5D 36031 st 3 act 1.000 head 285.01 pitch 63.28 tgt 0 tms 1216 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5 36035 W 0 Ready -75.8642 25.9026
+T5D 36063 st 3 act 1.000 head 285.01 pitch 63.28 tgt 0 tms 1248 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5D 36095 st 3 act 1.000 head 285.01 pitch 63.28 tgt 0 tms 1280 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5 36127 SELECT 6404 0 -> 0
+T5D 36127 st 3 act 1.000 head 285.01 pitch 63.28 tgt 0 tms 1312 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5 36131 W 0 Ready -75.8642 25.9026
+T5D 36159 st 3 act 1.000 head 285.01 pitch 63.28 tgt 0 tms 1344 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5D 36191 st 3 act 1.000 head 285.01 pitch 63.28 tgt 0 tms 1376 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5D 36223 st 3 act 1.000 head 285.01 pitch 63.28 tgt 0 tms 1408 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5 36227 W 0 Ready -75.8642 25.9026
+T5D 36255 st 3 act 1.000 head 285.01 pitch 63.28 tgt 0 tms 1440 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5 36287 SELECT 6404 0 -> 0
+T5D 36287 st 3 act 1.000 head 285.01 pitch 63.28 tgt 0 tms 1472 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5D 36319 st 3 act 1.000 head 285.01 pitch 63.28 tgt 0 tms 1504 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5 36323 W 0 Ready -75.8642 25.9026
+T5D 36351 st 2 act 1.000 head 301.01 pitch 72.88 tgt 0 tms 1504 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5D 36382 st 2 act 1.000 head 317.01 pitch 82.48 tgt 0 tms 1504 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5D 36415 st 2 act 1.000 head 333.01 pitch 90.00 tgt 0 tms 1504 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5 36419 W 0 Ready -26.1739 0
+T5 36446 SELECT 6404 0 -> 0
+T5D 36446 st 2 act 1.000 head 349.01 pitch 90.00 tgt 0 tms 1504 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5D 36479 st 2 act 1.000 head 0.00 pitch 90.00 tgt 0 tms 1504 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5D 36511 st 2 act 0.952 head 0.00 pitch 90.00 tgt 0 tms 1504 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5 36515 W 0 Ready 0 0.283132
+T5D 36543 st 2 act 0.905 head 0.00 pitch 90.00 tgt 0 tms 1504 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5D 36575 st 2 act 0.857 head 0.00 pitch 90.00 tgt 0 tms 1504 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5 36607 SELECT 6404 0 -> 0
+T5D 36607 st 2 act 0.810 head 0.00 pitch 90.00 tgt 0 tms 1504 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5 36611 W 0 Deactivate 0 0.0852704
+T5D 36639 st 2 act 0.762 head 0.00 pitch 90.00 tgt 0 tms 1504 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5D 36671 st 2 act 0.714 head 0.00 pitch 90.00 tgt 0 tms 1504 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5D 36703 st 2 act 0.667 head 0.00 pitch 90.00 tgt 0 tms 1504 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5 36707 W 0 Deactivate 0 0
+T5D 36734 st 2 act 0.619 head 0.00 pitch 90.00 tgt 0 tms 1504 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5 36767 SELECT 6404 0 -> 0
+T5D 36767 st 2 act 0.571 head 0.00 pitch 90.00 tgt 0 tms 1504 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5D 36798 st 2 act 0.524 head 0.00 pitch 90.00 tgt 0 tms 1504 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5 36803 W 0 Deactivate 0 0
+T5D 36831 st 2 act 0.476 head 0.00 pitch 90.00 tgt 0 tms 1504 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5D 36863 st 2 act 0.429 head 0.00 pitch 90.00 tgt 0 tms 1504 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5D 36895 st 2 act 0.381 head 0.00 pitch 90.00 tgt 0 tms 1504 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5 36899 W 0 Deactivate 0 0
+T5 36927 SELECT 6404 0 -> 0
+T5D 36927 st 2 act 0.333 head 0.00 pitch 90.00 tgt 0 tms 1504 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5D 36959 st 2 act 0.286 head 0.00 pitch 90.00 tgt 0 tms 1504 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5D 36991 st 2 act 0.238 head 0.00 pitch 90.00 tgt 0 tms 1504 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5 36995 W 0 Deactivate 0 0
+T5D 37023 st 2 act 0.190 head 0.00 pitch 90.00 tgt 0 tms 1504 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5D 37055 st 2 act 0.143 head 0.00 pitch 90.00 tgt 0 tms 1504 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5 37087 SELECT 6404 0 -> 0
+T5D 37087 st 2 act 0.095 head 0.00 pitch 90.00 tgt 0 tms 1504 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5 37091 W 0 Deactivate 0 0
+T5D 37119 st 2 act 0.048 head 0.00 pitch 90.00 tgt 0 tms 1504 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5D 37150 st 2 act 0.000 head 0.00 pitch 90.00 tgt 0 tms 1504 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5D 37183 st 0 act 0.000 head 0.00 pitch 90.00 tgt 0 tms 1504 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5 37187 W 0 Deactivate 0 0
+T5 37247 SELECT 6404 0 -> 0
+T5 37283 W 0 Deactivate 0 0
+T5 37379 W 0 Deactivate 0 0
+T5 37407 SELECT 6404 0 -> 0
+T5 37475 W 0 Deactivate 0 0
+T5 37567 SELECT 6404 0 -> 0
+T5 37571 W 0 Dead 0 0
+T5 37667 W 0 Dead 0 0
+T5 37727 SELECT 6404 0 -> 0
+T5 37763 W 0 Dead 0 0
+T5 37859 W 0 Dead 0 0
+T5 37887 SELECT 6404 0 -> 0
+T5 37955 W 0 Dead 0 0
+T5 38047 SELECT 6404 0 -> 0
+T5 38051 W 0 Dead 0 0
+T5 38147 W 0 Dead 0 0
+T5 38207 SELECT 6404 0 -> 0
+T5 38243 W 0 Dead 0 0
+T5 38339 W 0 Dead 0 0
+T5 38367 SELECT 6404 0 -> 0
+T5 38435 W 0 Dead 0 0
+T5 38527 SELECT 6404 0 -> 0
+T5 38531 W 0 Dead 0 0
+T5 38627 W 0 Dead 0 0
+T5 38687 SELECT 6404 0 -> 0
+T5 38723 W 0 Dead 0 0
+T5 38819 W 0 Dead 0 0
+T5 38847 SELECT 6404 0 -> 0
+T5 38915 W 0 Dead 0 0
+T5 39007 SELECT 6404 0 -> 0
+T5 39011 W 0 Dead 0 0
+T5 39107 W 0 Dead 0 0
+T5 39167 SELECT 6404 0 -> 0
+T5 39203 W 0 Dead 0 0
+T5 39299 W 0 Dead 0 0
+T5 39327 SELECT 6404 0 -> 0
+T5 39395 W 0 Dead 0 0
+T5 39487 SELECT 6404 0 -> 0
+T5 39491 W 0 Dead 0 0
+T5 39587 W 0 Dead 0 0
+T5 39647 SELECT 6404 0 -> 0
+T5 39683 W 0 Dead 0 0
+T5 39779 W 0 Dead 0 0
+T5 39795 SKILL 0.3
+T5 39807 SELECT 6404 0 -> 0
+T5 39875 W 0 Dead 0 0
+T5 39967 SELECT 6404 0 -> 0
+T5 39971 W 0 Dead 0 0
+T5 40067 W 0 Dead 0 0
+T5 40127 SELECT 6404 0 -> 0
+T5 40163 W 0 Dead 0 0
+T5 40259 W 0 Dead 0 0
+T5 40287 SELECT 6404 0 -> 0
+T5 40295 BACK
+T5 40355 W 0 Dead 0 0
+T5 40447 SELECT 6404 0 -> 6405
+T5D 40447 st 1 act 0.048 head 0.00 pitch 90.00 tgt 6405 tms 0 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5 40451 W 6405 Dead 0 0
+T5D 40479 st 1 act 0.095 head 0.00 pitch 90.00 tgt 6405 tms 0 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5D 40511 st 1 act 0.143 head 0.00 pitch 90.00 tgt 6405 tms 0 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5D 40543 st 1 act 0.190 head 0.00 pitch 90.00 tgt 6405 tms 0 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5 40547 W 6405 ActivateReady 0 0
+T5D 40575 st 1 act 0.238 head 0.00 pitch 90.00 tgt 6405 tms 0 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5D 40606 st 1 act 0.286 head 0.00 pitch 90.00 tgt 6405 tms 0 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5D 40639 st 1 act 0.333 head 0.00 pitch 90.00 tgt 6405 tms 0 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5 40643 W 6405 ActivateReady 0 0
+T5D 40671 st 1 act 0.381 head 0.00 pitch 90.00 tgt 6405 tms 0 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5D 40703 st 1 act 0.429 head 0.00 pitch 90.00 tgt 6405 tms 0 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5D 40735 st 1 act 0.476 head 0.00 pitch 90.00 tgt 6405 tms 0 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5 40739 W 6405 ActivateReady 0 0
+T5D 40767 st 1 act 0.524 head 0.00 pitch 90.00 tgt 6405 tms 0 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5D 40799 st 1 act 0.571 head 0.00 pitch 90.00 tgt 6405 tms 0 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5D 40830 st 1 act 0.619 head 0.00 pitch 90.00 tgt 6405 tms 0 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5 40835 W 6405 ActivateReady 0 0
+T5D 40862 st 1 act 0.667 head 0.00 pitch 90.00 tgt 6405 tms 0 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5D 40895 st 1 act 0.714 head 0.00 pitch 90.00 tgt 6405 tms 0 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5D 40927 st 1 act 0.762 head 0.00 pitch 90.00 tgt 6405 tms 0 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5 40931 W 6405 ActivateReady 0 0
+T5D 40959 st 1 act 0.810 head 0.00 pitch 90.00 tgt 6405 tms 0 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5D 40991 st 1 act 0.857 head 0.00 pitch 90.00 tgt 6405 tms 0 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5D 41023 st 1 act 0.905 head 0.00 pitch 90.00 tgt 6405 tms 0 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5 41027 W 6405 ActivateReady 0 0.569426
+T5D 41055 st 1 act 0.952 head 0.00 pitch 90.00 tgt 6405 tms 0 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5D 41087 st 3 act 1.000 head 0.00 pitch 90.00 tgt 6405 tms 0 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5D 41119 st 3 act 1.000 head 344.00 pitch 80.40 tgt 6405 tms 0 yaw -92.99 pit -36.63 trig 0 proj (nil)
+T5 41123 W 6405 ActivateReady -15.1083 8.90313
+T5D 41151 st 3 act 1.000 head 328.00 pitch 70.80 tgt 6405 tms 0 yaw -77.63 pit -26.16 trig 0 proj (nil)
+T5D 41183 st 3 act 1.000 head 312.00 pitch 61.20 tgt 6405 tms 0 yaw -62.38 pit -17.82 trig 0 proj (nil)
+T5D 41215 st 3 act 1.000 head 296.00 pitch 52.93 tgt 6405 tms 0 yaw -44.16 pit -8.27 trig 0 proj (nil)
+T5 41219 W 6405 ActivateReady -64.8428 36.6491
+T5D 41247 st 3 act 1.000 head 280.00 pitch 53.14 tgt 6405 tms 0 yaw -27.48 pit 0.22 trig 0 proj (nil)
+T5D 41279 st 3 act 1.000 head 268.72 pitch 54.67 tgt 6405 tms 0 yaw -11.28 pit 1.52 trig 0 proj (nil)
+T5D 41311 st 3 act 1.000 head 269.10 pitch 52.49 tgt 6405 tms 0 yaw 0.38 pit -2.17 trig 0 proj (nil)
+T5 41315 W 6405 ActivateReady -90.8104 37.1067
+T5D 41343 st 3 act 1.000 head 270.07 pitch 53.32 tgt 6405 tms 0 yaw 0.96 pit 0.83 trig 0 proj (nil)
+T5D 41375 st 3 act 1.000 head 270.16 pitch 52.96 tgt 6405 tms 0 yaw 0.10 pit -0.36 trig 0 proj (nil)
+T5D 41407 st 3 act 1.000 head 268.70 pitch 52.83 tgt 6405 tms 0 yaw -1.46 pit -0.13 trig 0 proj (nil)
+T5 41411 W 6405 ActivateReady -91.1748 36.7529
+T5D 41439 st 3 act 1.000 head 269.94 pitch 54.26 tgt 6405 tms 0 yaw 1.24 pit 1.43 trig 0 proj (nil)
+T5D 41471 st 3 act 1.000 head 269.82 pitch 53.98 tgt 6405 tms 0 yaw -0.11 pit -0.28 trig 0 proj (nil)
+T5D 41503 st 3 act 1.000 head 269.04 pitch 52.65 tgt 6405 tms 0 yaw -0.78 pit -1.33 trig 0 proj (nil)
+T5 41507 W 6405 Ready -90.87 36.9416
+T5D 41535 st 3 act 1.000 head 268.14 pitch 53.93 tgt 6405 tms 0 yaw -0.90 pit 1.28 trig 0 proj (nil)
+T5D 41567 st 3 act 1.000 head 270.01 pitch 54.06 tgt 6405 tms 0 yaw 1.87 pit 0.13 trig 0 proj (nil)
+T5D 41599 st 3 act 1.000 head 270.08 pitch 52.48 tgt 6405 tms 0 yaw 0.06 pit -1.58 trig 0 proj (nil)
+T5 41603 W 6405 Ready -89.9343 37.1179
+T5D 41631 st 3 act 1.000 head 270.08 pitch 53.57 tgt 6405 tms 0 yaw 0.01 pit 1.09 trig 0 proj (nil)
+T5D 41663 st 3 act 1.000 head 270.08 pitch 53.46 tgt 6405 tms 0 yaw -0.00 pit -0.11 trig 0 proj (nil)
+T5D 41695 st 3 act 1.000 head 269.99 pitch 53.84 tgt 6405 tms 0 yaw -0.09 pit 0.39 trig 0 proj (nil)
+T5 41699 W 6405 Ready -90.0145 35.6915
+T5D 41727 st 3 act 1.000 head 268.43 pitch 52.74 tgt 6405 tms 0 yaw -1.55 pit -1.10 trig 0 proj (nil)
+T5D 41759 st 3 act 1.000 head 268.31 pitch 54.16 tgt 6405 tms 0 yaw -0.12 pit 1.42 trig 0 proj (nil)
+T5D 41791 st 3 act 1.000 head 269.49 pitch 53.40 tgt 6405 tms 0 yaw 1.18 pit -0.76 trig 0 proj (nil)
+T5 41795 W 6405 Ready -90.4591 36.157
+T5D 41823 st 3 act 1.000 head 268.93 pitch 54.12 tgt 6405 tms 0 yaw -0.57 pit 0.72 trig 0 proj (nil)
+T5D 41855 st 3 act 1.000 head 268.38 pitch 53.51 tgt 6405 tms 0 yaw -0.55 pit -0.62 trig 0 proj (nil)
+T5D 41886 st 3 act 1.000 head 269.30 pitch 53.78 tgt 6405 tms 0 yaw 0.92 pit 0.27 trig 0 proj (nil)
+T5 41891 W 6405 Ready -90.6368 35.76
+T5D 41918 st 3 act 1.000 head 270.23 pitch 54.05 tgt 6405 tms 0 yaw 0.94 pit 0.27 trig 0 proj (nil)
+T5D 41951 st 3 act 1.000 head 268.36 pitch 53.78 tgt 6405 tms 0 yaw -1.87 pit -0.27 trig 0 proj (nil)
+T5D 41983 st 3 act 1.000 head 269.94 pitch 54.37 tgt 6405 tms 0 yaw 1.58 pit 0.59 trig 0 proj (nil)
+T5 41987 W 6405 Ready -90.0552 35.138
+T5D 42015 st 3 act 1.000 head 269.57 pitch 53.16 tgt 6405 tms 0 yaw -0.38 pit -1.21 trig 0 proj (nil)
+T5D 42047 st 3 act 1.000 head 270.28 pitch 53.06 tgt 6405 tms 0 yaw 0.71 pit -0.10 trig 0 proj (nil)
+T5D 42079 st 3 act 1.000 head 269.75 pitch 54.62 tgt 6405 tms 0 yaw -0.53 pit 1.55 trig 0 proj (nil)
+T5 42083 W 6405 Ready -90.2288 34.8808
+T5D 42111 st 3 act 1.000 head 269.56 pitch 53.35 tgt 6405 tms 0 yaw -0.19 pit -1.26 trig 0 proj (nil)
+T5D 42143 st 3 act 1.000 head 269.88 pitch 54.19 tgt 6405 tms 0 yaw 0.32 pit 0.84 trig 0 proj (nil)
+T5D 42175 st 3 act 1.000 head 269.10 pitch 54.57 tgt 6405 tms 0 yaw -0.78 pit 0.38 trig 0 proj (nil)
+T5 42179 W 6405 Ready -90.819 34.9307
+T5D 42207 st 3 act 1.000 head 268.05 pitch 52.47 tgt 6405 tms 0 yaw -1.04 pit -2.10 trig 0 proj (nil)
+T5D 42239 st 3 act 1.000 head 268.27 pitch 54.51 tgt 6405 tms 0 yaw 0.22 pit 2.04 trig 0 proj (nil)
+T5D 42271 st 3 act 1.000 head 267.96 pitch 53.85 tgt 6405 tms 0 yaw -0.31 pit -0.66 trig 0 proj (nil)
+T5 42275 W 6405 Ready -91.8503 35.6865
+T5D 42303 st 3 act 1.000 head 270.14 pitch 52.79 tgt 6405 tms 0 yaw 2.18 pit -1.05 trig 0 proj (nil)
+T5D 42335 st 3 act 1.000 head 268.25 pitch 53.30 tgt 6405 tms 0 yaw -1.89 pit 0.51 trig 0 proj (nil)
+T5D 42367 st 3 act 1.000 head 268.49 pitch 54.70 tgt 6405 tms 0 yaw 0.24 pit 1.40 trig 0 proj (nil)
+T5 42371 W 6405 Ready -91.3661 34.7956
+T5D 42399 st 3 act 1.000 head 268.30 pitch 53.24 tgt 6405 tms 0 yaw -0.19 pit -1.46 trig 0 proj (nil)
+T5D 42431 st 3 act 1.000 head 269.70 pitch 52.87 tgt 6405 tms 0 yaw 1.41 pit -0.37 trig 0 proj (nil)
+T5D 42463 st 3 act 1.000 head 269.16 pitch 54.23 tgt 6405 tms 0 yaw -0.54 pit 1.36 trig 0 proj (nil)
+T5 42467 W 6405 Ready -90.7588 35.2902
+T5D 42495 st 3 act 1.000 head 269.64 pitch 52.77 tgt 6405 tms 0 yaw 0.48 pit -1.45 trig 0 proj (nil)
+T5D 42527 st 3 act 1.000 head 268.47 pitch 52.99 tgt 6405 tms 0 yaw -1.17 pit 0.22 trig 0 proj (nil)
+T5D 42558 st 3 act 1.000 head 268.99 pitch 53.54 tgt 6405 tms 0 yaw 0.52 pit 0.55 trig 0 proj (nil)
+T5 42563 W 6405 Ready -90.9129 36.0054
+T5D 42591 st 3 act 1.000 head 268.42 pitch 54.72 tgt 6405 tms 0 yaw -0.57 pit 1.18 trig 0 proj (nil)
+T5D 42623 st 3 act 1.000 head 270.11 pitch 53.58 tgt 6405 tms 0 yaw 1.69 pit -1.14 trig 0 proj (nil)
+T5D 42655 st 3 act 1.000 head 268.06 pitch 52.65 tgt 6405 tms 0 yaw -2.05 pit -0.94 trig 0 proj (nil)
+T5 42659 W 6405 Ready -91.7586 36.9439
+T5D 42687 st 3 act 1.000 head 267.83 pitch 53.77 tgt 6405 tms 0 yaw -0.23 pit 1.12 trig 0 proj (nil)
+T5D 42719 st 3 act 1.000 head 269.04 pitch 53.94 tgt 6405 tms 0 yaw 1.21 pit 0.17 trig 0 proj (nil)
+T5D 42751 st 3 act 1.000 head 269.52 pitch 52.82 tgt 6405 tms 0 yaw 0.48 pit -1.12 trig 0 proj (nil)
+T5 42755 W 6405 Ready -90.4385 36.7596
+T5D 42783 st 3 act 1.000 head 270.07 pitch 52.90 tgt 6405 tms 0 yaw 0.56 pit 0.07 trig 0 proj (nil)
+T5D 42815 st 3 act 1.000 head 268.72 pitch 52.98 tgt 6405 tms 0 yaw -1.35 pit 0.08 trig 0 proj (nil)
+T5D 42847 st 3 act 1.000 head 267.95 pitch 53.00 tgt 6405 tms 0 yaw -0.77 pit 0.02 trig 0 proj (nil)
+T5 42851 W 6405 Ready -91.8549 36.5762
+T5D 42879 st 3 act 1.000 head 268.16 pitch 53.44 tgt 6405 tms 0 yaw 0.20 pit 0.44 trig 0 proj (nil)
+T5D 42911 st 3 act 1.000 head 270.22 pitch 53.75 tgt 6405 tms 0 yaw 2.07 pit 0.31 trig 0 proj (nil)
+T5D 42943 st 3 act 1.000 head 268.55 pitch 53.90 tgt 6405 tms 0 yaw -1.68 pit 0.15 trig 0 proj (nil)
+T5 42947 W 6405 Ready -91.3151 35.6297
+T5D 42975 st 3 act 1.000 head 269.25 pitch 53.66 tgt 6405 tms 0 yaw 0.70 pit -0.24 trig 0 proj (nil)
+T5D 43007 st 3 act 1.000 head 267.90 pitch 52.73 tgt 6405 tms 0 yaw -1.35 pit -0.93 trig 0 proj (nil)
+T5D 43039 st 3 act 1.000 head 268.21 pitch 54.29 tgt 6405 tms 0 yaw 0.31 pit 1.56 trig 0 proj (nil)
+T5 43043 W 6405 Ready -91.6245 35.227
+T5D 43071 st 3 act 1.000 head 268.07 pitch 54.55 tgt 6405 tms 0 yaw -0.13 pit 0.27 trig 0 proj (nil)
+T5D 43103 st 3 act 1.000 head 267.92 pitch 53.30 tgt 6405 tms 0 yaw -0.15 pit -1.26 trig 0 proj (nil)
+T5D 43135 st 3 act 1.000 head 270.01 pitch 53.04 tgt 6405 tms 0 yaw 2.08 pit -0.26 trig 0 proj (nil)
+T5 43139 W 6405 Ready -89.9973 36.53
+T5D 43167 st 3 act 1.000 head 270.18 pitch 53.96 tgt 6405 tms 0 yaw 0.17 pit 0.92 trig 0 proj (nil)
+T5D 43199 st 3 act 1.000 head 269.98 pitch 53.87 tgt 6405 tms 0 yaw -0.20 pit -0.09 trig 0 proj (nil)
+T5D 43231 st 3 act 1.000 head 268.51 pitch 53.41 tgt 6405 tms 0 yaw -1.47 pit -0.46 trig 0 proj (nil)
+T5 43235 W 6405 Ready -91.3467 36.1434
+T5D 43263 st 3 act 1.000 head 269.16 pitch 53.54 tgt 6405 tms 0 yaw 0.65 pit 0.13 trig 0 proj (nil)
+T5D 43294 st 3 act 1.000 head 269.79 pitch 53.40 tgt 6405 tms 0 yaw 0.63 pit -0.14 trig 0 proj (nil)
+T5D 43327 st 3 act 1.000 head 269.45 pitch 53.47 tgt 6405 tms 0 yaw -0.34 pit 0.06 trig 0 proj (nil)
+T5 43331 W 6405 Ready -90.497 36.0829
+T5D 43359 st 3 act 1.000 head 269.16 pitch 52.70 tgt 6405 tms 0 yaw -0.29 pit -0.76 trig 0 proj (nil)
+T5D 43391 st 3 act 1.000 head 268.87 pitch 54.59 tgt 6405 tms 0 yaw -0.29 pit 1.89 trig 0 proj (nil)
+T5D 43423 st 3 act 1.000 head 268.69 pitch 54.14 tgt 6405 tms 0 yaw -0.17 pit -0.46 trig 0 proj (nil)
+T5 43427 W 6405 Ready -91.1811 35.3841
+T5D 43455 st 3 act 1.000 head 268.58 pitch 53.66 tgt 6405 tms 0 yaw -0.12 pit -0.47 trig 0 proj (nil)
+T5D 43487 st 3 act 1.000 head 269.44 pitch 54.10 tgt 6405 tms 0 yaw 0.87 pit 0.44 trig 0 proj (nil)
+T5D 43519 st 3 act 1.000 head 268.29 pitch 53.57 tgt 6405 tms 0 yaw -1.16 pit -0.53 trig 0 proj (nil)
+T5 43523 W 6405 Ready -91.5518 35.9737
+T5D 43551 st 3 act 1.000 head 268.45 pitch 54.53 tgt 6405 tms 0 yaw 0.17 pit 0.96 trig 0 proj (nil)
+T5D 43583 st 3 act 1.000 head 268.93 pitch 52.69 tgt 6405 tms 0 yaw 0.48 pit -1.84 trig 0 proj (nil)
+T5D 43615 st 3 act 1.000 head 269.71 pitch 53.71 tgt 6405 tms 0 yaw 0.78 pit 1.02 trig 0 proj (nil)
+T5 43619 W 6405 Ready -90.2666 35.8246
+T5D 43647 st 3 act 1.000 head 268.47 pitch 52.82 tgt 6405 tms 0 yaw -1.24 pit -0.89 trig 0 proj (nil)
+T5D 43679 st 3 act 1.000 head 268.16 pitch 54.13 tgt 6405 tms 0 yaw -0.31 pit 1.31 trig 0 proj (nil)
+T5D 43711 st 3 act 1.000 head 269.52 pitch 52.90 tgt 6405 tms 0 yaw 1.36 pit -1.24 trig 0 proj (nil)
+T5 43715 W 6405 Ready -90.4362 36.6802
+T5D 43743 st 3 act 1.000 head 270.26 pitch 54.23 tgt 6405 tms 0 yaw 0.74 pit 1.33 trig 0 proj (nil)
+T5D 43775 st 3 act 1.000 head 268.95 pitch 52.71 tgt 6405 tms 0 yaw -1.31 pit -1.53 trig 0 proj (nil)
+T5D 43807 st 3 act 1.000 head 268.11 pitch 54.31 tgt 6405 tms 0 yaw -0.84 pit 1.60 trig 0 proj (nil)
+T5 43811 W 6405 Ready -91.7134 35.2025
+T5D 43839 st 3 act 1.000 head 269.21 pitch 54.55 tgt 6405 tms 0 yaw 1.11 pit 0.24 trig 0 proj (nil)
+T5D 43871 st 3 act 1.000 head 268.23 pitch 54.41 tgt 6405 tms 0 yaw -0.99 pit -0.14 trig 0 proj (nil)
+T5D 43903 st 3 act 1.000 head 269.77 pitch 53.13 tgt 6405 tms 0 yaw 1.54 pit -1.28 trig 0 proj (nil)
+T5 43907 W 6405 Ready -90.2139 36.4414
+T5D 43935 st 3 act 1.000 head 267.88 pitch 53.32 tgt 6405 tms 0 yaw -1.89 pit 0.19 trig 0 proj (nil)
+T5D 43967 st 3 act 1.000 head 268.24 pitch 53.99 tgt 6405 tms 0 yaw 0.37 pit 0.67 trig 0 proj (nil)
+T5D 43999 st 3 act 1.000 head 268.01 pitch 54.40 tgt 6405 tms 0 yaw -0.23 pit 0.41 trig 0 proj (nil)
+T5 44003 W 6405 Ready -91.7993 35.1072
+T5D 44031 st 3 act 1.000 head 268.33 pitch 53.15 tgt 6405 tms 0 yaw 0.32 pit -1.25 trig 0 proj (nil)
+T5D 44063 st 3 act 1.000 head 269.90 pitch 53.00 tgt 6405 tms 0 yaw 1.56 pit -0.16 trig 0 proj (nil)
+T5D 44095 st 3 act 1.000 head 268.78 pitch 52.60 tgt 6405 tms 0 yaw -1.12 pit -0.40 trig 0 proj (nil)
+T5 44099 W 6405 Ready -91.1037 36.9958
+T5D 44127 st 3 act 1.000 head 269.13 pitch 53.29 tgt 6405 tms 0 yaw 0.35 pit 0.69 trig 0 proj (nil)
+T5D 44159 st 3 act 1.000 head 270.00 pitch 54.44 tgt 6405 tms 0 yaw 0.87 pit 1.16 trig 0 proj (nil)
+T5D 44191 st 3 act 1.000 head 269.99 pitch 53.75 tgt 6405 tms 0 yaw -0.01 pit -0.69 trig 0 proj (nil)
+T5 44195 W 6405 Ready -90.0088 35.785
+T5D 44223 st 3 act 1.000 head 267.91 pitch 53.12 tgt 6405 tms 0 yaw -2.08 pit -0.64 trig 0 proj (nil)
+T5D 44255 st 3 act 1.000 head 269.30 pitch 54.08 tgt 6405 tms 0 yaw 1.38 pit 0.97 trig 0 proj (nil)
+T5D 44287 st 3 act 1.000 head 268.64 pitch 53.06 tgt 6405 tms 0 yaw -0.66 pit -1.02 trig 0 proj (nil)
+T5 44291 W 6405 Ready -91.2269 36.5104
+T5D 44319 st 3 act 1.000 head 267.94 pitch 53.90 tgt 6405 tms 0 yaw -0.70 pit 0.84 trig 0 proj (nil)
+T5D 44351 st 3 act 1.000 head 269.95 pitch 52.62 tgt 6405 tms 0 yaw 2.01 pit -1.28 trig 0 proj (nil)
+T5D 44383 st 3 act 1.000 head 268.58 pitch 54.25 tgt 6405 tms 0 yaw -1.38 pit 1.63 trig 0 proj (nil)
+T5 44387 W 6405 Ready -91.2854 35.2648
+T5D 44415 st 3 act 1.000 head 267.91 pitch 53.08 tgt 6405 tms 0 yaw -0.67 pit -1.17 trig 0 proj (nil)
+T5D 44447 st 3 act 1.000 head 269.22 pitch 52.73 tgt 6405 tms 0 yaw 1.31 pit -0.35 trig 0 proj (nil)
+T5D 44479 st 3 act 1.000 head 267.96 pitch 54.50 tgt 6405 tms 0 yaw -1.27 pit 1.77 trig 0 proj (nil)
+T5 44483 W 6405 Ready -91.852 35.0029
+T5D 44511 st 3 act 1.000 head 268.72 pitch 54.22 tgt 6405 tms 0 yaw 0.77 pit -0.28 trig 0 proj (nil)
+T5D 44543 st 3 act 1.000 head 268.22 pitch 53.28 tgt 6405 tms 0 yaw -0.50 pit -0.94 trig 0 proj (nil)
+T5D 44574 st 3 act 1.000 head 268.36 pitch 54.01 tgt 6405 tms 0 yaw 0.14 pit 0.73 trig 0 proj (nil)
+T5 44579 W 6405 Ready -91.483 35.5129
+T5D 44607 st 3 act 1.000 head 268.37 pitch 53.55 tgt 6405 tms 0 yaw 0.01 pit -0.47 trig 0 proj (nil)
+T5D 44639 st 3 act 1.000 head 270.21 pitch 54.42 tgt 6405 tms 0 yaw 1.84 pit 0.88 trig 0 proj (nil)
+T5D 44671 st 3 act 1.000 head 268.92 pitch 54.05 tgt 6405 tms 0 yaw -1.28 pit -0.38 trig 0 proj (nil)
+T5 44675 W 6405 Ready -90.9731 35.4773
+T5D 44703 st 3 act 1.000 head 269.60 pitch 52.79 tgt 6405 tms 0 yaw 0.68 pit -1.26 trig 0 proj (nil)
+T5D 44735 st 3 act 1.000 head 268.53 pitch 53.03 tgt 6405 tms 0 yaw -1.08 pit 0.24 trig 0 proj (nil)
+T5D 44767 st 3 act 1.000 head 269.93 pitch 52.90 tgt 6405 tms 0 yaw 1.40 pit -0.12 trig 0 proj (nil)
+T5 44771 W 6405 Ready -90.069 36.6741
+T5D 44799 st 3 act 1.000 head 267.95 pitch 54.57 tgt 6405 tms 0 yaw -1.97 pit 1.66 trig 0 proj (nil)
+T5D 44831 st 3 act 1.000 head 267.84 pitch 53.65 tgt 6405 tms 0 yaw -0.11 pit -0.91 trig 0 proj (nil)
+T5D 44863 st 3 act 1.000 head 268.54 pitch 52.82 tgt 6405 tms 0 yaw 0.70 pit -0.84 trig 0 proj (nil)
+T5 44867 W 6405 Ready -91.3186 36.7662
+T5D 44895 st 3 act 1.000 head 269.14 pitch 53.75 tgt 6405 tms 0 yaw 0.59 pit 0.93 trig 0 proj (nil)
+T5D 44927 st 3 act 1.000 head 268.71 pitch 53.78 tgt 6405 tms 0 yaw -0.43 pit 0.03 trig 0 proj (nil)
+T5D 44959 st 3 act 1.000 head 270.29 pitch 53.78 tgt 6405 tms 0 yaw 1.58 pit 0.00 trig 0 proj (nil)
+T5 44963 W 6405 Ready -89.7441 35.7531
+T5D 44991 st 3 act 1.000 head 268.13 pitch 53.84 tgt 6405 tms 0 yaw -2.16 pit 0.05 trig 0 proj (nil)
+T5D 45023 st 3 act 1.000 head 268.29 pitch 54.38 tgt 6405 tms 0 yaw 0.17 pit 0.55 trig 0 proj (nil)
+T5D 45055 st 3 act 1.000 head 269.24 pitch 52.67 tgt 6405 tms 0 yaw 0.94 pit -1.71 trig 0 proj (nil)
+T5 45059 W 6405 Ready -90.6895 36.9145
+T5D 45087 st 3 act 1.000 head 269.86 pitch 54.43 tgt 6405 tms 0 yaw 0.62 pit 1.76 trig 0 proj (nil)
+T5D 45119 st 3 act 1.000 head 267.89 pitch 52.51 tgt 6405 tms 0 yaw -1.96 pit -1.92 trig 0 proj (nil)
+T5D 45151 st 3 act 1.000 head 268.81 pitch 53.66 tgt 6405 tms 0 yaw 0.91 pit 1.15 trig 0 proj (nil)
+T5 45155 W 6405 Ready -91.0802 35.8846
+T5D 45183 st 3 act 1.000 head 268.43 pitch 53.22 tgt 6405 tms 0 yaw -0.37 pit -0.44 trig 0 proj (nil)
+T5D 45214 st 3 act 1.000 head 270.00 pitch 53.91 tgt 6405 tms 0 yaw 1.57 pit 0.69 trig 0 proj (nil)
+T5D 45247 st 3 act 1.000 head 268.06 pitch 53.47 tgt 6405 tms 0 yaw -1.94 pit -0.45 trig 0 proj (nil)
+T5 45251 W 6405 Ready -91.758 36.0861
+T5D 45279 st 3 act 1.000 head 269.83 pitch 53.39 tgt 6405 tms 0 yaw 1.77 pit -0.08 trig 0 proj (nil)
+T5D 45311 st 3 act 1.000 head 269.88 pitch 54.41 tgt 6405 tms 0 yaw 0.05 pit 1.02 trig 0 proj (nil)
+T5D 45343 st 3 act 1.000 head 268.04 pitch 53.77 tgt 6405 tms 0 yaw -1.84 pit -0.64 trig 0 proj (nil)
+T5 45347 W 6405 Ready -91.7781 35.7699
+T5D 45375 st 3 act 1.000 head 269.92 pitch 52.71 tgt 6405 tms 0 yaw 1.88 pit -1.06 trig 0 proj (nil)
+T5D 45407 st 3 act 1.000 head 269.34 pitch 53.64 tgt 6405 tms 0 yaw -0.58 pit 0.93 trig 0 proj (nil)
+T5D 45439 st 3 act 1.000 head 270.00 pitch 53.28 tgt 6405 tms 0 yaw 0.66 pit -0.37 trig 0 proj (nil)
+T5 45443 W 6405 Ready -90.0088 36.2839
+T5D 45471 st 3 act 1.000 head 268.31 pitch 53.24 tgt 6405 tms 0 yaw -1.69 pit -0.03 trig 0 proj (nil)
+T5D 45503 st 3 act 1.000 head 268.33 pitch 52.95 tgt 6405 tms 0 yaw 0.02 pit -0.30 trig 0 proj (nil)
+T5D 45535 st 3 act 1.000 head 270.09 pitch 53.68 tgt 6405 tms 0 yaw 1.77 pit 0.74 trig 0 proj (nil)
+T5 45539 W 6405 Ready -89.9188 35.8602
+T5D 45567 st 3 act 1.000 head 269.68 pitch 53.88 tgt 6405 tms 0 yaw -0.42 pit 0.20 trig 0 proj (nil)
+T5D 45599 st 3 act 1.000 head 268.66 pitch 53.98 tgt 6405 tms 0 yaw -1.02 pit 0.10 trig 0 proj (nil)
+T5D 45631 st 3 act 1.000 head 268.15 pitch 53.72 tgt 6405 tms 0 yaw -0.50 pit -0.26 trig 0 proj (nil)
+T5 45635 W 6405 Ready -91.671 35.8165
+T5D 45663 st 3 act 1.000 head 268.58 pitch 54.47 tgt 6405 tms 0 yaw 0.43 pit 0.75 trig 0 proj (nil)
+T5D 45695 st 3 act 1.000 head 267.78 pitch 53.02 tgt 6405 tms 0 yaw -0.81 pit -1.44 trig 0 proj (nil)
+T5D 45727 st 3 act 1.000 head 268.38 pitch 52.97 tgt 6405 tms 0 yaw 0.60 pit -0.05 trig 0 proj (nil)
+T5 45731 W 6405 Ready -91.4664 36.6001
+T5D 45759 st 3 act 1.000 head 270.26 pitch 53.84 tgt 6405 tms 0 yaw 1.88 pit 0.86 trig 0 proj (nil)
+T5D 45791 st 3 act 1.000 head 269.21 pitch 54.68 tgt 6405 tms 0 yaw -1.05 pit 0.85 trig 0 proj (nil)
+T5D 45823 st 3 act 1.000 head 270.19 pitch 53.80 tgt 6405 tms 0 yaw 0.98 pit -0.88 trig 0 proj (nil)
+T5 45827 W 6405 Ready -89.8329 35.7337
+T5D 45855 st 3 act 1.000 head 267.91 pitch 52.69 tgt 6405 tms 0 yaw -2.28 pit -1.12 trig 0 proj (nil)
+T5D 45887 st 3 act 1.000 head 267.87 pitch 54.52 tgt 6405 tms 0 yaw -0.04 pit 1.83 trig 0 proj (nil)
+T5D 45918 st 3 act 1.000 head 268.05 pitch 53.68 tgt 6405 tms 0 yaw 0.18 pit -0.83 trig 0 proj (nil)
+T5 45923 W 6405 Ready -91.7666 35.8572
+T5D 45951 st 3 act 1.000 head 268.25 pitch 54.04 tgt 6405 tms 0 yaw 0.20 pit 0.36 trig 0 proj (nil)
+T5D 45983 st 3 act 1.000 head 269.97 pitch 54.50 tgt 6405 tms 0 yaw 1.72 pit 0.46 trig 0 proj (nil)
+T5D 46015 st 3 act 1.000 head 268.70 pitch 53.60 tgt 6405 tms 0 yaw -1.27 pit -0.90 trig 0 proj (nil)
+T5 46019 W 6405 Ready -91.1771 35.942
+T5D 46047 st 3 act 1.000 head 268.09 pitch 53.85 tgt 6405 tms 0 yaw -0.61 pit 0.25 trig 0 proj (nil)
+T5D 46079 st 3 act 1.000 head 268.13 pitch 54.12 tgt 6405 tms 0 yaw 0.04 pit 0.27 trig 0 proj (nil)
+T5D 46111 st 3 act 1.000 head 270.26 pitch 53.71 tgt 6405 tms 0 yaw 2.13 pit -0.40 trig 0 proj (nil)
+T5 46115 W 6405 Ready -89.7699 35.8256
+T5D 46143 st 3 act 1.000 head 267.75 pitch 54.47 tgt 6405 tms 0 yaw -2.51 pit 0.75 trig 0 proj (nil)
+T5D 46175 st 3 act 1.000 head 267.95 pitch 54.44 tgt 6405 tms 0 yaw 0.21 pit -0.02 trig 0 proj (nil)
+T5D 46207 st 3 act 1.000 head 268.94 pitch 54.39 tgt 6405 tms 0 yaw 0.98 pit -0.05 trig 0 proj (nil)
+T5 46211 W 6405 Ready -90.9628 35.1142
+T5D 46239 st 3 act 1.000 head 268.72 pitch 53.74 tgt 6405 tms 0 yaw -0.22 pit -0.65 trig 0 proj (nil)
+T5D 46271 st 3 act 1.000 head 268.65 pitch 54.38 tgt 6405 tms 0 yaw -0.07 pit 0.63 trig 0 proj (nil)
+T5D 46303 st 3 act 1.000 head 268.12 pitch 53.25 tgt 6405 tms 0 yaw -0.53 pit -1.13 trig 0 proj (nil)
+T5 46307 W 6405 Ready -91.7065 36.3121
+T5D 46335 st 3 act 1.000 head 268.28 pitch 53.75 tgt 6405 tms 0 yaw 0.16 pit 0.50 trig 0 proj (nil)
+T5D 46367 st 3 act 1.000 head 268.77 pitch 53.76 tgt 6405 tms 0 yaw 0.49 pit 0.02 trig 0 proj (nil)
+T5D 46399 st 3 act 1.000 head 270.06 pitch 53.82 tgt 6405 tms 0 yaw 1.29 pit 0.06 trig 0 proj (nil)
+T5 46403 W 6405 Ready -89.9532 35.7115
+T5D 46431 st 3 act 1.000 head 269.09 pitch 53.54 tgt 6405 tms 0 yaw -0.97 pit -0.28 trig 0 proj (nil)
+T5D 46463 st 3 act 1.000 head 269.59 pitch 52.99 tgt 6405 tms 0 yaw 0.50 pit -0.55 trig 0 proj (nil)
+T5D 46495 st 3 act 1.000 head 269.21 pitch 52.55 tgt 6405 tms 0 yaw -0.38 pit -0.44 trig 0 proj (nil)
+T5 46499 W 6405 Ready -90.7141 37.0444
+T5D 46527 st 3 act 1.000 head 268.59 pitch 53.07 tgt 6405 tms 0 yaw -0.62 pit 0.52 trig 0 proj (nil)
+T5D 46559 st 3 act 1.000 head 267.77 pitch 54.66 tgt 6405 tms 0 yaw -0.82 pit 1.59 trig 0 proj (nil)
+T5D 46591 st 3 act 1.000 head 269.41 pitch 53.88 tgt 6405 tms 0 yaw 1.64 pit -0.78 trig 0 proj (nil)
+T5 46595 W 6405 Ready -90.5319 35.6561
+T5D 46622 st 3 act 1.000 head 269.81 pitch 53.14 tgt 6405 tms 0 yaw 0.40 pit -0.74 trig 0 proj (nil)
+T5D 46655 st 3 act 1.000 head 267.71 pitch 52.66 tgt 6405 tms 0 yaw -2.10 pit -0.47 trig 0 proj (nil)
+T5D 46687 st 3 act 1.000 head 269.58 pitch 53.55 tgt 6405 tms 0 yaw 1.87 pit 0.89 trig 0 proj (nil)
+T5 46691 W 6405 Ready -90.3801 35.9968
+T5D 46719 st 3 act 1.000 head 268.24 pitch 53.04 tgt 6405 tms 0 yaw -1.34 pit -0.51 trig 0 proj (nil)
+T5D 46750 st 3 act 1.000 head 267.80 pitch 53.16 tgt 6405 tms 0 yaw -0.45 pit 0.13 trig 0 proj (nil)
+T5D 46783 st 3 act 1.000 head 270.27 pitch 53.85 tgt 6405 tms 0 yaw 2.48 pit 0.69 trig 0 proj (nil)
+T5 46787 W 6405 Ready -89.7567 35.6797
+T5 46795 AWAY
+T5D 46815 st 3 act 1.000 head 286.27 pitch 63.45 tgt 6405 tms 0 yaw 63.58 pit 29.20 trig 0 proj (nil)
+T5 46847 SELECT 6404 0 -> 0
+T5D 46847 st 3 act 1.000 head 286.27 pitch 63.45 tgt 0 tms 32 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5D 46879 st 3 act 1.000 head 286.27 pitch 63.45 tgt 0 tms 64 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5 46883 W 0 Ready -74.6237 25.7207
+T5D 46911 st 3 act 1.000 head 286.27 pitch 63.45 tgt 0 tms 96 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5D 46943 st 3 act 1.000 head 286.27 pitch 63.45 tgt 0 tms 128 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5D 46975 st 3 act 1.000 head 286.27 pitch 63.45 tgt 0 tms 160 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5 46979 W 0 Ready -74.6237 25.7207
+T5 47007 SELECT 6404 0 -> 0
+T5D 47007 st 3 act 1.000 head 286.27 pitch 63.45 tgt 0 tms 192 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5D 47039 st 3 act 1.000 head 286.27 pitch 63.45 tgt 0 tms 224 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5D 47070 st 3 act 1.000 head 286.27 pitch 63.45 tgt 0 tms 256 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5 47075 W 0 Ready -74.6237 25.7207
+T5D 47103 st 3 act 1.000 head 286.27 pitch 63.45 tgt 0 tms 288 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5D 47135 st 3 act 1.000 head 286.27 pitch 63.45 tgt 0 tms 320 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5 47167 SELECT 6404 0 -> 0
+T5D 47167 st 3 act 1.000 head 286.27 pitch 63.45 tgt 0 tms 352 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5 47171 W 0 Ready -74.6237 25.7207
+T5D 47199 st 3 act 1.000 head 286.27 pitch 63.45 tgt 0 tms 384 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5D 47231 st 3 act 1.000 head 286.27 pitch 63.45 tgt 0 tms 416 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5D 47263 st 3 act 1.000 head 286.27 pitch 63.45 tgt 0 tms 448 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5 47267 W 0 Ready -74.6237 25.7207
+T5D 47295 st 3 act 1.000 head 286.27 pitch 63.45 tgt 0 tms 480 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5 47327 SELECT 6404 0 -> 0
+T5D 47327 st 3 act 1.000 head 286.27 pitch 63.45 tgt 0 tms 512 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5D 47359 st 3 act 1.000 head 286.27 pitch 63.45 tgt 0 tms 544 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5 47363 W 0 Ready -74.6237 25.7207
+T5D 47391 st 3 act 1.000 head 286.27 pitch 63.45 tgt 0 tms 576 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5D 47423 st 3 act 1.000 head 286.27 pitch 63.45 tgt 0 tms 608 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5D 47455 st 3 act 1.000 head 286.27 pitch 63.45 tgt 0 tms 640 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5 47459 W 0 Ready -74.6237 25.7207
+T5 47487 SELECT 6404 0 -> 0
+T5D 47487 st 3 act 1.000 head 286.27 pitch 63.45 tgt 0 tms 672 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5D 47519 st 3 act 1.000 head 286.27 pitch 63.45 tgt 0 tms 704 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5D 47551 st 3 act 1.000 head 286.27 pitch 63.45 tgt 0 tms 736 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5 47555 W 0 Ready -74.6237 25.7207
+T5D 47583 st 3 act 1.000 head 286.27 pitch 63.45 tgt 0 tms 768 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5D 47615 st 3 act 1.000 head 286.27 pitch 63.45 tgt 0 tms 800 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5 47647 SELECT 6404 0 -> 0
+T5D 47647 st 3 act 1.000 head 286.27 pitch 63.45 tgt 0 tms 832 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5 47651 W 0 Ready -74.6237 25.7207
+T5D 47679 st 3 act 1.000 head 286.27 pitch 63.45 tgt 0 tms 864 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5D 47711 st 3 act 1.000 head 286.27 pitch 63.45 tgt 0 tms 896 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5D 47743 st 3 act 1.000 head 286.27 pitch 63.45 tgt 0 tms 928 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5 47747 W 0 Ready -74.6237 25.7207
+T5D 47775 st 3 act 1.000 head 286.27 pitch 63.45 tgt 0 tms 960 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5 47807 SELECT 6404 0 -> 0
+T5D 47807 st 3 act 1.000 head 286.27 pitch 63.45 tgt 0 tms 992 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5D 47839 st 3 act 1.000 head 286.27 pitch 63.45 tgt 0 tms 1024 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5 47843 W 0 Ready -74.6237 25.7207
+T5D 47871 st 3 act 1.000 head 286.27 pitch 63.45 tgt 0 tms 1056 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5D 47903 st 3 act 1.000 head 286.27 pitch 63.45 tgt 0 tms 1088 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5D 47935 st 3 act 1.000 head 286.27 pitch 63.45 tgt 0 tms 1120 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5 47939 W 0 Ready -74.6237 25.7207
+T5 47967 SELECT 6404 0 -> 0
+T5D 47967 st 3 act 1.000 head 286.27 pitch 63.45 tgt 0 tms 1152 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5D 47999 st 3 act 1.000 head 286.27 pitch 63.45 tgt 0 tms 1184 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5D 48031 st 3 act 1.000 head 286.27 pitch 63.45 tgt 0 tms 1216 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5 48035 W 0 Ready -74.6237 25.7207
+T5D 48063 st 3 act 1.000 head 286.27 pitch 63.45 tgt 0 tms 1248 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5D 48095 st 3 act 1.000 head 286.27 pitch 63.45 tgt 0 tms 1280 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5 48127 SELECT 6404 0 -> 0
+T5D 48127 st 3 act 1.000 head 286.27 pitch 63.45 tgt 0 tms 1312 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5 48131 W 0 Ready -74.6237 25.7207
+T5D 48159 st 3 act 1.000 head 286.27 pitch 63.45 tgt 0 tms 1344 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5D 48191 st 3 act 1.000 head 286.27 pitch 63.45 tgt 0 tms 1376 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5D 48223 st 3 act 1.000 head 286.27 pitch 63.45 tgt 0 tms 1408 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5 48227 W 0 Ready -74.6237 25.7207
+T5D 48255 st 3 act 1.000 head 286.27 pitch 63.45 tgt 0 tms 1440 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5 48287 SELECT 6404 0 -> 0
+T5D 48287 st 3 act 1.000 head 286.27 pitch 63.45 tgt 0 tms 1472 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5D 48319 st 3 act 1.000 head 286.27 pitch 63.45 tgt 0 tms 1504 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5 48323 W 0 Ready -74.6237 25.7207
+T5D 48351 st 2 act 1.000 head 302.27 pitch 73.05 tgt 0 tms 1504 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5D 48383 st 2 act 1.000 head 318.27 pitch 82.65 tgt 0 tms 1504 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5D 48415 st 2 act 1.000 head 334.27 pitch 90.00 tgt 0 tms 1504 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5 48419 W 0 Ready -24.8805 0
+T5 48447 SELECT 6404 0 -> 0
+T5D 48447 st 2 act 1.000 head 350.27 pitch 90.00 tgt 0 tms 1504 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5D 48479 st 2 act 1.000 head 0.00 pitch 90.00 tgt 0 tms 1504 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5D 48511 st 2 act 0.952 head 0.00 pitch 90.00 tgt 0 tms 1504 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5 48515 W 0 Ready 0 0.283132
+T5D 48543 st 2 act 0.905 head 0.00 pitch 90.00 tgt 0 tms 1504 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5D 48575 st 2 act 0.857 head 0.00 pitch 90.00 tgt 0 tms 1504 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5 48607 SELECT 6404 0 -> 0
+T5D 48607 st 2 act 0.810 head 0.00 pitch 90.00 tgt 0 tms 1504 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5 48611 W 0 Deactivate 0 0.0852704
+T5D 48639 st 2 act 0.762 head 0.00 pitch 90.00 tgt 0 tms 1504 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5D 48671 st 2 act 0.714 head 0.00 pitch 90.00 tgt 0 tms 1504 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5D 48703 st 2 act 0.667 head 0.00 pitch 90.00 tgt 0 tms 1504 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5 48707 W 0 Deactivate 0 0
+T5D 48735 st 2 act 0.619 head 0.00 pitch 90.00 tgt 0 tms 1504 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5 48766 SELECT 6404 0 -> 0
+T5D 48766 st 2 act 0.571 head 0.00 pitch 90.00 tgt 0 tms 1504 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5D 48799 st 2 act 0.524 head 0.00 pitch 90.00 tgt 0 tms 1504 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5 48803 W 0 Deactivate 0 0
+T5D 48831 st 2 act 0.476 head 0.00 pitch 90.00 tgt 0 tms 1504 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5D 48863 st 2 act 0.429 head 0.00 pitch 90.00 tgt 0 tms 1504 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5D 48895 st 2 act 0.381 head 0.00 pitch 90.00 tgt 0 tms 1504 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5 48899 W 0 Deactivate 0 0
+T5 48926 SELECT 6404 0 -> 0
+T5D 48926 st 2 act 0.333 head 0.00 pitch 90.00 tgt 0 tms 1504 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5D 48959 st 2 act 0.286 head 0.00 pitch 90.00 tgt 0 tms 1504 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5D 48991 st 2 act 0.238 head 0.00 pitch 90.00 tgt 0 tms 1504 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5 48995 W 0 Deactivate 0 0
+T5D 49023 st 2 act 0.190 head 0.00 pitch 90.00 tgt 0 tms 1504 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5D 49055 st 2 act 0.143 head 0.00 pitch 90.00 tgt 0 tms 1504 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5 49087 SELECT 6404 0 -> 0
+T5D 49087 st 2 act 0.095 head 0.00 pitch 90.00 tgt 0 tms 1504 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5 49091 W 0 Deactivate 0 0
+T5D 49119 st 2 act 0.048 head 0.00 pitch 90.00 tgt 0 tms 1504 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5D 49151 st 2 act 0.000 head 0.00 pitch 90.00 tgt 0 tms 1504 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5D 49183 st 0 act 0.000 head 0.00 pitch 90.00 tgt 0 tms 1504 yaw 0.00 pit 0.00 trig 0 proj (nil)
+T5 49187 W 0 Deactivate 0 0
+T5 49247 SELECT 6404 0 -> 0
+T5 49283 W 0 Deactivate 0 0
+T5 49379 W 0 Deactivate 0 0
+T5 49407 SELECT 6404 0 -> 0
+T5 49475 W 0 Deactivate 0 0
+T5 49567 SELECT 6404 0 -> 0
+T5 49571 W 0 Dead 0 0
+T5 49667 W 0 Dead 0 0
+T5 49727 SELECT 6404 0 -> 0
+T5 49763 W 0 Dead 0 0
+T5 49859 W 0 Dead 0 0
+T5 49887 SELECT 6404 0 -> 0
+T5 49955 W 0 Dead 0 0
+T5 50047 SELECT 6404 0 -> 0
+T5 50051 W 0 Dead 0 0
+T5 50147 W 0 Dead 0 0
+T5 50207 SELECT 6404 0 -> 0
+T5 50243 W 0 Dead 0 0
+T5 50339 W 0 Dead 0 0
+T5 50367 SELECT 6404 0 -> 0
+T5 50435 W 0 Dead 0 0
+T5 50527 SELECT 6404 0 -> 0
+T5 50531 W 0 Dead 0 0
+T5 50627 W 0 Dead 0 0
+T5 50687 SELECT 6404 0 -> 0
+T5 50723 W 0 Dead 0 0
+T5 50819 W 0 Dead 0 0
+T5 50846 SELECT 6404 0 -> 0
+T5 50915 W 0 Dead 0 0
+T5 51006 SELECT 6404 0 -> 0
+T5 51011 W 0 Dead 0 0
+T5 51107 W 0 Dead 0 0
+T5 51166 SELECT 6404 0 -> 0
+T5 51203 W 0 Dead 0 0
+T5 51299 W 0 Dead 0 0
+T5 51327 SELECT 6404 0 -> 0
+T5 51395 W 0 Dead 0 0
+T5 51487 SELECT 6404 0 -> 0
+T5 51491 W 0 Dead 0 0
+T5 51587 W 0 Dead 0 0
+T5 51647 SELECT 6404 0 -> 0
+T5 51683 W 0 Dead 0 0
+T5 51779 W 0 Dead 0 0
+T5 51807 SELECT 6404 0 -> 0
+T5 51875 W 0 Dead 0 0
+T5 51967 SELECT 6404 0 -> 0
+T5 51971 W 0 Dead 0 0
+T5 52067 W 0 Dead 0 0
+T5 52127 SELECT 6404 0 -> 0
+T5 52163 W 0 Dead 0 0
+T5 52259 W 0 Dead 0 0
+T5 52287 SELECT 6404 0 -> 0
+T5 52355 W 0 Dead 0 0
+T5 52447 SELECT 6404 0 -> 0
+T5 52451 W 0 Dead 0 0
+T5 52547 W 0 Dead 0 0
+T5 52607 SELECT 6404 0 -> 0
+T5 52643 W 0 Dead 0 0
+T5 52739 W 0 Dead 0 0
+T5 52767 SELECT 6404 0 -> 0
+T5 52795 M valid 0 0 0
+T5 52795 M set 1 6405
+T5 52795 M clear 0
+T5 52795 M set0 0 0
+T5 52795 M cap 12
+T5 52795 M capneg -3
+T5 52835 W 0 Dead 0 0
+T5 52927 SELECT 6404 0 -> 0
+T5 52931 W 0 Dead 0 0
+T5 53027 W 0 Dead 0 0
+T5 53087 SELECT 6404 0 -> 0
+T5 53123 W 0 Dead 0 0
+T5 53219 W 0 Dead 0 0
+T5 53247 SELECT 6404 0 -> 0
+T5 53315 W 0 Dead 0 0
+T5 53407 SELECT 6404 0 -> 0
+T5 53411 W 0 Dead 0 0
+T5 53507 W 0 Dead 0 0
+T5 53567 SELECT 6404 0 -> 0
+T5 53603 W 0 Dead 0 0
+T5 53699 W 0 Dead 0 0
+T5 53727 SELECT 6404 0 -> 0
+T5 53795 W 0 Dead 0 0
+T5 53887 SELECT 6404 0 -> 0
+T5 53891 W 0 Dead 0 0
+T5 53987 W 0 Dead 0 0
+T5 54047 SELECT 6404 0 -> 0
+T5 54083 W 0 Dead 0 0
+T5 54179 W 0 Dead 0 0
+T5 54207 SELECT 6404 0 -> 0
+T5 54275 W 0 Dead 0 0
+T5 54367 SELECT 6404 0 -> 0
+T5 54371 W 0 Dead 0 0
+T5 54467 W 0 Dead 0 0
+T5 54527 SELECT 6404 0 -> 0
+T5 54563 W 0 Dead 0 0
+T5 54659 W 0 Dead 0 0
+T5 54687 SELECT 6404 0 -> 0
+T5 54755 W 0 Dead 0 0
+T5 54795 TURRET 6072 Team1TurretBaseLarge1 TurretBaseLarge 1 1 AABarrelLarge AABarrelLarge Enabled 35 1 0 Dead
+T5 54795 TURRET 6073 Team1TurretBaseLarge2 TurretBaseLarge 1 1 PlasmaBarrelLarge PlasmaBarrelLarge Enabled 36 1 0 Dead
+T5 54795 TURRET 6123 Team1SentryTurret1 SentryTurret 1 1 SentryTurretBarrel SentryTurretBarrel Enabled 46 1 0 Ready
+T5 54795 TURRET 6208 Team2TurretBaseLarge1 TurretBaseLarge 2 1 PlasmaBarrelLarge PlasmaBarrelLarge Enabled 52 2 0 Dead
+T5 54795 TURRET 6209 Team2TurretBaseLarge2 TurretBaseLarge 2 1 AABarrelLarge AABarrelLarge Enabled 53 2 0 Dead
+T5 54795 TURRET 6280 Team2SentryTurret1 SentryTurret 2 1 SentryTurretBarrel SentryTurretBarrel Enabled 66 2 0 Ready
+T5 54847 SELECT 6404 0 -> 0
+T5 54851 W 0 Dead 0 0
+T5 54947 W 0 Dead 0 0
+T5 55007 SELECT 6404 0 -> 0
+T5 55043 W 0 Dead 0 0
+T5 55139 W 0 Dead 0 0
+T5 55167 SELECT 6404 0 -> 0
+T5 55235 W 0 Dead 0 0
+T5 55327 SELECT 6404 0 -> 0
+T5 55331 W 0 Dead 0 0
+T5 55427 W 0 Dead 0 0
+T5 55487 SELECT 6404 0 -> 0
+T5 55523 W 0 Dead 0 0
+T5 55619 W 0 Dead 0 0
+T5 55647 SELECT 6404 0 -> 0
+T5 55715 W 0 Dead 0 0
+T5 55795 DONE
+T5 55807 SELECT 6404 0 -> 0
+T5 55811 W 0 Dead 0 0
+T5 55907 W 0 Dead 0 0
+T5 55967 SELECT 6404 0 -> 0
+T5 56003 W 0 Dead 0 0
+T5 56099 W 0 Dead 0 0
+T5 56127 SELECT 6404 0 -> 0
+T5 56195 W 0 Dead 0 0
+T5 56287 SELECT 6404 0 -> 0
+T5 56291 W 0 Dead 0 0
+T5 56387 W 0 Dead 0 0
+T5 56447 SELECT 6404 0 -> 0
+T5 56483 W 0 Dead 0 0
+T5 56579 W 0 Dead 0 0
+T5 56606 SELECT 6404 0 -> 0
+T5 56675 W 0 Dead 0 0
+T5 56767 SELECT 6404 0 -> 0
+T5 56771 W 0 Dead 0 0
+T5 56867 W 0 Dead 0 0
+T5 56927 SELECT 6404 0 -> 0
+T5 56963 W 0 Dead 0 0
+T5 57059 W 0 Dead 0 0
+T5 57087 SELECT 6404 0 -> 0
+T5 57155 W 0 Dead 0 0
+T5 57247 SELECT 6404 0 -> 0
+T5 57251 W 0 Dead 0 0
+T5 57347 W 0 Dead 0 0
+T5 57407 SELECT 6404 0 -> 0
+T5 57443 W 0 Dead 0 0
+T5 57539 W 0 Dead 0 0
+T5 57567 SELECT 6404 0 -> 0
+T5 57635 W 0 Dead 0 0
+T5 57727 SELECT 6404 0 -> 0
+T5 57731 W 0 Dead 0 0
+T5 57827 W 0 Dead 0 0
+T5 57887 SELECT 6404 0 -> 0
+T5 57923 W 0 Dead 0 0
+T5 58019 W 0 Dead 0 0
+T5 58047 SELECT 6404 0 -> 0
+T5 58115 W 0 Dead 0 0
+T5 58207 SELECT 6404 0 -> 0
+T5 58211 W 0 Dead 0 0
+T5 58307 W 0 Dead 0 0
+T5 58367 SELECT 6404 0 -> 0
+T5 58403 W 0 Dead 0 0
+T5 58499 W 0 Dead 0 0
+T5 58527 SELECT 6404 0 -> 0
+T5 58595 W 0 Dead 0 0
+T5 58687 SELECT 6404 0 -> 0
+T5 58691 W 0 Dead 0 0
+T5 58787 W 0 Dead 0 0
+T5 58847 SELECT 6404 0 -> 0
+T5 58883 W 0 Dead 0 0
+T5 58979 W 0 Dead 0 0
+T5 59007 SELECT 6404 0 -> 0
+T5 59075 W 0 Dead 0 0
+T5 59167 SELECT 6404 0 -> 0
+T5 59171 W 0 Dead 0 0
+T5 59267 W 0 Dead 0 0
+T5 59327 SELECT 6404 0 -> 0
+T5 59363 W 0 Dead 0 0
+T5 59459 W 0 Dead 0 0
+T5 59487 SELECT 6404 0 -> 0
+T5 59555 W 0 Dead 0 0
+T5 59647 SELECT 6404 0 -> 0
+T5 59651 W 0 Dead 0 0
+T5 59747 W 0 Dead 0 0
+T5 59807 SELECT 6404 0 -> 0
+T5 59843 W 0 Dead 0 0
+T5 59939 W 0 Dead 0 0
+T5 59967 SELECT 6404 0 -> 0
+T5 60127 SELECT 6404 0 -> 0
+T5 60287 SELECT 6404 0 -> 0
+T5 60447 SELECT 6404 0 -> 0
+T5 60607 SELECT 6404 0 -> 0
+T5 60767 SELECT 6404 0 -> 0
+T5 60927 SELECT 6404 0 -> 0
+T5 61087 SELECT 6404 0 -> 0
+T5 61247 SELECT 6404 0 -> 0
+T5 61407 SELECT 6404 0 -> 0
+T5 61567 SELECT 6404 0 -> 0
+T5 61727 SELECT 6404 0 -> 0
+T5 61886 SELECT 6404 0 -> 0
