@@ -23,6 +23,7 @@
 #include "platform/platform.h"
 #include "T3D/gameFunctions.h"
 #include "T3D/gameBase/gameConnection.h"
+#include "T3D/gameBase/targetsT2.h"
 #include "T3D/camera.h"
 #include "T3D/shapeBase.h"
 #include "terrain/terrData.h"
@@ -539,6 +540,12 @@ static void RegisterGameFunctions()
    // dialog's "HI-RES SHIELD EFFECTS" toggle sets it.
    Con::addVariable( "$pref::useOldShieldEffect", TypeBool, &ShieldImpactT2::smUseOldShieldEffect,
       "Draw a shield's flash over the shape it covers instead of as a bubble.\n\n"
+	   "@ingroup Game" );
+
+   // HH: Added for Tribes 2 compatibility.
+   // Tribes 2 registers it beside $pref::use512PlayerSkins (0x005f26a7).
+   Con::addVariable( "$pref::usePrefSkins", TypeBool, &T2Targets::smUsePrefSkins,
+      "Show a player in the skin they chose rather than in their team's.\n\n"
 	   "@ingroup Game" );
 
    // Stuff game types into the console
