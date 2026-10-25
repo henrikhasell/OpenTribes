@@ -123,6 +123,15 @@ namespace T2Layout
                                     ///< get off
       U32     mountNode;            ///< the mount point on the mount
 
+      /// What a beam's body says besides its two ends, which come as the
+      /// position and the explode point.
+      bool    beamInitial;          ///< the first body, which carries it all
+      bool    beamHit;              ///< its end is on something
+      bool    beamWet;              ///< and that something is water
+      bool    beamFollow;           ///< its end is wherever its source aims
+      bool    hasBeamEnergy;
+      F32     beamEnergy;           ///< share of the shot's full strength
+
       /// What a body said about one of its object's image slots -- the
       /// weapon in the hand, the pack on the back.
       struct Image
@@ -544,6 +553,18 @@ namespace T2Layout
       T2DbFieldScrollSpeed,
       T2DbFieldUMapping,
       T2DbFieldVMapping,
+
+      T2DbBeamRange,
+      T2DbBeamColor,
+      T2DbBeamFadeTime,
+      T2DbBeamStartWidth,
+      T2DbBeamEndWidth,
+      T2DbBeamPulseWidth,
+      T2DbBeamFlareAngle,
+      T2DbBeamMinFlareSize,
+      T2DbBeamMaxFlareSize,
+      T2DbBeamPulseSpeed,
+      T2DbBeamPulseLength,
 
       T2DbFieldCount
    };

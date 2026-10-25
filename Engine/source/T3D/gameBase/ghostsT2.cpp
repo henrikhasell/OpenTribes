@@ -33,8 +33,6 @@ IMPLEMENT_GHOST_T2( RepairProjectile );
 IMPLEMENT_GHOST_T2( SeekerProjectile );
 IMPLEMENT_GHOST_T2( ShockLanceProjectile );
 IMPLEMENT_GHOST_T2( Shockwave );
-IMPLEMENT_GHOST_T2( SniperProjectile );
 IMPLEMENT_GHOST_T2( StationFXPersonal );
 IMPLEMENT_GHOST_T2( StationFXVehicle );
-IMPLEMENT_GHOST_T2( TargetProjectile );
 IMPLEMENT_GHOST_T2( Turret );

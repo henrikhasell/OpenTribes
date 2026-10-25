@@ -1740,6 +1740,26 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
                      case T2FieldFadeOut:
                         sBody.fadeOut = set;
                         break;
+                     case T2FieldBeamInitial:
+                        sBody.beamInitial = set;
+                        break;
+                     case T2FieldBeamHit:
+                        sBody.beamHit = set;
+                        break;
+                     case T2FieldBeamWet:
+                        sBody.beamWet = set;
+                        break;
+                     case T2FieldBeamFollow:
+                        sBody.beamFollow = set;
+                        break;
+                     // One node for two flags: both arms of the body end in
+                     // a flag, and the recovered graph merged them.
+                     case T2FieldBeamLast:
+                        if(sBody.beamInitial)
+                           sBody.beamFollow = set;
+                        else
+                           sBody.beamHit = set;
+                        break;
                      default:
                         break;
                   }
@@ -1959,6 +1979,8 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
                   sBody.hasFieldState = true;
                   sBody.fieldState = v;
                }
+               if(row && row->field == T2FieldSourceSlot)
+                  sBody.sourceSlot = v;
             }
             if(!layout->select || v >= (1U << n.bits))
             {
@@ -2133,6 +2155,13 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
                noteDamage(part, word, n.bits);
             if(!write && shieldAt(layout, at, &part))
                noteShield(part, word, n.bits);
+
+            const T2GhostFieldRow *row = write ? NULL : fieldAt(layout, at);
+            if(row && row->field == T2FieldBeamEnergy)
+            {
+               sBody.hasBeamEnergy = true;
+               sBody.beamEnergy = t2Float(word, n.bits);
+            }
             break;
          }
 
@@ -3174,6 +3203,12 @@ static bool runGhost(BitStream *stream, const char *className,
    sBody.hasMount = false;
    sBody.mountGhost = -1;
    sBody.mountNode = 0;
+   sBody.beamInitial = false;
+   sBody.beamHit = false;
+   sBody.beamWet = false;
+   sBody.beamFollow = false;
+   sBody.hasBeamEnergy = false;
+   sBody.beamEnergy = 1.0f;
    for(U32 i = 0; i < MaxImages; i++)
    {
       Body::Image &image = sBody.images[i];

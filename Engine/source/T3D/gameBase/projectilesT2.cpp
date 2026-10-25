@@ -25,6 +25,7 @@
 #include "T3D/gameBase/t2Layout.h"
 #include "T3D/objectTypes.h"
 #include "T3D/gameBase/gravityT2.h"
+#include "T3D/shapeBase.h"
 #include "sim/netConnection.h"
 #include "ts/tsShapeInstance.h"
 
@@ -948,3 +949,575 @@ IMPLEMENT_PROJECTILE_T2( GrenadeProjectile );
 IMPLEMENT_PROJECTILE_T2( LinearFlareProjectile );
 IMPLEMENT_PROJECTILE_T2( LinearProjectile );
 IMPLEMENT_PROJECTILE_T2( TracerProjectile );
+
+//----------------------------------------------------------------------------
+
+/// What both of Tribes 2's beams are drawn with. A sniper shot names twelve
+/// textures and a targeting beam four, each in its own order.
+class BeamProjectileDataT2 : public DataBlockT2
+{
+   typedef DataBlockT2 Parent;
+
+public:
+   enum { MaxTextures = 12 };
+
+   F32    range;           ///< how far a source aims one
+   ColorF color;
+   F32    fadeTime;        ///< a sniper shot's, over which it goes
+   F32    startWidth;
+   F32    endWidth;        ///< what a sniper shot has spread to by then
+   F32    pulseWidth;
+   F32    flareAngle;      ///< degrees off the beam its start flares from
+   F32    minFlareSize;
+   F32    maxFlareSize;    ///< pixels
+   F32    pulseSpeed;
+   F32    pulseLength;
+   U32    explosionId;
+   String textureName[MaxTextures];
+   GFXTexHandle texture[MaxTextures];
+
+   BeamProjectileDataT2();
+   bool unpackData(BitStream *stream, U32 classId);
+   bool preload(bool server, String &errorStr);
+
+   DECLARE_CONOBJECT(BeamProjectileDataT2);
+};
+
+IMPLEMENT_CONOBJECT(BeamProjectileDataT2);
+
+ConsoleDocClass( BeamProjectileDataT2,
+   "@brief What a Tribes 2 beam's datablock says about how it is drawn.\n\n"
+   "@internal" );
+
+BeamProjectileDataT2::BeamProjectileDataT2()
+   : range(1000.0f),
+     color(1.0f, 1.0f, 1.0f, 1.0f),
+     fadeTime(1.0f),
+     startWidth(0.25f),
+     endWidth(0.5f),
+     pulseWidth(0.5f),
+     flareAngle(3.0f),
+     minFlareSize(0.0f),
+     maxFlareSize(400.0f),
+     pulseSpeed(6.0f),
+     pulseLength(0.15f),
+     explosionId(0)
+{
+}
+
+bool BeamProjectileDataT2::unpackData(BitStream *stream, U32 classId)
+{
+   if(!Parent::unpackData(stream, classId))
+      return false;
+
+   F32 value;
+   U32 word;
+   if(T2Layout::lastDataBlockField(T2Layout::T2DbBeamRange, &value))
+      range = value;
+   if(T2Layout::lastDataBlockWord(T2Layout::T2DbBeamColor, &word))
+      color.set(F32(word & 0xff) / 255.0f, F32((word >> 8) & 0xff) / 255.0f,
+                F32((word >> 16) & 0xff) / 255.0f,
+                F32((word >> 24) & 0xff) / 255.0f);
+   if(T2Layout::lastDataBlockField(T2Layout::T2DbBeamFadeTime, &value))
+      fadeTime = value;
+   if(T2Layout::lastDataBlockField(T2Layout::T2DbBeamStartWidth, &value))
+      startWidth = value;
+   if(T2Layout::lastDataBlockField(T2Layout::T2DbBeamEndWidth, &value))
+      endWidth = value;
+   if(T2Layout::lastDataBlockField(T2Layout::T2DbBeamPulseWidth, &value))
+      pulseWidth = value;
+   if(T2Layout::lastDataBlockField(T2Layout::T2DbBeamFlareAngle, &value))
+      flareAngle = value;
+   if(T2Layout::lastDataBlockField(T2Layout::T2DbBeamMinFlareSize, &value))
+      minFlareSize = value;
+   if(T2Layout::lastDataBlockField(T2Layout::T2DbBeamMaxFlareSize, &value))
+      maxFlareSize = value;
+   if(T2Layout::lastDataBlockField(T2Layout::T2DbBeamPulseSpeed, &value))
+      pulseSpeed = value;
+   if(T2Layout::lastDataBlockField(T2Layout::T2DbBeamPulseLength, &value))
+      pulseLength = value;
+   if(T2Layout::lastDataBlockWord(T2Layout::T2DbExplosion, &word))
+      explosionId = word;
+
+      // The shape ProjectileData names comes first; the textures are every
+      // string after it.
+   const Vector<String> &strings = T2Layout::lastStrings();
+   for(U32 i = 0; i < MaxTextures && i + 1 < strings.size(); i++)
+      textureName[i] = strings[i + 1];
+
+   return true;
+}
+
+bool BeamProjectileDataT2::preload(bool server, String &errorStr)
+{
+   if(!Parent::preload(server, errorStr))
+      return false;
+
+   if(!server)
+      for(U32 i = 0; i < MaxTextures; i++)
+         if(textureName[i].isNotEmpty())
+            texture[i].set(String("textures/") + textureName[i],
+                           &GFXDefaultStaticDiffuseProfile, "BeamProjectileT2");
+
+   return true;
+}
+
+#define IMPLEMENT_BEAM_DATA_T2( className )                                  \
+   class className : public BeamProjectileDataT2                             \
+   {                                                                         \
+      typedef BeamProjectileDataT2 Parent;                                   \
+   public:                                                                   \
+      DECLARE_CONOBJECT(className);                                          \
+   };                                                                        \
+   IMPLEMENT_CO_DATABLOCK_V1(className);                                     \
+   ConsoleDocClass( className, "@brief A Tribes 2 beam's datablock."         \
+                               "\n\n@internal" )
+
+IMPLEMENT_BEAM_DATA_T2( SniperProjectileData );
+IMPLEMENT_BEAM_DATA_T2( TargetProjectileData );
+
+//----------------------------------------------------------------------------
+
+/// A beam is told to a client as its two ends, or as a source and its muzzle
+/// slot instead of the start. One that follows its source has its end worked
+/// out by the client too, every frame, from where that source is aiming.
+class BeamProjectileT2 : public GameBase
+{
+   typedef GameBase Parent;
+
+protected:
+   BeamProjectileDataT2 *mData;
+   bool    mFades;            ///< a sniper shot goes over its fadeTime; a
+                              ///< targeting beam lasts until it is deleted
+   F32     mEaseTime;         ///< how long a moved end takes to get there
+   Point3F mStart;
+   Point3F mEnd;
+   Point3F mEndFrom;
+   Point3F mEndTo;
+   F32     mEase;             ///< seconds into that, or < 0 once it is there
+   F32     mElapsed;
+   F32     mEnergy;
+   bool    mHit;
+   bool    mWet;
+   bool    mFollow;
+   SimObjectId mSourceObject;
+   U32     mSourceSlot;
+   GFXStateBlockRef mBeamSB;
+   GFXStateBlockRef mFlareSB;
+   GFXStateBlockRef mGlowSB;
+
+   ShapeBase *source() const;
+   void renderBeam(ObjectRenderInst *ri, SceneRenderState *state,
+                   BaseMatInstance *overrideMat);
+   void drawQuad(const VectorF &across, F32 width, F32 u0, F32 du);
+   F32 flareShare(SceneRenderState *state, const VectorF &along);
+   void drawSprite(SceneRenderState *state, const Point3F &at, F32 width,
+                   F32 spin);
+
+public:
+   BeamProjectileT2();
+
+   bool onAdd();
+   void onRemove();
+   bool onNewDataBlock(GameBaseData *dptr, bool reload);
+   void onT2BodyRead(const T2Layout::Body &body);
+   void advanceTime(F32 dt);
+   void prepRenderImage(SceneRenderState *state);
+
+   DECLARE_CONOBJECT(BeamProjectileT2);
+};
+
+IMPLEMENT_CONOBJECT(BeamProjectileT2);
+
+ConsoleDocClass( BeamProjectileT2,
+   "@brief A Tribes 2 beam, drawn by the client that was told of it.\n\n"
+   "@internal" );
+
+BeamProjectileT2::BeamProjectileT2()
+   : mData(NULL),
+     mFades(false),
+     mEaseTime(0.15f),
+     mStart(0.0f, 0.0f, 0.0f),
+     mEnd(0.0f, 0.0f, 0.0f),
+     mEndFrom(0.0f, 0.0f, 0.0f),
+     mEndTo(0.0f, 0.0f, 0.0f),
+     mEase(-1.0f),
+     mElapsed(0.0f),
+     mEnergy(1.0f),
+     mHit(false),
+     mWet(false),
+     mFollow(false),
+     mSourceObject(0),
+     mSourceSlot(0)
+{
+   mTypeMask |= ProjectileObjectType;
+}
+
+bool BeamProjectileT2::onAdd()
+{
+   if(!Parent::onAdd())
+      return false;
+
+      // A beam can be a kilometre long and go anywhere; retail gives it a
+      // box of 1e7 either way (0x006425e7).
+   setGlobalBounds();
+   resetWorldBox();
+   addToScene();
+
+   if(isClientObject() && mData && mFades)
+   {
+         // A weaker shot starts that much of the way through its fade
+         // (0x006421c0), and goes off where it hit unless that was water.
+      mElapsed = (1.0f - mEnergy) * mData->fadeTime;
+
+      ExplosionData *data = NULL;
+      if(mHit && !mWet && mData->explosionId &&
+         Sim::findObject(mData->explosionId, data) && data)
+      {
+         VectorF along = mEnd - mStart;
+         along.normalizeSafe();
+
+         Explosion *blast = new Explosion;
+         blast->onNewDataBlock(data, false);
+
+         MatrixF mat(true);
+         mat.setPosition(mEnd);
+         blast->setTransform(mat);
+         blast->setInitialState(mEnd, along);
+         if(!blast->registerObject())
+            delete blast;
+      }
+   }
+
+   return true;
+}
+
+void BeamProjectileT2::onRemove()
+{
+   removeFromScene();
+   Parent::onRemove();
+}
+
+bool BeamProjectileT2::onNewDataBlock(GameBaseData *dptr, bool reload)
+{
+   mData = dynamic_cast<BeamProjectileDataT2 *>(dptr);
+   if(!mData || !Parent::onNewDataBlock(dptr, reload))
+      return false;
+
+   return true;
+}
+
+ShapeBase *BeamProjectileT2::source() const
+{
+   ShapeBase *obj = NULL;
+   if(mSourceObject)
+      Sim::findObject(mSourceObject, obj);
+   return obj;
+}
+
+void BeamProjectileT2::onT2BodyRead(const T2Layout::Body &body)
+{
+   Parent::onT2BodyRead(body);
+
+   mSourceObject = 0;
+   if(body.hasSourceObject)
+   {
+      NetConnection *conn = NetConnection::getConnectionToServer();
+      NetObject *obj = conn ? conn->resolveGhost(S32(body.sourceObject))
+                            : NULL;
+      mSourceObject = obj ? obj->getId() : 0;
+      mSourceSlot = getMin(body.sourceSlot,
+                           U32(ShapeBase::MaxMountedImages - 1));
+   }
+
+   mFollow = body.beamFollow && mSourceObject;
+   mHit = body.beamHit;
+
+   if(body.hasPosition)
+      mStart = body.position;
+
+   if(body.beamInitial)
+   {
+      mEnd = mEndFrom = mEndTo = body.explodePoint;
+      mEase = -1.0f;
+      mWet = body.beamWet;
+      if(body.hasBeamEnergy)
+         mEnergy = body.beamEnergy;
+   }
+   else if(body.hasExplodePoint && !mFollow)
+   {
+         // A moved end is eased to rather than jumped to (0x00643740,
+         // 0x00649800).
+      mEndFrom = mEnd;
+      mEndTo = body.explodePoint;
+      mEase = 0.0f;
+   }
+}
+
+void BeamProjectileT2::advanceTime(F32 dt)
+{
+   Parent::advanceTime(dt);
+
+   if(!mData || dt <= 0.0f)
+      return;
+
+   mElapsed += dt;
+
+      // A targeting beam starts at its source's muzzle wherever that has got
+      // to (0x006497b0); a sniper shot only while it follows.
+   ShapeBase *src = source();
+   if(src && (mFollow || !mFades))
+      src->getRenderMuzzlePoint(mSourceSlot, &mStart);
+
+   if(mFollow && src)
+   {
+         // Its end is as far as the source can aim it, or the first thing
+         // in the way (0x006493d0).
+      VectorF aim;
+      src->getRenderMuzzleVector(mSourceSlot, &aim);
+      mEnd = mStart + aim * mData->range;
+
+      RayInfo info;
+      src->disableCollision();
+      mHit = getContainer()->castRay(mStart, mEnd,
+                                     sProjectileCollisionMask | WaterObjectType,
+                                     &info);
+      src->enableCollision();
+      if(mHit)
+         mEnd = info.point;
+   }
+   else if(mEase >= 0.0f)
+   {
+      mEase += dt;
+      const F32 t = mClampF(mEase / mEaseTime, 0.0f, 1.0f);
+      mEnd = mEndFrom + (mEndTo - mEndFrom) * t;
+      if(t >= 1.0f)
+         mEase = -1.0f;
+   }
+}
+
+void BeamProjectileT2::prepRenderImage(SceneRenderState *state)
+{
+   if(!mData || (mFades && mElapsed >= mData->fadeTime))
+      return;
+
+   ObjectRenderInst *ri = state->getRenderPass()->allocInst<ObjectRenderInst>();
+   ri->renderDelegate.bind(this, &BeamProjectileT2::renderBeam);
+   ri->type = RenderPassManager::RIT_Foliage;
+   state->getRenderPass()->addInst(ri);
+}
+
+/// One quad from the start to the end, width wide, flat into the view; its
+/// texture runs along it from u0 for du (0x00677b80).
+void BeamProjectileT2::drawQuad(const VectorF &across, F32 width, F32 u0,
+                                F32 du)
+{
+   const Point3F side = across * (width * 0.5f);
+
+   PrimBuild::begin(GFXTriangleFan, 4);
+   PrimBuild::texCoord2f(u0, 0.0f);
+   PrimBuild::vertex3fv(mStart + side);
+   PrimBuild::texCoord2f(u0, 1.0f);
+   PrimBuild::vertex3fv(mStart - side);
+   PrimBuild::texCoord2f(u0 + du, 1.0f);
+   PrimBuild::vertex3fv(mEnd - side);
+   PrimBuild::texCoord2f(u0 + du, 0.0f);
+   PrimBuild::vertex3fv(mEnd + side);
+   PrimBuild::end();
+}
+
+/// How much of its flare a beam's start shows: none unless the beam comes
+/// at the camera and the camera faces it, and all of it only straight down
+/// the beam, flareAngle being where it runs out (0x00642940).
+F32 BeamProjectileT2::flareShare(SceneRenderState *state, const VectorF &along)
+{
+   const Point3F eye = state->getCameraPosition();
+   VectorF toStart = mStart - eye;
+   toStart.normalizeSafe();
+   const F32 dot = mDot(toStart, along);
+
+   VectorF facing;
+   state->getCameraTransform().getColumn(1, &facing);
+   if(dot >= -0.5f || mDot(facing, along) >= -0.5f)
+      return 0.0f;
+
+   ShapeBase *src = source();
+   RayInfo info;
+   if(src)
+      src->disableCollision();
+   const bool hidden = getContainer()->castRay(eye, mStart,
+                          sProjectileCollisionMask | WaterObjectType, &info);
+   if(src)
+      src->enableCollision();
+   if(hidden || mData->maxFlareSize <= 0.0f)
+      return 0.0f;
+
+   const F32 edge = -mCos(mDegToRad(mData->flareAngle));
+   if(dot >= edge)
+      return mData->minFlareSize / mData->maxFlareSize;
+
+   return (dot - edge) / (-1.0f - edge);
+}
+
+/// A square facing the camera, width wide and turned spin radians in the
+/// view, as retail draws its flares.
+void BeamProjectileT2::drawSprite(SceneRenderState *state, const Point3F &at,
+                                  F32 width, F32 spin)
+{
+   const MatrixF &cam = state->getCameraTransform();
+   VectorF right, up;
+   cam.getColumn(0, &right);
+   cam.getColumn(2, &up);
+
+   const F32 half = width * 0.5f;
+   const F32 c = mCos(spin) * half;
+   const F32 s = mSin(spin) * half;
+   const VectorF a = right * c + up * s;
+   const VectorF b = up * c - right * s;
+
+   PrimBuild::begin(GFXTriangleFan, 4);
+   PrimBuild::texCoord2f(0.0f, 0.0f);
+   PrimBuild::vertex3fv(at - a - b);
+   PrimBuild::texCoord2f(0.0f, 1.0f);
+   PrimBuild::vertex3fv(at - a + b);
+   PrimBuild::texCoord2f(1.0f, 1.0f);
+   PrimBuild::vertex3fv(at + a + b);
+   PrimBuild::texCoord2f(1.0f, 0.0f);
+   PrimBuild::vertex3fv(at + a - b);
+   PrimBuild::end();
+}
+
+/// SniperProjectile::renderObject (0x00642820) and TargetProjectile's
+/// (0x00647de0): the flare at the start, the glow at a targeting beam's
+/// end, then the beam in two passes.
+void BeamProjectileT2::renderBeam(ObjectRenderInst *, SceneRenderState *state,
+                                  BaseMatInstance *overrideMat)
+{
+   if(overrideMat)
+      return;
+
+   const Point3F eye = state->getCameraPosition();
+   VectorF along = mEnd - mStart;
+   const F32 length = along.len();
+   if(length < 0.001f)
+      return;
+   along /= length;
+
+   VectorF across = mCross(along, mStart - eye);
+   if(across.isZero())
+      return;
+   across.normalize();
+
+   if(mBeamSB.isNull())
+   {
+      GFXStateBlockDesc desc;
+      desc.setBlend(true, GFXBlendSrcAlpha, GFXBlendInvSrcAlpha);
+      desc.setCullMode(GFXCullNone);
+      desc.zWriteEnable = false;
+      desc.samplersDefined = true;
+      desc.samplers[0] = GFXSamplerStateDesc::getWrapLinear();
+      mBeamSB = GFX->createStateBlock(desc);
+
+      desc.setZReadWrite(false, false);
+      desc.samplers[0] = GFXSamplerStateDesc::getClampLinear();
+      mFlareSB = GFX->createStateBlock(desc);
+
+      desc.setBlend(true, GFXBlendOne, GFXBlendOne);
+      mGlowSB = GFX->createStateBlock(desc);
+   }
+
+   const F32 t = mFades ? mClampF(mElapsed / mData->fadeTime, 0.0f, 1.0f)
+                        : 0.0f;
+   ColorF color = mData->color;
+   color.alpha = 1.0f - t;
+
+      // The flare is pixels across wherever the start is, which is how far
+      // away a world-sized one has to be scaled.
+   const F32 share = flareShare(state, along);
+   const GFXTexHandle &flare = mData->texture[mFades ? 0 : 1];
+   if(share > 0.0f && flare.isValid())
+   {
+      VectorF facing;
+      state->getCameraTransform().getColumn(1, &facing);
+      const F32 depth = getMax(mDot(mStart - eye, facing), 0.01f);
+      const F32 width = mData->maxFlareSize * share * depth /
+                        state->getWorldToScreenScale().y;
+
+      GFX->setStateBlock(mFlareSB);
+      GFX->setTexture(0, flare);
+      PrimBuild::color(color);
+      drawSprite(state, mStart, width, mElapsed);
+      drawSprite(state, mStart, width * 0.75f, -mElapsed);
+   }
+
+      // A targeting beam's end glows green over whatever it is on, unless
+      // something else is in the way (0x00648090, 0x00648cb0).
+   if(!mFades && mData->texture[3].isValid())
+   {
+      const Point3F glow = mEnd - along * 0.2f;
+      ShapeBase *src = source();
+      RayInfo info;
+      if(src)
+         src->disableCollision();
+      const bool hidden = getContainer()->castRay(eye, glow,
+                          sProjectileCollisionMask | WaterObjectType, &info);
+      if(src)
+         src->enableCollision();
+
+      if(!hidden)
+      {
+         GFX->setStateBlock(mGlowSB);
+         GFX->setTexture(0, mData->texture[3]);
+         PrimBuild::color4f(0.0f, 1.0f, 0.0f, 1.0f);
+         drawSprite(state, mEnd, 0.6f, 0.0f);
+      }
+   }
+
+   GFX->setStateBlock(mBeamSB);
+
+   if(mFades)
+   {
+         // A sniper shot widens as it fades, its core white and its colour
+         // over it a texture that tears as it goes (0x00642f60).
+      const F32 width = mData->startWidth +
+                        (mData->endWidth - mData->startWidth) * t;
+      const U32 rip = getMin(U32(t * 10.0f + 1.0f), U32(BeamProjectileDataT2::MaxTextures - 1));
+
+      GFX->setTexture(0, mData->texture[11]);
+      PrimBuild::color4f(1.0f, 1.0f, 1.0f, 1.0f - t);
+      drawQuad(across, width, 0.0f, 1.0f);
+
+      GFX->setTexture(0, mData->texture[rip]);
+      PrimBuild::color(color);
+      drawQuad(across, width * 1.25f, -mData->pulseSpeed * mElapsed * 0.5f,
+               length * mData->pulseLength);
+   }
+   else
+   {
+         // A targeting beam is a pulse running out along it under a steady
+         // core (0x00648810).
+      PrimBuild::color(color);
+      GFX->setTexture(0, mData->texture[2]);
+      drawQuad(across, mData->pulseWidth, -mData->pulseSpeed * mElapsed,
+               length * mData->pulseLength);
+
+      GFX->setTexture(0, mData->texture[0]);
+      drawQuad(across, mData->startWidth, 0.0f, 1.0f);
+   }
+}
+
+#define IMPLEMENT_BEAM_T2( className, fades, easeTime )                      \
+   class className : public BeamProjectileT2                                 \
+   {                                                                         \
+      typedef BeamProjectileT2 Parent;                                       \
+   public:                                                                   \
+      className() { mFades = fades; mEaseTime = easeTime; }                  \
+      DECLARE_CONOBJECT(className);                                          \
+   };                                                                        \
+   IMPLEMENT_CO_NETOBJECT_V1(className);                                     \
+   ConsoleDocClass( className, "@brief A Tribes 2 beam.\n\n@internal" )
+
+// A sniper shot's moved end takes ten ticks to get there, a targeting
+// beam's 0.15 seconds.
+IMPLEMENT_BEAM_T2( SniperProjectile, true,  0.32f );
+IMPLEMENT_BEAM_T2( TargetProjectile, false, 0.15f );

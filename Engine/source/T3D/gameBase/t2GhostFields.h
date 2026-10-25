@@ -61,6 +61,17 @@ namespace T2Protocol
       T2FieldFadeVisible,
       T2FieldFadeOut,
       T2FieldFadeTime,
+      T2FieldBeamInitial,           ///< the flag that starts a beam's first
+                                    ///< body
+      T2FieldBeamHit,
+      T2FieldBeamWet,
+      T2FieldBeamFollow,
+      T2FieldBeamLast,              ///< the flag a beam's body ends with:
+                                    ///< whether it follows its source on a
+                                    ///< first body, whether it hit on any
+                                    ///< other
+      T2FieldBeamEnergy,            ///< readFloat(bits) of the shot's
+                                    ///< strength
    };
 
    inline U32 t2FieldWords(U32 field)
@@ -252,6 +263,38 @@ namespace T2Protocol
       T2_GRENADE_PROJECTILE_FIELDS( "BombProjectile"    )
 
 #undef T2_GRENADE_PROJECTILE_FIELDS
+
+   // SniperProjectile::unpackUpdate (0x00643aa0) and TargetProjectile's
+   // (0x00649c70) share every body after the first: the source, or failing
+   // one the start, then the end and whether it hit.
+#define T2_BEAM_PROJECTILE_FIELDS( cls )                               \
+      { cls,  2, OpFlag,    1, T2FieldBeamInitial   },                 \
+      { cls,  4, OpRaw,    32, T2FieldPointWords    },                 \
+      { cls,  7, OpRaw,    32, T2FieldExplodeWords  },                 \
+      { cls, 10, OpFlag,    1, T2FieldBeamLast      },                 \
+      { cls, 12, OpInt,    11, T2FieldSourceObject  },                 \
+      { cls, 13, OpSelect,  3, T2FieldSourceSlot    },                 \
+      { cls, 14, OpFlag,    1, T2FieldBeamFollow    },
+
+      T2_BEAM_PROJECTILE_FIELDS( "SniperProjectile" )
+      T2_BEAM_PROJECTILE_FIELDS( "TargetProjectile" )
+
+#undef T2_BEAM_PROJECTILE_FIELDS
+
+   // A first body, which for a sniper shot leads with its strength.
+      { "SniperProjectile", 15, OpFloat,   7, T2FieldBeamEnergy    },
+      { "SniperProjectile", 16, OpRaw,    32, T2FieldPointWords    },
+      { "SniperProjectile", 19, OpRaw,    32, T2FieldExplodeWords  },
+      { "SniperProjectile", 22, OpFlag,    1, T2FieldBeamHit       },
+      { "SniperProjectile", 23, OpFlag,    1, T2FieldBeamWet       },
+      { "SniperProjectile", 25, OpInt,    11, T2FieldSourceObject  },
+      { "SniperProjectile", 26, OpSelect,  3, T2FieldSourceSlot    },
+
+      { "TargetProjectile", 15, OpRaw,    32, T2FieldPointWords    },
+      { "TargetProjectile", 18, OpRaw,    32, T2FieldExplodeWords  },
+      { "TargetProjectile", 21, OpFlag,    1, T2FieldBeamHit       },
+      { "TargetProjectile", 23, OpInt,    11, T2FieldSourceObject  },
+      { "TargetProjectile", 24, OpSelect,  3, T2FieldSourceSlot    },
    };
 }
 
