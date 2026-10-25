@@ -282,6 +282,10 @@ namespace T2Protocol
    // and whether a cloak may thin the image as a flag at node 19, just before
    // the light type's ranged write (0x005f585d).
       { "ShapeBaseImageData", 19, OpFlag, 1, T2DbImageCloakable },
+   // A TurretImageData's layout is ShapeBaseImageData's with its own run
+   // inserted at node 59, so both of those keep their nodes.
+      { "TurretImageData",     2, OpRaw, 32, T2DbImageMountPoint },
+      { "TurretImageData",    19, OpFlag, 1, T2DbImageCloakable },
 
    // Every projectile carries the same run of datablock ids, the emitters then
    // the explosions then the splash and the sound, so the sound is three past
@@ -505,6 +509,25 @@ namespace T2Protocol
       { "TargetProjectileData", 30, OpRaw,   32, T2DbBeamMaxFlareSize       },
       { "TargetProjectileData", 31, OpRaw,   32, T2DbBeamPulseSpeed         },
       { "TargetProjectileData", 32, OpRaw,   32, T2DbBeamPulseLength        },
+
+   // TurretData::packData (0x006540d0), after StaticShapeData's dynamicType.
+      { "TurretData", 41, OpRaw,    32, T2DbThetaMin              },
+      { "TurretData", 42, OpRaw,    32, T2DbThetaMax              },
+      { "TurretData", 43, OpRaw,    32, T2DbThetaNull             },
+      { "TurretData", 44, OpFlag,    1, T2DbNeverUpdateControl    },
+      { "TurretData", 45, OpSelect,  2, T2DbPrimaryAxis           },
+      { "TurretData", 46, OpRaw,    32, T2DbMaxCapacitorEnergy    },
+      { "TurretData", 47, OpRaw,    32, T2DbCapacitorRechargeRate },
+
+   // TurretImageData::packData (0x00654760): the two delays as counts of
+   // 32 ms, the two rates in whole degrees a second.
+      { "TurretImageData", 59, OpInt,   8, T2DbActivationMS               },
+      { "TurretImageData", 60, OpInt,   8, T2DbDeactivateDelayMS          },
+      { "TurretImageData", 61, OpInt,  11, T2DbDegPerSecTheta             },
+      { "TurretImageData", 62, OpInt,  11, T2DbDegPerSecPhi               },
+      { "TurretImageData", 63, OpFlag,  1, T2DbDontFireInsideDamageRadius },
+      { "TurretImageData", 64, OpRaw,  32, T2DbDamageRadius               },
+      { "TurretImageData", 65, OpFlag,  1, T2DbUseCapacitor               },
    };
 }
 
