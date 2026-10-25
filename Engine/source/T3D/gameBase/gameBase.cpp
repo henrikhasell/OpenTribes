@@ -24,6 +24,8 @@
 #include "T3D/gameBase/gameBase.h"
 // HH: Added for Tribes 2 compatibility.
 #include "T3D/gameBase/t2Layout.h"
+#include "T3D/gameBase/targetsT2.h"
+#include "T3D/shapeBase.h"
 #include "console/consoleTypes.h"
 #include "console/engineAPI.h"
 #include "console/consoleInternal.h"
@@ -445,8 +447,16 @@ F32 GameBase::getUpdatePriority(CameraScopeQuery *camInfo, U32 updateMask, S32 u
 void GameBase::onT2BodyHeadRead(const T2Layout::Body &body)
 {
    // GameBase's own block (0x5e3426), the same in every class's body.
-   if(body.hasTarget)
+   if(body.hasTarget && mT2Target != body.target)
+   {
       mT2Target = body.target;
+
+      // The skin a shape wears is its target's, and the target is the first
+      // thing of its own a body carries, so a flag or a player arrives
+      // already in its team's colours.
+      if(ShapeBase *shape = dynamic_cast<ShapeBase *>(this))
+         T2Targets::applySkin(shape);
+   }
 
    if(!body.hasDataBlock)
       return;

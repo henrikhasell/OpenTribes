@@ -4042,6 +4042,16 @@ void ShapeBase::setSkinName(const char* name)
    }
 }
 
+// HH: Added for Tribes 2 compatibility.
+void ShapeBase::setTargetSkin(const NetStringHandle &skin)
+{
+   if (mSkinNameHandle == skin)
+      return;
+
+   mSkinNameHandle = skin;
+   reSkin();
+}
+
 //----------------------------------------------------------------------------
 
 void ShapeBase::reSkin()

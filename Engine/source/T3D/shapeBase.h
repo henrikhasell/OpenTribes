@@ -1264,6 +1264,12 @@ public:
    const char* getShapeName();
    void setSkinName(const char*);
    const char* getSkinName();
+
+   // HH: Added for Tribes 2 compatibility.
+   /// Wear the skin the target manager carries for this shape's target. A
+   /// ghost's skin is the server's to say, so this sets it without the mask
+   /// bit setSkinName would raise on an object a client cannot send.
+   void setTargetSkin(const NetStringHandle &skin);
    /// @}
 
    /// @name Mesh Visibility
