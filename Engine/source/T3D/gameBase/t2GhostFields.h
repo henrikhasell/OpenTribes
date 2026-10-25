@@ -77,6 +77,7 @@ namespace T2Protocol
       T2FieldTurretHeading,
       T2FieldTurretPitch,
       T2FieldTurretActivation,
+      T2FieldTurretCapacitor,       ///< readFloat(bits) of a full capacitor
    };
 
    inline U32 t2FieldWords(U32 field)
@@ -196,6 +197,7 @@ namespace T2Protocol
    // capacitor and the flag that sends its controller the aim in packet
    // data instead, then the aim itself (0x00658010).
       { "Turret",                 8, OpFlag,  1, T2FieldPowered          },
+      { "Turret",                 6, OpRaw,   8, T2FieldTurretCapacitor  },
       { "Turret",                 4, OpFlag,  1, T2FieldTurretAim        },
       { "Turret",                 3, OpRaw,  10, T2FieldTurretHeading    },
       { "Turret",                 2, OpRaw,  10, T2FieldTurretPitch      },

@@ -746,7 +746,12 @@ public:
       // further down.
       MaxSoundThreads =  4,            ///< Should be a power of 2
       MaxScriptThreads = 4,            ///< Should be a power of 2
-      MaxMountedImages = 4,            ///< Should be a power of 2
+      // HH: Modified for Tribes 2 compatibility.
+      // Tribes 2 has eight image slots, and a vehicle's turret fills six.
+      // The net mask has room for four image bits, which the slots share
+      // (imageMask).
+      MaxMountedImages = 8,            ///< Should be a power of 2
+      NumImageMaskBits = 4,
       MaxImageEmitters = 3,
       NumImageBits = 3,
       ShieldNormalBits = 8,
@@ -940,6 +945,9 @@ protected:
       void updateDoAnimateAllShapes(const ShapeBase* owner);
    };
    MountedImage mMountedImageList[MaxMountedImages];
+
+   // HH: Added for Tribes 2 compatibility.
+   U32 mActiveImageSlot;            ///< The weapon a gunner has chosen (this+0x724).
 
    /// @}
 
@@ -1271,15 +1279,18 @@ public:
       MeshHiddenMask  = Parent::NextFreeMask << 7,
       SoundMaskN      = Parent::NextFreeMask << 8,       ///< Extends + MaxSoundThreads bits
       ThreadMaskN     = SoundMaskN  << MaxSoundThreads,  ///< Extends + MaxScriptThreads bits
-      ImageMaskN      = ThreadMaskN << MaxScriptThreads, ///< Extends + MaxMountedImage bits
-      NextFreeMask    = ImageMaskN  << MaxMountedImages
+      ImageMaskN      = ThreadMaskN << MaxScriptThreads, ///< Extends + NumImageMaskBits bits
+      NextFreeMask    = ImageMaskN  << NumImageMaskBits
    };
 
    enum BaseMaskConstants {
       SoundMask      = (SoundMaskN << MaxSoundThreads) - SoundMaskN,
       ThreadMask     = (ThreadMaskN << MaxScriptThreads) - ThreadMaskN,
-      ImageMask      = (ImageMaskN << MaxMountedImages) - ImageMaskN
+      ImageMask      = (ImageMaskN << NumImageMaskBits) - ImageMaskN
    };
+
+   /// The mask bit an image slot's changes are sent under.
+   static U32 imageMask(U32 imageSlot) { return ImageMaskN << (imageSlot % NumImageMaskBits); }
 
    /// @}
 
@@ -1590,6 +1601,12 @@ public:
    /// Gets the information on the image mounted in a slot
    /// @param   imageSlot   Mount point
    ShapeBaseImageData* getMountedImage(U32 imageSlot);
+
+   // HH: Added for Tribes 2 compatibility.
+   /// Which of a vehicle turret's weapons its gunner has chosen, as the
+   /// server tells the gunner's client (SetObjectActiveImageEvent).
+   U32  getActiveImageSlot() const { return mActiveImageSlot; }
+   void setActiveImageSlot(U32 imageSlot) { mActiveImageSlot = imageSlot; }
 
    /// Gets the mounted image on on a slot
    /// @param   imageSlot   Mount Point

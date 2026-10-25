@@ -152,6 +152,7 @@ public:
                    NetStringHandle &skinNameHandle);
    bool unmountImage(U32 imageSlot);
    void onT2BodyRead(const T2Layout::Body &body);
+   F32 getCapacitorValue();
    void processTick(const Move *move);
    void interpolateTick(F32 delta);
    void writePacketData(GameConnection *conn, BitStream *stream);

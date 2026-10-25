@@ -356,6 +356,10 @@ void Turret::onT2BodyRead(const T2Layout::Body &body)
    if(body.hasPowered)
       setPowered(body.powered);
 
+   // Sent while it rides a vehicle, for its gunner's and pilot's bar.
+   if(body.hasTurretCapacitor && mDataBlock)
+      mCapacitor = body.turretCapacitor * mDataBlock->maxCapacitorEnergy;
+
    if(body.hasTurretAim && mDataBlock)
    {
       mHeading = body.turretHeading * 360.0f;
@@ -363,6 +367,14 @@ void Turret::onT2BodyRead(const T2Layout::Body &body)
                body.turretPitch * (mDataBlock->thetaMax - mDataBlock->thetaMin);
       mActivation = body.turretActivation;
    }
+}
+
+/// 0x00658070.
+F32 Turret::getCapacitorValue()
+{
+   if(!mDataBlock || mDataBlock->maxCapacitorEnergy <= 0.0f)
+      return 0.0f;
+   return mCapacitor / mDataBlock->maxCapacitorEnergy;
 }
 
 /// The base aims only once it is fully open.

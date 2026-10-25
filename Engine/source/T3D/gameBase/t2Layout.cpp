@@ -2300,6 +2300,10 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
                   case T2FieldTurretActivation:
                      sBody.turretActivation = t2Float(word, n.bits);
                      break;
+                  case T2FieldTurretCapacitor:
+                     sBody.hasTurretCapacitor = true;
+                     sBody.turretCapacitor = t2Float(word, n.bits);
+                     break;
                   default:
                      break;
                }
@@ -3261,6 +3265,8 @@ static bool runGhost(BitStream *stream, const char *className,
    sBody.turretHeading = 0.0f;
    sBody.turretPitch = 0.0f;
    sBody.turretActivation = 0.0f;
+   sBody.hasTurretCapacitor = false;
+   sBody.turretCapacitor = 0.0f;
    sBody.beamInitial = false;
    sBody.beamHit = false;
    sBody.beamWet = false;

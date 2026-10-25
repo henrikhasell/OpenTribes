@@ -130,6 +130,9 @@ namespace T2Layout
       F32     turretPitch;          ///< readFloat(10): share of the way from
                                     ///< its datablock's thetaMin to thetaMax
       F32     turretActivation;     ///< readFloat(8): how far it has opened
+      bool    hasTurretCapacitor;   ///< a turret's capacitor came
+      F32     turretCapacitor;      ///< readFloat(8): share of its datablock's
+                                    ///< maxCapacitorEnergy
 
       /// What a beam's body says besides its two ends, which come as the
       /// position and the explode point.

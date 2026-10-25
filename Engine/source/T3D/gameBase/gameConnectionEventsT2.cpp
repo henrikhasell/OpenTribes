@@ -5,6 +5,7 @@
 #include "platform/platform.h"
 #include "core/stream/bitStream.h"
 #include "console/consoleTypes.h"
+#include "console/engineAPI.h"
 #include "sim/netConnection.h"
 #include "T3D/gameBase/gameConnection.h"
 #include "T3D/gameBase/t2Layout.h"
@@ -199,7 +200,18 @@ public:
       mGhost = stream->readInt(NetConnection::GhostIdBitSize);
       mSlot = stream->readInt(SlotBits);
    }
-   void process(NetConnection *) {}
+
+   /// 0x005fedf0. Retail's play view takes the projectile its target
+   /// beacons are drawn for from the image in this slot (0x00689c60).
+   void process(NetConnection *conn)
+   {
+      if (!conn->isGhostingTo())
+         return;
+
+      ShapeBase *obj = dynamic_cast<ShapeBase *>(conn->resolveGhost(mGhost));
+      if (obj)
+         obj->setActiveImageSlot(mSlot);
+   }
 
    enum { SlotBits = 4 };
 
@@ -210,6 +222,34 @@ IMPLEMENT_CO_CLIENTEVENT_V1(SetObjectActiveImageEvent);
 
 ConsoleDocClass( SetObjectActiveImageEvent,
    "@brief Tells a client which image slot an object is holding up.\n\n@internal" );
+
+/// 0x005fe2c0, posting through 0x005faea0: the vehicle scripts tell a
+/// gunner's client which of the turret's weapons is chosen.
+DefineEngineMethod( GameConnection, setObjectActiveImage, void,
+                    (const char *obj, S32 imageSlot),,
+   "@brief Tell this client which image slot an object is using.\n\n@internal" )
+{
+   if (object == GameConnection::getConnectionToServer())
+      return;
+
+   ShapeBase *shape;
+   if (!Sim::findObject(obj, shape))
+   {
+      Con::errorf("GameConnection::cSetObjectActiveImage: invalid object %s",
+                  obj);
+      return;
+   }
+   if (imageSlot < 0 || imageSlot >= ShapeBase::MaxMountedImages)
+   {
+      Con::errorf("GameConnection::cSetControlObjectActiveImage: image slot "
+                  "out of range [%d]", imageSlot);
+      return;
+   }
+
+   const S32 ghost = object->getGhostIndex(shape);
+   if (ghost != -1)
+      object->postNetEvent(new SetObjectActiveImageEvent(ghost, imageSlot));
+}
 
 //----------------------------------------------------------------------------
 

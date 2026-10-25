@@ -1300,7 +1300,7 @@ void ShapeBase::setImageGenericTriggerState(U32 imageSlot, U32 trigger, bool sta
 {
    MountedImage& image = mMountedImageList[imageSlot];
    if (image.dataBlock && image.genericTrigger[trigger] != state) {
-      setMaskBits(ImageMaskN << imageSlot);
+      setMaskBits(imageMask(imageSlot));
       image.genericTrigger[trigger] = state;
    }
 }
@@ -1317,7 +1317,7 @@ void ShapeBase::setImageAmmoState(U32 imageSlot,bool ammo)
 {
    MountedImage& image = mMountedImageList[imageSlot];
    if (image.dataBlock && !image.dataBlock->usesEnergy && image.ammo != ammo) {
-      setMaskBits(ImageMaskN << imageSlot);
+      setMaskBits(imageMask(imageSlot));
       image.ammo = ammo;
    }
 }
@@ -1334,7 +1334,7 @@ void ShapeBase::setImageWetState(U32 imageSlot,bool wet)
 {
    MountedImage& image = mMountedImageList[imageSlot];
    if (image.dataBlock && image.wet != wet) {
-      setMaskBits(ImageMaskN << imageSlot);
+      setMaskBits(imageMask(imageSlot));
       image.wet = wet;
    }
 }
@@ -1351,7 +1351,7 @@ void ShapeBase::setImageMotionState(U32 imageSlot,bool motion)
 {
    MountedImage& image = mMountedImageList[imageSlot];
    if (image.dataBlock && image.motion != motion) {
-      setMaskBits(ImageMaskN << imageSlot);
+      setMaskBits(imageMask(imageSlot));
       image.motion = motion;
    }
 }
@@ -1368,7 +1368,7 @@ void ShapeBase::setImageTargetState(U32 imageSlot,bool target)
 {
    MountedImage& image = mMountedImageList[imageSlot];
    if (image.dataBlock && image.target != target) {
-      setMaskBits(ImageMaskN << imageSlot);
+      setMaskBits(imageMask(imageSlot));
       image.target = target;
    }
 }
@@ -1385,7 +1385,7 @@ void ShapeBase::setImageLoadedState(U32 imageSlot,bool loaded)
 {
    MountedImage& image = mMountedImageList[imageSlot];
    if (image.dataBlock && image.loaded != loaded) {
-      setMaskBits(ImageMaskN << imageSlot);
+      setMaskBits(imageMask(imageSlot));
       image.loaded = loaded;
    }
 }
@@ -1889,7 +1889,7 @@ void ShapeBase::setImage(  U32 imageSlot,
          if (!isGhost()) {
             // Serverside, note the skin handle and tell the client.
             image.skinNameHandle = skinNameHandle;
-            setMaskBits(ImageMaskN << imageSlot);
+            setMaskBits(imageMask(imageSlot));
          }
          else {
             // Clientside, do the reskin.
@@ -1919,7 +1919,7 @@ void ShapeBase::setImage(  U32 imageSlot,
    }
 
    // Mark that updates are happenin'.
-   setMaskBits(ImageMaskN << imageSlot);
+   setMaskBits(imageMask(imageSlot));
 
    // Notify script unmount since we're swapping datablocks.
    if (image.dataBlock && !isGhost()) {
@@ -2113,7 +2113,7 @@ void ShapeBase::setImageTriggerState(U32 imageSlot,bool trigger)
       if (!image.triggerDown && image.dataBlock) {
          image.triggerDown = true;
          if (!isGhost()) {
-            setMaskBits(ImageMaskN << imageSlot);
+            setMaskBits(imageMask(imageSlot));
             updateImageState(imageSlot,0);
          }
       }
@@ -2122,7 +2122,7 @@ void ShapeBase::setImageTriggerState(U32 imageSlot,bool trigger)
       if (image.triggerDown) {
          image.triggerDown = false;
          if (!isGhost()) {
-            setMaskBits(ImageMaskN << imageSlot);
+            setMaskBits(imageMask(imageSlot));
             updateImageState(imageSlot,0);
          }
       }
@@ -2145,7 +2145,7 @@ void ShapeBase::setImageAltTriggerState(U32 imageSlot,bool trigger)
       if (!image.altTriggerDown && image.dataBlock) {
          image.altTriggerDown = true;
          if (!isGhost()) {
-            setMaskBits(ImageMaskN << imageSlot);
+            setMaskBits(imageMask(imageSlot));
             updateImageState(imageSlot,0);
          }
       }
@@ -2154,7 +2154,7 @@ void ShapeBase::setImageAltTriggerState(U32 imageSlot,bool trigger)
       if (image.altTriggerDown) {
          image.altTriggerDown = false;
          if (!isGhost()) {
-            setMaskBits(ImageMaskN << imageSlot);
+            setMaskBits(imageMask(imageSlot));
             updateImageState(imageSlot,0);
          }
       }
@@ -2365,15 +2365,15 @@ void ShapeBase::setImageState(U32 imageSlot, U32 newState,bool force)
    if (stateData.loaded != ShapeBaseImageData::StateData::IgnoreLoaded)
       image.loaded = stateData.loaded == ShapeBaseImageData::StateData::Loaded;
    if (!isGhost() && image.dataBlock->state[newState].fire) {
-      setMaskBits(ImageMaskN << imageSlot);
+      setMaskBits(imageMask(imageSlot));
       image.fireCount = (image.fireCount + 1) & 0x7;
    }
    if (!isGhost() && image.dataBlock->state[newState].altFire) {
-      setMaskBits(ImageMaskN << imageSlot);
+      setMaskBits(imageMask(imageSlot));
       image.altFireCount = (image.altFireCount + 1) & 0x7;
    }
    if (!isGhost() && image.dataBlock->state[newState].reload) {
-      setMaskBits(ImageMaskN << imageSlot);
+      setMaskBits(imageMask(imageSlot));
       image.reloadCount = (image.reloadCount + 1) & 0x7;
    }
 
@@ -2662,7 +2662,7 @@ TICKAGAIN:
          bool ammo = newEnergy > imageData.minEnergy;
          if (ammo != image.ammo) 
          {
-            setMaskBits(ImageMaskN << imageSlot);
+            setMaskBits(imageMask(imageSlot));
             image.ammo = ammo;
          }
       }
@@ -2811,7 +2811,7 @@ void ShapeBase::setImageScriptAnimPrefix(U32 imageSlot, NetStringHandle prefix)
 {
    MountedImage& image = mMountedImageList[imageSlot];
    if (image.dataBlock) {
-      setMaskBits(ImageMaskN << imageSlot);
+      setMaskBits(imageMask(imageSlot));
       image.scriptAnimPrefix = prefix;
    }
 }

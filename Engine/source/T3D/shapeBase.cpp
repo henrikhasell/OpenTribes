@@ -929,6 +929,7 @@ ShapeBase::ShapeBase()
    mAppliedForce( Point3F::Zero ),
    mTimeoutList( NULL ),
    mDataBlock( NULL ),
+   mActiveImageSlot( 0 ),       // HH: Added for Tribes 2 compatibility.
    mShapeInstance( NULL ),
    mEnergy( 0.0f ),
    mRechargeRate( 0.0f ),
@@ -1947,10 +1948,10 @@ void ShapeBase::readT2Images(const T2Layout::Body &body)
    const bool trace = Con::getBoolVariable("$pref::Net::traceGhostImages",
                                            false);
 
-      // Tribes 2 sends eight slots and fills four, which is what this engine has
-      // room for.
-   const U32 slots = getMin((U32)MaxMountedImages, (U32)T2Layout::MaxImages);
-   for (U32 i = 0; i < slots; i++)
+   // Tribes 2 sends eight slots; a vehicle's turret fills six of them.
+   static_assert(U32(MaxMountedImages) <= U32(T2Layout::MaxImages),
+                 "a slot would be read past the body's images");
+   for (U32 i = 0; i < MaxMountedImages; i++)
    {
       const T2Layout::Body::Image &slot = body.images[i];
       if (!slot.present)
