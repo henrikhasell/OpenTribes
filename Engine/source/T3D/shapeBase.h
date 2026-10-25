@@ -759,6 +759,17 @@ protected:
    Sound mSoundThread[MaxSoundThreads];
    /// @}
 
+   // HH: Added for Tribes 2 compatibility.
+   /// @name Target Voice
+   /// @{
+
+   /// The one voice line a target has in the air, which moves with the shape
+   /// that wears the target until it finishes.  A target speaks one line at a
+   /// time, so a new line takes this slot from the line before it.  The sound
+   /// system reaps it once it stops, which clears the pointer.
+   SimObjectPtr<SFXSource> mVoiceSound;
+   /// @}
+
    /// @name Scripted Animation Threads
    /// @{
 
@@ -1154,6 +1165,16 @@ protected:
    /// Recalculates the spacial sound based on the current position of the object
    /// emitting the sound.
    void updateAudioPos();
+
+public:
+
+   // HH: Added for Tribes 2 compatibility.
+   /// Speak a line in this shape's own voice, from where the shape is.
+   /// @param   profile   The line to speak
+   /// @param   pitch     The pitch the target's voice carries
+   void playVoiceAudio(SFXTrack *profile, F32 pitch);
+
+protected:
 
    /// Update bouyency and drag properties
    void updateContainer();

@@ -593,12 +593,22 @@ public:
       }
       profile->setAutoDelete(true);
 
-      // Without a position the sound comes from wherever the target is.
+      // A line is spoken by a shape, so it is heard from wherever that shape
+      // has got to: a taunt from a player who jets away recedes with him.
+      if (ShapeBase *speaker = findSpeaker(conn))
+      {
+         speaker->playVoiceAudio(profile, target.voicePitch);
+         return;
+      }
+
+      // With no shape to speak it, the server says where it was spoken.  A
+      // line with neither is one this client cannot place, and a sound at the
+      // world origin is further from the truth than silence.
+      if (!mPositionHere)
+         return;
+
       MatrixF transform(true);
-      if (mPositionHere)
-         transform.setColumn(3, mPosition);
-      else if (Player *player = findPlayer(conn))
-         transform = player->getRenderTransform();
+      transform.setColumn(3, mPosition);
 
       SFXSource *source = SFX->createSource(profile, &transform);
       if (!source)
@@ -612,16 +622,18 @@ public:
    DECLARE_CONOBJECT(SimTargetAudioEvent);
 
 private:
-   Player *findPlayer(NetConnection *conn) const
+   /// The shape wearing this target, which any GameBase can do: a turret and
+   /// a vehicle speak as well as a player.
+   ShapeBase *findSpeaker(NetConnection *conn) const
    {
       if (!conn->isGhostingTo())
          return NULL;
 
       for (S32 i = 0; i < NetConnection::MaxGhostCount; i++)
       {
-         Player *player = dynamic_cast<Player *>(conn->resolveGhost(i));
-         if (player && player->getT2Target() == S32(mTarget))
-            return player;
+         ShapeBase *shape = dynamic_cast<ShapeBase *>(conn->resolveGhost(i));
+         if (shape && shape->getT2Target() == S32(mTarget))
+            return shape;
       }
       return NULL;
    }
