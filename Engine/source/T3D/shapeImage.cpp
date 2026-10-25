@@ -303,6 +303,14 @@ ShapeBaseImageData::ShapeBaseImageData()
    shakeCamera = false;
    camShakeFreq = Point3F::Zero;
    camShakeAmp = Point3F::Zero;
+
+   // HH: Added for Tribes 2 compatibility.
+   t2HasStateSequences = false;
+   for (U32 i = 0; i < MaxStates; i++)
+   {
+      t2StateSequence[i] = -1;
+      t2StateSequenceVis[i] = -1;
+   }
 }
 
 ShapeBaseImageData::~ShapeBaseImageData()
@@ -510,7 +518,17 @@ bool ShapeBaseImageData::preload(bool server, String &errorStr)
          hasFlash[i] = false;
          for (U32 j = 0; j < MaxStates; j++) {
             StateData& s = state[j];
-            if (stateSequence[j] && stateSequence[j][0])
+
+            // HH: Added for Tribes 2 compatibility.
+            // A Tribes 2 server already resolved these against the shape, so
+            // there is no name to look up -- retail skips this whole block on
+            // the same condition (0x005f440e).
+            if (t2HasStateSequences)
+            {
+               s.sequence[i] = t2StateSequence[j];
+               s.sequenceVis[i] = t2StateSequenceVis[j];
+            }
+            else if (stateSequence[j] && stateSequence[j][0])
                s.sequence[i] = shape[i]->findSequence(stateSequence[j]);
             if (s.sequence[i] != -1)
             {
@@ -518,7 +536,7 @@ bool ShapeBaseImageData::preload(bool server, String &errorStr)
                isAnimated[i] = true;
             }
 
-            if (stateSequence[j] && stateSequence[j][0] && stateSequenceRandomFlash[j]) {
+            if (!t2HasStateSequences && stateSequence[j] && stateSequence[j][0] && stateSequenceRandomFlash[j]) {
                char bufferVis[128];
                dStrncpy(bufferVis, stateSequence[j], 100);
                dStrcat(bufferVis, "_vis");
