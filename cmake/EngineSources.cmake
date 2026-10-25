@@ -69,7 +69,6 @@ set(_engine_dirs
     T3D/gameBase/std
     T3D/physics
     T3D/sfx
-    T3D/turret
     T3D/vehicles
     collision
     environment
