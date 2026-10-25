@@ -19,6 +19,11 @@ namespace T2Targets
    /// rather than in their team's.  Each client answers it for itself.
    extern bool smUsePrefSkins;
 
+   /// $pref::use512PlayerSkins, which takes the larger artwork of a player's
+   /// own skin where the game ships one.  Retail asks it only about a
+   /// preferred skin, never about a team's.
+   extern bool smUse512PlayerSkins;
+
    /// Put the skin a target carries on the shape that wears the target, which
    /// is what makes a flag its team's and a player their own or their team's.
    /// Does nothing for a shape with no target.
