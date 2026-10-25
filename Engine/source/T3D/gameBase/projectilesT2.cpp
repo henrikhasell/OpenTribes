@@ -14,6 +14,7 @@
 #include "gfx/primBuilder.h"
 #include "lighting/lightQuery.h"
 #include "math/mathUtils.h"
+#include "math/mRandom.h"
 #include "renderInstance/renderPassManager.h"
 #include "scene/sceneRenderState.h"
 #include "sfx/sfxSystem.h"
@@ -52,6 +53,10 @@ public:
    F32    blurWidth;
    ColorF blurColor;
    String texture[2];      ///< the bolt's and the cross's
+   U32    numFlares;       ///< the petals a plasma bolt is seen as
+   F32    flareSize[3];    ///< how far out they start and end
+   ColorF flareColor;
+   bool   faceViewer;      ///< its shape is turned to the camera
 
    ProjectileDataT2();
 
@@ -87,8 +92,12 @@ ProjectileDataT2::ProjectileDataT2()
      soundId(0),
      blurLifetime(0.0f),
      blurWidth(0.0f),
-     blurColor(1.0f, 1.0f, 1.0f, 1.0f)
+     blurColor(1.0f, 1.0f, 1.0f, 1.0f),
+     numFlares(0),
+     flareColor(1.0f, 1.0f, 1.0f, 1.0f),
+     faceViewer(false)
 {
+   flareSize[0] = flareSize[1] = flareSize[2] = 0.0f;
 }
 
 bool ProjectileDataT2::unpackData(BitStream *stream, U32 classId)
@@ -143,6 +152,19 @@ bool ProjectileDataT2::unpackData(BitStream *stream, U32 classId)
       drag = value;
    if(T2Layout::lastDataBlockField(T2Layout::T2DbProjectileDensity, &value))
       density = value;
+   if(T2Layout::lastDataBlockWord(T2Layout::T2DbNumFlares, &word))
+      numFlares = S32(word) > 0 ? word : 0;
+   if(T2Layout::lastDataBlockWord(T2Layout::T2DbFlareColor, &word))
+      flareColor.set(F32(word & 0xff) / 255.0f, F32((word >> 8) & 0xff) / 255.0f,
+                     F32((word >> 16) & 0xff) / 255.0f);
+   if(T2Layout::lastDataBlockField(T2Layout::T2DbFlareSize0, &value))
+      flareSize[0] = value;
+   if(T2Layout::lastDataBlockField(T2Layout::T2DbFlareSize1, &value))
+      flareSize[1] = value;
+   if(T2Layout::lastDataBlockField(T2Layout::T2DbFlareSize2, &value))
+      flareSize[2] = value;
+   if(T2Layout::lastDataBlockWord(T2Layout::T2DbFaceViewer, &word))
+      faceViewer = word != 0;
 
       // Every one of these layouts names its shape first and its two
       // textures after it, which for a bolt are what it is drawn with along
@@ -200,6 +222,19 @@ class ProjectileT2 : public GameBase
    F32     mBoxReach;         ///< what the bolt and its trail need enclosing
    F32     mSinceTrail;       ///< seconds since the last length was laid
 
+   /// One of the petals a plasma bolt is seen as: a thin cone out from the
+   /// bolt along a way of its own, which grows out and then opens and fades.
+   struct Flare
+   {
+      Point3F way;
+      F32     from, to;       ///< how far out it reaches, first and last
+      F32     tilt;           ///< how far its sides lean once it opens
+      F32     peak, life, age;
+   };
+   Vector<Flare>    mFlares;
+   GFXTexHandle     mFlareTexture;
+   GFXStateBlockRef mFlareSB;
+
    Point3F mStart;            ///< where the body put it
    Point3F mPosition;         ///< where it has got to since
    VectorF mVelocity;         ///< metres a second, which is all the flight is
@@ -229,6 +264,8 @@ class ProjectileT2 : public GameBase
    void drawStreak(const Point3F &eye);
    void drawBolt(const Point3F &eye);
    void drawCross(const Point3F &eye);
+   void spawnFlare(Flare &flare);
+   void drawFlares();
 
 public:
    ProjectileT2();
@@ -266,6 +303,7 @@ ProjectileT2::ProjectileT2()
      mTrailAt(0.0f, 0.0f, 0.0f),
      mBoxReach(0.0f),
      mSinceTrail(0.0f),
+     mFlares(__FILE__, __LINE__),
      mAge(0.0f),
      mCatchUp(0.0f),
      mFlying(false),
@@ -328,6 +366,17 @@ bool ProjectileT2::onNewDataBlock(GameBaseData *dptr, bool reload)
    mAmbientThread = NULL;
    mFlightThread = NULL;
    mMaintainSeq = -1;
+
+   mFlares.clear();
+   mFlareTexture = NULL;
+   if(isClientObject() && mData->numFlares && mData->texture[0].isNotEmpty())
+   {
+      mFlareTexture.set(String("textures/") + mData->texture[0],
+                        &GFXDefaultStaticDiffuseProfile, "ProjectileT2");
+      mFlares.setSize(mData->numFlares);
+      for(U32 i = 0; i < mFlares.size(); i++)
+         spawnFlare(mFlares[i]);
+   }
 
    if(bool(mData->mShape))
    {
@@ -520,6 +569,14 @@ void ProjectileT2::advanceTime(F32 dt)
 
    mAge += dt;
 
+      // Each flare is replaced as soon as it has run out (0x0063df30).
+   for(U32 i = 0; i < mFlares.size(); i++)
+   {
+      mFlares[i].age += dt;
+      if(mFlares[i].age > mFlares[i].life)
+         spawnFlare(mFlares[i]);
+   }
+
    if(mData->lifetimeMS && mAge * 1000.0f > F32(mData->lifetimeMS))
    {
       mFlying = false;
@@ -695,18 +752,27 @@ void ProjectileT2::prepRenderImage(SceneRenderState *state)
       query.init(getWorldSphere());
       rdata.setLightQuery(&query);
 
+         // Turned to face the camera and scaled by the datablock, as
+         // Projectile::renderObject does it (0x00632880, 0x00632ad1).
       MatrixF mat = getRenderTransform();
-      mat.scale(mObjScale);
+      const Point3F at = mat.getPosition();
+      VectorF toEye = state->getCameraPosition() - at;
+      if(mData->faceViewer && !toEye.isZero())
+      {
+         toEye.normalize();
+         mat = MathUtils::createOrientFromDir(toEye);
+         mat.setPosition(at);
+      }
+      mat.scale(mData->scale);
       GFX->setWorldMatrix(mat);
 
-      mShapeInstance->setDetailFromPosAndScale(state, mat.getPosition(),
-                                               mObjScale);
+      mShapeInstance->setDetailFromPosAndScale(state, at, mData->scale);
       mShapeInstance->animate();
       mShapeInstance->render(rdata);
-      return;
+      if(mFlares.empty())
+         return;
    }
-
-   if(mTexture[0].isNull() && mTrail.empty())
+   else if(mTexture[0].isNull() && mTrail.empty())
       return;
 
    ObjectRenderInst *ri = state->getRenderPass()->allocInst<ObjectRenderInst>();
@@ -729,6 +795,10 @@ void ProjectileT2::renderBolt(ObjectRenderInst *, SceneRenderState *state,
    drawTrail(eye);
 
    if(!mFlying)
+      return;
+
+   drawFlares();
+   if(mShapeInstance)
       return;
 
    if(mData->streakLength > 0.0f)
@@ -930,6 +1000,120 @@ void ProjectileT2::drawCross(const Point3F &eye)
    PrimBuild::vertex3fv(at + r - u);
    PrimBuild::texCoord2f(1.0f, 0.0f);
    PrimBuild::vertex3fv(at + r + u);
+   PrimBuild::end();
+}
+
+/// A fresh flare, from the ranges retail's advance draws one from
+/// (0x0063dfe3): it starts out reaching size[1] and a little more, ends
+/// reaching size[2] and up to a metre more, peaks inside the first 0.4 of a
+/// second and is gone inside the first one.
+void ProjectileT2::spawnFlare(Flare &flare)
+{
+   flare.way.set(1.0f - 2.0f * gRandGen.randF(),
+                 1.0f - 2.0f * gRandGen.randF(),
+                 1.0f - 2.0f * gRandGen.randF());
+   flare.way.normalizeSafe();
+   flare.from = mData->flareSize[1] + gRandGen.randF() * 0.25f;
+   flare.to = mData->flareSize[2] + gRandGen.randF();
+   flare.tilt = mDegToRad(65.0f + gRandGen.randF() * 20.0f);
+   flare.peak = 0.15f + gRandGen.randF() * 0.225f;
+   flare.life = 0.4f + gRandGen.randF() * 0.595f;
+   flare.age = 0.0f;
+}
+
+/// What retail draws of a LinearFlareProjectile besides its shape
+/// (0x0063e2b0): each flare a ring of eight quads from size[0] out along its
+/// way, flareModTexture's root at the bolt and its tip at the far end, added
+/// into the scene and culled like any other face. A flare grows out nearly
+/// closed, at 87 degrees, until its peak, then holds its reach and opens out
+/// to its tilt while it fades, and its tip is half and a quarter as bright
+/// as its root (0x0063ee80, 0x0063f4e0).
+void ProjectileT2::drawFlares()
+{
+   if(mFlares.empty() || mFlareTexture.isNull())
+      return;
+
+   if(mFlareSB.isNull())
+   {
+      GFXStateBlockDesc desc;
+      desc.setBlend(true, GFXBlendOne, GFXBlendOne);
+      desc.setCullMode(GFXCullCCW);
+      desc.zWriteEnable = false;
+      desc.samplersDefined = true;
+      desc.samplers[0] = GFXSamplerStateDesc::getClampLinear();
+      mFlareSB = GFX->createStateBlock(desc);
+   }
+
+   GFX->setStateBlock(mFlareSB);
+   GFX->setTexture(0, mFlareTexture);
+
+   static const F32 sClosed = mDegToRad(87.0f);
+   static const F32 sU[6] = { 0.5f, 0.0f, 0.0f, 0.5f, 1.0f, 1.0f };
+   static const F32 sV[6] = { 0.9f, 0.9f, 0.1f, 0.1f, 0.1f, 0.9f };
+   static const U32 sShade[6] = { 0, 0, 1, 2, 1, 0 };
+   static const U32 sFan[12] = { 0, 1, 2, 0, 2, 3, 0, 3, 4, 0, 4, 5 };
+
+   const MatrixF &mat = getRenderTransform();
+   const ColorF &c = mData->flareColor;
+   const F32 root = mData->flareSize[0];
+
+   PrimBuild::begin(GFXTriangleList, mFlares.size() * 4 * 12);
+   for(U32 i = 0; i < mFlares.size(); i++)
+   {
+      const Flare &f = mFlares[i];
+
+      F32 angle, reach, glow;
+      if(f.age < f.peak)
+      {
+         glow = f.age / f.peak;
+         angle = sClosed;
+         reach = f.from + (f.to - f.from) * glow;
+      }
+      else
+      {
+         const F32 t = (f.age - f.peak) / (f.life - f.peak);
+         glow = 1.0f - t;
+         angle = sClosed + (f.tilt - sClosed) * t;
+         reach = f.to;
+      }
+
+      const ColorF shade[3] = { c * glow, c * (glow * 0.5f),
+                                c * (glow * 0.25f) };
+
+      VectorF u = mCross(f.way, mFabs(f.way.x) < 0.9f ? Point3F(1, 0, 0)
+                                                      : Point3F(0, 1, 0));
+      u.normalize();
+      VectorF v = mCross(f.way, u);
+      v.normalize();
+      u *= mCos(angle);
+      v *= mCos(angle);
+
+      const VectorF sink = f.way * (1.0f - mSin(angle));
+      const VectorF side[8] = { -v - u, -u, v - u, v, v + u, u, u - v, -v };
+
+      Point3F in[8], out[8];
+      for(U32 k = 0; k < 8; k++)
+      {
+         in[k] = (f.way + side[k]) * root;
+         out[k] = (f.way + side[k]) * reach - sink;
+         mat.mulP(in[k]);
+         mat.mulP(out[k]);
+      }
+
+      for(U32 k = 0; k < 8; k += 2)
+      {
+         const U32 j = (k + 2) & 7;
+         const Point3F *at[6] = { &in[k + 1], &in[k], &out[k], &out[k + 1],
+                                  &out[j], &in[j] };
+         for(U32 n = 0; n < 12; n++)
+         {
+            const U32 m = sFan[n];
+            PrimBuild::color(shade[sShade[m]]);
+            PrimBuild::texCoord2f(sU[m], sV[m]);
+            PrimBuild::vertex3fv(*at[m]);
+         }
+      }
+   }
    PrimBuild::end();
 }
 
