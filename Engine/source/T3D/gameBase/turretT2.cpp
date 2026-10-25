@@ -2,12 +2,16 @@
 #include "platform/platform.h"
 #include "T3D/gameBase/turretT2.h"
 
+#include "collision/collision.h"
 #include "console/consoleTypes.h"
 #include "console/engineAPI.h"
 #include "core/stream/bitStream.h"
+#include "math/mRandom.h"
+#include "scene/sceneContainer.h"
 #include "sim/netConnection.h"
 #include "T3D/gameBase/moveManager.h"
 #include "T3D/gameBase/t2Layout.h"
+#include "T3D/gameBase/targetManagerT2.h"
 #include "ts/tsShapeInstance.h"
 
 IMPLEMENT_CO_DATABLOCK_V1(TurretData);
@@ -157,6 +161,60 @@ void TurretImageData::initPersistFields()
    Parent::initPersistFields();
 }
 
+/// 0x00654450: the times are held to [32, 5000] ms, opening and closing
+/// rounded down to a tick and thinking up to one; the rates are held to
+/// [1, 1080] whole degrees a second and the reach to [10, 1000] metres.
+bool TurretImageData::onAdd()
+{
+   if(!Parent::onAdd())
+      return false;
+
+   if(activationMS < 32 || activationMS > 5000)
+   {
+      Con::warnf("TurretImageData(%s)::onAdd: activationMS must be in the "
+                 "range [%d, 5000]", getName(), 32);
+      activationMS = activationMS < 32 ? 32 : 5000;
+   }
+   activationMS &= ~31;
+   if(deactivateDelayMS < 32 || deactivateDelayMS > 5000)
+   {
+      Con::warnf("TurretImageData(%s)::onAdd: deactivateDelayMS must be in "
+                 "the range [%d, 5000]", getName(), 32);
+      deactivateDelayMS = deactivateDelayMS < 32 ? 32 : 5000;
+   }
+   deactivateDelayMS &= ~31;
+   if(thinkTimeMS < 32 || thinkTimeMS > 5000)
+   {
+      Con::warnf("TurretImageData(%s)::onAdd: thinkTimeMS must be in the "
+                 "range [%d, 5000]", getName(), 32);
+      thinkTimeMS = thinkTimeMS < 32 ? 32 : 5000;
+   }
+   thinkTimeMS = (thinkTimeMS + 31) & ~31;
+
+   if(degPerSecTheta < 1.0f || degPerSecTheta > 1080.0f)
+   {
+      Con::warnf("TurretImageData(%s)::onAdd: degPerSecTheta must be in the "
+                 "range [1, 1080]", getName());
+      degPerSecTheta = degPerSecTheta < 1.0f ? 1.0f : 1080.0f;
+   }
+   degPerSecTheta = F32(S32(degPerSecTheta));
+   if(degPerSecPhi < 1.0f || degPerSecPhi > 1080.0f)
+   {
+      Con::warnf("TurretImageData(%s)::onAdd: degPerSecPhi must be in the "
+                 "range [1, 1080]", getName());
+      degPerSecPhi = degPerSecPhi < 1.0f ? 1.0f : 1080.0f;
+   }
+   degPerSecPhi = F32(S32(degPerSecPhi));
+   if(attackRadius < 10.0f || attackRadius > 1000.0f)
+   {
+      Con::warnf("TurretImageData(%s)::onAdd: attackRadius must be in the "
+                 "range [10, 1000]", getName());
+      attackRadius = attackRadius < 10.0f ? 10.0f : 1000.0f;
+   }
+
+   return true;
+}
+
 /// 0x00654850, after ShapeBaseImageData's.
 bool TurretImageData::unpackData(BitStream *stream, U32 classId)
 {
@@ -194,14 +252,19 @@ IMPLEMENT_CO_NETOBJECT_V1(Turret);
 ConsoleDocClass( Turret,
    "@brief A Tribes 2 turret.\n\n@internal" );
 
-/// 0x00654980: closed, level and facing its own forward.
+/// 0x00654980: closed, level and facing its own forward, aiming true and
+/// looking for targets of its own.
 Turret::Turret()
    : mDataBlock(NULL),
      mState(Closed),
      mActivation(0.0f),
      mHeading(0.0f),
      mPitch(90.0f),
+     mInitialBarrel(StringTable->EmptyString()),
+     mSkill(1.0f),
      mTargetMS(0),
+     mThinkMS(0),
+     mAutoFire(true),
      mCapacitor(0.0f),
      mCapacitorRate(0.0f),
      mRenderActivation(0.0f),
@@ -231,6 +294,33 @@ void Turret::destroyThreads()
    mTurnThread = NULL;
 }
 
+void Turret::initPersistFields()
+{
+   addField("initialBarrel", TypeString, Offset(mInitialBarrel, Turret));
+
+   Parent::initPersistFields();
+}
+
+/// 0x00654c60: the server mounts the barrel a mission names, unloaded.
+bool Turret::onAdd()
+{
+   if(!Parent::onAdd())
+      return false;
+
+   if(isServerObject() && mInitialBarrel && mInitialBarrel[0])
+   {
+      ShapeBaseImageData *barrel = NULL;
+      if(Sim::findObject(mInitialBarrel, barrel))
+      {
+         NetStringHandle skin;
+         mountImage(barrel, 0, false, skin);
+      }
+   }
+   mThinkMS = 0;
+
+   return true;
+}
+
 bool Turret::onNewDataBlock(GameBaseData *dptr, bool reload)
 {
    // A new shape takes the old one's threads with it.
@@ -238,6 +328,24 @@ bool Turret::onNewDataBlock(GameBaseData *dptr, bool reload)
 
    mDataBlock = dynamic_cast<TurretData *>(dptr);
    return mDataBlock && Parent::onNewDataBlock(dptr, reload);
+}
+
+/// 0x00654df0 and 0x00654e30: initialBarrel names whatever was last mounted,
+/// in any slot, and nothing once one is taken off.
+bool Turret::mountImage(ShapeBaseImageData *image, U32 imageSlot, bool loaded,
+                        NetStringHandle &skinNameHandle)
+{
+   if(Parent::mountImage(image, imageSlot, loaded, skinNameHandle))
+      mInitialBarrel = image->getName() ? image->getName()
+                                        : StringTable->EmptyString();
+   return true;
+}
+
+bool Turret::unmountImage(U32 imageSlot)
+{
+   if(Parent::unmountImage(imageSlot))
+      mInitialBarrel = StringTable->EmptyString();
+   return true;
 }
 
 /// 0x00655f60: the aim is set as it arrives, with nothing to smooth it.
@@ -570,6 +678,244 @@ void Turret::aim(const Move *move, bool controlled)
    mPitch = mClampF(mPitch, mDataBlock->thetaMin, mDataBlock->thetaMax);
 }
 
+namespace
+{
+
+/// What a turret's sight of its target is blocked by (0x1000c).
+const U32 LOSMask = TerrainObjectType | InteriorObjectType | VehicleObjectType;
+
+/// GameBase::getSensorGroup (0x005e3490): an object with no target is in
+/// none.
+S32 getSensorGroup(const GameBase *obj)
+{
+   const S32 target = obj->getTarget();
+   return target == -1 ? 0 : TargetManagerT2::server()->getTarget(target).sensorGroup;
+}
+
+}
+
+/// 0x00656280 and 0x006562b0: how often the barrel in slot 0 looks for a
+/// target and how far, or retail's defaults without one.
+U32 Turret::getThinkMS()
+{
+   TurretImageData *barrel = dynamic_cast<TurretImageData *>(getMountedImage(0));
+   return barrel ? U32(barrel->thinkTimeMS) : 200;
+}
+
+F32 Turret::getAttackRadius()
+{
+   TurretImageData *barrel = dynamic_cast<TurretImageData *>(getMountedImage(0));
+   return barrel ? barrel->attackRadius : 40.0f;
+}
+
+/// 0x00656380: anything outside (0, 1] aims true.
+void Turret::setSkill(F32 skill)
+{
+   mSkill = skill > 0.0f && skill <= 1.0f ? skill : 1.0f;
+}
+
+/// 0x006563d0: a new target, or the same one again, is had from now.
+bool Turret::setTargetObject(ShapeBase *target)
+{
+   mTarget = target;
+   mTargetMS = 0;
+   return target != NULL;
+}
+
+/// 0x00656940: one that is not to look for targets drops the one it has.
+void Turret::setAutoFire(bool autoFire)
+{
+   mAutoFire = autoFire;
+   if(!mAutoFire)
+      setTargetObject(NULL);
+}
+
+/// 0x006564c0: a target the turret can see, reach and hit, on another side.
+bool Turret::isValidTarget(ShapeBase *target)
+{
+   if(!target || target->getDamageValue() >= 1.0f)
+      return false;
+   if(target->getTarget() == -1 || getTarget() == -1)
+      return false;
+
+   ShapeBaseImageData *image = getMountedImage(0);
+   if(image && image->isSeeker && target->getHeat() < image->minSeekHeat)
+      return false;
+
+   const Point3F centre = target->getWorldBox().getCenter();
+   if(image)
+   {
+      const F32 dist = (centre - getPosition()).len();
+      TurretImageData *barrel = dynamic_cast<TurretImageData *>(image);
+      if(barrel && barrel->dontFireInsideDamageRadius &&
+         dist <= barrel->damageRadius)
+         return false;
+      if(image->minTargetingDistance != 0.0f &&
+         dist <= image->minTargetingDistance)
+         return false;
+   }
+
+   TargetManagerT2 *targets = TargetManagerT2::server();
+   if(!targets->isTargetVisible(target->getTarget(), getSensorGroup(this)) ||
+      targets->isTargetFriendly(getTarget(), getSensorGroup(target)))
+      return false;
+
+   MatrixF muzzle;
+   getMuzzleTransform(0, &muzzle);
+   const Point3F start = muzzle.getPosition();
+   if((centre - start).len() > getAttackRadius())
+      return false;
+
+   target->disableCollision();
+   disableCollision();
+   RayInfo ray;
+   const bool blocked = gServerContainer.castRay(start, centre, LOSMask, &ray);
+   target->enableCollision();
+   enableCollision();
+   return !blocked;
+}
+
+/// 0x00656a90: a target it can no longer have is dropped, and the scripts
+/// are asked for another; with one, it opens.
+void Turret::think()
+{
+   mThinkMS = 0;
+
+   if(mTarget && !isValidTarget(mTarget))
+      mTarget = NULL;
+   if(!mTarget)
+      Con::executef(mDataBlock, "selectTarget", getIdString());
+
+   if(!mTarget)
+      return;
+   if(mState == Closed)
+      mState = Activating;
+   else if(mState != BarrelSwap)
+      mState = mActivation == 1.0f ? Active : Activating;
+}
+
+/// 0x00656b50: a turret short of full skill aims at a point beside its
+/// target, off the line to it by up to a share of its distance.
+Point3F Turret::getSkilledAim(const Point3F &start, const Point3F &end) const
+{
+   const Point3F away = start - end;
+   Point3F across = mCross(away, Point3F(0.0f, 0.0f, 1.0f));
+   if(across.isZero())
+      return end;
+   across.normalize();
+   Point3F up = mCross(away, across);
+   if(up.isZero())
+      return end;
+   up.normalize();
+
+   const F32 error = mSkill == 1.0f ? 0.0f : (1.0f - mSkill) * 0.2f + 0.04f;
+   const F32 spread = away.len() * error * 0.1f;
+   const F32 sideSign = gRandGen.randF() < 0.5f ? -1.0f : 1.0f;
+   const F32 side = spread * gRandGen.randF() * sideSign;
+   const F32 upSign = gRandGen.randF() < 0.5f ? -1.0f : 1.0f;
+   const F32 rise = spread * gRandGen.randF() * upSign;
+   return end + across * side + up * rise;
+}
+
+/// 0x00656e80: an uncontrolled turret's own move, in degrees, toward its
+/// target, which it loses once anything stands between them.  Retail leads
+/// the target by the slot-0 barrel's projectile and fires once the lead is
+/// good and the aim is within yawVariance and pitchVariance; this server's
+/// projectiles are not its own yet (projectilesT2.cpp is the client's), so
+/// this one aims where the target is and pulls no trigger.
+void Turret::aimAtTarget(Move *move)
+{
+   if(!mTarget)
+      return;
+
+   MatrixF muzzle;
+   getMuzzleTransform(0, &muzzle);
+   const Point3F start = muzzle.getPosition();
+   Point3F end = mTarget->getWorldBox().getCenter();
+
+   mTarget->disableCollision();
+   disableCollision();
+   if(mSkill < 1.0f)
+      end = getSkilledAim(start, end);
+   RayInfo ray;
+   const bool blocked = gServerContainer.castRay(start, end, LOSMask, &ray);
+   mTarget->enableCollision();
+   enableCollision();
+   if(blocked)
+   {
+      mTargetMS = 0;
+      mTarget = NULL;
+      return;
+   }
+
+   // The way to it as the turret is mounted.
+   Point3F dir = end - start;
+   getWorldTransform().mulV(dir);
+   dir.normalizeSafe();
+
+   F32 heading = 0.0f;
+   F32 pitch = 0.0f;
+   switch(mDataBlock->primaryAxis)
+   {
+      case TurretData::ZAxis:
+         heading = mRadToDeg(mAtan2(dir.x, dir.y));
+         pitch = 90.0f - mRadToDeg(mAtan2(dir.z, mSqrt(dir.x * dir.x + dir.y * dir.y)));
+         break;
+      case TurretData::RevZAxis:
+         heading = 360.0f - mRadToDeg(mAtan2(dir.x, dir.y));
+         pitch = 90.0f + mRadToDeg(mAtan2(dir.z, mSqrt(dir.x * dir.x + dir.y * dir.y)));
+         break;
+      case TurretData::YAxis:
+      case TurretData::RevYAxis:
+         heading = mRadToDeg(mAtan2(-dir.x, dir.z));
+         pitch = 90.0f - mRadToDeg(mAtan2(dir.y, mSqrt(dir.z * dir.z + dir.x * dir.x)));
+         break;
+   }
+
+   // The short way round from where it points.
+   if(heading < 0.0f)
+      heading += 360.0f;
+   const F32 straight = mFabs(heading - mHeading);
+   if(mFabs(heading - 360.0f - mHeading) < straight)
+      heading -= 360.0f;
+   else if(mFabs(heading + 360.0f - mHeading) < straight)
+      heading += 360.0f;
+
+   move->yaw = heading - mHeading;
+   move->pitch = pitch - mPitch;
+}
+
+/// 0x00656970: once it has closed, the scripts swap the barrel for the
+/// engineer who asked.
+void Turret::replaceBarrel()
+{
+   Con::executef(mDataBlock, "replaceCallback", getIdString(),
+                 mSwapEngineer->getIdString());
+   mSwapEngineer = NULL;
+}
+
+/// 0x006569e0: a closed turret, or one with no barrel, swaps at once; an
+/// open one closes first.
+bool Turret::initiateBarrelSwap(ShapeBase *engineer)
+{
+   if(!engineer)
+      return false;
+
+   // Retail reports each swap on the console, as an error.
+   mSwapEngineer = engineer;
+   if(!getMountedImage(0) || mState == Closed)
+   {
+      replaceBarrel();
+      Con::errorf("instant replace");
+   }
+   else
+   {
+      mState = BarrelSwap;
+      Con::errorf("active replace");
+   }
+   return true;
+}
+
 /// 0x006553c0. The server, and the client controlling the turret, run it
 /// from moves; any other client shows what the server last sent.
 void Turret::processTick(const Move *move)
@@ -597,6 +943,14 @@ void Turret::processTick(const Move *move)
       {
          updateState(controlled);
 
+         // One left to itself looks for a target every thinkTimeMS.
+         if(!controlled && mAutoFire && getMountedImage(0))
+         {
+            mThinkMS += TickMs;
+            if(mThinkMS >= getThinkMS())
+               think();
+         }
+
          switch(mState)
          {
             case Closed:
@@ -612,12 +966,22 @@ void Turret::processTick(const Move *move)
                deactivate();
                break;
             case Active:
+               if(!controlled && isServerObject())
+                  aimAtTarget(&ownMove);
                aim(move, controlled);
                break;
             case BarrelSwap:
                // Only the server knows the engineer swapping the barrel; it
-               // closes for them, and anyone else just closes.
-               mState = Deactivating;
+               // closes for them and then has the scripts swap it, and
+               // anyone else just closes.
+               if(mSwapEngineer)
+               {
+                  deactivate();
+                  if(mState == Closed)
+                     replaceBarrel();
+               }
+               else
+                  mState = Deactivating;
                break;
          }
 
@@ -628,7 +992,10 @@ void Turret::processTick(const Move *move)
          setImageTriggerState(1, active && move->trigger[1]);
       }
       else
+      {
          mTarget = NULL;
+         mSwapEngineer = NULL;
+      }
    }
 
    updateActivateThread(mActivation);
@@ -682,4 +1049,73 @@ void Turret::readPacketData(GameConnection *conn, BitStream *stream)
    mActivationDelta = 0.0f;
    mHeadingDelta = 0.0f;
    mPitchDelta = 0.0f;
+}
+
+//----------------------------------------------------------------------------
+
+// Registered at 0x00654b10.  Every object a turret is handed is looked up by
+// its id, and only a shape will do.
+
+namespace
+{
+
+ShapeBase *findShape(const char *id)
+{
+   ShapeBase *shape = NULL;
+   Sim::findObject(SimObjectId(dAtoi(id)), shape);
+   return shape;
+}
+
+}
+
+ConsoleMethod(Turret, setSkill, void, 3, 3, "turret.setSkill(skill)")
+{
+   object->setSkill(dAtof(argv[2]));
+}
+
+ConsoleMethod(Turret, setTargetObject, bool, 3, 3, "turret.setTargetObject(obj)")
+{
+   return object->setTargetObject(findShape(argv[2]));
+}
+
+ConsoleMethod(Turret, clearTarget, void, 2, 2, "turret.clearTarget()")
+{
+   object->setTargetObject(NULL);
+}
+
+ConsoleMethod(Turret, getTargetObject, S32, 2, 2, "turret.getTargetObject()")
+{
+   ShapeBase *target = object->getTargetObject();
+   return target ? target->getId() : 0;
+}
+
+ConsoleMethod(Turret, isValidTarget, bool, 3, 3, "turret.isValidTarget(obj)")
+{
+   ShapeBase *target = findShape(argv[2]);
+   return target && object->isValidTarget(target);
+}
+
+ConsoleMethod(Turret, initiateBarrelSwap, bool, 3, 3, "turret.initiateBarrelSwap(engineer)")
+{
+   return object->initiateBarrelSwap(findShape(argv[2]));
+}
+
+ConsoleMethod(Turret, setAutoFire, void, 3, 3, "turret.setAutoFire(bool)")
+{
+   object->setAutoFire(!dStricmp(argv[2], "true") || dAtoi(argv[2]) > 0);
+}
+
+ConsoleMethod(Turret, setCapacitorRechargeRate, void, 3, 3, "turret.setCapacitorRechargeRate(rate)")
+{
+   object->setCapacitorRechargeRate(dAtof(argv[2]));
+}
+
+ConsoleMethod(Turret, getCapacitorLevel, S32, 2, 2, "turret.getCapacitorLevel()")
+{
+   return S32(object->getCapacitorLevel());
+}
+
+ConsoleMethod(Turret, setCapacitorLevel, void, 3, 3, "turret.setCapacitorLevel(level)")
+{
+   object->setCapacitorLevel(dAtof(argv[2]));
 }

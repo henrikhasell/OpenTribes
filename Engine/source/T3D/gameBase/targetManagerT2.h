@@ -13,6 +13,7 @@
 
 class GameBase;
 class ShapeBaseData;
+class SimDataBlock;
 
 /// The targets a Tribes 2 server keeps for its scripts (TargetManager,
 /// built at 0x66c2c0).  A target is what the HUD, the sensors and the
@@ -64,6 +65,16 @@ public:
       U32  alwaysVisMask;
       U32  neverVisMask;
       U32  friendlyMask;
+      /// The SensorData it senses with.  Nothing on this server senses yet.
+      SimObjectPtr<SimDataBlock> sensorData;
+   };
+
+   /// Which of the per-target masks a group's mask is copied to.
+   enum GroupMask
+   {
+      GroupAlwaysVis,
+      GroupNeverVis,
+      GroupFriendly,
    };
 
    TargetManagerT2();
@@ -82,6 +93,10 @@ public:
    void freeTarget(S32 id);
    void setSensorGroup(S32 id, S32 group);
    void setTargetObject(S32 id, GameBase *obj);
+   void setGroupMask(GroupMask which, S32 group, U32 mask);
+
+   bool isTargetVisible(S32 id, S32 group) const;
+   bool isTargetFriendly(S32 id, S32 group) const;
 
    Target &getTarget(S32 id) { return mTargets[id]; }
 

@@ -1128,6 +1128,15 @@ void SceneObject::getRenderMountTransform( F32 delta, S32 index, const MatrixF &
 
 //-----------------------------------------------------------------------------
 
+// HH: Added for Tribes 2 compatibility.
+// Tribes 2 keeps a type mask on every SimObject (0x004362d0), and its scripts
+// ask groups for one; nothing outside the scene has a type.
+DefineEngineMethod( SimObject, getType, S32, (),,
+   "@internal" )
+{
+   return 0;
+}
+
 DefineEngineMethod( SceneObject, getType, S32, (),,
    "Return the type mask for this object.\n"
    "@return The numeric type mask for the object." )

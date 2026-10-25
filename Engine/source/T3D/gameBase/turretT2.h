@@ -68,6 +68,7 @@ struct TurretImageData : public ShapeBaseImageData
    TurretImageData();
 
    static void initPersistFields();
+   bool onAdd();
    bool unpackData(BitStream *stream, U32 classId);
 
    DECLARE_CONOBJECT(TurretImageData);
@@ -94,10 +95,15 @@ class Turret : public StaticShape
    F32 mHeading;                 ///< degrees about its axis, [0, 360)
    F32 mPitch;                   ///< degrees from it; 90 is level
 
-   SimObjectPtr<GameBase> mTarget;
+   StringTableEntry mInitialBarrel; ///< what is in slot 0, by name
+   F32 mSkill;                   ///< 1 aims true, less aims wide
+   SimObjectPtr<ShapeBase> mTarget;
    U32 mTargetMS;                ///< since it last had a target
+   U32 mThinkMS;                 ///< since it last looked for one
+   bool mAutoFire;               ///< it looks for targets of its own
    F32 mCapacitor;
    F32 mCapacitorRate;
+   SimObjectPtr<ShapeBase> mSwapEngineer; ///< waiting for it to close
 
    /// What is drawn between ticks: the last tick's values, and the step
    /// back to the one before it.
@@ -129,15 +135,37 @@ class Turret : public StaticShape
    void deactivate();
    void aim(const Move *move, bool controlled);
 
+   U32 getThinkMS();
+   F32 getAttackRadius();
+   void think();
+   void aimAtTarget(Move *move);
+   Point3F getSkilledAim(const Point3F &start, const Point3F &end) const;
+   void replaceBarrel();
+
 public:
    Turret();
 
+   static void initPersistFields();
+   bool onAdd();
    bool onNewDataBlock(GameBaseData *dptr, bool reload);
+   bool mountImage(ShapeBaseImageData *image, U32 imageSlot, bool loaded,
+                   NetStringHandle &skinNameHandle);
+   bool unmountImage(U32 imageSlot);
    void onT2BodyRead(const T2Layout::Body &body);
    void processTick(const Move *move);
    void interpolateTick(F32 delta);
    void writePacketData(GameConnection *conn, BitStream *stream);
    void readPacketData(GameConnection *conn, BitStream *stream);
+
+   void setSkill(F32 skill);
+   bool setTargetObject(ShapeBase *target);
+   ShapeBase *getTargetObject() const { return mTarget; }
+   bool isValidTarget(ShapeBase *target);
+   bool initiateBarrelSwap(ShapeBase *engineer);
+   void setAutoFire(bool autoFire);
+   F32  getCapacitorLevel() const { return mCapacitor; }
+   void setCapacitorLevel(F32 level) { mCapacitor = level; }
+   void setCapacitorRechargeRate(F32 rate) { mCapacitorRate = rate; }
 
    DECLARE_CONOBJECT(Turret);
 };

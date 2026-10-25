@@ -3,6 +3,7 @@
 
 #include "console/console.h"
 #include "console/simBase.h"
+#include "console/simDatablock.h"
 #include "core/strings/stringFunctions.h"
 #include "T3D/gameBase/gameBase.h"
 #include "T3D/gameBase/gameConnection.h"
@@ -37,6 +38,7 @@ void TargetManagerT2::clearTarget(Target &target)
    target.alwaysVisMask = 0;
    target.neverVisMask  = 0;
    target.friendlyMask  = 0;
+   target.sensorData    = NULL;
 }
 
 void TargetManagerT2::reset()
@@ -172,6 +174,45 @@ void TargetManagerT2::setTargetObject(S32 id, GameBase *obj)
 {
    // 0x66d910.
    mTargets[id].object = obj;
+}
+
+void TargetManagerT2::setGroupMask(GroupMask which, S32 group, U32 mask)
+{
+   // 0x66df80, then 0x66e020, 0x66e060 or 0x66e0a0: every target in the
+   // group takes the new mask, team targets too, and so does each one
+   // allocated into it later.
+   static const S32 tables[] = { BlockAlwaysVis, BlockNeverVis, BlockFriendly };
+   for(U32 id = 0; id < MaxTargets; id++)
+   {
+      Target &target = mTargets[id];
+      if(!(allocMask(id >> 5) & (1u << (id & 31))) || target.sensorGroup != group)
+         continue;
+      if(which == GroupAlwaysVis)
+         target.alwaysVisMask = mask;
+      else if(which == GroupNeverVis)
+         target.neverVisMask = mask;
+      else
+         target.friendlyMask = mask;
+   }
+   groupMask(tables[which], group) = mask;
+}
+
+bool TargetManagerT2::isTargetVisible(S32 id, S32 group) const
+{
+   // 0x66e130.  Past what a group is never or always shown, retail asks
+   // what its sensors see of the target; nothing on this server senses
+   // yet, so nothing else is seen.
+   const Target &target = mTargets[id];
+   const U32 bit = 1u << group;
+   if(target.neverVisMask & bit)
+      return false;
+   return (target.alwaysVisMask & bit) != 0;
+}
+
+bool TargetManagerT2::isTargetFriendly(S32 id, S32 group) const
+{
+   // 0x66e100.
+   return (mTargets[id].friendlyMask & (1u << group)) != 0;
 }
 
 //----------------------------------------------------------------------------
@@ -311,6 +352,62 @@ ConsoleFunction(setTargetSensorGroup, void, 3, 3, "setTargetSensorGroup(targetId
    if(group == -1)
       return;
    TargetManagerT2::server()->setSensorGroup(id, group);
+}
+
+ConsoleFunction(setTargetSensorData, void, 3, 3, "setTargetSensorData(targetId, sensorData)")
+{
+   // 0x66f720.  Anything that is not a datablock is no sensor at all.
+   const S32 id = dAtoi(argv[1]);
+   if(id < 0 || id >= TargetManagerT2::MaxTargets)
+      return;
+   SimDataBlock *data = NULL;
+   Sim::findObject(argv[2], data);
+   TargetManagerT2::server()->getTarget(id).sensorData = data;
+}
+
+ConsoleFunction(setTargetAlwaysVisMask, void, 3, 3, "setTargetAlwaysVisMask(target, mask)")
+{
+   // 0x66f290.
+   const S32 id = validateTarget(dAtoi(argv[1]), "cSetTargetAlwaysVisMask", false);
+   if(id == -1)
+      return;
+   TargetManagerT2::server()->getTarget(id).alwaysVisMask = dAtoui(argv[2]);
+}
+
+ConsoleFunction(setTargetNeverVisMask, void, 3, 3, "setTargetNeverVisMask(target, mask)")
+{
+   // 0x66f320.
+   const S32 id = validateTarget(dAtoi(argv[1]), "cSetTargetNeverVisMask", false);
+   if(id == -1)
+      return;
+   TargetManagerT2::server()->getTarget(id).neverVisMask = dAtoui(argv[2]);
+}
+
+ConsoleFunction(setTargetFriendlyMask, void, 3, 3, "setTargetFriendlyMask(target, mask)")
+{
+   // 0x66f3b0.
+   const S32 id = validateTarget(dAtoi(argv[1]), "cSetTargetFriendlyMask", false);
+   if(id == -1)
+      return;
+   TargetManagerT2::server()->getTarget(id).friendlyMask = dAtoui(argv[2]);
+}
+
+ConsoleFunction(setSensorGroupAlwaysVisMask, void, 3, 3, "setSensorGroupAlwaysVisMask(sensorGroup, mask)")
+{
+   // 0x66f440.
+   const S32 group = validateSensorGroup(dAtoi(argv[1]), "cSetSensorGroupAlwaysVisMask");
+   if(group == -1)
+      return;
+   TargetManagerT2::server()->setGroupMask(TargetManagerT2::GroupAlwaysVis, group, dAtoui(argv[2]));
+}
+
+ConsoleFunction(setSensorGroupFriendlyMask, void, 3, 3, "setSensorGroupFriendlyMask(sensorGroup, mask)")
+{
+   // 0x66f560.
+   const S32 group = validateSensorGroup(dAtoi(argv[1]), "cSetSensorGroupFriendlyMask");
+   if(group == -1)
+      return;
+   TargetManagerT2::server()->setGroupMask(TargetManagerT2::GroupFriendly, group, dAtoui(argv[2]));
 }
 
 ConsoleMethod(GameBase, setTarget, void, 3, 3, "obj.setTarget(targetId)")

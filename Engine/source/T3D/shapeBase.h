@@ -386,6 +386,13 @@ struct ShapeBaseImageData: public GameBaseData {
    bool  accuFire;                  ///< Should we automatically make image's aim converge with the crosshair?
    bool  cloakable;                 ///< Is this image cloakable when mounted?
 
+   // HH: Added for Tribes 2 compatibility.
+   /// What a seeking image may lock on to, which a turret also holds its
+   /// targets to.
+   bool  isSeeker;
+   F32   minSeekHeat;
+   F32   minTargetingDistance;      ///< nothing nearer, if not 0
+
    /// @name Lighting
    /// @{
    S32         lightType;           ///< Indicates the type of the light.
