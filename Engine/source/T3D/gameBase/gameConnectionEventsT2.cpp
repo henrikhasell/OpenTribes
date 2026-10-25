@@ -411,6 +411,15 @@ U32 T2Targets::sensorGroup(S32 target)
    return sClientTargets[target].sensorGroup;
 }
 
+void T2Targets::applySkin(ShapeBase *shape)
+{
+   const S32 target = shape->getT2Target();
+   if (target < 0 || target >= NumTargets)
+      return;
+
+   shape->setTargetSkin(sClientTargets[target].tags[ClientTarget::Skin]);
+}
+
 class TargetInfoEvent : public NetEvent
 {
    typedef NetEvent Parent;
@@ -472,10 +481,17 @@ public:
    void process(NetConnection *conn)
    {
       ClientTarget &target = sClientTargets[mTarget];
+      const NetStringHandle wasSkin = target.tags[ClientTarget::Skin];
+
       for (U32 i = 0; i < ClientTarget::NumTags; i++)
          if (mTagHere[i])
             target.tags[i] = mTag[i] ? conn->translateRemoteStringId(mTag[i] - 1)
                                      : NetStringHandle();
+
+      // A target's skin can change under a ghost already in scope: a flag
+      // taken from a stand keeps its object and is reskinned where it stands.
+      if (target.tags[ClientTarget::Skin] != wasSkin)
+         reskinGhostsWearing(conn);
 
       // allocTarget takes a pitch from 0.5 to 2, sent as a share of that.
       if (mSensorGroupHere)
@@ -487,6 +503,21 @@ public:
    }
 
    DECLARE_CONOBJECT(TargetInfoEvent);
+
+private:
+   /// Hand the new skin to every ghost already wearing this target.
+   void reskinGhostsWearing(NetConnection *conn) const
+   {
+      if (!conn->isGhostingTo())
+         return;
+
+      for (S32 i = 0; i < NetConnection::MaxGhostCount; i++)
+      {
+         ShapeBase *shape = dynamic_cast<ShapeBase *>(conn->resolveGhost(i));
+         if (shape && shape->getT2Target() == S32(mTarget))
+            T2Targets::applySkin(shape);
+      }
+   }
 };
 
 IMPLEMENT_CO_CLIENTEVENT_V1(TargetInfoEvent);
