@@ -15,9 +15,13 @@ namespace T2Targets
    /// target.
    U32 sensorGroup(S32 target);
 
+   /// $pref::usePrefSkins, which lets a player be seen in the skin they chose
+   /// rather than in their team's.  Each client answers it for itself.
+   extern bool smUsePrefSkins;
+
    /// Put the skin a target carries on the shape that wears the target, which
-   /// is what makes a flag its team's and a player their team's. Does nothing
-   /// for a shape with no target, or a target with no skin.
+   /// is what makes a flag its team's and a player their own or their team's.
+   /// Does nothing for a shape with no target.
    void applySkin(ShapeBase *shape);
 }
 

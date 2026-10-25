@@ -22,6 +22,7 @@
 
 #include "platform/platform.h"
 #include "T3D/shapeBase.h"
+#include "T3D/gameBase/targetsT2.h"
 
 #include "core/dnet.h"
 #include "sfx/sfxSystem.h"
@@ -1205,6 +1206,12 @@ bool ShapeBase::onNewDataBlock( GameBaseData *dptr, bool reload )
          // Reapply the current skin
          mAppliedSkinName = "";
          reSkin();
+
+         // HH: Added for Tribes 2 compatibility.
+         // Which of a target's two skins can be worn is asked of the shape,
+         // and the shape is only now built: a body carries its target before
+         // the datablock that gives the shape it wears it on.
+         T2Targets::applySkin( this );
       }
    }
 
