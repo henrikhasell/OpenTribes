@@ -184,6 +184,16 @@ PlatformWindow* PlatformWindowManagerSDL::createWindow(GFXDevice* device, const 
    if (mode.fullScreen)
       flags |= SDL_WINDOW_FULLSCREEN;
 
+   // The window's pixel format is picked when it is created, not when the GL
+   // context is, so these have to be set first. Set later, SDL's default
+   // 16-bit depth buffer stays, where Tribes 2 asked for 24 bits.
+   SDL_GL_SetAttribute(SDL_GL_RED_SIZE, 8);
+   SDL_GL_SetAttribute(SDL_GL_GREEN_SIZE, 8);
+   SDL_GL_SetAttribute(SDL_GL_BLUE_SIZE, 8);
+   SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
+   SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
+   SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
+
    window->mSDLWindow = SDL_CreateWindow("Torque", mode.resolution.x, mode.resolution.y, flags);
 
    if (!window->mSDLWindow)
