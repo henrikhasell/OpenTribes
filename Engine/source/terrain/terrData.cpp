@@ -904,6 +904,14 @@ bool TerrainBlock::unpackUpdate(BitStream *stream, bool isInitial)
    if(words.size() > 1 && words[1] > 0 && words[1] <= 64)
       mSquareSize = F32(words[1]);
 
+   // The empty square runs follow the square size in the initial update.
+   if(strings.size() > 0)
+   {
+      mEmptySquareRuns.clear();
+      for(U32 i = 2; i < words.size(); i++)
+         mEmptySquareRuns.push_back(words[i]);
+   }
+
    // TribesNext's IFC22 patch appends this terrain's eight material names to
    // a server-to-client update once the negotiated protocol is past 51 -- the
    // server this port is tested against offers 52. A recording carries 51 and
@@ -959,6 +967,8 @@ bool TerrainBlock::onAdd()
 
       const F32 half = -mSquareSize * (F32)( getBlockSize() >> 1 );
       setPosition( Point3F( half, half, 0.0f ) );
+
+      terr->_setEmptySquares( mEmptySquareRuns );
    }
 
    if ( terr->hasLayerAlpha() )

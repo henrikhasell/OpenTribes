@@ -100,6 +100,10 @@ protected:
 
    GFXTexHandle mMissionDetailTex;
 
+   /// The squares a Tribes 2 mission cuts out of its terrain, as runs of
+   /// ( count << 16 ) | ( x + y * 256 ).
+   Vector<U32> mEmptySquareRuns;
+
    /// The maximum detail distance found in the material list.
    F32 mMaxDetailDistance;
 
