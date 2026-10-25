@@ -29,7 +29,7 @@ float calcBlend( float texId, vec2 layerCoord, float layerSize, vec4 layerSample
    // weights every material everywhere, so there is nothing to infer from
    // the ids around a texel.
    if ( layerSize < 0.0 )
-      return layerSample[int(texId)] / 255.0;
+      return layerSample.bgra[int(texId)] / 255.0;
 
    // This is here to disable the blend if none of 
    // the neighbors equal the current id.

@@ -548,7 +548,7 @@ bool TerrainCellMaterial::_createPass( Vector<MaterialInfo*> *materials,
       // the hardware's filtering, which is where its resolution comes from.
       desc.samplers[pass->layerTexConst->getSamplerRegister()] =
          mTerrain->mLayerAlphaTex.empty() ? GFXSamplerStateDesc::getClampPoint()
-                                          : GFXSamplerStateDesc::getClampLinear();
+                                          : GFXSamplerStateDesc::getWrapLinear();
    }
 
    if ( pass->lightInfoBufferConst->isValid() )
@@ -683,7 +683,8 @@ void TerrainCellMaterial::_updateMaterialConsts( Pass *pass )
       // mistake, but there isn't really a hurry to.
       //
       Point4F detailScaleAndFade(   detailScale,
-                                    -detailScale,
+                                    mTerrain->mLayerAlphaTex.empty() ? -detailScale
+                                                                     : detailScale,
                                     distance, 
                                     0 );
 
