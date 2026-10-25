@@ -275,7 +275,9 @@ Turret::Turret()
      mPitchDelta(0.0f),
      mActivateThread(NULL),
      mElevateThread(NULL),
-     mTurnThread(NULL)
+     mTurnThread(NULL),
+     mBarrelDamageThread(NULL),
+     mBarrelDeployThread(NULL)
 {
    mTypeMask |= TurretObjectType;
 }
@@ -1049,6 +1051,109 @@ void Turret::readPacketData(GameConnection *conn, BitStream *stream)
    mActivationDelta = 0.0f;
    mHeadingDelta = 0.0f;
    mPitchDelta = 0.0f;
+}
+
+/// 0x00655b50: the barrel deploys at half its sequence's speed.
+void Turret::advanceTime(F32 dt)
+{
+   Parent::advanceTime(dt);
+
+   if(mBarrelDeployThread)
+      mBarrelDeployThread->getShapeInstance()->advanceTime(dt * 0.5f,
+                                                           mBarrelDeployThread);
+}
+
+/// 0x00654fe0: the barrel shows the base's damage, up to its full sequence.
+void Turret::updateDamageLevel()
+{
+   Parent::updateDamageLevel();
+
+   if(mBarrelDamageThread)
+      mBarrelDamageThread->getShapeInstance()->setPos(
+         mBarrelDamageThread, getMin(getDamageValue(), 1.0f));
+}
+
+/// The same thread at the end of its shape's list, where any thread before it
+/// on the same nodes wins.
+static TSThread *readdThread(TSShapeInstance *shape, TSThread *thread)
+{
+   const S32 sequence = thread->getSeqIndex();
+   const F32 pos = shape->getPos(thread);
+   const F32 timeScale = shape->getTimeScale(thread);
+
+   shape->destroyThread(thread);
+   thread = shape->addThread();
+   shape->setSequence(thread, sequence, pos);
+   shape->setTimeScale(thread, timeScale);
+   return thread;
+}
+
+/// 0x00654e60: a ghost's new barrel gets its own damage and deploy threads,
+/// the deploy from its start. Retail does this for any slot, and a later
+/// slot's threads take over from an earlier one's.
+void Turret::setImage(U32 imageSlot, ShapeBaseImageData *imageData,
+                      NetStringHandle &skinNameHandle, bool loaded, bool ammo,
+                      bool triggerDown, bool altTriggerDown, bool motion,
+                      bool genericTrigger0, bool genericTrigger1,
+                      bool genericTrigger2, bool genericTrigger3, bool target)
+{
+   MountedImage &image = mMountedImageList[imageSlot];
+
+   // A ghost body sets every image it carries, but retail's sets one only
+   // when its datablock or skin changes (0x005ef769), so only that restarts
+   // the deploy.
+   const bool changed = isGhost() &&
+                        (image.dataBlock != imageData ||
+                         image.skinNameHandle != skinNameHandle);
+
+   TSShapeInstance *shape =
+      image.shapeInstance[ShapeBaseImageData::StandardImageShape];
+   if(changed && shape)
+   {
+      if(mBarrelDamageThread && mBarrelDamageThread->getShapeInstance() == shape)
+      {
+         shape->destroyThread(mBarrelDamageThread);
+         mBarrelDamageThread = NULL;
+      }
+      if(mBarrelDeployThread && mBarrelDeployThread->getShapeInstance() == shape)
+      {
+         shape->destroyThread(mBarrelDeployThread);
+         mBarrelDeployThread = NULL;
+      }
+   }
+
+   Parent::setImage(imageSlot, imageData, skinNameHandle, loaded, ammo,
+                    triggerDown, altTriggerDown, motion, genericTrigger0,
+                    genericTrigger1, genericTrigger2, genericTrigger3, target);
+
+   shape = image.shapeInstance[ShapeBaseImageData::StandardImageShape];
+   if(!changed || !shape)
+      return;
+
+   const S32 damage = shape->getShape()->findSequence("damage");
+   if(damage != -1)
+   {
+      mBarrelDamageThread = shape->addThread();
+      shape->setSequence(mBarrelDamageThread, damage, 0.0f);
+      updateDamageLevel();
+   }
+
+   const S32 deploy = shape->getShape()->findSequence("deploy");
+   if(deploy != -1)
+   {
+      mBarrelDeployThread = shape->addThread();
+      shape->setSequence(mBarrelDeployThread, deploy, 0.0f);
+
+      // The image's own threads come first and hold the barrel at its first
+      // sequence, which is the deploy, closed. Retail's sort of equal
+      // priorities puts them behind these; ours keeps the order they were
+      // added in, so they are added again.
+      const U32 i = ShapeBaseImageData::StandardImageShape;
+      if(image.animThread[i])
+         image.animThread[i] = readdThread(shape, image.animThread[i]);
+      if(image.flashThread[i])
+         image.flashThread[i] = readdThread(shape, image.flashThread[i]);
+   }
 }
 
 //----------------------------------------------------------------------------
