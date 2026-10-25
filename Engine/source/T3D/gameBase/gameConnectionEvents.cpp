@@ -168,11 +168,60 @@ void SimDataBlockEvent::pack(NetConnection *conn, BitStream *bstream)
 }
 
 // HH: Added for Tribes 2 compatibility.
-/// A state carries one string, its name, and no sequence. Retail's client has
-/// none either: `stateSequence` is a field only a script fills (0x005f523d),
-/// zeroed at 0x005f429b and never written by unpackData, so the lookup its
-/// preload makes at 0x005f4ad1 finds nothing and no mounted image on a client
-/// is animated. Leave it empty here for the same reason.
+/// The sequence a pack plays while it is switched on.
+///
+/// A state carries one string on the wire, its name, and no sequence;
+/// `stateSequence` is a field only a script fills (0x005f523d), zeroed at
+/// 0x005f429b and never written by unpackData, so neither client has one and
+/// no mounted image animates itself from a state.
+///
+/// That costs a pack the only animation it has. Every pack's shape keeps its
+/// lit face hidden -- `CenterFace_ambient` of `pack_upgrade_shield.dts` is one
+/// of twelve objects and its default visibility is 0 -- and the shape's single
+/// sequence is what raises it. The scripts all name that sequence the same way
+/// for the same state, so the engine sets up what the script would have:
+///
+///     ShieldPackImage::stateSequence[1]       = "Fire";   packs/shieldpack.cs
+///     CloakingPackImage::stateSequence[1]     = "Fire";   packs/cloakingpack.cs
+///     RepairPackImage::stateSequence[1]       = "Fire";   packs/repairpack.cs
+///     SensorJammerPackImage::stateSequence[1] = "Fire";   packs/sensorjammerpack.cs
+///
+/// Only the packs. Six other states in the game name a sequence that is not
+/// their state's, and the one that matters -- DiscImage's Ready playing
+/// `DiscSpin` -- would time the spinfusor's ifl off that sequence instead of
+/// off its own clock, which is three times retail's rate. A weapon is left as
+/// retail leaves it.
+static const struct
+{
+   const char *shape;
+   const char *state;
+   const char *sequence;
+}
+sT2PackStateSequence[] =
+{
+   { "pack_upgrade_shield.dts",       "Activate", "Fire" },
+   { "pack_upgrade_cloaking.dts",     "Activate", "Fire" },
+   { "pack_upgrade_repair.dts",       "Activate", "Fire" },
+   { "pack_upgrade_sensorjammer.dts", "Activate", "Fire" },
+};
+
+/// The sequence the scripts give this image's state, or null for the states a
+/// client is told nothing about.
+static const char *t2StateSequence( const ShapeBaseImageData *image,
+                                    const char *state )
+{
+   if( !image->shapeName || !state )
+      return NULL;
+
+   for( U32 i = 0; i < sizeof( sT2PackStateSequence ) /
+                       sizeof( sT2PackStateSequence[0] ); i++ )
+      if( !dStricmp( image->shapeName, sT2PackStateSequence[i].shape ) &&
+          !dStricmp( state, sT2PackStateSequence[i].state ) )
+         return sT2PackStateSequence[i].sequence;
+
+   return NULL;
+}
+
 static void readT2ImageStates( ShapeBaseImageData *image )
 {
    const Vector< T2Layout::ImageState > &states = T2Layout::lastImageStates();
@@ -193,6 +242,8 @@ static void readT2ImageStates( ShapeBaseImageData *image )
          continue;
 
       image->stateName[i] = StringTable->insert( state.name.c_str() );
+      if( const char *seq = t2StateSequence( image, image->stateName[i] ) )
+         image->stateSequence[i] = StringTable->insert( seq );
       image->stateTimeoutValue[i] = state.hasTimeout ? state.timeout : 0.0f;
       image->stateWaitForTimeout[i] = state.waitForTimeout;
       image->stateFire[i] = state.fire;
