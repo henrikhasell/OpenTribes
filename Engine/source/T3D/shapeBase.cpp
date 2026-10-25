@@ -812,11 +812,10 @@ DefineEngineMethod( ShapeBaseData, checkDeployPos, bool, ( TransformF txfm ),,
 }
 
 
-DefineEngineMethod(ShapeBaseData, getDeployTransform, TransformF, ( Point3F pos, Point3F normal ),,
-   "@brief Helper method to get a transform from a position and vector (suitable for use with setTransform).\n\n"
-   "@param pos Desired transform position\n"
-   "@param normal Vector of desired direction\n"
-   "@return The deploy transform\n" )
+// HH: Added for Tribes 2 compatibility.
+// Tribes 2 sets a deployed turret on its surface the same way
+// (ShapeBase::setDeployRotation, 0x005f22c0).
+static MatrixF getDeployMatrix( const Point3F &pos, Point3F normal )
 {
    normal.normalize();
 
@@ -836,6 +835,22 @@ DefineEngineMethod(ShapeBaseData, getDeployTransform, TransformF, ( Point3F pos,
    testMat.setPosition( pos );
 
    return testMat;
+}
+
+DefineEngineMethod(ShapeBaseData, getDeployTransform, TransformF, ( Point3F pos, Point3F normal ),,
+   "@brief Helper method to get a transform from a position and vector (suitable for use with setTransform).\n\n"
+   "@param pos Desired transform position\n"
+   "@param normal Vector of desired direction\n"
+   "@return The deploy transform\n" )
+{
+   return getDeployMatrix( pos, normal );
+}
+
+// HH: Added for Tribes 2 compatibility.
+DefineEngineMethod( ShapeBase, setDeployRotation, void, ( Point3F pos, Point3F normal ),,
+   "@internal" )
+{
+   object->setTransform( getDeployMatrix( pos, normal ) );
 }
 
 ShapeBaseData::Tribes2Rest::Tribes2Rest()

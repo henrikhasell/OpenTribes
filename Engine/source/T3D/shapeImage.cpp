@@ -183,6 +183,11 @@ ShapeBaseImageData::ShapeBaseImageData()
 
    cloakable = true;
 
+   // HH: Added for Tribes 2 compatibility.
+   isSeeker = false;
+   minSeekHeat = 0.0f;
+   minTargetingDistance = 0.0f;
+
    lightType = ShapeBaseImageData::NoLight;
    lightColor.set(1.f,1.f,1.f,1.f);
    lightDuration = 1000;
@@ -645,6 +650,11 @@ void ShapeBaseImageData::initPersistFields()
    addField( "cloakable", TypeBool, Offset(cloakable, ShapeBaseImageData),
       "@brief Whether this Image can be cloaked.\n\n"
       "Currently unused." );
+
+   // HH: Added for Tribes 2 compatibility.
+   addField( "isSeeker", TypeBool, Offset(isSeeker, ShapeBaseImageData), "@internal" );
+   addField( "minSeekHeat", TypeF32, Offset(minSeekHeat, ShapeBaseImageData), "@internal" );
+   addField( "minTargetingDistance", TypeF32, Offset(minTargetingDistance, ShapeBaseImageData), "@internal" );
 
    addField( "mountPoint", TypeS32, Offset(mountPoint, ShapeBaseImageData),
       "@brief Mount node # to mount this Image to.\n\n"
