@@ -464,6 +464,31 @@ namespace T2Protocol
       { "ForceFieldBareData",  9, OpRaw,   32, T2DbFieldScrollSpeed          },
       { "ForceFieldBareData", 10, OpRaw,   32, T2DbFieldUMapping             },
       { "ForceFieldBareData", 11, OpRaw,   32, T2DbFieldVMapping             },
+
+   // SniperProjectileData::packData (0x00641bd0) and TargetProjectileData's
+   // (0x006476e0), after ProjectileData's run; the textures are strings.
+      { "SniperProjectileData", 69, OpDataBlockId, 11, T2DbExplosion        },
+      { "SniperProjectileData", 24, OpRaw,   32, T2DbBeamRange              },
+      { "SniperProjectileData", 26, OpColor, 32, T2DbBeamColor              },
+      { "SniperProjectileData", 27, OpRaw,   32, T2DbBeamFadeTime           },
+      { "SniperProjectileData", 28, OpRaw,   32, T2DbBeamStartWidth         },
+      { "SniperProjectileData", 29, OpRaw,   32, T2DbBeamEndWidth           },
+      { "SniperProjectileData", 30, OpRaw,   32, T2DbBeamPulseWidth         },
+      { "SniperProjectileData", 31, OpRaw,   32, T2DbBeamFlareAngle         },
+      { "SniperProjectileData", 32, OpRaw,   32, T2DbBeamMinFlareSize       },
+      { "SniperProjectileData", 33, OpRaw,   32, T2DbBeamMaxFlareSize       },
+      { "SniperProjectileData", 34, OpRaw,   32, T2DbBeamPulseSpeed         },
+      { "SniperProjectileData", 35, OpRaw,   32, T2DbBeamPulseLength        },
+
+      { "TargetProjectileData", 24, OpRaw,   32, T2DbBeamRange              },
+      { "TargetProjectileData", 25, OpColor, 32, T2DbBeamColor              },
+      { "TargetProjectileData", 26, OpRaw,   32, T2DbBeamStartWidth         },
+      { "TargetProjectileData", 27, OpRaw,   32, T2DbBeamPulseWidth         },
+      { "TargetProjectileData", 28, OpRaw,   32, T2DbBeamFlareAngle         },
+      { "TargetProjectileData", 29, OpRaw,   32, T2DbBeamMinFlareSize       },
+      { "TargetProjectileData", 30, OpRaw,   32, T2DbBeamMaxFlareSize       },
+      { "TargetProjectileData", 31, OpRaw,   32, T2DbBeamPulseSpeed         },
+      { "TargetProjectileData", 32, OpRaw,   32, T2DbBeamPulseLength        },
    };
 }
 
