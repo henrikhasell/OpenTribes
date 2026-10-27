@@ -121,6 +121,9 @@ class TSMesh
    Point3F mCenter;
    F32 mRadius;
    F32 mVisibility;
+   // HH: Added for Tribes 2 compatibility.
+   /// Set at load for an object whose visibility some sequence animates.
+   bool mVisAnimated;
    bool mDynamic;
    // HH: Added for Tribes 2 compatibility.
    S32 mFrame;

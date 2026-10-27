@@ -554,6 +554,25 @@ void TSShape::init()
    // HH: Added for Tribes 2 compatibility.
    initIflMaterials();
    initMaterialList();
+
+   // HH: Added for Tribes 2 compatibility.
+   // A sequence animating an object's visibility fades it for the whole
+   // sequence, including the stretch where the animated value reaches 1.
+   TSIntegerSet visAnimated;
+   visAnimated.clearAll( objects.size() );
+   for (i=0; i<sequences.size(); i++)
+      visAnimated.overlap( sequences[i].visMatters );
+
+   for (i=0; i<objects.size(); i++)
+   {
+      if (!visAnimated.test(i))
+         continue;
+
+      const Object &obj = objects[i];
+      for (j=0; j<obj.numMeshes; j++)
+         if (TSMesh *mesh = meshes[obj.startMeshIndex + j])
+            mesh->mVisAnimated = true;
+   }
 }
 
 void TSShape::initVertexFeatures()

@@ -360,7 +360,8 @@ void TSMesh::innerRender( TSMaterialList *materials, const TSRenderState &rdata,
       // HH: Added for Tribes 2 compatibility.
       // Tribes 2 blended on an object's own animated visibility the same way
       // it blended on a whole shape's fade (0x006a70aa).
-      else if ( ( rdata.isFadeAlpha() || mVisibility < 1.0f ) && matInst )
+      else if ( ( rdata.isFadeAlpha() || mVisibility < 1.0f ||
+                  mVisAnimated ) && matInst )
          matInst = TSGetFadedMatInstance( matInst, mVertexFormat,
             ( materials->getFlags( matIndex ) & TSMaterialList::Translucent ) ||
             rdata.isBlendAlways() );
@@ -1281,6 +1282,8 @@ S32 TSMesh::getNumPolys() const
 
 TSMesh::TSMesh() : meshType( StandardMeshType )
 {
+   // HH: Added for Tribes 2 compatibility.
+   mVisAnimated = false;
    VECTOR_SET_ASSOCIATION( planeNormals );
    VECTOR_SET_ASSOCIATION( planeConstants );
    VECTOR_SET_ASSOCIATION( planeMaterials );
