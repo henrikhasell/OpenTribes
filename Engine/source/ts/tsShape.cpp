@@ -556,22 +556,54 @@ void TSShape::init()
    initMaterialList();
 
    // HH: Added for Tribes 2 compatibility.
-   // A sequence animating an object's visibility fades it for the whole
-   // sequence, including the stretch where the animated value reaches 1.
-   TSIntegerSet visAnimated;
-   visAnimated.clearAll( objects.size() );
+   // A sequence that fades an object fades it for the whole sequence,
+   // including the stretch where the animated value reaches 1. A sequence
+   // that only ever asks for 0 or 1 switches the object instead --
+   // animateVisibility steps over such a pair rather than interpolating it --
+   // and it keeps rendering as the solid thing it is.
+   TSIntegerSet visFaded;
+   visFaded.clearAll();
    for (i=0; i<sequences.size(); i++)
-      visAnimated.overlap( sequences[i].visMatters );
+   {
+      const Sequence &seq = sequences[i];
+      if (!seq.visMatters.testAll())
+         continue;
+
+      // An object state holds frame, matFrame and visibility together, so a
+      // sequence's column for one of them counts the objects any of the three
+      // animate.
+      TSIntegerSet stated = seq.frameMatters;
+      stated.overlap( seq.matFrameMatters );
+      stated.overlap( seq.visMatters );
+
+      S32 column = 0;
+      for (S32 object = stated.start(); object < objects.size();
+           stated.next( object ), column++)
+      {
+         if (!seq.visMatters.test( object ))
+            continue;
+
+         for (j=0; j<seq.numKeyframes; j++)
+         {
+            const F32 vis = getObjectState( seq, j, column ).vis;
+            if (vis > 0.0f && vis < 1.0f)
+            {
+               visFaded.set( object );
+               break;
+            }
+         }
+      }
+   }
 
    for (i=0; i<objects.size(); i++)
    {
-      if (!visAnimated.test(i))
+      if (!visFaded.test(i))
          continue;
 
       const Object &obj = objects[i];
       for (j=0; j<obj.numMeshes; j++)
          if (TSMesh *mesh = meshes[obj.startMeshIndex + j])
-            mesh->mVisAnimated = true;
+            mesh->mVisFaded = true;
    }
 }
 

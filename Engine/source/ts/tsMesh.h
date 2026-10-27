@@ -122,8 +122,8 @@ class TSMesh
    F32 mRadius;
    F32 mVisibility;
    // HH: Added for Tribes 2 compatibility.
-   /// Set at load for an object whose visibility some sequence animates.
-   bool mVisAnimated;
+   /// Set at load for an object whose visibility some sequence fades.
+   bool mVisFaded;
    bool mDynamic;
    // HH: Added for Tribes 2 compatibility.
    S32 mFrame;
