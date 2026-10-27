@@ -357,7 +357,10 @@ void TSMesh::innerRender( TSMaterialList *materials, const TSRenderState &rdata,
       if ( rdata.getMaterialOverride() &&
            !( materials->getFlags( matIndex ) & TSMaterialList::Translucent ) )
          matInst = getOverrideMatInstance( rdata.getMaterialOverride(), mVertexFormat );
-      else if ( rdata.isFadeAlpha() && matInst )
+      // HH: Added for Tribes 2 compatibility.
+      // Tribes 2 blended on an object's own animated visibility the same way
+      // it blended on a whole shape's fade (0x006a70aa).
+      else if ( ( rdata.isFadeAlpha() || mVisibility < 1.0f ) && matInst )
          matInst = TSGetFadedMatInstance( matInst, mVertexFormat,
             ( materials->getFlags( matIndex ) & TSMaterialList::Translucent ) ||
             rdata.isBlendAlways() );

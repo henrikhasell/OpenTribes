@@ -478,6 +478,21 @@ struct ShapeBaseImageData: public GameBaseData {
    bool      statesLoaded;       ///< Are the states loaded yet?
    /// @}
 
+   // HH: Added for Tribes 2 compatibility.
+   /// @name Sequences a Tribes 2 server resolved
+   ///
+   /// A Tribes 2 server resolves the sequence names its script gives against
+   /// the shape and sends the indices, so a client has nothing to look up.
+   /// `t2HasStateSequences` stands for the flag retail sets at this+0x1c00
+   /// (0x005f67fa), which is what makes its `preload` branch past the block
+   /// where a script's names would have been resolved (0x005f440e).
+   ///
+   /// @{
+   bool t2HasStateSequences;           ///< the wire carried indices
+   S32  t2StateSequence[MaxStates];    ///< a sequence, or -1 for none
+   S32  t2StateSequenceVis[MaxStates]; ///< its muzzle flash's, or -1
+   /// @}
+
    /// @name Infrastructure
    ///
    /// Miscellaneous inherited methods.

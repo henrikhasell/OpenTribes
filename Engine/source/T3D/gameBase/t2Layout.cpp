@@ -1361,6 +1361,10 @@ enum T2StatePart
    T2StateSpin,
    T2StateRecoil,
    T2StateSound,
+   T2StateSequenceSign,
+   T2StateSequence,
+   T2StateSequenceVisSign,
+   T2StateSequenceVis,
 
    T2StateParts
 };
@@ -1483,6 +1487,9 @@ static bool matchImageState(const T2DataBlockLayout *layout, S32 top,
       const T2DataNode *magnitude = nodeAt(layout, sign->a);
       if(!magnitude || magnitude->op != OpInt || magnitude->a != has->a)
          return true;
+
+      parts[T2StateSequenceSign + i * 2] = S16(has->b);
+      parts[T2StateSequence + i * 2]     = S16(sign->a);
 
       at = has->a;
    }
@@ -1869,6 +1876,8 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
                      case T2StateFire:           s.fire           = set; break;
                      case T2StateEjectShell:     s.ejectShell     = set; break;
                      case T2StateDirection:      s.direction      = set; break;
+                     case T2StateSequenceSign:    s.sequenceNegative    = set; break;
+                     case T2StateSequenceVisSign: s.sequenceVisNegative = set; break;
                      default:                                            break;
                   }
                }
@@ -2192,6 +2201,27 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
                }
 
             const U32 word = xferInt(stream, n.bits, write, at, n.op);
+
+            if(!write)
+            {
+               U32 state, part;
+               if(stateAt(layout, at, &state, &part))
+               {
+                  ImageState &s = sImageStates[state];
+                  if(part == T2StateSequence)
+                  {
+                     s.hasSequence = true;
+                     s.sequence = s.sequenceNegative ? -S32(word) : S32(word);
+                  }
+                  else if(part == T2StateSequenceVis)
+                  {
+                     s.hasSequenceVis = true;
+                     s.sequenceVis = s.sequenceVisNegative ? -S32(word)
+                                                           : S32(word);
+                  }
+               }
+            }
+
             if(n.bits == 32 && !write)
             {
                if(!sHaveFirstWord32)
@@ -2954,6 +2984,12 @@ static bool runDataBlock(BitStream *stream, U32 classId, bool write)
       s.spin = 0;
       s.recoil = 0;
       s.sound = -1;
+      s.hasSequence = false;
+      s.sequence = -1;
+      s.hasSequenceVis = false;
+      s.sequenceVis = -1;
+      s.sequenceNegative = false;
+      s.sequenceVisNegative = false;
    }
 
    // HH: Added for Tribes 2 compatibility.

@@ -614,8 +614,6 @@ namespace T2Layout
    /// way out of one is wide enough to name.
    enum { MaxImageStates = 32 };
 
-      /// No sequence name is on the wire: retail's client finds one by looking the
-      /// state's own name up in the shape.
    struct ImageState
    {
       /// The ways out of a state, in the order the body carries them, which
@@ -642,6 +640,20 @@ namespace T2Layout
       U32    spin;               ///< ...::SpinState
       U32    recoil;             ///< ...::RecoilState
       S32    sound;              ///< an AudioProfile, or -1 for a silent state
+
+         /// The sequence this state plays and the one its muzzle flash plays,
+         /// as indices into the shape's own sequences. The server resolves the
+         /// names its script gives and sends what it resolved, so a client
+         /// never looks a sequence up by name. A state that plays nothing
+         /// carries no index at all.
+      bool   hasSequence;
+      S32    sequence;
+      bool   hasSequenceVis;
+      S32    sequenceVis;
+
+         /// Each index arrives as a sign and a magnitude.
+      bool   sequenceNegative;
+      bool   sequenceVisNegative;
    };
 
    /// The states the last datablock read, in the order it read them.

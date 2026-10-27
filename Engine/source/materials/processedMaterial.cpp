@@ -183,6 +183,13 @@ void ProcessedMaterial::_initStateBlockTemplates(GFXStateBlockDesc& stateTranslu
    _setBlendState(mMaterial->mTranslucentBlendOp, stateTranslucent);
    stateTranslucent.zDefined = true;
    stateTranslucent.zWriteEnable = mMaterial->mTranslucentZWrite;   
+
+   // HH: Added for Tribes 2 compatibility.
+   // Tribes 2 drew a fading overlay under glPolygonOffset(-2, -2) with
+   // GL_POLYGON_OFFSET_FILL on (0x006ae135). The GL layer scales this by
+   // 10000 and passes it as both the factor and the units.
+   if ( mMaterial->mT2FadeAlpha )
+      stateTranslucent.zBias = -0.0002f;
    stateTranslucent.alphaDefined = true;
    stateTranslucent.alphaTestEnable = mMaterial->mAlphaTest;
    stateTranslucent.alphaTestRef = mMaterial->mAlphaRef;
