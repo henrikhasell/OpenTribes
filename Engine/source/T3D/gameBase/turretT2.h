@@ -118,6 +118,10 @@ class Turret : public StaticShape
    TSThread *mElevateThread;
    TSThread *mTurnThread;
 
+   /// On the barrel's own shape, not the base's.
+   TSThread *mBarrelDamageThread;
+   TSThread *mBarrelDeployThread;
+
    void destroyThreads();
    void createAimThreads();
    void destroyAimThreads();
@@ -154,8 +158,17 @@ public:
    void onT2BodyRead(const T2Layout::Body &body);
    void processTick(const Move *move);
    void interpolateTick(F32 delta);
+   void advanceTime(F32 dt);
    void writePacketData(GameConnection *conn, BitStream *stream);
    void readPacketData(GameConnection *conn, BitStream *stream);
+   void updateDamageLevel();
+   void setImage(U32 imageSlot, ShapeBaseImageData *imageData,
+                 NetStringHandle &skinNameHandle, bool loaded = true,
+                 bool ammo = false, bool triggerDown = false,
+                 bool altTriggerDown = false, bool motion = false,
+                 bool genericTrigger0 = false, bool genericTrigger1 = false,
+                 bool genericTrigger2 = false, bool genericTrigger3 = false,
+                 bool target = false);
 
    void setSkill(F32 skill);
    bool setTargetObject(ShapeBase *target);
