@@ -112,4 +112,3 @@ IMPLEMENT_DATABLOCK_T2( SeekerProjectileData );
 IMPLEMENT_DATABLOCK_T2( ShockLanceProjectileData );
 IMPLEMENT_DATABLOCK_T2( ShockwaveData );
 IMPLEMENT_DATABLOCK_T2( StationFXPersonalData );
-IMPLEMENT_DATABLOCK_T2( StationFXVehicleData );

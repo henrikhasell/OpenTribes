@@ -68,6 +68,8 @@ namespace T2Layout
       U32     sourceSlot;
       bool    hasVehicleObject;
       U32     vehicleObject;
+      bool    hasStationObject;     ///< a station effect named its station
+      U32     stationObject;        ///< the station's ghost index
       bool    hasTarget;            ///< the body changed the target
       S32     target;               ///< the target manager's id, or -1
       bool    quickSplash;
@@ -595,6 +597,26 @@ namespace T2Layout
       T2DbDontFireInsideDamageRadius,
       T2DbDamageRadius,
       T2DbUseCapacitor,
+
+      // StationFXVehicleData's run, every field of it but the strings.
+      T2DbStationGlowTopHeight,
+      T2DbStationGlowBottomHeight,
+      T2DbStationGlowTopRadius,
+      T2DbStationGlowBottomRadius,
+      T2DbStationNumGlowSegments,
+      T2DbStationGlowFadeTime,
+      T2DbStationArmLightDelay,
+      T2DbStationArmLightLifetime,
+      T2DbStationArmLightFadeTime,
+      T2DbStationLifetime,
+      T2DbStationNumArcSegments,
+      T2DbStationSphereColor,
+      T2DbStationSpherePhiSegments,
+      T2DbStationSphereThetaSegments,
+      T2DbStationSphereRadius,
+      T2DbStationSphereScaleX,
+      T2DbStationSphereScaleY,
+      T2DbStationSphereScaleZ,
 
       T2DbFieldCount
    };
