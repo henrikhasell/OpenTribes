@@ -464,7 +464,7 @@ WheeledVehicle::WheeledVehicle()
 
    for (S32 i = 0; i < WheeledVehicleData::MaxWheels; i++) {
       mWheel[i].springThread = 0;
-      mWheel[i].Dy = mWheel[i].Dx = 0;
+      mWheel[i].avel = mWheel[i].Dy = mWheel[i].Dx = 0;
       mWheel[i].tire = 0;
       mWheel[i].spring = 0;
       mWheel[i].shapeInstance = 0;
@@ -1369,18 +1369,21 @@ void WheeledVehicle::prepBatchRender(SceneRenderState* state, S32 mountedImageIn
 
 //----------------------------------------------------------------------------
 
+// HH: Modified for Tribes 2 compatibility.
+// WheeledVehicle::writePacketData (0x6157a0) and readPacketData (0x615840):
+// three floats a wheel and no slipping flag, over the wheels Tribes 2
+// counts, not the hubs Torque finds.
 void WheeledVehicle::writePacketData(GameConnection *connection, BitStream *stream)
 {
    Parent::writePacketData(connection, stream);
    stream->writeFlag(mBraking);
 
-   Wheel* wend = &mWheel[mDataBlock->wheelCount];
+   Wheel* wend = &mWheel[mDataBlock->t2WheelCount];
    for (Wheel* wheel = mWheel; wheel < wend; wheel++) 
    {
       stream->write(wheel->avel);
       stream->write(wheel->Dy);
       stream->write(wheel->Dx);
-      stream->writeFlag(wheel->slipping);
    }
 }
 
@@ -1389,13 +1392,12 @@ void WheeledVehicle::readPacketData(GameConnection *connection, BitStream *strea
    Parent::readPacketData(connection, stream);
    mBraking = stream->readFlag();
 
-   Wheel* wend = &mWheel[mDataBlock->wheelCount];
+   Wheel* wend = &mWheel[mDataBlock->t2WheelCount];
    for (Wheel* wheel = mWheel; wheel < wend; wheel++) 
    {
       stream->read(&wheel->avel);
       stream->read(&wheel->Dy);
       stream->read(&wheel->Dx);
-      wheel->slipping = stream->readFlag();
    }
 
    // Rigid state is transmitted by the parent...
