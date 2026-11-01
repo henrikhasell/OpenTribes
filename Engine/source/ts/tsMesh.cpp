@@ -33,6 +33,7 @@
 #include "ts/instancingMatHook.h"
 // HH: Added for Tribes 2 compatibility.
 #include "core/util/tDictionary.h"
+#include "core/module.h"
 #include "math/mMath.h"
 #include "math/mathIO.h"
 #include "math/mathUtils.h"
@@ -151,22 +152,42 @@ void TSMesh::render( TSMaterialList *materials,
 }
 
 // HH: Added for Tribes 2 compatibility.
+typedef CompoundKey<U32, String> TSOverrideMatKey;
+static HashTable<TSOverrideMatKey, BaseMatInstance*> sOverrideMatInsts;
+
+// HH: Added for Tribes 2 compatibility.
+// An instance holds its textures until it is deleted, and untracks itself
+// from the material manager, so they go before it does -- and before the
+// device, which fails on any texture still held.
+MODULE_BEGIN( TSOverrideMaterials )
+
+   MODULE_SHUTDOWN_BEFORE( MaterialManager )
+
+   MODULE_SHUTDOWN
+   {
+      HashTable<TSOverrideMatKey, BaseMatInstance*>::Iterator itr;
+      for ( itr = sOverrideMatInsts.begin(); itr != sOverrideMatInsts.end(); ++itr )
+         delete itr->value;
+      sOverrideMatInsts.clear();
+   }
+
+MODULE_END;
+
+// HH: Added for Tribes 2 compatibility.
 static BaseMatInstance *getOverrideMatInstance( Material *mat,
                                                 const GFXVertexFormat *format )
 {
-   typedef CompoundKey<U32, String> Key;
-   static HashTable<Key, BaseMatInstance*> sInsts;
-
-   const Key key( mat->getId(), format->getDescription() );
-   HashTable<Key, BaseMatInstance*>::Iterator found = sInsts.find( key );
-   if ( found != sInsts.end() )
+   const TSOverrideMatKey key( mat->getId(), format->getDescription() );
+   HashTable<TSOverrideMatKey, BaseMatInstance*>::Iterator found =
+      sOverrideMatInsts.find( key );
+   if ( found != sOverrideMatInsts.end() )
       return found->value;
 
    BaseMatInstance *inst = mat->createMatInstance();
    if ( inst && !inst->init( MATMGR->getDefaultFeatures(), format ) )
       SAFE_DELETE( inst );
 
-   sInsts.insertUnique( key, inst );
+   sOverrideMatInsts.insertUnique( key, inst );
    return inst;
 }
 
