@@ -348,10 +348,16 @@ void StationFXVehicle::prepRenderImage(SceneRenderState *state)
    if(!mDataBlock || !mStation || !state->isDiffusePass())
       return;
 
+   // Retail draws it as a translucent image (0x0069da72), over the whole
+   // pad. The pad's fading floor is drawn among the translucent meshes, so
+   // the effect is sorted with them; its bounds hold the floor's, which puts
+   // it over the floor and not under.
    ObjectRenderInst *ri = state->getRenderPass()->allocInst<ObjectRenderInst>();
    ri->renderDelegate.bind(this, &StationFXVehicle::renderObject);
-   // The bin the port's other immediate-mode effects draw in.
-   ri->type = RenderPassManager::RIT_Foliage;
+   ri->type = RenderPassManager::RIT_ObjectTranslucent;
+   ri->translucentSort = true;
+   ri->defaultKey = 1;
+   ri->sortDistSq = getWorldBox().getSqDistanceToPoint(state->getCameraPosition());
    state->getRenderPass()->addInst(ri);
 }
 
