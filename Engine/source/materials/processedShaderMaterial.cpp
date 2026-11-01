@@ -992,7 +992,15 @@ void ProcessedShaderMaterial::_setShaderConstants(SceneRenderState * state, cons
          Point4F( sgData.fogBandMin[2], sgData.fogBandMax[2],
                   sgData.fogBandFactor[2], 0.0f ) );
 
-   shaderConsts->setSafe(handles->mFogColorSC, sgData.fogColor);
+   // HH: Modified for Tribes 2 compatibility.
+   // What is added into the scene fades out into the fog, as a translucent
+   // shape's vertex alpha does (TSMesh::setMaterial), rather than taking on
+   // the fog's colour and adding that.
+   const bool adds = mMaterial->isTranslucent() &&
+                     ( mMaterial->mTranslucentBlendOp == Material::Add ||
+                       mMaterial->mTranslucentBlendOp == Material::AddAlpha );
+   shaderConsts->setSafe(handles->mFogColorSC,
+                         adds ? ColorF(0.0f, 0.0f, 0.0f, 1.0f) : sgData.fogColor);
 
    if( handles->mOneOverFarplane->isValid() )
    {
