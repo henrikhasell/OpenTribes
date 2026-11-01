@@ -125,6 +125,7 @@ public:
    SplashData();
    DECLARE_CONOBJECT(SplashData);
    bool onAdd();
+   bool unpackData(BitStream *stream, U32 classId) override;
    bool preload(bool server, String &errorStr);
    static void  initPersistFields();
 };
