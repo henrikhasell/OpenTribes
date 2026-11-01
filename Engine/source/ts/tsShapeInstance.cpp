@@ -366,9 +366,6 @@ void TSShapeInstance::animateIfls()
    if ( ifls.empty() || ifls.size() != mIflFrame.size() || !mMaterialList )
       return;
 
-
-   const F32 now = (F32)Sim::getCurrentTime() / 1000.0f;
-
    for ( S32 i = 0; i < ifls.size(); i++ )
    {
       if ( mIflFrame[i] < 0 )
@@ -378,7 +375,8 @@ void TSShapeInstance::animateIfls()
 
       // An ifl is timed on the exporter's timeline, which a sequence occupies
       // from toolBegin for its own duration, so it plays at the file's rate.
-      S32 frame = -1;
+      // One no sequence claims shows its first frame, as Tribes 2's does.
+      S32 frame = 0;
       for ( S32 j = 0; j < mThreadList.size(); j++ )
       {
          TSThread *th = mThreadList[j];
@@ -390,10 +388,6 @@ void TSShapeInstance::animateIfls()
             ifl, th->getPos() * seq->duration + seq->toolBegin );
          break;
       }
-
-      // Nothing animates it, so it runs at the rate its own file asks for.
-      if ( frame < 0 )
-         frame = mShape->getIflFrame( ifl, now );
 
       if ( frame == mIflFrame[i] )
          continue;

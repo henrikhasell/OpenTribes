@@ -885,7 +885,7 @@ void TSShapeInstance::animate(S32 dl)
       return;
 
    // HH: Added for Tribes 2 compatibility.
-   // An ifl no sequence claims runs on the clock and has no thread to walk.
+   // Every ifl is set, one no sequence claims to its first frame.
    animateIfls();
 
    S32 ss = mShape->details[dl].subShapeNum;
