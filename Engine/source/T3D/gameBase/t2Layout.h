@@ -627,6 +627,16 @@ namespace T2Layout
       T2DbStationSphereScaleY,
       T2DbStationSphereScaleZ,
 
+      // StationFXPersonalData's run beside them; it shares lifetime and
+      // numArcSegments.
+      T2DbStationDelay,
+      T2DbStationFadeDelay,
+      T2DbStationHeight,
+      T2DbStationNumDegrees,
+      T2DbStationTrailFadeTime,
+      T2DbStationLeftRadius,
+      T2DbStationRightRadius,
+
       // ShapeBaseData's eight hud blocks, which every shape datablock carries
       // after shieldEffectScale.
       T2DbHudImageFriendly,
