@@ -512,6 +512,31 @@ void SimDataBlockEvent::unpack(NetConnection *cptr, BitStream *bstream)
             }
 
             // HH: Added for Tribes 2 compatibility.
+            // Where the image sits on its mount point, read back as
+            // BitStream::readAffineTransform would. A vehicle's guns mount on
+            // a point its shape has no node for, so this is all that puts
+            // them anywhere but the vehicle's origin.
+            F32 offset[6];
+            bool hasOffset = true;
+            for( U32 j = 0; j < 6 && hasOffset; j++ )
+               hasOffset = T2Layout::lastDataBlockField(
+                  T2Layout::T2DbImageOffset + j, &offset[j] );
+            if( hasOffset )
+            {
+               QuatF q( offset[3], offset[4], offset[5], 0.0f );
+               q.w = mSqrt( 1.0f - getMin( q.x * q.x + q.y * q.y + q.z * q.z,
+                                           1.0f ) );
+               U32 negative;
+               if( T2Layout::lastDataBlockWord(
+                      T2Layout::T2DbImageOffsetWNegative, &negative ) &&
+                   negative )
+                  q.w = -q.w;
+               q.setMatrix( &si->mountOffset );
+               si->mountOffset.setColumn( 3, Point3F( offset[0], offset[1],
+                                                      offset[2] ) );
+            }
+
+            // HH: Added for Tribes 2 compatibility.
             U32 cloakable;
             if( T2Layout::lastDataBlockWord( T2Layout::T2DbImageCloakable,
                                              &cloakable ) )

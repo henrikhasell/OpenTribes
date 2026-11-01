@@ -279,12 +279,28 @@ namespace T2Protocol
    // ShapeBaseImageData::packData writes the mount point as a whole word, which
    // is the layout's node 2.
       { "ShapeBaseImageData", 2, OpRaw, 32, T2DbImageMountPoint },
+   // then, unless it is the identity, the offset as writeAffineTransform
+   // writes it: a position, a quaternion's x, y and z, and the sign of its w.
+      { "ShapeBaseImageData",  4, OpRaw, 32, T2DataBlockField(T2DbImageOffset + 0) },
+      { "ShapeBaseImageData",  5, OpRaw, 32, T2DataBlockField(T2DbImageOffset + 1) },
+      { "ShapeBaseImageData",  6, OpRaw, 32, T2DataBlockField(T2DbImageOffset + 2) },
+      { "ShapeBaseImageData",  7, OpRaw, 32, T2DataBlockField(T2DbImageOffset + 3) },
+      { "ShapeBaseImageData",  8, OpRaw, 32, T2DataBlockField(T2DbImageOffset + 4) },
+      { "ShapeBaseImageData",  9, OpRaw, 32, T2DataBlockField(T2DbImageOffset + 5) },
+      { "ShapeBaseImageData", 10, OpFlag, 1, T2DbImageOffsetWNegative             },
    // and whether a cloak may thin the image as a flag at node 19, just before
    // the light type's ranged write (0x005f585d).
       { "ShapeBaseImageData", 19, OpFlag, 1, T2DbImageCloakable },
    // A TurretImageData's layout is ShapeBaseImageData's with its own run
-   // inserted at node 59, so both of those keep their nodes.
+   // inserted at node 59, so all of those keep their nodes.
       { "TurretImageData",     2, OpRaw, 32, T2DbImageMountPoint },
+      { "TurretImageData",     4, OpRaw, 32, T2DataBlockField(T2DbImageOffset + 0) },
+      { "TurretImageData",     5, OpRaw, 32, T2DataBlockField(T2DbImageOffset + 1) },
+      { "TurretImageData",     6, OpRaw, 32, T2DataBlockField(T2DbImageOffset + 2) },
+      { "TurretImageData",     7, OpRaw, 32, T2DataBlockField(T2DbImageOffset + 3) },
+      { "TurretImageData",     8, OpRaw, 32, T2DataBlockField(T2DbImageOffset + 4) },
+      { "TurretImageData",     9, OpRaw, 32, T2DataBlockField(T2DbImageOffset + 5) },
+      { "TurretImageData",    10, OpFlag, 1, T2DbImageOffsetWNegative             },
       { "TurretImageData",    19, OpFlag, 1, T2DbImageCloakable },
 
    // Every projectile carries the same run of datablock ids, the emitters then
