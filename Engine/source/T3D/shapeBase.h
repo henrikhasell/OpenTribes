@@ -768,7 +768,9 @@ public:
       // further down.
       MaxSoundThreads =  4,            ///< Should be a power of 2
       MaxScriptThreads = 4,            ///< Should be a power of 2
-      MaxMountedImages = 4,            ///< Should be a power of 2
+      // HH: Modified for Tribes 2 compatibility. Its ghosts carry eight image
+      // slots and its scripts fill slot 4 (the Beowulf's mortar barrel).
+      MaxMountedImages = 8,            ///< Should be a power of 2
       MaxImageEmitters = 3,
       NumImageBits = 3,
       ShieldNormalBits = 8,
@@ -1298,14 +1300,16 @@ public:
       MeshHiddenMask  = Parent::NextFreeMask << 7,
       SoundMaskN      = Parent::NextFreeMask << 8,       ///< Extends + MaxSoundThreads bits
       ThreadMaskN     = SoundMaskN  << MaxSoundThreads,  ///< Extends + MaxScriptThreads bits
-      ImageMaskN      = ThreadMaskN << MaxScriptThreads, ///< Extends + MaxMountedImage bits
-      NextFreeMask    = ImageMaskN  << MaxMountedImages
+      // HH: Modified for Tribes 2 compatibility. One bit for every image slot:
+      // a bit per slot for eight slots leaves Player and Item short of room.
+      ImageMaskN      = ThreadMaskN << MaxScriptThreads,
+      NextFreeMask    = ImageMaskN  << 1
    };
 
    enum BaseMaskConstants {
       SoundMask      = (SoundMaskN << MaxSoundThreads) - SoundMaskN,
       ThreadMask     = (ThreadMaskN << MaxScriptThreads) - ThreadMaskN,
-      ImageMask      = (ImageMaskN << MaxMountedImages) - ImageMaskN
+      ImageMask      = ImageMaskN
    };
 
    /// @}

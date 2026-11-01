@@ -2006,8 +2006,6 @@ void ShapeBase::readT2Images(const T2Layout::Body &body)
    const bool trace = Con::getBoolVariable("$pref::Net::traceGhostImages",
                                            false);
 
-      // Tribes 2 sends eight slots and fills four, which is what this engine has
-      // room for.
    const U32 slots = getMin((U32)MaxMountedImages, (U32)T2Layout::MaxImages);
    for (U32 i = 0; i < slots; i++)
    {
