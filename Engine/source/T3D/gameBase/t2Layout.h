@@ -97,6 +97,8 @@ namespace T2Layout
       F32     invincibleSpeed;
       bool    hasFieldState;
       U32     fieldState;
+      bool    hasBeaconType;
+      U32     beaconType;
       U32     fieldFade;
       struct Run
       {

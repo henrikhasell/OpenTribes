@@ -2000,6 +2000,11 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
                   sBody.hasFieldState = true;
                   sBody.fieldState = v;
                }
+               if(row && row->field == T2FieldBeaconType)
+               {
+                  sBody.hasBeaconType = true;
+                  sBody.beaconType = v;
+               }
                if(row && row->field == T2FieldSourceSlot)
                   sBody.sourceSlot = v;
             }
@@ -2025,6 +2030,20 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
                const T2GhostFieldRow *row = fieldAt(layout, at);
                if(row && row->field == T2FieldTarget)
                   sBody.target = S32(v);
+
+               // GameBase's datablock, where the recovered graph branches on
+               // whether setDataBlock took it (BeaconObject's, at 0x5e3426).
+               const T2DataNode &root = layout->nodes[layout->root];
+               if(root.op == OpFlag && root.b == at)
+               {
+                  if(layout == sFieldsLayout)
+                  {
+                     sBody.hasDataBlock = true;
+                     sBody.dataBlockId = v;
+                  }
+                  if(depth == 0)
+                     sOwnDataBlockId = v;
+               }
             }
             if(!layout->select)
             {
@@ -3391,6 +3410,8 @@ static bool runGhost(BitStream *stream, const char *className,
    sBody.invincibleSpeed = 0.0f;
    sBody.hasFieldState = false;
    sBody.fieldState = 0;
+   sBody.hasBeaconType = false;
+   sBody.beaconType = 0;
    sBody.fieldFade = 0;
    const Body::Run none = { -1, 0 };
    sBody.zonePoints = none;
