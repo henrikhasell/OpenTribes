@@ -141,6 +141,12 @@ ColorI T2Targets::groupColor(U32 viewer, U32 target)
    return sGroupColors[viewer][target];
 }
 
+void T2Targets::reset()
+{
+   for (U32 i = 0; i < NumTargets; i++)
+      sClientTargets[i] = ClientTarget();
+}
+
 /// 0x00670660: the colour a group is given when none is sent, the colour of
 /// each group as each group sees it, then every target as the client knew it.
 void T2Targets::readDemoState(BitStream *stream)

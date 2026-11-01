@@ -850,6 +850,11 @@ void GameConnection::onRemove()
    {
       onDrop_callback(mDisconnectReason);
    }
+   // HH: Added for Tribes 2 compatibility.
+   // A target's tags are net strings, which must not outlive the table that
+   // holds them; the targets are only the server's to say anyway.
+   else
+      T2Targets::reset();
 
    if (mControlObject)
       mControlObject->setControllingClient(0);

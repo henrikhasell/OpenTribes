@@ -46,6 +46,9 @@ namespace T2Targets
 
    /// Every target and colour as a recording's start block holds them.
    void readDemoState(BitStream *stream);
+
+   /// Forget every target, as when the connection that sent them goes.
+   void reset();
 }
 
 #endif
