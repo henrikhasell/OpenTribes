@@ -84,6 +84,8 @@ namespace T2Protocol
       T2FieldWayPointName,          ///< the name a WayPoint is marked with
       T2FieldWayPointTeam,          ///< readInt(32), the team it is marked for
       T2FieldWayPointHidden,        ///< the flag that stops it being marked
+
+      T2FieldBeaconType,            ///< readInt(2): enemy, friend or vehicle
    };
 
    inline U32 t2FieldWords(U32 field)
@@ -194,6 +196,14 @@ namespace T2Protocol
       { "BeaconObject",           8, OpRaw,  32, T2FieldAffine   },
       { "BeaconObject",          14, OpFlag,  1, T2FieldQuatSign },
       { "BeaconObject",          15, OpRaw,  32, T2FieldScale    },
+
+   // GameBase's target, which is the team the beacon marks for.
+      { "BeaconObject",        1041, OpFlag,  1, T2FieldTargetHere },
+      { "BeaconObject",        1044, OpReadBr, 9, T2FieldTarget    },
+
+   // BeaconObject::unpackUpdate (0x006a3ae0), after StaticShape's body: a
+   // flag and then the beacon's type.
+      { "BeaconObject",           7, OpSelect, 2, T2FieldBeaconType },
 
       { "Turret",                18, OpRaw,  32, T2FieldAffine   },
       { "Turret",                12, OpFlag,  1, T2FieldQuatSign },

@@ -6,6 +6,7 @@
 #include "T3D/staticShape.h"
 #include "T3D/camera.h"
 #include "T3D/missionMarker.h"
+#include "T3D/gameBase/beaconObjectT2.h"
 #include "gui/3d/guiTSControl.h"
 #include "scene/sceneManager.h"
 #include "collision/collision.h"
@@ -496,6 +497,27 @@ void HudNavDisplay::collect(GameConnection *conn, ShapeBase *control,
       e.dist = 0.0f;
       mEntries.push_back(e);
    }
+
+   // The beacons of this client's own side (0x00504f1b), sensed or not.
+   for(SimSet::iterator i = conn->begin(); i != conn->end(); i++)
+   {
+      BeaconObject *beacon = dynamic_cast<BeaconObject*>(*i);
+      if(!beacon)
+         continue;
+
+      const S32 target = beacon->getT2Target();
+      if(target == -1 || T2Targets::sensorGroup(target) != mSensorGroup)
+         continue;
+
+      Entry e;
+      e.type = Target;
+      e.flags = Always;
+      e.pos = beacon->getRenderPosition();
+      e.obj = beacon;
+      e.health = 0.0f;
+      e.dist = 0.0f;
+      mEntries.push_back(e);
+   }
 }
 
 //-----------------------------------------------------------------------------
@@ -626,6 +648,23 @@ void HudNavDisplay::drawMarker(const GuiTSCtrl *ts, const Entry &e, Point2I at,
          distance = distText;
          if(point->mName && point->mName[0])
             name = point->mName;
+         break;
+      }
+
+      // A beacon is coloured by its type, with its distance under it
+      // (0x00506131).
+      case Target:
+      {
+         BeaconObject *beacon = static_cast<BeaconObject*>(e.obj);
+         centre = mMarkerImages[Target];
+         if(beacon->getT2Target() < 32)
+            switch(beacon->getBeaconType())
+            {
+               case BeaconObject::Enemy:  imageColor = mEnemyBeaconColor;   break;
+               case BeaconObject::Friend: imageColor = mFriendBeaconColor;  break;
+               default:                   imageColor = mVehicleBeaconColor; break;
+            }
+         name = distText;
          break;
       }
 
