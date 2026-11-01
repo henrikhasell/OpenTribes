@@ -22,6 +22,7 @@
 
 #include "platform/platform.h"
 #include "T3D/gameBase/gameConnection.h"
+#include "T3D/gameBase/targetsT2.h"      // HH: Added for Tribes 2 compatibility.
 #include "T3D/gameBase/t2Layout.h"      // HH: Added for Tribes 2 compatibility.
 #include "T3D/gameBase/demoT2.h"        // HH: Added for Tribes 2 compatibility.
 #include "T3D/gameBase/gravityT2.h"     // HH: Added for Tribes 2 compatibility.
@@ -1274,10 +1275,12 @@ void GameConnection::readPacket(BitStream *bstream)
          }
       }
 
+      // Which targets this client's sensor group senses, as the words of 32
+      // that changed since the last packet, each a mask of the ones to flip.
       while(bstream->readFlag())
       {
-         bstream->readInt(TargetWordBits);
-         bstream->readInt(32);
+         const U32 word = bstream->readInt(TargetWordBits);
+         T2Targets::toggleSensed(word, bstream->readInt(32));
       }
 
       // server forcing a fov change?

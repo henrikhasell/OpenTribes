@@ -5,7 +5,11 @@
 #ifndef _PLATFORM_H_
 #include "platform/platform.h"
 #endif
+#ifndef _COLOR_H_
+#include "core/color.h"
+#endif
 
+class BitStream;
 class ShapeBase;
 
 namespace T2Targets
@@ -19,6 +23,29 @@ namespace T2Targets
    /// is what makes a flag its team's and a player their team's. Does nothing
    /// for a shape with no target, or a target with no skin.
    void applySkin(ShapeBase *shape);
+
+   /// Which of the hud images of its datablock a target is drawn with, one
+   /// bit each; bit 8 lists it on the commander map.
+   U32 renderMask(S32 target);
+
+   /// What the HUD calls a target: its name and type, "Storm Flag", leaving
+   /// out either if it is empty or starts with an underscore. False for a
+   /// target that was never allocated.
+   bool getTargetName(S32 target, char *buffer, U32 size);
+
+   /// Whether the client's sensor group senses a target. The server sends
+   /// only the changes, a word of 32 targets at a time.
+   bool isSensed(S32 target);
+   void toggleSensed(U32 word, U32 bits);
+
+   /// The sensor group the server put this client in.
+   U32 clientSensorGroup();
+
+   /// The colour the server gave a target group as a viewer group sees it.
+   ColorI groupColor(U32 viewer, U32 target);
+
+   /// Every target and colour as a recording's start block holds them.
+   void readDemoState(BitStream *stream);
 }
 
 #endif

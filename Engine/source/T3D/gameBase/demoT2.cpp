@@ -8,6 +8,7 @@
 #include "core/stream/fileStream.h"
 #include "sim/netConnection.h"
 #include "T3D/gameBase/gameConnection.h"
+#include "T3D/gameBase/targetsT2.h"
 
 namespace DemoT2
 {
@@ -27,41 +28,11 @@ bool readHeader(Stream *stream, U32 *version, U32 *lengthMs, U32 *startSize)
    return stream->getStatus() == Stream::Ok;
 }
 
-// The target manager's state (0x00670660).  Tribes 2's targeting has no
-// Torque counterpart, so the bits are consumed and nothing is kept: a word of
-// its own, a sensor-group by target-type grid, then 512 target slots.
+// The target manager's state (0x00670660), which the client's targets are
+// read from: the HUD's markers are drawn from them.
 void readTargetManagerState(BitStream *stream)
 {
-   U32 word;
-   stream->read(&word);
-
-   for(U32 i = 0; i < 32; i++)
-      for(U32 j = 0; j < 32; j++)
-         if(stream->readFlag())
-            stream->read(&word);
-
-   for(U32 i = 0; i < 512; i++)
-   {
-      if(!stream->readFlag())
-         continue;
-
-      if(stream->readFlag())
-         stream->read(&word);
-      if(stream->readFlag())
-         stream->read(&word);
-
-      char name[256];
-      for(U32 j = 0; j < 5; j++)
-         if(stream->readFlag())
-            stream->readString(name);
-
-      stream->readInt(5);                       // target type
-      stream->readInt(9);                       // owner
-      // The first 32 slots are the sensor groups' own and skip the read.
-      if(i >= 32 && stream->readFlag())
-         stream->readInt(11);                   // datablock id
-      stream->readInt(7);                       // scale
-   }
+   T2Targets::readDemoState(stream);
 }
 
 // The read at 0x006021b0, run over the client and server process lists.

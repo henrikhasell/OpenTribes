@@ -211,6 +211,17 @@ ShapeBaseData::ShapeBaseData()
    // Tribes 2's ShapeBaseData constructor (0x005e3e5c) sets these.
    shieldEffectLifetimeMS = 300;
    shieldEffectScale.set( 1.0f, 1.0f, 1.0f );
+
+   for ( U32 i = 0; i < NumHudRenderImages; i++ )
+   {
+      hudImageNameFriendly[i] = StringTable->insert("");
+      hudImageNameEnemy[i] = StringTable->insert("");
+      hudRenderCenter[i] = false;
+      hudRenderModulated[i] = false;
+      hudRenderAlways[i] = false;
+      hudRenderDistance[i] = false;
+      hudRenderName[i] = false;
+   }
 }
 
 struct ShapeBaseDataProto
@@ -379,6 +390,30 @@ bool ShapeBaseData::unpackData(BitStream *stream, U32 classId)
        T2Layout::lastDataBlockField(T2Layout::T2DbShieldEffectScaleY, &scale[1]) &&
        T2Layout::lastDataBlockField(T2Layout::T2DbShieldEffectScaleZ, &scale[2]))
       shieldEffectScale.set(scale[0], scale[1], scale[2]);
+
+   // A block with no friendly image carries nothing else, and leaves its
+   // flags clear.
+   for (U32 i = 0; i < NumHudRenderImages; i++)
+   {
+      const char *friendly = T2Layout::lastDataBlockString(T2Layout::T2DbHudImageFriendly + i);
+      const char *enemy = T2Layout::lastDataBlockString(T2Layout::T2DbHudImageEnemy + i);
+      hudImageNameFriendly[i] = StringTable->insert(friendly ? friendly : "");
+      hudImageNameEnemy[i] = StringTable->insert(enemy ? enemy : "");
+
+      static const struct { U32 field; bool (ShapeBaseData::*member)[NumHudRenderImages]; }
+         sHudFlags[] =
+      {
+         { T2Layout::T2DbHudRenderCenter,    &ShapeBaseData::hudRenderCenter    },
+         { T2Layout::T2DbHudRenderModulated, &ShapeBaseData::hudRenderModulated },
+         { T2Layout::T2DbHudRenderAlways,    &ShapeBaseData::hudRenderAlways    },
+         { T2Layout::T2DbHudRenderDistance,  &ShapeBaseData::hudRenderDistance  },
+         { T2Layout::T2DbHudRenderName,      &ShapeBaseData::hudRenderName      },
+      };
+
+      for (U32 f = 0; f < sizeof(sHudFlags) / sizeof(sHudFlags[0]); f++)
+         (this->*sHudFlags[f].member)[i] =
+            T2Layout::lastDataBlockWord(sHudFlags[f].field + i, &word) && word != 0;
+   }
 
    return true;
 }
@@ -575,19 +610,19 @@ bool ShapeBaseData::preload(bool server, String &errorStr)
          cameraMaxDist = w;
    }
 
+   // HH: Modified for Tribes 2 compatibility.
    if(!server)
    {
-/*
-      // grab all the hud images
       for(U32 i = 0; i < NumHudRenderImages; i++)
       {
          if(hudImageNameFriendly[i] && hudImageNameFriendly[i][0])
-            hudImageFriendly[i] = TextureHandle(hudImageNameFriendly[i], BitmapTexture);
+            hudImageFriendly[i].set(hudImageNameFriendly[i], &GFXDefaultGUIProfile,
+                                    avar("%s() - hudImageFriendly (line %d)", __FUNCTION__, __LINE__));
 
          if(hudImageNameEnemy[i] && hudImageNameEnemy[i][0])
-            hudImageEnemy[i] = TextureHandle(hudImageNameEnemy[i], BitmapTexture);
+            hudImageEnemy[i].set(hudImageNameEnemy[i], &GFXDefaultGUIProfile,
+                                 avar("%s() - hudImageEnemy (line %d)", __FUNCTION__, __LINE__));
       }
-*/
    }
 
    // Resolve CubeReflectorDesc.
@@ -748,6 +783,29 @@ void ShapeBaseData::initPersistFields()
          "The small icon the commander map lists this shape with." );
 
    endGroup( "Commander" );
+
+   // HH: Added for Tribes 2 compatibility.
+   addGroup( "HUD" );
+
+      addField( "hudImageNameFriendly", TypeString, Offset(hudImageNameFriendly, ShapeBaseData),
+         NumHudRenderImages, "The image the nav display draws over this shape "
+         "for each bit of its target's render mask, seen by its own side." );
+      addField( "hudImageNameEnemy", TypeString, Offset(hudImageNameEnemy, ShapeBaseData),
+         NumHudRenderImages, "The same, seen by any other side." );
+      addField( "hudRenderCenter", TypeBool, Offset(hudRenderCenter, ShapeBaseData),
+         NumHudRenderImages, "Draw the image at the shape's centre, not over it." );
+      addField( "hudRenderModulated", TypeBool, Offset(hudRenderModulated, ShapeBaseData),
+         NumHudRenderImages, "Tint the image with the colour of the shape's "
+         "sensor group." );
+      addField( "hudRenderAlways", TypeBool, Offset(hudRenderAlways, ShapeBaseData),
+         NumHudRenderImages, "Draw the image whether or not the shape is sensed "
+         "or in sight, so that it follows the shape off the screen." );
+      addField( "hudRenderDistance", TypeBool, Offset(hudRenderDistance, ShapeBaseData),
+         NumHudRenderImages, "Write the distance to the shape over the image." );
+      addField( "hudRenderName", TypeBool, Offset(hudRenderName, ShapeBaseData),
+         NumHudRenderImages, "Write the shape's target name under the image." );
+
+   endGroup( "HUD" );
 
    addGroup( "Reflection" );
 

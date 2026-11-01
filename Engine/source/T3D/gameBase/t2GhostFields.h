@@ -80,6 +80,10 @@ namespace T2Protocol
 
       T2FieldStationObject,         ///< readInt(bits), the ghost index of the
                                     ///< station a station effect plays on
+
+      T2FieldWayPointName,          ///< the name a WayPoint is marked with
+      T2FieldWayPointTeam,          ///< readInt(32), the team it is marked for
+      T2FieldWayPointHidden,        ///< the flag that stops it being marked
    };
 
    inline U32 t2FieldWords(U32 field)
@@ -209,6 +213,9 @@ namespace T2Protocol
       { "MissionMarker",          3, OpRaw,  32, T2FieldScale    },
 
       { "WayPoint",              16, OpRaw,  32, T2FieldAffine   },
+      { "WayPoint",               5, OpString, 0, T2FieldWayPointName   },
+      { "WayPoint",               3, OpInt,  32, T2FieldWayPointTeam   },
+      { "WayPoint",               1, OpFlag,  1, T2FieldWayPointHidden },
       { "WayPoint",              10, OpFlag,  1, T2FieldQuatSign },
       { "WayPoint",               9, OpRaw,  32, T2FieldScale    },
 

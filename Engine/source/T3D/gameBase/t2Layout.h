@@ -127,6 +127,12 @@ namespace T2Layout
 
       bool    hasPowered;
       bool    powered;              ///< a StaticShape's power is on
+      bool    hasWayPointName;
+      char    wayPointName[256];    ///< what a WayPoint is marked with
+      bool    hasWayPointTeam;
+      S32     wayPointTeam;
+      bool    hasWayPointHidden;
+      bool    wayPointHidden;
       bool    hasTurretAim;         ///< a turret's aim and activation came
       F32     turretHeading;        ///< readFloat(10): share of a full turn
       F32     turretPitch;          ///< readFloat(10): share of the way from
@@ -617,6 +623,23 @@ namespace T2Layout
       T2DbStationSphereScaleX,
       T2DbStationSphereScaleY,
       T2DbStationSphereScaleZ,
+
+      // ShapeBaseData's eight hud blocks, which every shape datablock carries
+      // after shieldEffectScale.
+      T2DbHudImageFriendly,
+      T2DbHudImageFriendlyLast = T2DbHudImageFriendly + 7,
+      T2DbHudImageEnemy,
+      T2DbHudImageEnemyLast = T2DbHudImageEnemy + 7,
+      T2DbHudRenderCenter,
+      T2DbHudRenderCenterLast = T2DbHudRenderCenter + 7,
+      T2DbHudRenderModulated,
+      T2DbHudRenderModulatedLast = T2DbHudRenderModulated + 7,
+      T2DbHudRenderAlways,
+      T2DbHudRenderAlwaysLast = T2DbHudRenderAlways + 7,
+      T2DbHudRenderDistance,
+      T2DbHudRenderDistanceLast = T2DbHudRenderDistance + 7,
+      T2DbHudRenderName,
+      T2DbHudRenderNameLast = T2DbHudRenderName + 7,
 
       T2DbFieldCount
    };

@@ -126,9 +126,16 @@ class WayPoint : public MissionMarker
 
       // NetObject
 
+      // HH: Added for Tribes 2 compatibility.
+      void onT2BodyRead(const T2Layout::Body &body) override;
+
       // field data
       StringTableEntry              mName;
       WayPointTeam                  mTeam;
+
+      // HH: Added for Tribes 2 compatibility.
+      /// A hidden waypoint is not marked on the HUD.
+      bool                          mWayPointHidden;
 
       static void initPersistFields();
 
