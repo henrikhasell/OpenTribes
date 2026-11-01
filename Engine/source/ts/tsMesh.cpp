@@ -214,9 +214,13 @@ BaseMatInstance *TSGetBlendedMatInstance( BaseMatInstance *matInst,
 // under alpha-always, and GL_ONE_MINUS_SRC_ALPHA for the rest.  It left the
 // depth mask alone, so an opaque part still writes depth (0x006a6a47) and a
 // fading body hides its own far side.
+//
+// Only a whole shape's fade replaces the alpha with itself.  An object's own
+// visibility goes in as the vertex colour's alpha and the texture modulates
+// it (0x006a7160), so a translucent material keeps its texture's alpha.
 BaseMatInstance *TSGetFadedMatInstance( BaseMatInstance *matInst,
                                         const GFXVertexFormat *format,
-                                        bool additive )
+                                        bool additive, bool keepTexAlpha )
 {
    Material *mat = dynamic_cast<Material*>( matInst->getMaterial() );
    if ( !mat )
@@ -224,7 +228,8 @@ BaseMatInstance *TSGetFadedMatInstance( BaseMatInstance *matInst,
 
    static HashTable<U32, Material*> sFaded;
 
-   const U32 key = ( mat->getId() << 1 ) | ( additive ? 1 : 0 );
+   const U32 key = ( mat->getId() << 2 ) | ( keepTexAlpha ? 2 : 0 ) |
+                   ( additive ? 1 : 0 );
    Material *faded = NULL;
    HashTable<U32, Material*>::Iterator found = sFaded.find( key );
    if ( found != sFaded.end() )
@@ -242,7 +247,7 @@ BaseMatInstance *TSGetFadedMatInstance( BaseMatInstance *matInst,
          faded->mTranslucentBlendOp = additive ? Material::AddAlpha
                                                : Material::LerpAlpha;
          faded->mTranslucentZWrite = !additive;
-         faded->mT2FadeAlpha = true;
+         faded->mT2FadeAlpha = !keepTexAlpha;
       }
 
       sFaded.insertUnique( key, faded );
@@ -362,9 +367,13 @@ void TSMesh::innerRender( TSMaterialList *materials, const TSRenderState &rdata,
       // it blended on a whole shape's fade (0x006a70aa).
       else if ( ( rdata.isFadeAlpha() || mVisibility < 1.0f ||
                   mVisFaded ) && matInst )
+      {
+         const bool translucent =
+            materials->getFlags( matIndex ) & TSMaterialList::Translucent;
          matInst = TSGetFadedMatInstance( matInst, mVertexFormat,
-            ( materials->getFlags( matIndex ) & TSMaterialList::Translucent ) ||
-            rdata.isBlendAlways() );
+            translucent || rdata.isBlendAlways(),
+            translucent && !rdata.isFadeAlpha() && !rdata.isBlendAlways() );
+      }
       else if ( rdata.isBlendAlways() && matInst )
          matInst = TSGetBlendedMatInstance( matInst, mVertexFormat );
 
