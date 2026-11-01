@@ -332,16 +332,23 @@ static void applyTSMaterialFlags( Material *mat, U32 flags )
    if ( flags & TSMaterialList::SelfIlluminating )
       mat->mEmissive[0] = true;
 
-   const U32 blended = flags & ( TSMaterialList::Additive |
+   const U32 blended = flags & ( TSMaterialList::Translucent |
+                                 TSMaterialList::Additive |
                                  TSMaterialList::Subtractive );
    if ( !blended )
       return;
 
    mat->mTranslucent = true;
    // Additive is GL_SRC_ALPHA, GL_ONE (0x006a6a5e), so it fades with the
-   // shape -- a cloaked pack's glow goes with the rest of it.
-   mat->mTranslucentBlendOp = ( flags & TSMaterialList::Additive )
-                                 ? Material::AddAlpha : Material::Sub;
+   // shape -- a cloaked pack's glow goes with the rest of it. Translucent
+   // alone is GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, so the flag and not the
+   // texture decides that a windshield is seen through.
+   if ( flags & TSMaterialList::Additive )
+      mat->mTranslucentBlendOp = Material::AddAlpha;
+   else if ( flags & TSMaterialList::Subtractive )
+      mat->mTranslucentBlendOp = Material::Sub;
+   else
+      mat->mTranslucentBlendOp = Material::LerpAlpha;
 
 
    mat->mTranslucentZWrite = false;
@@ -402,7 +409,8 @@ void TSMaterialList::mapMaterial( U32 i )
       mShapeFlags.push_back( mFlags[ mShapeFlags.size() ] );
 
    if ( !mMatInstList[i] &&
-        ( mFlags[i] & ( SelfIlluminating | Additive | Subtractive ) ) )
+        ( mFlags[i] & ( Translucent | SelfIlluminating | Additive |
+                        Subtractive ) ) )
       mMatInstList[i] = createTSMatInstance( i );
 
    Parent::mapMaterial( i );
