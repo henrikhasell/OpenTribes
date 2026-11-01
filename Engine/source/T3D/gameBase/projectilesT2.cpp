@@ -285,6 +285,7 @@ class ProjectileT2 : public GameBase
    void drawCross(const Point3F &eye);
    void spawnFlare(Flare &flare);
    void drawFlares(F32 clear);
+   void drawGlow(const SceneRenderState *state, F32 clear);
 
 public:
    ProjectileT2();
@@ -942,6 +943,12 @@ void ProjectileT2::renderBolt(ObjectRenderInst *, SceneRenderState *state,
    if(mShapeInstance)
       return;
 
+   if(dynamic_cast<LinearFlareProjectileData *>(mData))
+   {
+      drawGlow(state, clear);
+      return;
+   }
+
    if(mData->streakLength > 0.0f)
       drawStreak(eye);
    else
@@ -1257,6 +1264,50 @@ void ProjectileT2::drawFlares(F32 clear)
       }
    }
    PrimBuild::end();
+}
+
+/// What retail draws of a LinearFlareProjectile that has no shape, after its
+/// flares (0x0063e50a): two squares of flareBaseTexture flat to the view and
+/// added into the scene, one 1.2 of scale.x across in the root of the flare
+/// colour and one half that across in white, both dimmed by the fog.
+void ProjectileT2::drawGlow(const SceneRenderState *state, F32 clear)
+{
+   if(mTexture[1].isNull() || clear <= 0.0f)
+      return;
+
+   const MatrixF &cam = state->getCameraTransform();
+   VectorF right, up;
+   cam.getColumn(0, &right);
+   cam.getColumn(2, &up);
+
+   const Point3F at = getRenderPosition();
+   const ColorF &c = mData->flareColor;
+   const ColorF shade[2] = {
+      ColorF(mSqrt(c.red) * clear, mSqrt(c.green) * clear,
+             mSqrt(c.blue) * clear),
+      ColorF(clear, clear, clear) };
+   const F32 half[2] = { mData->scale.x * 0.6f, mData->scale.x * 0.3f };
+
+   GFX->setStateBlock(boltStateBlock());
+   GFX->setTexture(0, mTexture[1]);
+
+   for(U32 i = 0; i < 2; i++)
+   {
+      const Point3F r = right * half[i];
+      const Point3F u = up * half[i];
+
+      PrimBuild::color(shade[i]);
+      PrimBuild::begin(GFXTriangleFan, 4);
+      PrimBuild::texCoord2f(0.0f, 0.0f);
+      PrimBuild::vertex3fv(at - r - u);
+      PrimBuild::texCoord2f(0.0f, 1.0f);
+      PrimBuild::vertex3fv(at - r + u);
+      PrimBuild::texCoord2f(1.0f, 1.0f);
+      PrimBuild::vertex3fv(at + r + u);
+      PrimBuild::texCoord2f(1.0f, 0.0f);
+      PrimBuild::vertex3fv(at + r - u);
+      PrimBuild::end();
+   }
 }
 
 #define IMPLEMENT_PROJECTILE_T2( className )                                 \
