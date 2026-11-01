@@ -132,6 +132,7 @@ struct WheeledVehicleData: public VehicleData
    U32 wheelCount;
    // HH: Added for Tribes 2 compatibility.
    U32 t2WheelCount;             ///< the wheels Tribes 2 finds ([db+0x6e8])
+   S32 t2TurnSequence[MaxWheels]; ///< each one's turn%d, -1 for none
    ClippedPolyList rigidBody;    // Extracted from shape
    S32 brakeLightSequence;       // Brakes
    S32 steeringSequence;         // Steering animation
@@ -197,6 +198,8 @@ class WheeledVehicle: public Vehicle
    };
    Wheel mWheel[WheeledVehicleData::MaxWheels];
    TSThread* mSteeringThread;
+   // HH: Added for Tribes 2 compatibility.
+   TSThread* mT2TurnThread[WheeledVehicleData::MaxWheels];
 
    //
    bool onNewDataBlock( GameBaseData *dptr, bool reload );
