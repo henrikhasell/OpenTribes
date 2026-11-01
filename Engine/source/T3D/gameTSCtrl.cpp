@@ -180,7 +180,13 @@ void GameTSCtrl::onRender(Point2I offset, const RectI &updateRect)
 
    mHaveCamera = false;
    if(!skipRender)
+   {
       Parent::onRender(offset, updateRect);
+
+      // Retail draws the HUD a second time over the first (0x0068a531), so
+      // everything translucent on it comes out that much stronger.
+      renderChildControls(offset, updateRect);
+   }
    else
       processCameraQuery(&mLastCameraQuery);
 

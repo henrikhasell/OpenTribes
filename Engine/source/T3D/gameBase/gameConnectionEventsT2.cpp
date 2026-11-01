@@ -21,6 +21,180 @@
 #include "sfx/sfxSource.h"
 #include "sfx/sfxSystem.h"
 
+//----------------------------------------------------------------------------
+
+namespace
+{
+   /// What a client keeps of one target: the strings the server tagged for
+   /// it, which TargetInfoEvent sends in this order, its voice's pitch, the
+   /// hud images it is drawn with, and whether this client senses it.
+   struct ClientTarget
+   {
+      enum Tag { Name, Skin, PrefSkin, Voice, Type, NumTags };
+
+      NetStringHandle tags[NumTags];
+      F32 voicePitch;
+      U32 sensorGroup;
+      U32 renderMask;
+      bool allocated;
+      bool sensed;
+
+      ClientTarget() : voicePitch(1.0f), sensorGroup(0), renderMask(0),
+                       allocated(false), sensed(false) {}
+
+      /// What a freed target forgets. Whether it is sensed is the server's to
+      /// change, and it sends only the changes, so that stays.
+      void free()
+      {
+         const bool wasSensed = sensed;
+         *this = ClientTarget();
+         sensed = wasSensed;
+      }
+   };
+
+   enum
+   {
+      TargetBits = 9,
+      NumTargets = 1 << TargetBits,
+      GroupBits = 5,
+      NumGroups = 1 << GroupBits,
+   };
+
+   ClientTarget sClientTargets[NumTargets];
+
+   /// The colour of each target group as each viewer group sees it.
+   ColorI sGroupColors[NumGroups][NumGroups];
+
+   U32 sClientSensorGroup = 0;
+}
+
+U32 T2Targets::sensorGroup(S32 target)
+{
+   if (target < 0 || target >= NumTargets)
+      return 0;
+   return sClientTargets[target].sensorGroup;
+}
+
+void T2Targets::applySkin(ShapeBase *shape)
+{
+   const S32 target = shape->getT2Target();
+   if (target < 0 || target >= NumTargets)
+      return;
+
+   shape->setTargetSkin(sClientTargets[target].tags[ClientTarget::Skin]);
+}
+
+U32 T2Targets::renderMask(S32 target)
+{
+   if (target < 0 || target >= NumTargets)
+      return 0;
+   return sClientTargets[target].renderMask;
+}
+
+/// A tag that is empty or starts with an underscore is not for showing.
+static const char *shownTag(const NetStringHandle &tag)
+{
+   const char *str = tag.getString();
+   return str && str[0] && str[0] != '_' ? str : NULL;
+}
+
+bool T2Targets::getTargetName(S32 target, char *buffer, U32 size)
+{
+   if (target < 0 || target >= NumTargets || !sClientTargets[target].allocated)
+      return false;
+
+   const ClientTarget &t = sClientTargets[target];
+   const char *name = shownTag(t.tags[ClientTarget::Name]);
+   const char *type = shownTag(t.tags[ClientTarget::Type]);
+
+   buffer[0] = 0;
+   if (name && type)
+      dSprintf(buffer, size, "%s %s", name, type);
+   else if (name || type)
+      dSprintf(buffer, size, "%s", name ? name : type);
+   return true;
+}
+
+bool T2Targets::isSensed(S32 target)
+{
+   if (target < 0 || target >= NumTargets)
+      return false;
+   return sClientTargets[target].sensed;
+}
+
+void T2Targets::toggleSensed(U32 word, U32 bits)
+{
+   for (U32 i = word * 32; bits && i < NumTargets; bits >>= 1, i++)
+      if (bits & 1)
+         sClientTargets[i].sensed = !sClientTargets[i].sensed;
+}
+
+U32 T2Targets::clientSensorGroup()
+{
+   return sClientSensorGroup;
+}
+
+ColorI T2Targets::groupColor(U32 viewer, U32 target)
+{
+   if (viewer >= NumGroups || target >= NumGroups)
+      return ColorI(255, 0, 0, 255);
+   return sGroupColors[viewer][target];
+}
+
+/// 0x00670660: the colour a group is given when none is sent, the colour of
+/// each group as each group sees it, then every target as the client knew it.
+void T2Targets::readDemoState(BitStream *stream)
+{
+   ColorI fallback;
+   stream->read(&fallback);
+
+   for (U32 viewer = 0; viewer < NumGroups; viewer++)
+      for (U32 target = 0; target < NumGroups; target++)
+      {
+         sGroupColors[viewer][target] = fallback;
+         if (stream->readFlag())
+            stream->read(&sGroupColors[viewer][target]);
+      }
+
+   for (U32 i = 0; i < NumTargets; i++)
+   {
+      ClientTarget &target = sClientTargets[i];
+      target = ClientTarget();
+      if (!stream->readFlag())
+         continue;
+
+      U32 word;
+      if (stream->readFlag())
+      {
+         stream->read(&word);
+         target.renderMask = word;
+      }
+      if (stream->readFlag())
+      {
+         stream->read(&word);
+         target.sensed = (word & 1) != 0;
+      }
+
+      char buf[256];
+      for (U32 t = 0; t < ClientTarget::NumTags; t++)
+         if (stream->readFlag())
+         {
+            stream->readString(buf);
+            target.tags[t] = NetStringHandle(buf);
+         }
+
+      target.sensorGroup = stream->readInt(GroupBits);
+      target.renderMask = stream->readInt(9);
+      target.allocated = true;
+
+      // The team targets below 32 carry no datablock.
+      if (i >= 32 && stream->readFlag())
+         stream->readInt(11);
+
+      target.voicePitch = 0.5f + 1.5f * stream->readFloat(7);
+   }
+}
+
 
 //----------------------------------------------------------------------------
 
@@ -39,7 +213,17 @@ public:
    void pack(NetConnection *, BitStream *stream) { stream->writeFlag(mAll); }
    void write(NetConnection *, BitStream *stream) { stream->writeFlag(mAll); }
    void unpack(NetConnection *, BitStream *stream) { mAll = stream->readFlag(); }
-   void process(NetConnection *) {}
+
+   /// The flag asks for the commander's tasks and waypoints only, which this
+   /// client does not keep; without it every target goes, sensed or not.
+   void process(NetConnection *)
+   {
+      if (mAll)
+         return;
+
+      for (U32 i = 0; i < NumTargets; i++)
+         sClientTargets[i] = ClientTarget();
+   }
 
    DECLARE_CONOBJECT(ResetClientTargetsEvent);
 };
@@ -95,9 +279,7 @@ public:
    void pack(NetConnection *, BitStream *stream) { stream->writeInt(mGroup, GroupBits); }
    void write(NetConnection *, BitStream *stream) { stream->writeInt(mGroup, GroupBits); }
    void unpack(NetConnection *, BitStream *stream) { mGroup = stream->readInt(GroupBits); }
-   void process(NetConnection *) {}
-
-   enum { GroupBits = 5 };
+   void process(NetConnection *) { sClientSensorGroup = mGroup; }
 
    DECLARE_CONOBJECT(SetSensorGroupEvent);
 };
@@ -113,27 +295,48 @@ class SensorGroupColorEvent : public NetEvent
 {
    typedef NetEvent Parent;
    U32 mGroup;
-   U32 mColor;
+   U32 mMask;
+   bool mHere[NumGroups];
+   ColorI mColors[NumGroups];
 
 public:
-   SensorGroupColorEvent(U32 group = 0, U32 color = 0)
+   SensorGroupColorEvent()
    {
       mGuaranteeType = GuaranteedOrdered;
-      mGroup = group;
-      mColor = color;
+      mGroup = 0;
+      mMask = 0;
+      for (U32 i = 0; i < NumGroups; i++)
+         mHere[i] = false;
    }
 
+   /// A group, a mask of the groups whose colour follows, and for each a flag
+   /// and the colour's four bytes. A colour left off is red.
    void pack(NetConnection *, BitStream *stream)
    {
-      stream->writeInt(mGroup, SetSensorGroupEvent::GroupBits);
-      stream->write(mColor);
+      stream->writeInt(mGroup, GroupBits);
+      stream->write(mMask);
+      for (U32 i = 0; i < NumGroups; i++)
+         if ((mMask & (1 << i)) && stream->writeFlag(mHere[i]))
+            stream->write(mColors[i]);
    }
    void write(NetConnection *conn, BitStream *stream) { pack(conn, stream); }
    void unpack(NetConnection *, BitStream *stream)
    {
-      T2Layout::readEvent(stream, "SensorGroupColorEvent");
+      mGroup = stream->readInt(GroupBits);
+      stream->read(&mMask);
+      for (U32 i = 0; i < NumGroups; i++)
+      {
+         mColors[i].set(255, 0, 0, 255);
+         if ((mMask & (1 << i)) && (mHere[i] = stream->readFlag()))
+            stream->read(&mColors[i]);
+      }
    }
-   void process(NetConnection *) {}
+   void process(NetConnection *)
+   {
+      for (U32 i = 0; i < NumGroups; i++)
+         if (mMask & (1 << i))
+            sGroupColors[mGroup][i] = mColors[i];
+   }
 
    DECLARE_CONOBJECT(SensorGroupColorEvent);
 };
@@ -160,9 +363,7 @@ public:
    void pack(NetConnection *, BitStream *stream) { stream->writeInt(mTarget, TargetBits); }
    void write(NetConnection *, BitStream *stream) { stream->writeInt(mTarget, TargetBits); }
    void unpack(NetConnection *, BitStream *stream) { mTarget = stream->readInt(TargetBits); }
-   void process(NetConnection *) {}
-
-   enum { TargetBits = 9 };
+   void process(NetConnection *) { sClientTargets[mTarget].free(); }
 
    DECLARE_CONOBJECT(TargetFreeEvent);
 };
@@ -384,41 +585,6 @@ ConsoleDocClass( FogChallengeEvent,
 
 //----------------------------------------------------------------------------
 
-namespace
-{
-   /// What a client keeps of one target: the strings the server tagged for
-   /// it, which TargetInfoEvent sends in this order, and its voice's pitch.
-   struct ClientTarget
-   {
-      enum Tag { Name, Skin, PrefSkin, Voice, Type, NumTags };
-
-      NetStringHandle tags[NumTags];
-      F32 voicePitch;
-      U32 sensorGroup;
-
-      ClientTarget() : voicePitch(1.0f), sensorGroup(0) {}
-   };
-
-   enum { TargetBits = 9, NumTargets = 1 << TargetBits };
-
-   ClientTarget sClientTargets[NumTargets];
-}
-
-U32 T2Targets::sensorGroup(S32 target)
-{
-   if (target < 0 || target >= NumTargets)
-      return 0;
-   return sClientTargets[target].sensorGroup;
-}
-
-void T2Targets::applySkin(ShapeBase *shape)
-{
-   const S32 target = shape->getT2Target();
-   if (target < 0 || target >= NumTargets)
-      return;
-
-   shape->setTargetSkin(sClientTargets[target].tags[ClientTarget::Skin]);
-}
 
 class TargetInfoEvent : public NetEvent
 {
@@ -439,6 +605,8 @@ class TargetInfoEvent : public NetEvent
    U32 mVoicePitch;
    bool mSensorGroupHere;
    U32 mSensorGroup;
+   bool mRenderMaskHere;
+   U32 mRenderMask;
 
 public:
    TargetInfoEvent()
@@ -454,6 +622,8 @@ public:
       mVoicePitch = 0;
       mSensorGroupHere = false;
       mSensorGroup = 0;
+      mRenderMaskHere = false;
+      mRenderMask = 0;
    }
 
    void pack(NetConnection *, BitStream *) {}
@@ -473,8 +643,8 @@ public:
          mSensorGroup = stream->readInt(SensorGroupBits);
       if (stream->readFlag() && stream->readFlag())
          stream->readInt(DataBlockBits);
-      if (stream->readFlag())
-         stream->readInt(RenderMaskBits);
+      if ((mRenderMaskHere = stream->readFlag()))
+         mRenderMask = stream->readInt(RenderMaskBits);
       if ((mVoicePitchHere = stream->readFlag()))
          mVoicePitch = stream->readInt(VoicePitchBits);
    }
@@ -496,6 +666,13 @@ public:
       // allocTarget takes a pitch from 0.5 to 2, sent as a share of that.
       if (mSensorGroupHere)
          target.sensorGroup = mSensorGroup;
+
+      if (mRenderMaskHere)
+         target.renderMask = mRenderMask;
+
+      // The team targets below 32 are never allocated.
+      if (mTarget >= 32)
+         target.allocated = true;
 
       if (mVoicePitchHere)
          target.voicePitch = 0.5f + 1.5f * F32(mVoicePitch) /

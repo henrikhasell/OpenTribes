@@ -39,8 +39,9 @@ static const T2GhostFieldRow *sRows[32] = { NULL };
 static U32 sRowCount = 0;
 static const char *sFieldsFor = NULL;
 
-// Room for every field one class names. PlayerData names the most, 125.
-static const T2DataBlockFieldRow *sDbRows[256] = { NULL };
+// Room for every field one class names. PlayerData names the most, 125, and
+// every shape datablock 56 more for its hud blocks.
+static const T2DataBlockFieldRow *sDbRows[512] = { NULL };
 static U32 sDbRowCount = 0;
 static S32 sDbRowsFor = -1;
 static const void *sDbLayout = NULL;
@@ -1763,6 +1764,10 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
                         sBody.hasPowered = true;
                         sBody.powered = set;
                         break;
+                     case T2FieldWayPointHidden:
+                        sBody.hasWayPointHidden = true;
+                        sBody.wayPointHidden = set;
+                        break;
                      case T2FieldTurretAim:
                         sBody.hasTurretAim = set;
                         break;
@@ -2286,6 +2291,10 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
                   case T2FieldFieldFade:
                      sBody.fieldFade = word;
                      break;
+                  case T2FieldWayPointTeam:
+                     sBody.hasWayPointTeam = true;
+                     sBody.wayPointTeam = S32(word);
+                     break;
                   case T2FieldVelocityMod:
                      dMemcpy(&sBody.velocityMod, &word, sizeof(F32));
                      break;
@@ -2426,6 +2435,14 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
                const T2DataBlockFieldRow *dbRow = dbFieldAt(layout, at);
                if(dbRow)
                   noteDbField(dbRow, U32(sStrings.size() - 1));
+
+               const T2GhostFieldRow *row = fieldAt(layout, at);
+               if(row && row->field == T2FieldWayPointName)
+               {
+                  sBody.hasWayPointName = true;
+                  dStrncpy(sBody.wayPointName, buf, sizeof(sBody.wayPointName) - 1);
+                  sBody.wayPointName[sizeof(sBody.wayPointName) - 1] = 0;
+               }
 
                if(!sFirstString[0])
                {
@@ -2713,6 +2730,43 @@ static bool isHudBlock(const T2DataBlockLayout *layout, S32 at)
    return next == flag->a;
 }
 
+/// ShapeBaseData's eight hud blocks, from *at, which is left after them. The
+/// enemy image and the five flags are on the wire only after a friendly one.
+static bool matchHudBlocks(T2ShapeDataMap *map, S32 *at)
+{
+   const T2DataBlockLayout *layout = map->layout;
+   S32 block = *at;
+
+   for(U32 i = 0; i < 8; i++)
+   {
+      if(!isHudBlock(layout, block))
+         return false;
+
+      const T2DataNode &flag = layout->nodes[block];
+      addShapeDataRow(map, flag.b, T2DbHudImageFriendly + i);
+
+      const S32 enemy = layout->nodes[flag.b].a;
+      addShapeDataRow(map, layout->nodes[enemy].b, T2DbHudImageEnemy + i);
+
+      static const U32 sFlags[] =
+      {
+         T2DbHudRenderCenter, T2DbHudRenderModulated, T2DbHudRenderAlways,
+         T2DbHudRenderDistance, T2DbHudRenderName,
+      };
+      S32 next = layout->nodes[enemy].a;
+      for(U32 f = 0; f < ELEMENTS(sFlags); f++)
+      {
+         addShapeDataRow(map, next, sFlags[f] + i);
+         next = layout->nodes[next].a;
+      }
+
+      block = flag.a;
+   }
+
+   *at = block;
+   return true;
+}
+
 static bool matchWords(T2ShapeDataMap *map, S32 *at, const U32 *fields,
                        U32 count)
 {
@@ -2746,15 +2800,6 @@ static bool matchIds(T2ShapeDataMap *map, S32 *at, U32 field, U32 count)
 /// its subclass carries on from.
 static bool matchVehicleData(T2ShapeDataMap *map, S32 at, S32 *end)
 {
-   const T2DataBlockLayout *layout = map->layout;
-
-   for(U32 i = 0; i < 8; i++)
-   {
-      if(!isHudBlock(layout, at))
-         return false;
-      at = layout->nodes[at].a;
-   }
-
    static const U32 sBody[] = { T2DbBodyRestitution, T2DbBodyFriction };
    if(!matchWords(map, &at, sBody, ELEMENTS(sBody)) ||
       !matchIds(map, &at, T2DbBodySound, 2))
@@ -2866,7 +2911,10 @@ static const T2ShapeDataMap *resolveShapeData(const T2DataBlockLayout *layout)
                   layout->name);
 
       U32 from = map->rows.size();
-      if(keepRun(map, from, matchVehicleData(map, at, &at)))
+      const bool hud = keepRun(map, from, matchHudBlocks(map, &at));
+
+      from = map->rows.size();
+      if(hud && keepRun(map, from, matchVehicleData(map, at, &at)))
       {
          from = map->rows.size();
          const char *tail = NULL;
@@ -3366,6 +3414,12 @@ static bool runGhost(BitStream *stream, const char *className,
    sBody.mountNode = 0;
    sBody.hasPowered = false;
    sBody.powered = false;
+   sBody.hasWayPointName = false;
+   sBody.wayPointName[0] = 0;
+   sBody.hasWayPointTeam = false;
+   sBody.wayPointTeam = 0;
+   sBody.hasWayPointHidden = false;
+   sBody.wayPointHidden = false;
    sBody.hasTurretAim = false;
    sBody.turretHeading = 0.0f;
    sBody.turretPitch = 0.0f;

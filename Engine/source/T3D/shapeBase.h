@@ -66,6 +66,9 @@
 #ifndef _SHIELDIMPACTT2_H_
    #include "T3D/shieldImpactT2.h"
 #endif
+#ifndef _GFXTEXTUREHANDLE_H_
+   #include "gfx/gfxTextureHandle.h"
+#endif
 
 
 class GFXCubemap;
@@ -630,6 +633,21 @@ public:
    // HH: Added for Tribes 2 compatibility.
    S32               shieldEffectLifetimeMS; ///< How long a shield flash lasts.
    Point3F           shieldEffectScale;      ///< The flash's sphere, per axis.
+
+   // HH: Added for Tribes 2 compatibility.
+   /// What the nav display draws over this shape: one image for each bit of
+   /// its target's render mask, a friendly and an enemy one, and how each is
+   /// drawn.
+   enum { NumHudRenderImages = 8 };
+   StringTableEntry  hudImageNameFriendly[NumHudRenderImages];
+   StringTableEntry  hudImageNameEnemy[NumHudRenderImages];
+   GFXTexHandle      hudImageFriendly[NumHudRenderImages];
+   GFXTexHandle      hudImageEnemy[NumHudRenderImages];
+   bool              hudRenderCenter[NumHudRenderImages];
+   bool              hudRenderModulated[NumHudRenderImages];
+   bool              hudRenderAlways[NumHudRenderImages];
+   bool              hudRenderDistance[NumHudRenderImages];
+   bool              hudRenderName[NumHudRenderImages];
 
    // HH: Added for Tribes 2 compatibility.
    struct Tribes2Rest

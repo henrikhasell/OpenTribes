@@ -207,6 +207,7 @@ WayPointTeam::WayPointTeam()
 WayPoint::WayPoint()
 {
    mName = StringTable->insert("");
+   mWayPointHidden = false;
 }
 
 void WayPoint::setHidden(bool hidden)
@@ -232,6 +233,21 @@ bool WayPoint::onAdd()
    }
 
    return(true);
+}
+
+// HH: Added for Tribes 2 compatibility.
+/// The name, team and hidden flag WayPoint::packUpdate sends after
+/// MissionMarker's body, each only when it changed.
+void WayPoint::onT2BodyRead(const T2Layout::Body &body)
+{
+   Parent::onT2BodyRead(body);
+
+   if(body.hasWayPointName)
+      mName = StringTable->insert(body.wayPointName);
+   if(body.hasWayPointTeam)
+      mTeam.mTeamId = body.wayPointTeam;
+   if(body.hasWayPointHidden)
+      mWayPointHidden = body.wayPointHidden;
 }
 
 void WayPoint::inspectPostApply()
