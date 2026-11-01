@@ -23,6 +23,16 @@ def local_ip() -> str:
         return s.getsockname()[0]
 
 
+def port_in_use(port: int) -> bool:
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        try:
+            s.bind(("", port))
+        except OSError:
+            return True
+        return False
+
+
 def exec(*args) -> None:
     print("+", shlex.join(args), file=sys.stderr, flush=True)
     os.chdir(GAMEDATA)
@@ -54,6 +64,8 @@ def launch(
         argv += ["-connect", f"IP:{connect_to}"]
 
     if telnet_port:
+        if port_in_use(telnet_port):
+            sys.exit(f"telnet port {telnet_port} is already in use")
         argv += [
             "-telnetParams", str(telnet_port), TELNET_RW, TELNET_RO
         ]

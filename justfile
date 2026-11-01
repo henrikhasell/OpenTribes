@@ -1,7 +1,6 @@
 builddir    := "build"
 shaders     := justfile_directory() / "My Projects/OpenTribes/game/shaders"
 gamedata    := env_var_or_default("TRIBES2_DIR", home_directory() + "/.wine/drive_c/Dynamix/Tribes2/GameData")
-telnet_rw   := "rw"
 telnet_ro   := "ro"
 
 default: build
@@ -26,5 +25,7 @@ dedicated telnet_port="2325":
     PYTHONPATH="{{justfile_directory()}}/scripts" \
     python -m launch --telnet-port "{{telnet_port}}" --dedicated retail
 
-telnet telnet_port:
-    { printf '%s\n' '{{telnet_rw}}'; cat; } | socat - TCP:127.0.0.1:{{telnet_port}},crnl
+[positional-arguments]
+telnet telnet_port *commands:
+    PYTHONPATH="{{justfile_directory()}}/scripts" \
+    python -m probe "$@"
