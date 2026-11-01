@@ -30,42 +30,62 @@ is there to fix; if there is none, the change is not needed.
 
 ## Building and running
 
-- `just opentribes` builds, copies the binary and the shader symlink into
-  Tribes 2's `GameData`, and runs it there. The game runs from `GameData`
+Everything goes through the justfile -- building, launching and talking to a
+running game. Do not call cmake, wine or the binary by hand; `just --list`
+has every recipe and its arguments.
+
+- `just dedicated` starts a retail dedicated server under wine, console on
+  port 2325. Start it first: both clients below join it.
+- `just opentribes` builds, installs into Tribes 2's `GameData` and joins the
+  local dedicated server, console on port 2323. The game runs from `GameData`
   because it needs retail's data beside it; `TRIBES2_DIR` says where that is.
-- The config is the first argument and defaults to `debug`. Release carries
-  no debug info at all, so a core from it names functions and nothing else;
-  it also compiles out `AssertFatal`, which is the engine's only bounds
+- `just retail` joins the same server with the retail client under wine,
+  console on port 2324, for the side-by-side the oracle requires.
+- Each recipe takes its console port as an argument, and refuses to launch
+  if that port is already bound -- usually a previous instance that is still
+  running, or wedged.
+- `just opentribes` takes the config first, defaulting to `debug`. Release
+  carries no debug info at all, so a core from it names functions and nothing
+  else; it also compiles out `AssertFatal`, which is the engine's only bounds
   checking on game data. Use `just opentribes release` when timing matters,
   or `relwithdebinfo` for line numbers without `-O0`'s timing.
 - `just build <config>` configures and builds into `build/<config>` without
-  running it. `just debug` and `just release` are aliases for the two.
-- `just telnet` opens the running engine's console on port 2324 -- see below.
-- `just stock` runs retail under wine with the same console, for the
-  side-by-side the oracle requires.
+  running it; `just install <config>` also copies the binary and the shader
+  symlink into `GameData`. Both default to `release`.
+- `just telnet <port> <command>...` questions a running game -- see below.
 - A crash is already saved -- `coredumpctl info -1`. Analyse it before
-  rebuilding: a rebuild overwrites `GameData/OpenTribes` and leaves the core
+  rebuilding: an install overwrites `GameData/OpenTribes` and leaves the core
   with no binary matching its build id.
 
 ## The telnet console
 
 Both engines take `-telnetParams <port> <rw> <ro>`, which is how a running
 game gets questioned -- usually a faster answer than a rebuild, and the only
-way to ask retail anything. The justfile passes port 2324 with passwords `rw`
-and `ro`; `just telnet` connects to it.
+way to ask retail anything. The justfile passes the port of each recipe above
+with passwords `rw` and `ro`.
 
+- `just telnet <port> <command>...` sends each argument as one console line
+  and prints what comes back until the console has been quiet for a second;
+  `--wait <seconds>` stretches that for a slow frame. Quote each command for
+  the shell: `just telnet 2323 'echo($pref::Video::fov);'`. It is the way to
+  drive a game -- do not hand-roll a connection.
+- With no commands it reads stdin to the end and sends every line in one go,
+  so `just telnet 2323 < cmds.txt` runs a script of console lines. It is not
+  a live session: nothing is sent until stdin closes.
 - The first line sent is the **password**, not a command. The `rw` one gets
   read/write, the `ro` one gets output only, and three wrong tries close the
-  socket. `just telnet` sends it; a hand-rolled connection that does not will
-  look like a console that ignores everything.
+  socket. `just telnet` sends it; a connection that does not will look like a
+  console that ignores everything.
+- Everything the console logs while connected comes back too, not only the
+  answer to the command, so match on what you asked for.
 - Replies are prefixed with `$Con::Prompt`, so every answer arrives behind a
   `% `. Anchoring a match to the start of the line makes a healthy game look
   broken.
 - The console is serviced from the main loop
   (`telnetConsole.cpp:53`). No frame, no console: a game wedged in a render
   path or blocked in D-state still holds the port and answers nothing, and
-  because the port stays bound the next launch comes up with no console at
-  all.
+  because the port stays bound the next launch on that port refuses to
+  start. Kill the wedged one first.
 - A console that answers is not necessarily ready. `exec` fails silently for
   about a second after launch; wait on `isFunction` of something the scripts
   define before driving it.
@@ -143,7 +163,7 @@ be reached mid-read this way is worth reaching that way.
   they round-trip to default field values, which is the same fidelity the
   read side already has for an unported class.
 - Judge every change by whether retail Tribes 2 still understands us and we
-  still understand it. `just stock` beside `just opentribes`, and the
+  still understand it. `just retail` beside `just opentribes`, and the
   recordings under `Classic/recordings`, are how that gets answered --
   never by reasoning about what the format ought to be.
 
