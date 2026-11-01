@@ -33,6 +33,15 @@ def port_in_use(port: int) -> bool:
         return False
 
 
+def delete_dso_files() -> None:
+    for root, _, files in os.walk(GAMEDATA):
+        for name in files:
+            if name.lower().endswith(".dso"):
+                path = Path(root) / name
+                print("- rm", path, file=sys.stderr, flush=True)
+                path.unlink()
+
+
 def exec(*args) -> None:
     print("+", shlex.join(args), file=sys.stderr, flush=True)
     os.chdir(GAMEDATA)
@@ -74,6 +83,7 @@ def launch(
         "-mod", "Classic"
     ]
 
+    delete_dso_files()
     exec(*argv)
 
 
