@@ -64,6 +64,7 @@
 #include "materials/materialManager.h"
 // HH: Added for Tribes 2 compatibility.
 #include "materials/materialDefinition.h"
+#include "terrain/terrData.h"   // HH: Added for Tribes 2 compatibility.
 #include "gui/3d/guiTSControl.h"
 #include "materials/materialFeatureTypes.h"
 #include "renderInstance/renderOcclusionMgr.h"
@@ -3059,10 +3060,14 @@ void ShapeBase::advanceThreads(F32 dt)
 
 //----------------------------------------------------------------------------
 
-/// Emit particles on the given emitter, if we're within triggerHeight above some static surface with a
-/// material that has 'showDust' set to true.  The particles will have a lifetime of 'numMilliseconds'
+/// Emit particles on the given emitter, if we're within triggerHeight above the terrain.
+/// The particles will have a lifetime of 'numMilliseconds'
 /// and be emitted at the given offset from the contact point having a direction of 'axis'.
 
+// HH: Modified for Tribes 2 compatibility.
+// Tribes 2 raises dust over terrain alone, in the colours the scripts'
+// property map gives the terrain's first material; Torque 3D's showDust is
+// never set on one.
 void ShapeBase::emitDust( ParticleEmitter* emitter, F32 triggerHeight, const Point3F& offset, U32 numMilliseconds, const Point3F& axis )
 {
    if( !emitter )
@@ -3072,16 +3077,16 @@ void ShapeBase::emitDust( ParticleEmitter* emitter, F32 triggerHeight, const Poi
    Point3F endPos = startPos + Point3F( 0.0, 0.0, - triggerHeight );
 
    RayInfo rayInfo;
-   if( getContainer()->castRay( startPos, endPos, STATIC_COLLISION_TYPEMASK, &rayInfo ) )
+   if( getContainer()->castRay( startPos, endPos, TerrainObjectType, &rayInfo ) )
    {
-      Material* material = ( rayInfo.material ? dynamic_cast< Material* >( rayInfo.material->getMaterial() ) : 0 );
-      if( material && material->mShowDust )
+      const MaterialPropertyMap::Entry *e = groundDustProperties( rayInfo.object );
+      if( e )
       {
          ColorF colorList[ ParticleData::PDC_NUM_KEYS ];
 
-         for( U32 x = 0; x < getMin( Material::NUM_EFFECT_COLOR_STAGES, ParticleData::PDC_NUM_KEYS ); ++ x )
-            colorList[ x ] = material->mEffectColor[ x ];
-         for( U32 x = Material::NUM_EFFECT_COLOR_STAGES; x < ParticleData::PDC_NUM_KEYS; ++ x )
+         for( U32 x = 0; x < getMin( U32( MaterialPropertyMap::NumColors ), U32( ParticleData::PDC_NUM_KEYS ) ); ++ x )
+            colorList[ x ] = e->color[ x ];
+         for( U32 x = MaterialPropertyMap::NumColors; x < ParticleData::PDC_NUM_KEYS; ++ x )
             colorList[ x ].set( 1.0, 1.0, 1.0, 0.0 );
 
          emitter->setColors( colorList );
@@ -3091,6 +3096,23 @@ void ShapeBase::emitDust( ParticleEmitter* emitter, F32 triggerHeight, const Poi
                                  getVelocity(), numMilliseconds );
       }
    }
+}
+
+// HH: Added for Tribes 2 compatibility.
+const MaterialPropertyMap::Entry *ShapeBase::groundDustProperties( SceneObject *hit )
+{
+   TerrainBlock *terrain = dynamic_cast<TerrainBlock *>(hit);
+   if (!terrain)
+      return NULL;
+
+   const char *name = terrain->getMaterialName(0);
+   if (!name || !name[0])
+      return NULL;
+
+   if (!dStrnicmp(name, "terrain.", 8))
+      name += 8;
+
+   return MaterialPropertyMap::get()->find(avar("terrain/%s", name));
 }
 
 //----------------------------------------------------------------------------

@@ -57,7 +57,6 @@
 #include "T3D/decal/decalData.h"
 #include "materials/baseMatInstance.h"
 #include "materials/materialPropertyMap.h"
-#include "terrain/terrData.h"
 #include "T3D/gameBase/gravityT2.h"   // HH: Added for Tribes 2 compatibility.
 #include "T3D/gameBase/forceFieldBareT2.h"   // HH: Added for Tribes 2 compatibility.
 
@@ -3578,22 +3577,6 @@ void Player::setActionThread(U32 action,bool forward,bool hold,bool wait,bool fs
             mActionAnimation.forward ? 0.0f : 1.0f);
       }
    }
-}
-
-static const MaterialPropertyMap::Entry *groundDustProperties(SceneObject *hit)
-{
-   TerrainBlock *terrain = dynamic_cast<TerrainBlock *>(hit);
-   if (!terrain)
-      return NULL;
-
-   const char *name = terrain->getMaterialName(0);
-   if (!name || !name[0])
-      return NULL;
-
-   if (!dStrnicmp(name, "terrain.", 8))
-      name += 8;
-
-   return MaterialPropertyMap::get()->find(avar("terrain/%s", name));
 }
 
 // HH: Added for Tribes 2 compatibility.
