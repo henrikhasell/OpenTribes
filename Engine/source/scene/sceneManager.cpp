@@ -648,6 +648,10 @@ static RenderPassManager *createDefaultRenderPass()
       return NULL;
    }
 
+   // Where a script's new would have put it, so that it and the bins it
+   // deletes, which hold buffers on the device, go when Sim does.
+   Sim::getRootGroup()->addObject( rpm );
+
    addDefaultBin( rpm, new RenderObjectMgr( RenderPassManager::RIT_Sky,
       0.1f, 0.1f ), 0.1f );
    addDefaultBin( rpm, new RenderObjectMgr( RenderPassManager::RIT_Begin,
