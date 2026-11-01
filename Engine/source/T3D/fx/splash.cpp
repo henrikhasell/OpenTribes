@@ -39,6 +39,7 @@
 #include "sim/netConnection.h"
 #include "renderInstance/renderPassManager.h"
 #include "console/engineAPI.h"
+#include "T3D/gameBase/t2Layout.h"
 
 namespace
 {
@@ -155,6 +156,59 @@ bool SplashData::onAdd()
 //--------------------------------------------------------------------------
 // Unpack data
 //--------------------------------------------------------------------------
+bool SplashData::unpackData(BitStream *stream, U32 classId)
+{
+   if( !Parent::unpackData(stream, classId) )
+      return false;
+
+   const Vector<U32> &words = T2Layout::lastDataBlockValues(T2Layout::T2DbSplashWord);
+   if( words.size() == 18 )
+   {
+      F32 f[18];
+      dMemcpy( f, words.address(), sizeof( f ) );
+      scale.set( f[0], f[1], f[2] );
+      delayMS          = S32( words[3] );
+      delayVariance    = S32( words[4] );
+      lifetimeMS       = S32( words[5] );
+      lifetimeVariance = S32( words[6] );
+      width            = f[7];
+      numSegments      = words[8];
+      velocity         = f[9];
+      height           = f[10];
+      acceleration     = f[11];
+      texWrap          = f[12];
+      texFactor        = f[13];
+      ejectionFreq     = f[14];
+      ejectionAngle    = f[15];
+      ringLifetime     = f[16];
+      startRadius      = f[17];
+   }
+
+   const Vector<U32> &colorOf = T2Layout::lastDataBlockValues(T2Layout::T2DbSplashRingColor);
+   const Vector<U32> &timeOf  = T2Layout::lastDataBlockValues(T2Layout::T2DbSplashRingTime);
+   for( U32 i = 0; i < NUM_TIME_KEYS && i < colorOf.size(); i++ )
+      colors[i].set( F32( colorOf[i] & 0xff ) / 255.0f,
+                     F32( ( colorOf[i] >> 8 ) & 0xff ) / 255.0f,
+                     F32( ( colorOf[i] >> 16 ) & 0xff ) / 255.0f,
+                     F32( ( colorOf[i] >> 24 ) & 0xff ) / 255.0f );
+   for( U32 i = 0; i < NUM_TIME_KEYS && i < timeOf.size(); i++ )
+      dMemcpy( &times[i], &timeOf[i], sizeof( F32 ) );
+
+   const Vector<U32> &emitters = T2Layout::lastDataBlockValues(T2Layout::T2DbSplashRingEmitter);
+   for( U32 i = 0; i < NUM_EMITTERS && i < emitters.size(); i++ )
+      emitterIDList[i] = S32( emitters[i] );
+
+   U32 word;
+   if( T2Layout::lastDataBlockWord(T2Layout::T2DbExplosion, &word) )
+      explosionId = S32( word );
+
+   const Vector<String> &strings = T2Layout::lastStrings();
+   for( U32 i = 0; i < NUM_TEX && i < strings.size(); i++ )
+      if( strings[i].isNotEmpty() )
+         textureName[i] = StringTable->insert( String("textures/") + strings[i] );
+
+   return true;
+}
 
 //--------------------------------------------------------------------------
 // Preload data - load resources

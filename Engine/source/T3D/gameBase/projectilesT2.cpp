@@ -24,6 +24,7 @@
 #include "T3D/gameBase/processList.h"
 #include "T3D/fx/explosion.h"
 #include "T3D/fx/particleEmitter.h"
+#include "T3D/fx/splash.h"
 #include "T3D/gameBase/t2Layout.h"
 #include "T3D/objectTypes.h"
 #include "T3D/gameBase/gravityT2.h"
@@ -1259,6 +1260,7 @@ public:
    F32    pulseSpeed;
    F32    pulseLength;
    U32    explosionId;
+   U32    splashId;
    String textureName[MaxTextures];
    GFXTexHandle texture[MaxTextures];
 
@@ -1287,7 +1289,8 @@ BeamProjectileDataT2::BeamProjectileDataT2()
      maxFlareSize(400.0f),
      pulseSpeed(6.0f),
      pulseLength(0.15f),
-     explosionId(0)
+     explosionId(0),
+     splashId(0)
 {
 }
 
@@ -1324,6 +1327,8 @@ bool BeamProjectileDataT2::unpackData(BitStream *stream, U32 classId)
       pulseLength = value;
    if(T2Layout::lastDataBlockWord(T2Layout::T2DbExplosion, &word))
       explosionId = word;
+   if(T2Layout::lastDataBlockWord(T2Layout::T2DbProjectileSplash, &word))
+      splashId = word;
 
       // The shape ProjectileData names comes first; the textures are every
       // string after it.
@@ -1453,7 +1458,8 @@ bool BeamProjectileT2::onAdd()
    if(isClientObject() && mData && mFades)
    {
          // A weaker shot starts that much of the way through its fade
-         // (0x006421c0), and goes off where it hit unless that was water.
+         // (0x006421c0), and goes off where it hit unless that was water,
+         // where it splashes instead (0x006424f2).
       mElapsed = (1.0f - mEnergy) * mData->fadeTime;
 
       ExplosionData *data = NULL;
@@ -1472,6 +1478,21 @@ bool BeamProjectileT2::onAdd()
          blast->setInitialState(mEnd, along);
          if(!blast->registerObject())
             delete blast;
+      }
+
+      SplashData *splashData = NULL;
+      if(mHit && mWet && mData->splashId &&
+         Sim::findObject(mData->splashId, splashData) && splashData)
+      {
+         MatrixF mat = getTransform();
+         mat.setPosition(mEnd);
+
+         Splash *splash = new Splash;
+         splash->onNewDataBlock(splashData, false);
+         splash->setTransform(mat);
+         splash->setInitialState(mEnd, Point3F(0.0f, 0.0f, 1.0f));
+         if(!splash->registerObject())
+            delete splash;
       }
    }
 
