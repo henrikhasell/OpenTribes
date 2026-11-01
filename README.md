@@ -29,11 +29,10 @@ sudo pacman -S --needed base-devel cmake ninja git python just
 
 ### Building and Running OpenTribes
 
-- To build a debug build: `just debug`.
-- To build a release build: `just release`.
-- To build and run the OpenTribes: `just opentribes` (runs telnet on `:2324` by default).
-- To run the stock game (as a tool for comparison): `just stock` (runs telnet on `:2324` by default).
-- To connect to the running instance via telnet: `just telnet`.
+- First you need to start a retail server - `just dedicated` to start one (runs telnet on `:2325`).
+- To connect to the retail server via OpenTribes: `just opentribes` (runs telnet on `:2323`).
+- To connect with the retail  game (as a tool for comparison): `just retail` (runs telnet on `:2324`).
+- To interact with any of the above running instance via telnet: `just telnet PORT`.
 
 For a full list of commands and arguments to pass see: `just --list`.
 
