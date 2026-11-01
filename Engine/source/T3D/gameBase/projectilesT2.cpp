@@ -16,6 +16,7 @@
 #include "math/mathUtils.h"
 #include "math/mRandom.h"
 #include "renderInstance/renderPassManager.h"
+#include "scene/sceneManager.h"
 #include "scene/sceneRenderState.h"
 #include "sfx/sfxSystem.h"
 #include "sfx/sfxSource.h"
@@ -283,7 +284,8 @@ class ProjectileT2 : public GameBase
    void drawBolt(const Point3F &eye);
    void drawCross(const Point3F &eye);
    void spawnFlare(Flare &flare);
-   void drawFlares();
+   void drawFlares(F32 clear);
+   void drawGlow(const SceneRenderState *state, F32 clear);
 
 public:
    ProjectileT2();
@@ -885,6 +887,37 @@ void ProjectileT2::prepRenderImage(SceneRenderState *state)
    state->getRenderPass()->addInst(ri);
 }
 
+/// How much of the fog lies between the eye and a point: the haze that
+/// thickens from fogDistance out to visibleDistance and the share of each fog
+/// volume the line crosses, which is the scene's getHazeAndFog (0x00570b40).
+static F32 fogBetween(const FogData &fog, const Point3F &eye,
+                      const Point3F &at)
+{
+   const F32 dist = (at - eye).len();
+
+   const F32 t = mClampF((dist - fog.densityOffset) * fog.hazeScale,
+                         0.0f, 1.0f) - 1.0f;
+   F32 fogged = 1.0f - t * t;
+
+   const F32 dz = at.z - eye.z;
+   for(U32 i = 0; i < FogData::MaxBands; i++)
+   {
+      if(fog.bandFactor[i] == 0.0f)
+         continue;
+
+      const F32 lo = fog.bandMin[i];
+      const F32 hi = fog.bandMax[i];
+      F32 frac;
+      if(mFabs(dz) > 1e-4f)
+         frac = (mClampF(at.z, lo, hi) - mClampF(eye.z, lo, hi)) / dz;
+      else
+         frac = (eye.z >= lo && eye.z <= hi) ? 1.0f : 0.0f;
+      fogged += dist * frac * fog.bandFactor[i];
+   }
+
+   return mClampF(fogged, 0.0f, 1.0f);
+}
+
 /// Everything retail's EnergyProjectile::renderObject (0x00696dd0) draws, in
 /// the order it draws it: the trail first, and then the bolt and its cross
 /// only while the bolt is still there.
@@ -901,9 +934,20 @@ void ProjectileT2::renderBolt(ObjectRenderInst *, SceneRenderState *state,
    if(!mFlying)
       return;
 
-   drawFlares();
+      // What the fog leaves of them, by the distance and the climb to the
+      // bolt (0x0063e3ba): they are added into the scene, so they fade out
+      // into the fog rather than being blended towards its colour.
+   const F32 clear = 1.0f - fogBetween(state->getSceneManager()->getFogData(),
+                                       eye, getRenderPosition());
+   drawFlares(clear);
    if(mShapeInstance)
       return;
+
+   if(dynamic_cast<LinearFlareProjectileData *>(mData))
+   {
+      drawGlow(state, clear);
+      return;
+   }
 
    if(mData->streakLength > 0.0f)
       drawStreak(eye);
@@ -1131,10 +1175,11 @@ void ProjectileT2::spawnFlare(Flare &flare)
 /// into the scene and culled like any other face. A flare grows out nearly
 /// closed, at 87 degrees, until its peak, then holds its reach and opens out
 /// to its tilt while it fades, and its tip is half and a quarter as bright
-/// as its root (0x0063ee80, 0x0063f4e0).
-void ProjectileT2::drawFlares()
+/// as its root (0x0063ee80, 0x0063f4e0). All of it is dimmed by what the
+/// fog leaves clear.
+void ProjectileT2::drawFlares(F32 clear)
 {
-   if(mFlares.empty() || mFlareTexture.isNull())
+   if(mFlares.empty() || mFlareTexture.isNull() || clear <= 0.0f)
       return;
 
    if(mFlareSB.isNull())
@@ -1158,7 +1203,7 @@ void ProjectileT2::drawFlares()
    static const U32 sFan[12] = { 0, 1, 2, 0, 2, 3, 0, 3, 4, 0, 4, 5 };
 
    const MatrixF &mat = getRenderTransform();
-   const ColorF &c = mData->flareColor;
+   const ColorF c = mData->flareColor * clear;
    const F32 root = mData->flareSize[0];
 
    PrimBuild::begin(GFXTriangleList, mFlares.size() * 4 * 12);
@@ -1219,6 +1264,50 @@ void ProjectileT2::drawFlares()
       }
    }
    PrimBuild::end();
+}
+
+/// What retail draws of a LinearFlareProjectile that has no shape, after its
+/// flares (0x0063e50a): two squares of flareBaseTexture flat to the view and
+/// added into the scene, one 1.2 of scale.x across in the root of the flare
+/// colour and one half that across in white, both dimmed by the fog.
+void ProjectileT2::drawGlow(const SceneRenderState *state, F32 clear)
+{
+   if(mTexture[1].isNull() || clear <= 0.0f)
+      return;
+
+   const MatrixF &cam = state->getCameraTransform();
+   VectorF right, up;
+   cam.getColumn(0, &right);
+   cam.getColumn(2, &up);
+
+   const Point3F at = getRenderPosition();
+   const ColorF &c = mData->flareColor;
+   const ColorF shade[2] = {
+      ColorF(mSqrt(c.red) * clear, mSqrt(c.green) * clear,
+             mSqrt(c.blue) * clear),
+      ColorF(clear, clear, clear) };
+   const F32 half[2] = { mData->scale.x * 0.6f, mData->scale.x * 0.3f };
+
+   GFX->setStateBlock(boltStateBlock());
+   GFX->setTexture(0, mTexture[1]);
+
+   for(U32 i = 0; i < 2; i++)
+   {
+      const Point3F r = right * half[i];
+      const Point3F u = up * half[i];
+
+      PrimBuild::color(shade[i]);
+      PrimBuild::begin(GFXTriangleFan, 4);
+      PrimBuild::texCoord2f(0.0f, 0.0f);
+      PrimBuild::vertex3fv(at - r - u);
+      PrimBuild::texCoord2f(0.0f, 1.0f);
+      PrimBuild::vertex3fv(at - r + u);
+      PrimBuild::texCoord2f(1.0f, 1.0f);
+      PrimBuild::vertex3fv(at + r + u);
+      PrimBuild::texCoord2f(1.0f, 0.0f);
+      PrimBuild::vertex3fv(at + r - u);
+      PrimBuild::end();
+   }
 }
 
 #define IMPLEMENT_PROJECTILE_T2( className )                                 \
