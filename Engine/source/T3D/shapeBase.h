@@ -69,6 +69,10 @@
 #ifndef _GFXTEXTUREHANDLE_H_
    #include "gfx/gfxTextureHandle.h"
 #endif
+// HH: Added for Tribes 2 compatibility.
+#ifndef _MATERIALPROPERTYMAP_H_
+   #include "materials/materialPropertyMap.h"
+#endif
 
 
 class GFXCubemap;
@@ -1263,6 +1267,11 @@ protected:
    void _selectRenderDetail( SceneRenderState *state );
 
    void emitDust( ParticleEmitter* emitter, F32 triggerHeight, const Point3F& offset, U32 numMilliseconds, const Point3F& axis = Point3F::Zero );
+
+   // HH: Added for Tribes 2 compatibility.
+   /// What the scripts' property map says of the ground a ray hit, or NULL
+   /// for anything but terrain.
+   static const MaterialPropertyMap::Entry *groundDustProperties( SceneObject *hit );
 
 public:
    ShapeBase();
