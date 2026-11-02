@@ -151,6 +151,8 @@ class WheeledVehicle: public Vehicle
       } surface;
 
       TSThread* turnThread;   ///< on the wheel's turn%d
+      TSThread* springThread; ///< on its spring%d
+      TSThread* wheelThread;  ///< on its wheel%d
       F32 torqueScale;        ///< Max torque % applied to wheel (0-1)
       F32 slip;               ///< Amount of wheel slip (0-1)
       SimObjectPtr<ParticleEmitter> emitter;

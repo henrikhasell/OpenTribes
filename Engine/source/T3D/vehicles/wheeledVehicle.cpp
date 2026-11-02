@@ -375,7 +375,7 @@ WheeledVehicle::WheeledVehicle()
       wheel.avel = wheel.apos = wheel.Dy = wheel.Dx = 0;
       wheel.surface.contact = false;
       wheel.surface.object = NULL;
-      wheel.turnThread = 0;
+      wheel.turnThread = wheel.springThread = wheel.wheelThread = 0;
       wheel.torqueScale = wheel.slip = 0;
    }
 }
@@ -467,11 +467,22 @@ bool WheeledVehicle::onNewDataBlock(GameBaseData* dptr, bool reload)
       wheel->slip = 0;
 
       // HH: Modified for Tribes 2 compatibility.
-      // A steered wheel turns by its own sequence, from time 0 (0x612fed).
+      // A wheel steers, rides its spring and spins by its own sequences,
+      // each from time 0 (0x612fed).
       wheel->turnThread = 0;
       if (wheel->data->turnSequence != -1) {
          wheel->turnThread = mShapeInstance->addThread();
          mShapeInstance->setSequence(wheel->turnThread,wheel->data->turnSequence,0);
+      }
+      wheel->springThread = 0;
+      if (wheel->data->springSequence != -1) {
+         wheel->springThread = mShapeInstance->addThread();
+         mShapeInstance->setSequence(wheel->springThread,wheel->data->springSequence,0);
+      }
+      wheel->wheelThread = 0;
+      if (wheel->data->wheelSequence != -1) {
+         wheel->wheelThread = mShapeInstance->addThread();
+         mShapeInstance->setSequence(wheel->wheelThread,wheel->data->wheelSequence,0);
       }
 
       // Each wheel get's it's own particle emitter
@@ -1012,21 +1023,26 @@ void WheeledVehicle::extendWheels()
    on the client.
 */
 // HH: Modified for Tribes 2 compatibility.
-// Retail's (0x6154f0) turns each steered wheel by its own sequence: time 0 is
-// full right, and 0.5 is straight ahead.
+// Retail's (0x6154f0): time 0 of the spring sequence hangs the wheel out and 1
+// has it compressed, the turn sequence is full right at 0 and straight ahead
+// at 0.5, and the spin sequence follows the wheel's angular position.
 void WheeledVehicle::updateWheelThreads()
 {
    Wheel* wend = &mWheel[mDataBlock->wheelCount];
    for (Wheel* wheel = mWheel; wheel < wend; wheel++) 
    {
+      if (wheel->springThread)
+         mShapeInstance->setPos(wheel->springThread,1 - getMin(wheel->extension, 1.0f));
+
       if (wheel->turnThread) {
          F32 t = (mSteering.x * mFabs(mSteering.x)) / mDataBlock->maxSteeringAngle;
          mShapeInstance->setPos(wheel->turnThread,0.5 - t * 0.5);
       }
+
+      if (wheel->wheelThread)
+         mShapeInstance->setPos(wheel->wheelThread,wheel->apos);
    }
 }
-
-
 
 //----------------------------------------------------------------------------
 /** Update engine sound
