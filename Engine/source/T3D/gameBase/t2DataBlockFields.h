@@ -599,6 +599,19 @@ namespace T2Protocol
       { "SplashData", 34, OpDataBlockId, 11, T2DbSplashRingEmitter },
       { "SplashData", 33, OpDataBlockId, 11, T2DbSplashRingEmitter },
       { "SplashData", 36, OpDataBlockId, 11, T2DbExplosion         },
+
+   // StationFXPersonalData::packData (0x0069bee0) in its order, every field
+   // a whole word, then four strings. It sends numArcSegments twice and keeps
+   // the second.
+      { "StationFXPersonalData",  0, OpRaw,   32, T2DbStationDelay         },
+      { "StationFXPersonalData",  1, OpRaw,   32, T2DbStationFadeDelay     },
+      { "StationFXPersonalData",  2, OpRaw,   32, T2DbStationLifetime      },
+      { "StationFXPersonalData",  3, OpRaw,   32, T2DbStationHeight        },
+      { "StationFXPersonalData",  5, OpRaw,   32, T2DbStationNumDegrees    },
+      { "StationFXPersonalData",  6, OpRaw,   32, T2DbStationTrailFadeTime },
+      { "StationFXPersonalData",  7, OpRaw,   32, T2DbStationLeftRadius    },
+      { "StationFXPersonalData",  8, OpRaw,   32, T2DbStationRightRadius   },
+      { "StationFXPersonalData",  9, OpRaw,   32, T2DbStationNumArcSegments },
    };
 }
 

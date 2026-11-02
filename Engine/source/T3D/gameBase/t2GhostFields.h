@@ -258,6 +258,8 @@ namespace T2Protocol
    // StationFXVehicle::unpackUpdate (0x0069eea0): under the initial mask, a
    // flag and then the station's ghost index.
       { "StationFXVehicle",       5, OpInt,  11, T2FieldStationObject },
+   // StationFXPersonal::unpackUpdate (0x0069c970), the same.
+      { "StationFXPersonal",      5, OpInt,  11, T2FieldStationObject },
 
 #define T2_LINEAR_PROJECTILE_FIELDS( cls )                             \
       { cls, 17, OpPoint,        0,  T2FieldPosition     },            \
