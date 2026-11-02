@@ -512,14 +512,15 @@ bool WheeledVehicle::onNewDataBlock(GameBaseData* dptr, bool reload)
       SFX_DELETE( mSquealSound );
       SFX_DELETE( mJetSound );
 
+      // HH: Modified for Tribes 2 compatibility.
+      // Retail (0x6131ba) starts the engine here and keeps it running; the
+      // squeal and the jet start and stop as they are needed.
       if ( mDataBlock->sound[WheeledVehicleData::EngineSound] )
+      {
          mEngineSound = SFX->createSource( mDataBlock->sound[WheeledVehicleData::EngineSound], &getTransform() );
-
-      if ( mDataBlock->sound[WheeledVehicleData::SquealSound] )
-         mSquealSound = SFX->createSource( mDataBlock->sound[WheeledVehicleData::SquealSound], &getTransform() );
-
-      if ( mDataBlock->sound[WheeledVehicleData::JetSound] )
-         mJetSound = SFX->createSource( mDataBlock->sound[WheeledVehicleData::JetSound], &getTransform() );
+         if ( mEngineSound )
+            mEngineSound->play();
+      }
    }
 
    scriptOnNewDataBlock();
@@ -617,6 +618,8 @@ void WheeledVehicle::advanceTime(F32 dt)
          // Keep track of largest slip
          slipTotal += wheel->slip;
          torqueTotal += wheel->torqueScale;
+
+         updateWheelParticles(wheel, dt);
       }
 
       // Update the sounds based on wheel slip and torque output, shared
@@ -1045,27 +1048,56 @@ void WheeledVehicle::updateWheelThreads()
 }
 
 //----------------------------------------------------------------------------
+/** Update wheel particles effects
+   These animations are purely cosmetic and this method is only invoked
+   on the client.  Particles are emitted as long as the moving.
+*/
+// HH: Modified for Tribes 2 compatibility.
+// Retail's (0x613402) raises dust from a tire on terrain alone, half a metre
+// above its foot, in the colours the scripts' property map gives the
+// terrain's first material, and as much as the vehicle's speed says.
+void WheeledVehicle::updateWheelParticles(Wheel* wheel, F32 dt)
+{
+   Point3F vel = Parent::getVelocity();
+   F32 speed = vel.len();
+
+   // Don't bother if we're not moving.
+   if (speed <= 1.0f || wheel->emitter.isNull() || !wheel->surface.object ||
+       !(wheel->surface.object->getTypeMask() & TerrainObjectType))
+      return;
+
+   if (const MaterialPropertyMap::Entry *e = groundDustProperties(wheel->surface.object))
+   {
+      ColorF colorList[ ParticleData::PDC_NUM_KEYS ];
+
+      for( U32 x = 0; x < getMin( U32( MaterialPropertyMap::NumColors ), U32( ParticleData::PDC_NUM_KEYS ) ); ++ x )
+         colorList[ x ] = e->color[ x ];
+      for( U32 x = MaterialPropertyMap::NumColors; x < ParticleData::PDC_NUM_KEYS; ++ x )
+         colorList[ x ].set( 1.0, 1.0, 1.0, 0.0 );
+
+      wheel->emitter->setColors( colorList );
+   }
+
+   Point3F axis = vel;
+   axis.normalize();
+   wheel->emitter->emitParticles( wheel->surface.pos + Point3F(0, 0, 0.5f), true,
+      axis, vel, (U32)(speed * (1 / 15.0) * 1000 * dt));
+}
+
+
+//----------------------------------------------------------------------------
 /** Update engine sound
    This method is only invoked by clients.
 */
+// HH: Modified for Tribes 2 compatibility.
+// Retail's (0x6155f0) sets the engine's volume, not its pitch.
 void WheeledVehicle::updateEngineSound(F32 level)
 {
    if ( !mEngineSound )
       return;
 
-   if ( !mEngineSound->isPlaying() )
-      mEngineSound->play();
-
    mEngineSound->setTransform( getTransform() );
-   mEngineSound->setVelocity( getVelocity() );
-   //mEngineSound->setVolume( level );
-
-   // Adjust pitch
-   F32 pitch = ((level-sIdleEngineVolume) * 1.3f);
-   if (pitch < 0.4f)  
-      pitch = 0.4f;
-
-   mEngineSound->setPitch( pitch );
+   mEngineSound->setVolume( level );
 }
 
 
@@ -1073,19 +1105,27 @@ void WheeledVehicle::updateEngineSound(F32 level)
 /** Update wheel skid sound
    This method is only invoked by clients.
 */
+// HH: Modified for Tribes 2 compatibility.
+// Retail's (0x615630) starts the squeal when it is loud enough and lets it go
+// when it is not.
 void WheeledVehicle::updateSquealSound(F32 level)
 {
-   if ( !mSquealSound )
+   if ( !mDataBlock->sound[WheeledVehicleData::SquealSound] )
       return;
 
    if ( level < sMinSquealVolume ) 
    {
-      mSquealSound->stop();
+      SFX_DELETE( mSquealSound );
       return;
    }
 
-   if ( !mSquealSound->isPlaying() )
+   if ( !mSquealSound )
+   {
+      mSquealSound = SFX->createSource( mDataBlock->sound[WheeledVehicleData::SquealSound], &getTransform() );
+      if ( !mSquealSound )
+         return;
       mSquealSound->play();
+   }
 
    mSquealSound->setTransform( getTransform() );
    mSquealSound->setVolume( level );
@@ -1096,19 +1136,26 @@ void WheeledVehicle::updateSquealSound(F32 level)
 /** Update jet sound
    This method is only invoked by clients.
 */
+// HH: Modified for Tribes 2 compatibility.
+// Retail's (0x6156e0) starts the jet with the jetting and lets it go after.
 void WheeledVehicle::updateJetSound()
 {
-   if ( !mJetSound )
+   if ( !mDataBlock->sound[WheeledVehicleData::JetSound] )
       return;
 
    if ( !mJetting ) 
    {
-      mJetSound->stop();
+      SFX_DELETE( mJetSound );
       return;
    }
 
-   if ( !mJetSound->isPlaying() )
+   if ( !mJetSound )
+   {
+      mJetSound = SFX->createSource( mDataBlock->sound[WheeledVehicleData::JetSound], &getTransform() );
+      if ( !mJetSound )
+         return;
       mJetSound->play();
+   }
 
    mJetSound->setTransform( getTransform() );
 }

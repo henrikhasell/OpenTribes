@@ -172,6 +172,7 @@ class WheeledVehicle: public Vehicle
 
    // Client sounds & particles
    void updateWheelThreads();
+   void updateWheelParticles(Wheel* wheel, F32 dt);
    void updateEngineSound(F32 level);
    void updateSquealSound(F32 level);
    void updateJetSound();
