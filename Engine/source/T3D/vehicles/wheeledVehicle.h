@@ -200,6 +200,7 @@ public:
    // HH: Added for Tribes 2 compatibility.
    void getT2Subject(T2Layout::Subject *subject,
                      NetConnection *conn) const override;
+   void onT2BodyRead(const T2Layout::Body &body) override;
 };
 
 

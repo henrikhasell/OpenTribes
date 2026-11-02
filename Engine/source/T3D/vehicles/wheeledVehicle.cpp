@@ -1259,6 +1259,32 @@ void WheeledVehicle::getT2Subject(T2Layout::Subject *subject,
    subject->wheelCount = wheelCountOf;
 }
 
+// HH: Added for Tribes 2 compatibility.
+// WheeledVehicle::unpackUpdate (0x615a70) takes the brake and the wheels'
+// spin and tire deflection as they come, so a vehicle someone else drives
+// turns its wheels as the server's do. Its controller is sent neither: it has
+// them from its own packet data. The datablock the body named, and the wheels
+// its onNewDataBlock cleared, are already in place.
+void WheeledVehicle::onT2BodyRead(const T2Layout::Body &body)
+{
+   Parent::onT2BodyRead(body);
+
+   const T2Layout::Body::VehicleTail &tail = body.vehicle;
+   if (tail.hasBraking)
+      mBraking = tail.braking;
+
+   if (!tail.hasWheels || !mDataBlock)
+      return;
+
+   const U32 count = getMin(tail.wheelCount, mDataBlock->wheelCount);
+   for (U32 i = 0; i < count; i++)
+   {
+      dMemcpy(&mWheel[i].avel, &tail.wheels[i][0], sizeof(F32));
+      dMemcpy(&mWheel[i].Dy,   &tail.wheels[i][1], sizeof(F32));
+      dMemcpy(&mWheel[i].Dx,   &tail.wheels[i][2], sizeof(F32));
+   }
+}
+
 
 //----------------------------------------------------------------------------
 
