@@ -255,6 +255,8 @@ WheeledVehicleData::WheeledVehicleData()
    steeringSequence = -1;
    wheelCount = 0;
    t2WheelCount = 0;
+   for (S32 i = 0; i < MaxWheels; i++)
+      t2TurnSequence[i] = -1;
 
    for (S32 i = 0; i < MaxSounds; i++)
       sound[i] = 0;
@@ -347,8 +349,11 @@ bool WheeledVehicleData::preload(bool server, String &errorStr)
       dSprintf(buff,sizeof(buff),"ground%d",i);
       const S32 ground = mShape->findNode(buff);
       dSprintf(buff,sizeof(buff),"spring%d",i);
-      if (ground != -1 && mShape->findSequence(buff) != -1)
-         t2WheelCount++;
+      if (ground != -1 && mShape->findSequence(buff) != -1) {
+         // A steered wheel has a turn%d sequence too (0x6120d7).
+         dSprintf(buff,sizeof(buff),"turn%d",i);
+         t2TurnSequence[t2WheelCount++] = mShape->findSequence(buff);
+      }
    }
 
    // Check for steering. Should think about normalizing the
@@ -463,8 +468,9 @@ WheeledVehicle::WheeledVehicle()
    mSteeringThread = 0;
 
    for (S32 i = 0; i < WheeledVehicleData::MaxWheels; i++) {
+      mT2TurnThread[i] = 0;
       mWheel[i].springThread = 0;
-      mWheel[i].Dy = mWheel[i].Dx = 0;
+      mWheel[i].avel = mWheel[i].Dy = mWheel[i].Dx = 0;
       mWheel[i].tire = 0;
       mWheel[i].spring = 0;
       mWheel[i].shapeInstance = 0;
@@ -595,6 +601,19 @@ bool WheeledVehicle::onNewDataBlock(GameBaseData* dptr, bool reload)
    }
    else
       mSteeringThread = 0;
+
+   // HH: Added for Tribes 2 compatibility.
+   // A thread on each steered wheel's turn sequence, at time 0 as retail's
+   // onNewDataBlock (0x612fed) starts it.
+   for (S32 i = 0; i < WheeledVehicleData::MaxWheels; i++) {
+      mT2TurnThread[i] = 0;
+      if (U32(i) < mDataBlock->t2WheelCount &&
+          mDataBlock->t2TurnSequence[i] != -1) {
+         mT2TurnThread[i] = mShapeInstance->addThread();
+         mShapeInstance->setSequence(mT2TurnThread[i],
+                                     mDataBlock->t2TurnSequence[i], 0);
+      }
+   }
 
    // Brake light sequence
    if (mDataBlock->brakeLightSequence != -1) {
@@ -763,6 +782,15 @@ void WheeledVehicle::advanceTime(F32 dt)
       F32 t = (mSteering.x * mFabs(mSteering.x)) / mDataBlock->maxSteeringAngle;
       mShapeInstance->setPos(mSteeringThread,0.5 - t * 0.5);
    }
+
+   // HH: Added for Tribes 2 compatibility.
+   // Tribes 2 turns each steered wheel by its own sequence, on the same
+   // curve (0x615558).
+   for (S32 i = 0; i < WheeledVehicleData::MaxWheels; i++)
+      if (mT2TurnThread[i]) {
+         F32 t = (mSteering.x * mFabs(mSteering.x)) / mDataBlock->maxSteeringAngle;
+         mShapeInstance->setPos(mT2TurnThread[i],0.5 - t * 0.5);
+      }
 
    // Animate the tail light. The direction of the thread is
    // set based on vehicle braking.
@@ -1369,18 +1397,21 @@ void WheeledVehicle::prepBatchRender(SceneRenderState* state, S32 mountedImageIn
 
 //----------------------------------------------------------------------------
 
+// HH: Modified for Tribes 2 compatibility.
+// WheeledVehicle::writePacketData (0x6157a0) and readPacketData (0x615840):
+// three floats a wheel and no slipping flag, over the wheels Tribes 2
+// counts, not the hubs Torque finds.
 void WheeledVehicle::writePacketData(GameConnection *connection, BitStream *stream)
 {
    Parent::writePacketData(connection, stream);
    stream->writeFlag(mBraking);
 
-   Wheel* wend = &mWheel[mDataBlock->wheelCount];
+   Wheel* wend = &mWheel[mDataBlock->t2WheelCount];
    for (Wheel* wheel = mWheel; wheel < wend; wheel++) 
    {
       stream->write(wheel->avel);
       stream->write(wheel->Dy);
       stream->write(wheel->Dx);
-      stream->writeFlag(wheel->slipping);
    }
 }
 
@@ -1389,13 +1420,12 @@ void WheeledVehicle::readPacketData(GameConnection *connection, BitStream *strea
    Parent::readPacketData(connection, stream);
    mBraking = stream->readFlag();
 
-   Wheel* wend = &mWheel[mDataBlock->wheelCount];
+   Wheel* wend = &mWheel[mDataBlock->t2WheelCount];
    for (Wheel* wheel = mWheel; wheel < wend; wheel++) 
    {
       stream->read(&wheel->avel);
       stream->read(&wheel->Dy);
       stream->read(&wheel->Dx);
-      wheel->slipping = stream->readFlag();
    }
 
    // Rigid state is transmitted by the parent...
