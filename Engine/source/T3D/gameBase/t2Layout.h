@@ -31,6 +31,9 @@ namespace T2Layout
    /// ShapeBase's playAudio slots.
    enum { MaxSounds = 4 };
 
+   /// The most wheels WheeledVehicleData's preload looks for (0x611f42).
+   enum { MaxWheels = 8 };
+
    struct Body
    {
       bool    hasDataBlock;         ///< the object's own datablock came with
@@ -220,6 +223,15 @@ namespace T2Layout
          U32    thrust;             ///< a hover or flyer's thrust direction
          bool   hasCreateHeight;
          bool   createHeightOn;     ///< a flyer still at its pad height
+         bool   hasBraking;         ///< a wheeled vehicle's own tail, which
+                                    ///< its controller is not sent
+         bool   braking;
+         bool   hasWheels;          ///< the wheels' block followed
+         U32    wheelCount;         ///< the wheels it carried
+         U32    wheelWords;         ///< the words read so far, for the walk
+         U32    wheels[MaxWheels][3]; ///< per wheel: the angular velocity,
+                                    ///< then the longitudinal and lateral
+                                    ///< tire deflection, each sent whole
       };
       VehicleTail vehicle;
    };
@@ -417,7 +429,7 @@ namespace T2Layout
       T2DbCollDamageThresholdVel,
       T2DbCollDamageMultiplier,
 
-      // What a flying or hover vehicle datablock adds after it.
+      // What a flying, hover or wheeled vehicle datablock adds after it.
       T2DbVehicleSound,
       T2DbVehicleSoundLast = T2DbVehicleSound + 3,
       T2DbVehicleJetEmitter,
@@ -460,6 +472,27 @@ namespace T2Layout
       T2DbFloatingGravMag,
       T2DbBrakingForce,
       T2DbBrakingActivationSpeed,
+      T2DbTireFriction,
+      T2DbTireRestitution,
+      T2DbTireRadius,
+      T2DbTireLateralForce,
+      T2DbTireLateralDamping,
+      T2DbTireLateralRelaxation,
+      T2DbTireLongitudinalForce,
+      T2DbTireLongitudinalDamping,
+      T2DbTireLongitudinalRelaxation,
+      T2DbTireEmitter,
+      T2DbSpringForce,
+      T2DbSpringDamping,
+      T2DbAntiSwayForce,
+      T2DbAntiRockForce,
+      T2DbMaxWheelSpeed,
+      T2DbEngineTorque,
+      T2DbBrakeTorque,
+      T2DbStaticLoadScale,
+      T2DbStabilizerForce,
+      T2DbGyroForce,
+      T2DbGyroDamping,
 
       T2DbItemFriction,
       T2DbItemElasticity,
