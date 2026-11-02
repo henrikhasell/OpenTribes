@@ -897,6 +897,195 @@ static void tireCollisionCallback(SceneObject* obj, void* key)
    obj->buildPolyList(info->context, info->polyList, info->boundingBox, info->boundingSphere);
 }
 
+// HH: Added for Tribes 2 compatibility.
+// The extruded list retail sweeps a tire with (0x41f410-0x420910), TGE's: a
+// vertex is only in front of a plane a centimetre past it, a face is hit up to
+// a centimetre past the end of the sweep, and the time is pulled back by the
+// hit face's centimetre once every object is in. Torque 3D's nudges each
+// vertex instead and drops a hit at the very end of the sweep.
+class TireSweepPolyList : public ExtrudedPolyList
+{
+public:
+   using ExtrudedPolyList::plane;
+
+   void extrude(const Polyhedron& pt, const VectorF& vector)
+   {
+      ExtrudedPolyList::extrude(pt, vector);
+      mFaceShift = 0;
+      for (U32 f = 0; f < mExtrudedList.size(); f++)
+         if (mExtrudedList[f].active)
+            mExtrudedList[f].faceShift = FaceEpsilon / mExtrudedList[f].maxDistance;
+   }
+
+   void adjustCollisionTime()
+   {
+      if (mCollisionList->getCount())
+         mCollisionList->setTime(mClampF(mCollisionList->getTime() - mFaceShift, 0.f, 1.f));
+   }
+
+   U32 addPoint(const Point3F& p) override
+   {
+      mVertexList.increment();
+      Vertex& v = mVertexList.last();
+      v.point.set(p.x * mScale.x, p.y * mScale.y, p.z * mScale.z);
+      mMatrix.mulP(v.point);
+
+      // The planes come in pairs, each facing the other way.
+      static const F32 sFrontEpsilon = 0.01f;
+      v.mask = 0;
+      for (U32 i = 0; i < mPlaneList.size(); i += 2)
+         v.mask |= BIT(mPlaneList[i].distToPlane(v.point) >= sFrontEpsilon ? i : i + 1);
+      return mVertexList.size() - 1;
+   }
+
+   void end() override
+   {
+      if (mCollisionList->getCount() >= CollisionList::MaxCollisions ||
+          mDot(mPoly.plane, mNormalVelocity) > 0)
+         return;
+
+      // The faces turned towards the poly first, then the others.
+      ExtrudedFace* hit = NULL;
+      for (S32 pass = 0; pass < 2 && !hit; pass++)
+         for (ExtrudedFace* face = mExtrudedList.begin(); face != mExtrudedList.end(); face++)
+         {
+            if (!face->active)
+               continue;
+            face->faceDot = -mDot(face->plane, mPoly.plane);
+            if ((pass == 0) != (face->faceDot > 0) || !testFace(*face))
+               continue;
+            if (!hit || face->faceDot > hit->faceDot)
+               hit = face;
+         }
+      if (!hit || hit->time > mCollisionList->getTime() + EqualEpsilon)
+         return;
+
+      if (hit->time < mCollisionList->getTime() - EqualEpsilon)
+      {
+         mFaceShift = hit->faceShift;
+         mCollisionList->clear();
+         mCollisionList->setTime(hit->time);
+         mCollisionList->setMaxHeight(hit->height);
+      }
+      else
+      {
+         if (hit->height > mCollisionList->getMaxHeight())
+            mCollisionList->setMaxHeight(hit->height);
+         if (hit->faceShift > mFaceShift)
+            mFaceShift = hit->faceShift;
+      }
+
+      Collision& collision = mCollisionList->increment();
+      collision.point    = hit->point;
+      collision.faceDot  = hit->faceDot;
+      collision.face     = hit - mExtrudedList.begin();
+      collision.object   = mPoly.object;
+      collision.normal   = mPoly.plane;
+      collision.material = mPoly.material;
+   }
+
+private:
+   bool testFace(ExtrudedFace& face)
+   {
+      U32 indexStart = 0;
+      U32 indexEnd = mIndexList.size();
+      const U32 oVertexSize = mVertexList.size();
+      const U32 oIndexSize = mIndexList.size();
+
+      U32 frontMask = 0, backMask = 0;
+      for (U32 i = indexStart; i < indexEnd; i++)
+      {
+         const U32 mask = mVertexList[mIndexList[i]].mask & face.planeMask;
+         frontMask |= mask;
+         backMask |= ~mask;
+      }
+
+      // Clip the poly to the planes bounding the face.
+      if (frontMask)
+      {
+         const U32 crossMask = frontMask & backMask;
+         if (~crossMask & frontMask)
+            return false;
+
+         for (U32 p = 0; p < mPlaneList.size(); p++)
+         {
+            const U32 pmask = BIT(p);
+            if (!(face.planeMask & crossMask & pmask))
+               continue;
+
+            const U32 newStart = mIndexList.size();
+            U32 i1 = indexEnd - 1;
+            U32 mask1 = mVertexList[mIndexList[i1]].mask;
+            for (U32 i2 = indexStart; i2 < indexEnd; i2++)
+            {
+               const U32 mask2 = mVertexList[mIndexList[i2]].mask;
+               if ((mask1 ^ mask2) & pmask)
+               {
+                  mVertexList.increment();
+                  const Point3F& v1 = mVertexList[mIndexList[i1]].point;
+                  const VectorF vv = mVertexList[mIndexList[i2]].point - v1;
+                  const F32 t = -mPlaneList[p].distToPlane(v1) / mDot(mPlaneList[p], vv);
+
+                  mIndexList.push_back(mVertexList.size() - 1);
+                  Vertex& iv = mVertexList.last();
+                  iv.point = v1 + vv * t;
+
+                  // In front of the first of the face's planes still to come
+                  // that it is in front of, if any.
+                  iv.mask = 0;
+                  for (U32 i = p + 1; i < mPlaneList.size(); i++)
+                     if ((face.planeMask & BIT(i)) && mPlaneList[i].distToPlane(iv.point) > 0)
+                     {
+                        iv.mask = BIT(i);
+                        break;
+                     }
+               }
+               if (!(mask2 & pmask))
+                  mIndexList.push_back(mIndexList[i2]);
+               mask1 = mask2;
+               i1 = i2;
+            }
+
+            indexStart = newStart;
+            indexEnd = mIndexList.size();
+            if (indexEnd - indexStart < 3)
+            {
+               mVertexList.setSize(oVertexSize);
+               mIndexList.setSize(oIndexSize);
+               return false;
+            }
+         }
+      }
+
+      // The poly's closest point to the face.
+      Point3F bp(0, 0, 0);
+      F32 bd = 1E30f;
+      F32 height = -1E30f;
+      for (U32 b = indexStart; b < indexEnd; b++)
+      {
+         const Point3F& point = mVertexList[mIndexList[b]].point;
+         const F32 dist = face.plane.distToPlane(point);
+         if (dist <= bd)
+         {
+            bd = getMax(dist, 0.f);
+            bp = point;
+         }
+         if (point.z > height && dist < face.maxDistance)
+            height = point.z;
+      }
+
+      mVertexList.setSize(oVertexSize);
+      mIndexList.setSize(oIndexSize);
+
+      if (bd >= face.maxDistance + FaceEpsilon)
+         return false;
+      face.time = bd / face.maxDistance;
+      face.height = height;
+      face.point = bp;
+      return true;
+   }
+};
+
 static bool buildTireCollisionList(SceneContainer* container,
                                    const Polyhedron& polyhedron,
                                    const Point3F& start, const Point3F& end,
@@ -926,7 +1115,7 @@ static bool buildTireCollisionList(SceneContainer* container,
    info.boundingSphere.center = (info.boundingBox.minExtents + info.boundingBox.maxExtents) * 0.5;
    info.boundingSphere.radius = (info.boundingBox.maxExtents - info.boundingSphere.center).len();
 
-   static ExtrudedPolyList sPolyList;
+   static TireSweepPolyList sPolyList;
    sPolyList.extrude(polyhedron, vector);
    sPolyList.setVelocity(velocity);
    sPolyList.setCollisionList(collisionList);
