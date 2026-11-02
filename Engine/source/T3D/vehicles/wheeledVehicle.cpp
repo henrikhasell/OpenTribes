@@ -541,6 +541,19 @@ S32 WheeledVehicle::getWheelCount()
 void WheeledVehicle::processTick(const Move* move)
 {
    Parent::processTick(move);
+
+   // HH: Added for Tribes 2 compatibility.
+   // Retail's server (0x613a65) drowns a wheeled vehicle that is more than
+   // half under water, through the scripts' damageObject, every tick it
+   // stays there.
+   if (isServerObject() && mWaterCoverage > 0.5f)
+   {
+      char pos[256], type[16];
+      dSprintf(pos, sizeof(pos), "%f %f %f",
+               mRigid.linPosition.x, mRigid.linPosition.y, mRigid.linPosition.z);
+      dSprintf(type, sizeof(type), "%d", Con::getIntVariable("$DamageType::Water"));
+      Con::executef(mDataBlock, "damageObject", getIdString(), "0", pos, "1000", type);
+   }
 }
 
 // HH: Added for Tribes 2 compatibility.
