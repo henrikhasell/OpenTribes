@@ -111,14 +111,38 @@ struct WheeledVehicleData: public VehicleData
       WheelImpactSound,
       MaxSounds,
    };
-   SFXTrack* sound[MaxSounds];
+   // HH: Modified for Tribes 2 compatibility.
+   SFXProfile* sound[MaxSounds];
+   S32 soundID[MaxSounds];
 
    ParticleEmitterData* tireEmitter;
+   S32 tireEmitterID;               // HH: Added for Tribes 2 compatibility.
 
    F32 maxWheelSpeed;            // Engine torque is scale based on wheel speed
    F32 engineTorque;             // Engine force controlled through throttle
    F32 engineBrake;              // Break force applied when throttle is 0
-   F32 brakeTorque;              // Force used when brakeing
+   F32 brakeTorque;              // Force used when brakeing (breakTorque)
+
+   // HH: Added for Tribes 2 compatibility.
+   // Tribes 2 has no tire or spring datablocks: the vehicle's own carries one
+   // tire and one spring for all its wheels.
+   F32 tireFriction;
+   F32 tireRestitution;
+   F32 tireRadius;
+   F32 tireLateralForce;
+   F32 tireLateralDamping;
+   F32 tireLateralRelaxation;
+   F32 tireLongitudinalForce;
+   F32 tireLongitudinalDamping;
+   F32 tireLongitudinalRelaxation;  ///< registered as tireLogitudinalRelaxation
+   F32 staticLoadScale;
+   F32 springForce;
+   F32 springDamping;
+   F32 antiSwayForce;
+   F32 antiRockForce;
+   F32 stabilizerForce;
+   F32 gyroForce;
+   F32 gyroDamping;
 
    // Initialized onAdd
    struct Wheel 
@@ -143,6 +167,8 @@ struct WheeledVehicleData: public VehicleData
    static void initPersistFields();
    bool preload(bool, String &errorStr);
    bool mirrorWheel(Wheel* we);
+   // HH: Added for Tribes 2 compatibility.
+   bool unpackData(BitStream *stream, U32 classId) override;
 };
 
 

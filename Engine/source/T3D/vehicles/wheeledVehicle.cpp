@@ -38,6 +38,7 @@
 #include "T3D/fx/particleEmitter.h"
 #include "sfx/sfxSystem.h"
 #include "sfx/sfxTrack.h"
+#include "sfx/sfxProfile.h"
 #include "sfx/sfxSource.h"
 #include "sfx/sfxTypes.h"
 #include "scene/sceneManager.h"
@@ -244,13 +245,35 @@ ConsoleDocClass( WheeledVehicleData,
    "@ingroup Vehicles\n"
 );
 
+// HH: Modified for Tribes 2 compatibility.
+// Retail's defaults (0x611c60). It never sets springDamping; it is zeroed here
+// so that a datablock which leaves it out does not run on whatever the heap
+// held.
 WheeledVehicleData::WheeledVehicleData()
 {
    tireEmitter = 0;
+   tireEmitterID = -1;
    maxWheelSpeed = 40;
    engineTorque = 1;
    engineBrake = 1;
    brakeTorque = 1;
+   tireFriction = 0.3f;
+   tireRestitution = 1;
+   tireRadius = 0.6f;
+   tireLateralForce = 1000;
+   tireLateralDamping = 100;
+   tireLateralRelaxation = 1;
+   tireLongitudinalForce = 1000;
+   tireLongitudinalDamping = 100;
+   tireLongitudinalRelaxation = 1;
+   staticLoadScale = 1;
+   springForce = 0.6f;
+   springDamping = 0;
+   antiSwayForce = 1;
+   antiRockForce = 0;
+   stabilizerForce = 0;
+   gyroForce = 0;
+   gyroDamping = 0;
    brakeLightSequence = -1;
    steeringSequence = -1;
    wheelCount = 0;
@@ -258,8 +281,10 @@ WheeledVehicleData::WheeledVehicleData()
    for (S32 i = 0; i < MaxWheels; i++)
       t2TurnSequence[i] = -1;
 
-   for (S32 i = 0; i < MaxSounds; i++)
+   for (S32 i = 0; i < MaxSounds; i++) {
       sound[i] = 0;
+      soundID[i] = -1;
+   }
 }
 
 
@@ -289,15 +314,15 @@ bool WheeledVehicleData::preload(bool server, String &errorStr)
    // animate the shape and extract wheel information.
    TSShapeInstance* si = new TSShapeInstance(mShape, false);
 
-   // Resolve objects transmitted from server
-   if (!server) {
-      for (S32 i = 0; i < MaxSounds; i++)
-         if( !sfxResolve( &sound[ i ], errorStr ) )
-            return false;
+   // HH: Modified for Tribes 2 compatibility.
+   // Retail (0x611ea0) resolves these on server and client alike, and
+   // silently.
+   for (S32 i = 0; i < MaxSounds; i++)
+      if (!sound[i] && soundID[i] != -1)
+         Sim::findObject(soundID[i], sound[i]);
 
-      if (tireEmitter)
-         Sim::findObject(SimObjectId((uintptr_t)tireEmitter),tireEmitter);
-   }
+   if (!tireEmitter && tireEmitterID != -1)
+      Sim::findObject(tireEmitterID, tireEmitter);
 
    // Extract wheel information from the shape
    TSThread* thread = si->addThread();
@@ -405,18 +430,29 @@ bool WheeledVehicleData::mirrorWheel(Wheel* we)
 
 //----------------------------------------------------------------------------
 
+// HH: Modified for Tribes 2 compatibility.
+// Retail's fields (0x612400), misspellings and all: a script's squealSound,
+// brakeTorque or tireLongitudinalRelaxation is a dynamic field there.
 void WheeledVehicleData::initPersistFields()
 {
-   addField( "jetSound", TYPEID< SFXTrack >(), Offset(sound[JetSound], WheeledVehicleData),
+   addField( "jetSound", TYPEID< SFXProfile >(), Offset(sound[JetSound], WheeledVehicleData),
       "Looping sound played when the vehicle is jetting." );
-   addField( "engineSound", TYPEID< SFXTrack >(), Offset(sound[EngineSound], WheeledVehicleData),
-      "@brief Looping engine sound.\n\n"
-      "The pitch is dynamically adjusted based on the current engine RPM" );
-   addField("squealSound", TYPEID< SFXTrack >(), Offset(sound[SquealSound], WheeledVehicleData),
-      "@brief Looping sound played while any of the wheels is slipping.\n\n"
-      "The volume is dynamically adjusted based on how much the wheels are slipping." );
-   addField("WheelImpactSound", TYPEID< SFXTrack >(), Offset(sound[WheelImpactSound], WheeledVehicleData),
+   addField( "engineSound", TYPEID< SFXProfile >(), Offset(sound[EngineSound], WheeledVehicleData),
+      "Looping engine sound." );
+   addField("squeelSound", TYPEID< SFXProfile >(), Offset(sound[SquealSound], WheeledVehicleData),
+      "Looping sound played while the wheels are slipping." );
+   addField("WheelImpactSound", TYPEID< SFXProfile >(), Offset(sound[WheelImpactSound], WheeledVehicleData),
       "Sound played when the wheels impact the ground.\nCurrently unused." );
+
+   addField("tireRadius", TypeF32, Offset(tireRadius, WheeledVehicleData));
+   addField("tireFriction", TypeF32, Offset(tireFriction, WheeledVehicleData));
+   addField("tireRestitution", TypeF32, Offset(tireRestitution, WheeledVehicleData));
+   addField("tireLateralForce", TypeF32, Offset(tireLateralForce, WheeledVehicleData));
+   addField("tireLateralDamping", TypeF32, Offset(tireLateralDamping, WheeledVehicleData));
+   addField("tireLateralRelaxation", TypeF32, Offset(tireLateralRelaxation, WheeledVehicleData));
+   addField("tireLongitudinalForce", TypeF32, Offset(tireLongitudinalForce, WheeledVehicleData));
+   addField("tireLongitudinalDamping", TypeF32, Offset(tireLongitudinalDamping, WheeledVehicleData));
+   addField("tireLogitudinalRelaxation", TypeF32, Offset(tireLongitudinalRelaxation, WheeledVehicleData));
 
    addField("tireEmitter",TYPEID< ParticleEmitterData >(), Offset(tireEmitter, WheeledVehicleData),
       "ParticleEmitterData datablock used to generate particles from each wheel "
@@ -427,15 +463,67 @@ void WheeledVehicleData::initPersistFields()
    addField("engineTorque", TypeF32, Offset(engineTorque, WheeledVehicleData),
       "@brief Torque available from the engine at 100% throttle.\n\n"
       "This controls vehicle acceleration. ie. how fast it will reach maximum speed." );
-   addField("engineBrake", TypeF32, Offset(engineBrake, WheeledVehicleData),
-      "@brief Braking torque applied by the engine when the throttle and brake "
-      "are both 0.\n\n"
-      "This controls how quickly the vehicle will coast to a stop." );
-   addField("brakeTorque", TypeF32, Offset(brakeTorque, WheeledVehicleData),
+   addField("breakTorque", TypeF32, Offset(brakeTorque, WheeledVehicleData),
       "@brief Torque applied when braking.\n\n"
       "This controls how fast the vehicle will stop when the brakes are applied." );
-   
+   addField("staticLoadScale", TypeF32, Offset(staticLoadScale, WheeledVehicleData));
+   addField("springForce", TypeF32, Offset(springForce, WheeledVehicleData));
+   addField("springDamping", TypeF32, Offset(springDamping, WheeledVehicleData));
+   addField("antiSwayForce", TypeF32, Offset(antiSwayForce, WheeledVehicleData));
+   addField("antiRockForce", TypeF32, Offset(antiRockForce, WheeledVehicleData));
+   addField("stabilizerForce", TypeF32, Offset(stabilizerForce, WheeledVehicleData));
+   addField("gyroForce", TypeF32, Offset(gyroForce, WheeledVehicleData));
+   addField("gyroDamping", TypeF32, Offset(gyroDamping, WheeledVehicleData));
+
    Parent::initPersistFields();
+}
+
+// HH: Added for Tribes 2 compatibility.
+// The fields WheeledVehicleData::unpackData (0x6128c0) reads after
+// VehicleData's.
+bool WheeledVehicleData::unpackData(BitStream *stream, U32 classId)
+{
+   if (!Parent::unpackData(stream, classId))
+      return false;
+
+   F32 value;
+   if (isUnpackedInPlace() ||
+       !T2Layout::lastDataBlockField(T2Layout::T2DbTireFriction, &value))
+      return true;
+
+   static const struct { U32 field; F32 WheeledVehicleData::*member; } sFields[] =
+   {
+      { T2Layout::T2DbTireFriction,               &WheeledVehicleData::tireFriction               },
+      { T2Layout::T2DbTireRestitution,            &WheeledVehicleData::tireRestitution            },
+      { T2Layout::T2DbTireRadius,                 &WheeledVehicleData::tireRadius                 },
+      { T2Layout::T2DbTireLateralForce,           &WheeledVehicleData::tireLateralForce           },
+      { T2Layout::T2DbTireLateralDamping,         &WheeledVehicleData::tireLateralDamping         },
+      { T2Layout::T2DbTireLateralRelaxation,      &WheeledVehicleData::tireLateralRelaxation      },
+      { T2Layout::T2DbTireLongitudinalForce,      &WheeledVehicleData::tireLongitudinalForce      },
+      { T2Layout::T2DbTireLongitudinalDamping,    &WheeledVehicleData::tireLongitudinalDamping    },
+      { T2Layout::T2DbTireLongitudinalRelaxation, &WheeledVehicleData::tireLongitudinalRelaxation },
+      { T2Layout::T2DbSpringForce,                &WheeledVehicleData::springForce                },
+      { T2Layout::T2DbSpringDamping,              &WheeledVehicleData::springDamping              },
+      { T2Layout::T2DbAntiSwayForce,              &WheeledVehicleData::antiSwayForce              },
+      { T2Layout::T2DbAntiRockForce,              &WheeledVehicleData::antiRockForce              },
+      { T2Layout::T2DbMaxWheelSpeed,              &WheeledVehicleData::maxWheelSpeed              },
+      { T2Layout::T2DbEngineTorque,               &WheeledVehicleData::engineTorque               },
+      { T2Layout::T2DbBrakeTorque,                &WheeledVehicleData::brakeTorque                },
+      { T2Layout::T2DbStaticLoadScale,            &WheeledVehicleData::staticLoadScale            },
+      { T2Layout::T2DbStabilizerForce,            &WheeledVehicleData::stabilizerForce            },
+      { T2Layout::T2DbGyroForce,                  &WheeledVehicleData::gyroForce                  },
+      { T2Layout::T2DbGyroDamping,                &WheeledVehicleData::gyroDamping                },
+   };
+
+   for (U32 i = 0; i < sizeof(sFields) / sizeof(sFields[0]); i++)
+      T2Layout::lastDataBlockField(sFields[i].field, &(this->*sFields[i].member));
+
+   // Retail keeps the ids, and preload looks them up.
+   tireEmitterID = sentDataBlockId(T2Layout::T2DbTireEmitter);
+   for (U32 i = 0; i < MaxSounds; i++)
+      soundID[i] = sentDataBlockId(T2Layout::T2DbVehicleSound + i);
+
+   return true;
 }
 
 
