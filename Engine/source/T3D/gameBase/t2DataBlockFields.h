@@ -504,6 +504,7 @@ namespace T2Protocol
    // SniperProjectileData::packData (0x00641bd0) and TargetProjectileData's
    // (0x006476e0), after ProjectileData's run; the textures are strings.
       { "SniperProjectileData", 69, OpDataBlockId, 11, T2DbExplosion        },
+      { "SniperProjectileData", 67, OpDataBlockId, 11, T2DbProjectileSplash },
       { "SniperProjectileData", 24, OpRaw,   32, T2DbBeamRange              },
       { "SniperProjectileData", 26, OpColor, 32, T2DbBeamColor              },
       { "SniperProjectileData", 27, OpRaw,   32, T2DbBeamFadeTime           },
@@ -565,6 +566,39 @@ namespace T2Protocol
       { "StationFXVehicleData", 15, OpRaw,   32, T2DbStationSphereScaleX        },
       { "StationFXVehicleData", 16, OpRaw,   32, T2DbStationSphereScaleY        },
       { "StationFXVehicleData", 17, OpRaw,   32, T2DbStationSphereScaleZ        },
+
+   // SplashData::packData: scale and fifteen words, the explosion and three
+   // emitters behind flags, four colours as bytes, four times, two strings.
+      { "SplashData",  0, OpRaw,         32, T2DbSplashWord        },
+      { "SplashData",  1, OpRaw,         32, T2DbSplashWord        },
+      { "SplashData",  2, OpRaw,         32, T2DbSplashWord        },
+      { "SplashData",  3, OpRaw,         32, T2DbSplashWord        },
+      { "SplashData",  4, OpRaw,         32, T2DbSplashWord        },
+      { "SplashData",  5, OpRaw,         32, T2DbSplashWord        },
+      { "SplashData",  6, OpRaw,         32, T2DbSplashWord        },
+      { "SplashData",  7, OpRaw,         32, T2DbSplashWord        },
+      { "SplashData",  8, OpRaw,         32, T2DbSplashWord        },
+      { "SplashData",  9, OpRaw,         32, T2DbSplashWord        },
+      { "SplashData", 10, OpRaw,         32, T2DbSplashWord        },
+      { "SplashData", 11, OpRaw,         32, T2DbSplashWord        },
+      { "SplashData", 12, OpRaw,         32, T2DbSplashWord        },
+      { "SplashData", 13, OpRaw,         32, T2DbSplashWord        },
+      { "SplashData", 14, OpRaw,         32, T2DbSplashWord        },
+      { "SplashData", 15, OpRaw,         32, T2DbSplashWord        },
+      { "SplashData", 16, OpRaw,         32, T2DbSplashWord        },
+      { "SplashData", 17, OpRaw,         32, T2DbSplashWord        },
+      { "SplashData", 22, OpColor,       32, T2DbSplashRingColor   },
+      { "SplashData", 23, OpColor,       32, T2DbSplashRingColor   },
+      { "SplashData", 24, OpColor,       32, T2DbSplashRingColor   },
+      { "SplashData", 25, OpColor,       32, T2DbSplashRingColor   },
+      { "SplashData", 26, OpRaw,         32, T2DbSplashRingTime    },
+      { "SplashData", 27, OpRaw,         32, T2DbSplashRingTime    },
+      { "SplashData", 28, OpRaw,         32, T2DbSplashRingTime    },
+      { "SplashData", 29, OpRaw,         32, T2DbSplashRingTime    },
+      { "SplashData", 35, OpDataBlockId, 11, T2DbSplashRingEmitter },
+      { "SplashData", 34, OpDataBlockId, 11, T2DbSplashRingEmitter },
+      { "SplashData", 33, OpDataBlockId, 11, T2DbSplashRingEmitter },
+      { "SplashData", 36, OpDataBlockId, 11, T2DbExplosion         },
 
    // StationFXPersonalData::packData (0x0069bee0) in its order, every field
    // a whole word, then four strings. It sends numArcSegments twice and keeps

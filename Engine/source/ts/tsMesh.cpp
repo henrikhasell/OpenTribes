@@ -33,6 +33,7 @@
 #include "ts/instancingMatHook.h"
 // HH: Added for Tribes 2 compatibility.
 #include "core/util/tDictionary.h"
+#include "core/module.h"
 #include "math/mMath.h"
 #include "math/mathIO.h"
 #include "math/mathUtils.h"
@@ -151,22 +152,42 @@ void TSMesh::render( TSMaterialList *materials,
 }
 
 // HH: Added for Tribes 2 compatibility.
+typedef CompoundKey<U32, String> TSOverrideMatKey;
+static HashTable<TSOverrideMatKey, BaseMatInstance*> sOverrideMatInsts;
+
+// HH: Added for Tribes 2 compatibility.
+// An instance holds its textures until it is deleted, and untracks itself
+// from the material manager, so they go before it does -- and before the
+// device, which fails on any texture still held.
+MODULE_BEGIN( TSOverrideMaterials )
+
+   MODULE_SHUTDOWN_BEFORE( MaterialManager )
+
+   MODULE_SHUTDOWN
+   {
+      HashTable<TSOverrideMatKey, BaseMatInstance*>::Iterator itr;
+      for ( itr = sOverrideMatInsts.begin(); itr != sOverrideMatInsts.end(); ++itr )
+         delete itr->value;
+      sOverrideMatInsts.clear();
+   }
+
+MODULE_END;
+
+// HH: Added for Tribes 2 compatibility.
 static BaseMatInstance *getOverrideMatInstance( Material *mat,
                                                 const GFXVertexFormat *format )
 {
-   typedef CompoundKey<U32, String> Key;
-   static HashTable<Key, BaseMatInstance*> sInsts;
-
-   const Key key( mat->getId(), format->getDescription() );
-   HashTable<Key, BaseMatInstance*>::Iterator found = sInsts.find( key );
-   if ( found != sInsts.end() )
+   const TSOverrideMatKey key( mat->getId(), format->getDescription() );
+   HashTable<TSOverrideMatKey, BaseMatInstance*>::Iterator found =
+      sOverrideMatInsts.find( key );
+   if ( found != sOverrideMatInsts.end() )
       return found->value;
 
    BaseMatInstance *inst = mat->createMatInstance();
    if ( inst && !inst->init( MATMGR->getDefaultFeatures(), format ) )
       SAFE_DELETE( inst );
 
-   sInsts.insertUnique( key, inst );
+   sOverrideMatInsts.insertUnique( key, inst );
    return inst;
 }
 
@@ -214,9 +235,13 @@ BaseMatInstance *TSGetBlendedMatInstance( BaseMatInstance *matInst,
 // under alpha-always, and GL_ONE_MINUS_SRC_ALPHA for the rest.  It left the
 // depth mask alone, so an opaque part still writes depth (0x006a6a47) and a
 // fading body hides its own far side.
+//
+// Only a whole shape's fade replaces the alpha with itself.  An object's own
+// visibility goes in as the vertex colour's alpha and the texture modulates
+// it (0x006a7160), so a translucent material keeps its texture's alpha.
 BaseMatInstance *TSGetFadedMatInstance( BaseMatInstance *matInst,
                                         const GFXVertexFormat *format,
-                                        bool additive )
+                                        bool additive, bool keepTexAlpha )
 {
    Material *mat = dynamic_cast<Material*>( matInst->getMaterial() );
    if ( !mat )
@@ -224,7 +249,8 @@ BaseMatInstance *TSGetFadedMatInstance( BaseMatInstance *matInst,
 
    static HashTable<U32, Material*> sFaded;
 
-   const U32 key = ( mat->getId() << 1 ) | ( additive ? 1 : 0 );
+   const U32 key = ( mat->getId() << 2 ) | ( keepTexAlpha ? 2 : 0 ) |
+                   ( additive ? 1 : 0 );
    Material *faded = NULL;
    HashTable<U32, Material*>::Iterator found = sFaded.find( key );
    if ( found != sFaded.end() )
@@ -242,7 +268,7 @@ BaseMatInstance *TSGetFadedMatInstance( BaseMatInstance *matInst,
          faded->mTranslucentBlendOp = additive ? Material::AddAlpha
                                                : Material::LerpAlpha;
          faded->mTranslucentZWrite = !additive;
-         faded->mT2FadeAlpha = true;
+         faded->mT2FadeAlpha = !keepTexAlpha;
       }
 
       sFaded.insertUnique( key, faded );
@@ -362,9 +388,13 @@ void TSMesh::innerRender( TSMaterialList *materials, const TSRenderState &rdata,
       // it blended on a whole shape's fade (0x006a70aa).
       else if ( ( rdata.isFadeAlpha() || mVisibility < 1.0f ||
                   mVisFaded ) && matInst )
+      {
+         const bool translucent =
+            materials->getFlags( matIndex ) & TSMaterialList::Translucent;
          matInst = TSGetFadedMatInstance( matInst, mVertexFormat,
-            ( materials->getFlags( matIndex ) & TSMaterialList::Translucent ) ||
-            rdata.isBlendAlways() );
+            translucent || rdata.isBlendAlways(),
+            translucent && !rdata.isFadeAlpha() && !rdata.isBlendAlways() );
+      }
       else if ( rdata.isBlendAlways() && matInst )
          matInst = TSGetBlendedMatInstance( matInst, mVertexFormat );
 

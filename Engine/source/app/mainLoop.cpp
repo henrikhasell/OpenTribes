@@ -55,6 +55,7 @@
 #include "sim/netStringTable.h"
 #include "sim/actionMap.h"
 #include "sim/netInterface.h"
+#include "sim/netConnection.h"
 
 #include "util/sampler.h"
 #include "platform/threads/threadPool.h"
@@ -366,6 +367,14 @@ void StandardMainLoop::preShutdown()
    //exec the script onExit() function
    if ( Con::isFunction( "onExit" ) )
       Con::executef("onExit");
+
+   // HH: Added for Tribes 2 compatibility.
+   // Torque 3D's onExit disconnect()s before the Scene module deletes the
+   // scene graphs, which must outlive every object in them. Tribes 2's
+   // onExit (console_end.cs) only saves prefs, and its game gui calls quit()
+   // mid-game, so the connection, and the ghosts it owns, go here.
+   if ( NetConnection *server = NetConnection::getConnectionToServer() )
+      server->deleteObject();
 }
 
 bool StandardMainLoop::handleCommandLine( S32 argc, const char **argv )

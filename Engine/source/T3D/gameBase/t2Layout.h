@@ -97,6 +97,8 @@ namespace T2Layout
       F32     invincibleSpeed;
       bool    hasFieldState;
       U32     fieldState;
+      bool    hasBeaconType;
+      U32     beaconType;
       U32     fieldFade;
       struct Run
       {
@@ -272,6 +274,7 @@ namespace T2Layout
       T2DbExplosion,
       T2DbProjectileBaseEmitter,
       T2DbProjectileBubbleEmitter,
+      T2DbProjectileSplash,
       T2DbFaceViewer,
       T2DbExplosionScaleX,
       T2DbExplosionScaleY,
@@ -653,6 +656,12 @@ namespace T2Layout
       T2DbHudRenderDistanceLast = T2DbHudRenderDistance + 7,
       T2DbHudRenderName,
       T2DbHudRenderNameLast = T2DbHudRenderName + 7,
+
+      // SplashData's runs, each kept as a list in the order it is sent.
+      T2DbSplashWord,
+      T2DbSplashRingColor,
+      T2DbSplashRingTime,
+      T2DbSplashRingEmitter,
 
       T2DbFieldCount
    };

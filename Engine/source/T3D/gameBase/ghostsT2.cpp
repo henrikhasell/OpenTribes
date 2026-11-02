@@ -23,7 +23,6 @@
 
 IMPLEMENT_GHOST_T2( AIObjective );
 IMPLEMENT_GHOST_T2( AudioEmitter );
-IMPLEMENT_GHOST_T2( BeaconObject );
 IMPLEMENT_GHOST_T2( BombProjectile );
 IMPLEMENT_GHOST_T2( ELFProjectile );
 IMPLEMENT_GHOST_T2( FireballAtmosphere );
