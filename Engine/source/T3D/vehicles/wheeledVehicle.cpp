@@ -377,6 +377,7 @@ WheeledVehicle::WheeledVehicle()
       wheel.surface.object = NULL;
       wheel.turnThread = wheel.springThread = wheel.wheelThread = 0;
       wheel.torqueScale = wheel.slip = 0;
+      wheel.dustTime = 0;
    }
 }
 
@@ -465,6 +466,7 @@ bool WheeledVehicle::onNewDataBlock(GameBaseData* dptr, bool reload)
       wheel->apos = 0;
       wheel->extension = 1;
       wheel->slip = 0;
+      wheel->dustTime = 0;
 
       // HH: Modified for Tribes 2 compatibility.
       // A wheel steers, rides its spring and spins by its own sequences,
@@ -1280,10 +1282,17 @@ void WheeledVehicle::updateWheelParticles(Wheel* wheel, F32 dt)
       wheel->emitter->setColors( colorList );
    }
 
+   // Retail emits speed/15 ms a second, cut to whole ms each frame. The rest
+   // is carried to the next frame here, or a client drawing several times
+   // retail's frames would raise no dust at all at low speed.
+   wheel->dustTime += speed * (1 / 15.0f) * 1000 * dt;
+   const U32 ms = (U32)wheel->dustTime;
+   wheel->dustTime -= ms;
+
    Point3F axis = vel;
    axis.normalize();
    wheel->emitter->emitParticles( wheel->surface.pos + Point3F(0, 0, 0.5f), true,
-      axis, vel, (U32)(speed * (1 / 15.0) * 1000 * dt));
+      axis, vel, ms);
 }
 
 

@@ -155,6 +155,7 @@ class WheeledVehicle: public Vehicle
       TSThread* wheelThread;  ///< on its wheel%d
       F32 torqueScale;        ///< Max torque % applied to wheel (0-1)
       F32 slip;               ///< Amount of wheel slip (0-1)
+      F32 dustTime;           ///< HH: dust ms not yet emitted
       SimObjectPtr<ParticleEmitter> emitter;
    };
    Wheel mWheel[WheeledVehicleData::MaxWheels];
