@@ -133,6 +133,11 @@ VehicleData::VehicleData()
    shadowSize = 256;
    shadowProjectionDistance = 14.0f;
 
+   // HH: Added for Tribes 2 compatibility.
+   // Tribes 2's VehicleData constructor (0x00608cfa).
+   genericShadowLevel = 0.7f;
+   noShadowLevel = 0.2f;
+
 
    body.friction = 0;
    body.restitution = 1;

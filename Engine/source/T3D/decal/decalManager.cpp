@@ -246,7 +246,10 @@ DecalManager::~DecalManager()
 
 void DecalManager::consoleInit()
 {
-   Con::addVariable( "$pref::Decals::enabled", TypeBool, &smDecalsOn,
+   // HH: Modified for Tribes 2 compatibility.
+   // Tribes 2's name (0x00593d8a), which the options dialog's "DECALS" toggle
+   // sets.
+   Con::addVariable( "$pref::decalsOn", TypeBool, &smDecalsOn,
       "Controls whether decals are rendered.\n"
       "@ingroup Decals" );
 
@@ -983,7 +986,10 @@ void DecalManager::prepRenderImage( SceneRenderState* state )
 {
    PROFILE_SCOPE( DecalManager_RenderDecals );
 
-   if ( !smDecalsOn || !mData ) 
+   // HH: Modified for Tribes 2 compatibility.
+   // Shadows are not decals in Tribes 2 but a projected shadow is a custom
+   // decal here, so it still draws with decals off; see below.
+   if ( !mData ) 
       return;
 
    // Decals only render in the diffuse pass!
@@ -1059,6 +1065,16 @@ void DecalManager::prepRenderImage( SceneRenderState* state )
    {
       dinst = mDecalQueue[i];
       ddata = dinst->mDataBlock;
+
+      // HH: Added for Tribes 2 compatibility.
+      // Tribes 2 draws no decal while decals are off (0x0059473b), but keeps
+      // them, so they are back when decals are.
+      if ( !smDecalsOn && !( dinst->mFlags & CustomDecal ) )
+      {
+         mDecalQueue.erase_fast( i );
+         i--;
+         continue;
+      }
 
       // LOD calculation...
 

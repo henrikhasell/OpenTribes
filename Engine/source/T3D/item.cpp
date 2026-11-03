@@ -114,6 +114,11 @@ ItemData::ItemData()
 {
    shadowEnable = true;
 
+   // HH: Added for Tribes 2 compatibility.
+   // Tribes 2's ItemData constructor (0x006033fc).
+   genericShadowLevel = 0.4f;
+   noShadowLevel = 0.01f;
+
 
    friction = 0;
    elasticity = 0;
