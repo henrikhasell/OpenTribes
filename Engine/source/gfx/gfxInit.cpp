@@ -368,41 +368,41 @@ DefineEngineFunction( getDesktopResolution, Point3F, (),,
 }
 
 // HH: Added for Tribes 2 compatibility.
-// The options dialog fills its resolution and bit depth menus from this. The
-// bit depth is the adapter's own, so a 24-bit colour mode is 24, not the 32
-// retail counted with its padding.
-DefineEngineFunction( getResolutionList, String, ( const char *deviceName ),,
-   "@brief The device's modes, as tab-separated \"width height bpp\" fields.\n\n"
-   "@ingroup GFX" )
+GFXAdapter *GFXInit::getAdapterByName( const char *name )
 {
-   Vector<GFXAdapter*> adapters( __FILE__, __LINE__ );
-   GFXInit::getAdapters( &adapters );
+   for ( U32 i = 0; i < smAdapters.size(); i++ )
+      if ( dStrcmp( smAdapters[i]->mName, name ) == 0 )
+         return smAdapters[i];
 
-   GFXAdapter *adapter = NULL;
-   for ( U32 i = 0; i < adapters.size(); i++ )
-   {
-      if ( dStrcmp( adapters[i]->mName, deviceName ) == 0 )
-      {
-         adapter = adapters[i];
-         break;
-      }
-   }
+   return NULL;
+}
 
-   if ( !adapter )
-   {
-      Con::warnf( "\"%s\" display device not found!", deviceName );
-      return String::EmptyString;
-   }
+static S32 QSORT_CALLBACK _compareResolutions( const GFXVideoMode *a, const GFXVideoMode *b )
+{
+   if ( a->resolution.x != b->resolution.x )
+      return a->resolution.x - b->resolution.x;
+   if ( a->resolution.y != b->resolution.y )
+      return a->resolution.y - b->resolution.y;
+   return S32( a->bitDepth ) - S32( b->bitDepth );
+}
+
+// HH: Added for Tribes 2 compatibility.
+// Smallest first, the order Windows enumerates in: prevResolution and
+// nextResolution walk the list expecting it.
+void GFXInit::getResolutionList( const GFXAdapter *adapter, Vector<GFXVideoMode> *modes )
+{
+   modes->clear();
 
    const bool clipHigh = Con::getBoolVariable( "$pref::Video::clipHigh", false );
    const bool only16   = Con::getBoolVariable( "$pref::Video::only16", false );
 
-   Vector<GFXVideoMode> modes;
    for ( U32 i = 0; i < adapter->mAvailableModes.size(); i++ )
    {
       const GFXVideoMode &mode = adapter->mAvailableModes[i];
 
-      if ( mode.resolution.x < 640 || mode.resolution.y < 480 || mode.bitDepth < 16 )
+      if ( mode.resolution.x < 640 || mode.resolution.y < 480 )
+         continue;
+      if ( mode.bitDepth != 16 && mode.bitDepth != 32 )
          continue;
       if ( clipHigh && ( mode.resolution.x > 1152 || mode.resolution.y > 864 ) )
          continue;
@@ -411,12 +411,31 @@ DefineEngineFunction( getResolutionList, String, ( const char *deviceName ),,
 
       // SDL lists a mode once per refresh rate.
       bool listed = false;
-      for ( U32 j = 0; j < modes.size() && !listed; j++ )
-         listed = modes[j].resolution == mode.resolution && modes[j].bitDepth == mode.bitDepth;
+      for ( U32 j = 0; j < modes->size() && !listed; j++ )
+         listed = (*modes)[j].resolution == mode.resolution && (*modes)[j].bitDepth == mode.bitDepth;
 
       if ( !listed )
-         modes.push_back( mode );
+         modes->push_back( mode );
    }
+
+   modes->sort( _compareResolutions );
+}
+
+// HH: Added for Tribes 2 compatibility.
+// The options dialog fills its resolution and bit depth menus from this.
+DefineEngineFunction( getResolutionList, String, ( const char *deviceName ),,
+   "@brief The device's modes, as tab-separated \"width height bpp\" fields.\n\n"
+   "@ingroup GFX" )
+{
+   GFXAdapter *adapter = GFXInit::getAdapterByName( deviceName );
+   if ( !adapter )
+   {
+      Con::warnf( "\"%s\" display device not found!", deviceName );
+      return String::EmptyString;
+   }
+
+   Vector<GFXVideoMode> modes;
+   GFXInit::getResolutionList( adapter, &modes );
 
    StringBuilder str;
    for ( U32 i = 0; i < modes.size(); i++ )
@@ -427,6 +446,21 @@ DefineEngineFunction( getResolutionList, String, ( const char *deviceName ),,
    }
 
    return str.end();
+}
+
+// HH: Added for Tribes 2 compatibility.
+// Retail's Voodoo2 was full-screen only; no device of ours is.
+DefineEngineFunction( isDeviceFullScreenOnly, bool, ( const char *deviceName ),,
+   "@brief Whether the device can only run full-screen.\n\n"
+   "@ingroup GFX" )
+{
+   if ( !GFXInit::getAdapterByName( deviceName ) )
+   {
+      Con::warnf( "\"%s\" display device not found!", deviceName );
+      return false;
+   }
+
+   return false;
 }
 
 DefineEngineStaticMethod( GFXInit, getAdapterCount, S32, (),,

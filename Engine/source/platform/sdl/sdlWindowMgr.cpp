@@ -147,7 +147,8 @@ S32 PlatformWindowManagerSDL::getDesktopBitDepth()
    if (!mode)
       return 32;
 
-   return S32(SDL_BITSPERPIXEL(mode->format));
+   // Padding counts, as it does on Windows: XRGB8888 is 32.
+   return S32(SDL_BYTESPERPIXEL(mode->format) * 8);
 }
 
 Point2I PlatformWindowManagerSDL::getDesktopResolution()

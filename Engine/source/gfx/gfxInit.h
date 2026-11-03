@@ -91,6 +91,13 @@ public:
 
    /// Get the initial video mode based on user preferences (or a heuristic).
    static GFXVideoMode getInitialVideoMode();
+
+   // HH: Added for Tribes 2 compatibility.
+   /// The enumerated adapter with this name, or NULL.
+   static GFXAdapter *getAdapterByName( const char *name );
+
+   /// The modes Tribes 2 offers for an adapter, smallest first.
+   static void getResolutionList( const GFXAdapter *adapter, Vector<GFXVideoMode> *modes );
 private:
    /// List of known adapters.
    static Vector<GFXAdapter*> smAdapters;

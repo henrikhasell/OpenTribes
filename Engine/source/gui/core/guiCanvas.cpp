@@ -2803,3 +2803,211 @@ DefineEngineFunction( getResolution, const char *, ( ), ,
 
    return buffer;
 }
+
+// HH: Added for Tribes 2 compatibility.
+// Tribes 2's video functions are global and act on the one window; ours hang
+// off the canvas.
+static PlatformWindow *_getCanvasWindow()
+{
+   GuiCanvas *canvas = dynamic_cast< GuiCanvas * >( Sim::findObject( "Canvas" ) );
+   return canvas ? canvas->getPlatformWindow() : NULL;
+}
+
+// HH: Added for Tribes 2 compatibility.
+// The options dialog compares its menus against $pref::Video::resolution and
+// fullScreen, and the window comes back from $pref::Video::mode next launch.
+static bool _setScreenMode( S32 width, S32 height, S32 bpp, bool fullScreen )
+{
+   PlatformWindow *window = _getCanvasWindow();
+   if ( !window )
+      return false;
+
+   GFXVideoMode mode = window->getVideoMode();
+
+   // A window is at the desktop's depth whatever was asked for, and the
+   // options dialog asks for "Default".
+   if ( !fullScreen )
+      bpp = GFXInit::getDesktopResolution().bitDepth;
+   else if ( bpp == 0 )
+      bpp = mode.bitDepth;
+
+   mode.resolution.set( width, height );
+   mode.bitDepth = bpp;
+   mode.fullScreen = fullScreen;
+   window->setVideoMode( mode );
+
+   Con::setVariable( "$pref::Video::resolution", avar( "%d %d %d", width, height, bpp ) );
+   Con::setBoolVariable( "$pref::Video::fullScreen", fullScreen );
+   Con::setVariable( "$pref::Video::mode", mode.toString() );
+
+   return true;
+}
+
+// HH: Added for Tribes 2 compatibility.
+static bool _setResolution( S32 width, S32 height, S32 bpp )
+{
+   PlatformWindow *window = _getCanvasWindow();
+   if ( !window )
+      return false;
+
+   if ( bpp == 0 )
+      bpp = window->getVideoMode().bitDepth;
+
+   return _setScreenMode( width, height, bpp, window->isFullscreen() );
+}
+
+// HH: Added for Tribes 2 compatibility.
+// The step is retail's: the next mode of the same bit depth that is no
+// narrower and differs in height, so 1024x768 steps up to 1152x864.
+static bool _stepResolution( bool up )
+{
+   PlatformWindow *window = _getCanvasWindow();
+   if ( !window || !window->getGFXDevice() )
+      return false;
+
+   Vector<GFXVideoMode> modes;
+   GFXInit::getResolutionList( &window->getGFXDevice()->getAdapter(), &modes );
+   if ( modes.empty() )
+      return false;
+
+   const GFXVideoMode current = window->getVideoMode();
+
+   S32 i;
+   if ( up )
+   {
+      for ( i = 0; i < modes.size() - 1; i++ )
+         if ( modes[i].bitDepth == current.bitDepth && modes[i].resolution.x >= current.resolution.x &&
+              modes[i].resolution.y != current.resolution.y )
+            break;
+   }
+   else
+   {
+      for ( i = modes.size() - 1; i > 0; i-- )
+         if ( modes[i].bitDepth == current.bitDepth && modes[i].resolution.x <= current.resolution.x &&
+              modes[i].resolution.y != current.resolution.y )
+            break;
+   }
+
+   if ( modes[i].bitDepth != current.bitDepth )
+      return false;
+
+   return _setResolution( modes[i].resolution.x, modes[i].resolution.y, modes[i].bitDepth );
+}
+
+// HH: Added for Tribes 2 compatibility.
+// Torque 3D picks its device once, at startup, so the only device this can
+// set is the one already running.
+DefineEngineFunction( setDisplayDevice, bool,
+   ( const char *deviceName, S32 width, S32 height, S32 bpp, const char *fullScreen ),
+   ( -1, -1, -1, "" ),
+   "@brief Set the display device and its screen mode.\n\n"
+   "@ingroup Rendering" )
+{
+   if ( !GFXInit::getAdapterByName( deviceName ) )
+   {
+      Con::warnf( "\"%s\" display device not found!", deviceName );
+      return false;
+   }
+
+   PlatformWindow *window = _getCanvasWindow();
+   if ( !window || !window->getGFXDevice() )
+      return false;
+
+   if ( dStrcmp( window->getGFXDevice()->getAdapter().mName, deviceName ) != 0 )
+   {
+      Con::errorf( "setDisplayDevice - can't switch to the %s display device while running", deviceName );
+      return false;
+   }
+
+   const GFXVideoMode current = window->getVideoMode();
+   if ( width < 0 )
+      width = current.resolution.x;
+   if ( height < 0 )
+      height = current.resolution.y;
+   if ( bpp < 0 )
+      bpp = current.bitDepth;
+   const bool full = fullScreen[ 0 ] ? dAtob( fullScreen ) : window->isFullscreen();
+
+   Con::setVariable( "$pref::Video::displayDevice", deviceName );
+
+   return _setScreenMode( width, height, bpp, full );
+}
+
+// HH: Added for Tribes 2 compatibility.
+DefineEngineFunction( setScreenMode, bool, ( S32 width, S32 height, S32 bpp, bool fullScreen ),,
+   "@brief Set the window's resolution, bit depth and full-screen state.\n\n"
+   "@ingroup Rendering" )
+{
+   return _setScreenMode( width, height, bpp, fullScreen );
+}
+
+// HH: Added for Tribes 2 compatibility.
+DefineEngineFunction( toggleFullScreen, bool, (),,
+   "@brief Switch between windowed and full-screen at the same resolution.\n\n"
+   "@ingroup Rendering" )
+{
+   PlatformWindow *window = _getCanvasWindow();
+   if ( !window )
+      return false;
+
+   const GFXVideoMode current = window->getVideoMode();
+   return _setScreenMode( current.resolution.x, current.resolution.y, current.bitDepth, !window->isFullscreen() );
+}
+
+// HH: Added for Tribes 2 compatibility.
+DefineEngineFunction( isFullScreen, bool, (),,
+   "@brief Whether the window is full-screen.\n\n"
+   "@ingroup Rendering" )
+{
+   PlatformWindow *window = _getCanvasWindow();
+   return window && window->isFullscreen();
+}
+
+// HH: Added for Tribes 2 compatibility.
+DefineEngineFunction( switchBitDepth, bool, (),,
+   "@brief Switch a full-screen window between 16 and 32 bits per pixel.\n\n"
+   "@ingroup Rendering" )
+{
+   PlatformWindow *window = _getCanvasWindow();
+   if ( !window || !window->isFullscreen() )
+   {
+      Con::warnf( "Can only switch bit depth in full-screen mode!" );
+      return false;
+   }
+
+   const GFXVideoMode current = window->getVideoMode();
+   return _setResolution( current.resolution.x, current.resolution.y, current.bitDepth == 16 ? 32 : 16 );
+}
+
+// HH: Added for Tribes 2 compatibility.
+DefineEngineFunction( prevResolution, bool, (),,
+   "@brief Step down to the next smaller resolution.\n\n"
+   "@ingroup Rendering" )
+{
+   return _stepResolution( false );
+}
+
+// HH: Added for Tribes 2 compatibility.
+DefineEngineFunction( nextResolution, bool, (),,
+   "@brief Step up to the next larger resolution.\n\n"
+   "@ingroup Rendering" )
+{
+   return _stepResolution( true );
+}
+
+// HH: Added for Tribes 2 compatibility.
+// A bit depth other than 16 or 32 keeps the current one.
+DefineEngineFunction( setResolution, bool, ( S32 width, S32 height, S32 bpp ), ( 0 ),
+   "@brief Set the window's resolution, keeping its full-screen state.\n\n"
+   "@ingroup Rendering" )
+{
+   return _setResolution( width, height, bpp == 16 || bpp == 32 ? bpp : 0 );
+}
+
+// HH: Added for Tribes 2 compatibility.
+DefineEngineFunction( setRes, bool, ( S32 width, S32 height, S32 bpp ), ( 0 ),
+   "@brief Set the window's resolution, keeping its full-screen state.\n\n"
+   "@ingroup Rendering" )
+{
+   return _setResolution( width, height, bpp == 16 || bpp == 32 ? bpp : 0 );
+}
