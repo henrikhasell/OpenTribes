@@ -159,6 +159,23 @@ void InteriorInstance::initPersistFields()
 //-----------------------------------------------------------------------------
 
 // HH: Added for Tribes 2 compatibility.
+// The materials of the interiors a client has, built again for a pref
+// their shaders depend on.
+static void reinitInteriorMaterials()
+{
+   Vector<SceneObject*> found;
+   gClientContainer.findObjectList( InteriorObjectType, &found );
+   for ( U32 i = 0; i < found.size(); i++ )
+   {
+      InteriorInstance *instance = dynamic_cast<InteriorInstance*>( found[i] );
+      if ( !instance )
+         continue;
+
+      for ( U32 d = 0; d < instance->getNumDetailLevels(); d++ )
+         instance->getDetailLevel( d )->initMatInstances();
+   }
+}
+
 static bool sgUsedFogCoord = true;
 
 static bool sgUsedVertexLighting = false;
@@ -169,8 +186,7 @@ static void vertexLightingChanged()
       return;
 
    sgUsedVertexLighting = Interior::smUseVertexLighting;
-   if ( MATMGR )
-      MATMGR->flushAndReInitInstances();
+   reinitInteriorMaterials();
 }
 
 static void fogChanged()
@@ -179,8 +195,7 @@ static void fogChanged()
       return;
 
    sgUsedFogCoord = Interior::useFogCoord();
-   if ( MATMGR )
-      MATMGR->flushAndReInitInstances();
+   reinitInteriorMaterials();
 }
 
 void InteriorInstance::consoleInit()
