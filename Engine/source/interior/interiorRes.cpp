@@ -139,33 +139,39 @@ bool InteriorResource::read(Stream& stream)
       }
    }
 
+   // HH: Modified for Tribes 2 compatibility.
+   // Tribes 2 keeps its paths (0x00527330) and the children that ride them
+   // (0x00527510) in layouts of its own, then a word it drops (0x00526e1b),
+   // and has no force fields here.  Nothing in this engine moves an
+   // interior along a path, so both are read past.
+   U32 numPaths;
+   stream.read(&numPaths);
+   for (i = 0; i < numPaths; i++) {
+      stream.readSTString();
+      U32 numWayPoints;
+      stream.read(&numWayPoints);
+      // Position, rotation and milliseconds to the next
+      stream.setPosition(stream.getPosition() + numWayPoints * 32);
+      U32 totalMS;
+      stream.read(&totalMS);
+      bool looping;
+      stream.read(&looping);
+   }
+
    U32 numChildren;
    stream.read(&numChildren);
-   mInteriorPathFollowers.setSize(numChildren);
-   for (i = 0; i < mInteriorPathFollowers.size(); i++)
-      mInteriorPathFollowers[i] = NULL;
-
-   for (i = 0; i < mInteriorPathFollowers.size(); i++) {
-      mInteriorPathFollowers[i] = new InteriorPathFollower;
-      if (mInteriorPathFollowers[i]->read(stream) == false) {
-         AssertISV(false, avar("Unable to read child %d in interior resource", i));
-         return false;
-      }
+   for (i = 0; i < numChildren; i++) {
+      stream.readSTString();
+      // Interior, path and offset
+      stream.setPosition(stream.getPosition() + 20);
+      U32 numTriggers;
+      stream.read(&numTriggers);
+      for (U32 j = 0; j < numTriggers; j++)
+         stream.readSTString();
    }
 
-   U32 numFields;
-   stream.read(&numFields);
-   mForceFields.setSize(numFields);
-   for (i = 0; i < mForceFields.size(); i++)
-      mForceFields[i] = NULL;
-
-   for (i = 0; i < mForceFields.size(); i++) {
-      mForceFields[i] = new ForceField;
-      if (mForceFields[i]->read(stream) == false) {
-         AssertISV(false, avar("Unable to read field %d in interior resource", i));
-         return false;
-      }
-   }
+   U32 dropped;
+   stream.read(&dropped);
 
    U32 numSpecNodes;
    stream.read(&numSpecNodes);

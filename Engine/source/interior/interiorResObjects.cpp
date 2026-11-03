@@ -23,6 +23,7 @@
 #include "interior/interiorResObjects.h"
 #include "core/stream/stream.h"
 #include "math/mathIO.h"
+#include "core/stringTable.h"   // HH: Added for Tribes 2 compatibility.
 
 //--------------------------------------------------------------------------
 //--------------------------------------
@@ -57,8 +58,9 @@ bool InteriorResTrigger::read(Stream& stream)
 {
    U32 i, size;
    stream.readString(mName);
-   mDataBlock = stream.readSTString();
-   mDictionary.read(stream);
+   // HH: Modified for Tribes 2 compatibility.
+   // Tribes 2's trigger has no datablock or dictionary (0x00527020).
+   mDataBlock = StringTable->EmptyString();
 
    // Read the polyhedron
    stream.read(&size);
