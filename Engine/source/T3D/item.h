@@ -121,7 +121,9 @@ class Item: public ShapeBase
 
   public:
 
-   void registerLights(LightManager * lightManager, bool lightingScene);
+   // HH: Modified for Tribes 2 compatibility.
+   // TGE's registerLights, under the name Torque 3D calls.
+   void submitLights(LightManager * lightManager, bool lightingScene);
    enum LightType
    {
       NoLight = 0,

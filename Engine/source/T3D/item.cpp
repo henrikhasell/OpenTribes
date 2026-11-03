@@ -452,8 +452,11 @@ void Item::onDeleteNotify( SimObject *obj )
 
 // Lighting: -----------------------------------------------------------------
 
-void Item::registerLights(LightManager * lightManager, bool lightingScene)
+// HH: Modified for Tribes 2 compatibility.
+void Item::submitLights(LightManager * lightManager, bool lightingScene)
 {
+   Parent::submitLights(lightManager, lightingScene);
+
    if(lightingScene)
       return;
 
