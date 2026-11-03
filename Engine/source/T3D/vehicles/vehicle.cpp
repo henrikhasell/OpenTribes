@@ -58,9 +58,15 @@ const S32 sMaxWarpTicks = 3;           // Max warp duration in ticks
 const S32 sMaxPredictionTicks = 30;    // Number of ticks to predict
 const F32 sVehicleGravity = -20;
 
-// Physics and collision constants
-static F32 sRestTol = 0.5;             // % of gravity energy to be at rest
-static int sRestCount = 10;            // Consecutive ticks before comming to rest
+// HH: Modified for Tribes 2 compatibility.
+// Retail's collision response (0x60b730) runs on fixed tolerances, not on a
+// datablock's, and has no rest state.
+const F32 sCollisionTol = 0.07f;       // Closest state and contacts (0x7a541c)
+const F32 sCollisionInfoTol = 0.0875f; // getCollisionInfo (0x7a5440)
+const F32 sImpactSpeed = -0.5f;        // Impacts below, contacts above (0x7a54b8)
+const F32 sNearContactDist = 0.01f;    // A step ending this near is retried (0x7a5444)
+const F32 sNoContactDist = 1.0e7f;     // Distance when nothing is near (0x7a5428)
+const F32 sMinStep = 1.0e-4f;          // Shortest step before a stop (0x7a5450)
 
 } // namespace {}
 
@@ -432,11 +438,12 @@ void VehicleData::initPersistFields()
    // updatePos picks its own steps.
    addField( "integration", TypeS32, Offset(integration, VehicleData),
       "Unused. A Tribes 2 vehicle takes the forces once a tick." );
+   // HH: Modified for Tribes 2 compatibility.
+   // Retail has neither field: its tolerances are fixed (0x60b730).
    addField( "collisionTol", TypeF32, Offset(collisionTol, VehicleData),
-      "Minimum distance between objects for them to be considered as colliding." );
+      "Unused. A Tribes 2 vehicle collides within a fixed 0.07." );
    addField( "contactTol", TypeF32, Offset(contactTol, VehicleData),
-      "Maximum relative velocity between objects for collisions to be resolved "
-      "as contacts.\nVelocities greater than this are handled as collisions." );
+      "Unused. A Tribes 2 vehicle takes an impact below a fixed -0.5." );
 
    addField( "cameraRoll", TypeBool, Offset(cameraRoll, VehicleData),
       "If true, the camera will roll with the vehicle. If false, the camera will "
@@ -589,7 +596,6 @@ Vehicle::Vehicle()
 
    mDisableMove = false;
    mFrozen = false;   // HH: Added for Tribes 2 compatibility.
-   restCount = 0;
 
    inLiquid = false;
    mWakeSound = NULL;
@@ -1048,50 +1054,149 @@ void Vehicle::enableCollision()
 
 
 //----------------------------------------------------------------------------
+
+// HH: Added for Tribes 2 compatibility.
+// Retail's Rigid::integrate (0x5c54b0) steps a copy of the body's state but
+// sizes the turn by the body's own angular speed, not the copy's, which an
+// impulse in this step may have changed. The centre of mass is the origin,
+// so there is nothing to turn the position about.
+static void integrateState(Rigid& ns, const Rigid& body, F32 dt)
+{
+   ns.linPosition += ns.linVelocity * dt;
+   ns.linMomentum += ns.force * dt;
+   ns.linVelocity = ns.linMomentum * ns.oneOverMass;
+
+   F32 angle = body.angVelocity.len();
+   if (angle != 0.0f)
+   {
+      QuatF dq;
+      F32 sinHalfAngle;
+      mSinCos(angle * dt * -0.5f, sinHalfAngle, dq.w);
+      sinHalfAngle *= 1.0f / angle;
+      dq.x = ns.angVelocity.x * sinHalfAngle;
+      dq.y = ns.angVelocity.y * sinHalfAngle;
+      dq.z = ns.angVelocity.z * sinHalfAngle;
+      QuatF tmp = ns.angPosition;
+      ns.angPosition.mul(tmp, dq);
+      ns.angPosition.normalize();
+   }
+
+   ns.angMomentum += ns.torque * dt;
+   ns.updateInertialTensor();
+   ns.updateVelocity();
+   ns.updateCenterOfMass();
+}
+
+// HH: Added for Tribes 2 compatibility.
+// Retail's Rigid::resolveCollision (0x5c5930). Torque's caps the friction
+// impulse at what would stop the slide; retail's is the normal impulse
+// without its restitution, times the friction, along the slide, uncapped.
+static void resolveImpact(Rigid& ns, const Point3F& p, const Point3F& normal)
+{
+   ns.atRest = false;
+   Point3F v, r = p - ns.linPosition;
+   ns.getVelocity(r, &v);
+   F32 n = -mDot(v, normal);
+   if (n < 0.0f)
+      return;
+
+   F32 d = ns.getZeroImpulse(r, normal);
+   Point3F impulse = normal * ((1.0f + ns.restitution) * n * d);
+
+   Point3F uv = v + normal * n;
+   F32 ul = uv.len();
+   if (ul != 0.0f)
+   {
+      uv *= -1.0f / ul;
+      impulse += uv * (n * d * ns.friction * ns.getZeroImpulse(r, uv));
+   }
+
+   ns.applyImpulse(r, impulse);
+}
+
+//----------------------------------------------------------------------------
 /** Update the physics
 */
 
+// HH: Modified for Tribes 2 compatibility.
+// Retail's (0x60b730). processTick has already summed the forces. A copy of
+// the body takes each step, half the tick to begin with. A step that ends
+// within 0.01 of something, no further from it than it began, is quartered
+// and taken again from where the body was, with no collision response; one
+// under 1e-4 s stops the body dead where it is. A shortened step that is
+// kept grows by 1.2 for the next.
 void Vehicle::updatePos(F32 dt)
 {
    PROFILE_SCOPE( Vehicle_UpdatePos );
 
    Point3F origVelocity = mRigid.linVelocity;
 
-   // HH: Modified for Tribes 2 compatibility.
-   // processTick has already summed the forces. Retail's body (0x60b730)
-   // moves in steps of half the tick, which only a contact shortens, so a
-   // vehicle touching nothing integrates twice a tick, at dt / 2 each time.
-   // Torque's collision response runs in each step until the solver is
-   // retail's.
-   const F32 step = dt * 0.5f;
-   bool collided = false;
-   for (U32 i = 0; i < 2; i++)
-   {
-      // Update collision information based on our current pos.
-      if (!mRigid.atRest) {
-         collided |= updateCollision(step);
+   Rigid ns = mRigid;
+   MatrixF mat, cmat;
+   mConvex.transform = &mat;
+   mRigid.getTransform(&mat);
+   cmat = mConvex.getTransform();
+   CollisionState* state = mConvex.findClosestState(cmat, getScale(), sCollisionTol);
 
-         // Now that all the forces have been processed, lets
-         // see if we're at rest.  Basically, if the kinetic energy of
-         // the vehicles is less than some percentage of the energy added
-         // by gravity for a short period, we're considered at rest.
-         // This should really be part of the rigid class...
-         if (mCollisionList.getCount())
+   const F32 firstStep = dt * 0.5f;
+   F32 step = firstStep;
+   F32 time = 0.0f;
+   bool collided = false;
+   bool displaced = false;
+   while (time < dt)
+   {
+      const F32 lastDist = state ? state->dist : sNoContactDist;
+      mCollisionList.clear();
+      if (state && state->dist < sCollisionTol)
+      {
+         // A displaceable shape in the way is pushed aside, and the step
+         // taken again without a collision (0x60ba33).
+         if (resolveDisplacement(ns, state, firstStep))
          {
-            F32 k = mRigid.getKineticEnergy();
-            F32 G = sVehicleGravity * step;
-            F32 Kg = 0.5 * mRigid.mass * G * G;
-            if (k < sRestTol * Kg && ++restCount > sRestCount)
-               mRigid.setAtRest();
+            displaced = true;
+            state = NULL;
+            continue;
          }
-         else
-            restCount = 0;
+
+         mConvex.getCollisionInfo(cmat, getScale(), &mCollisionList, sCollisionInfoTol);
+         collided |= resolveCollision(ns, mCollisionList);
+         resolveContacts(ns, mCollisionList, step);
+
+         // Nothing pushes a body that has hit something this tick (0x60c020).
+         if (collided)
+            ns.clearForces();
       }
 
-      // Integrate forward
-      if (!mRigid.atRest)
-         mRigid.integrate(step);
+      integrateState(ns, mRigid, step);
+
+      ns.getTransform(&mat);
+      cmat = mConvex.getTransform();
+      state = mConvex.findClosestState(cmat, getScale(), sCollisionTol);
+      if (state && state->dist <= sNearContactDist && state->dist <= lastDist)
+      {
+         step *= 0.25f;
+         if (step < sMinStep)
+         {
+            collided = true;
+            mRigid.linVelocity.set(0.0f, 0.0f, 0.0f);
+            mRigid.linMomentum.set(0.0f, 0.0f, 0.0f);
+            mRigid.angVelocity.set(0.0f, 0.0f, 0.0f);
+            mRigid.angMomentum.set(0.0f, 0.0f, 0.0f);
+            break;
+         }
+         ns = mRigid;
+         state = NULL;
+         continue;
+      }
+
+      mRigid = ns;
+      time += step;
+      if (step < firstStep)
+         step *= 1.2f;
+      if (step > dt - time)
+         step = dt - time;
    }
+   collided |= displaced;
 
    // Deal with client and server scripting, sounds, etc.
    if (isServerObject()) {
@@ -1140,80 +1245,55 @@ void Vehicle::updateForces(F32 /*dt*/)
 }
 
 
-//-----------------------------------------------------------------------------
-/** Update collision information
-   Update the convex state and check for collisions. If the object is in
-   collision, impact and contact forces are generated.
-*/
-
-bool Vehicle::updateCollision(F32 dt)
-{
-   PROFILE_SCOPE( Vehicle_UpdateCollision );
-
-   // Update collision information
-   MatrixF mat,cmat;
-   mConvex.transform = &mat;
-   mRigid.getTransform(&mat);
-   cmat = mConvex.getTransform();
-
-   mCollisionList.clear();
-   CollisionState *state = mConvex.findClosestState(cmat, getScale(), mDataBlock->collisionTol);
-   if (state && state->dist <= mDataBlock->collisionTol) 
-   {
-      //resolveDisplacement(ns,state,dt);
-      mConvex.getCollisionInfo(cmat, getScale(), &mCollisionList, mDataBlock->collisionTol);
-   }
-
-   // Resolve collisions
-   bool collided = resolveCollision(mRigid,mCollisionList);
-   resolveContacts(mRigid,mCollisionList,dt);
-   return collided;
-}
-
-
 //----------------------------------------------------------------------------
 /** Resolve collision impacts
    Handle collision impacts, as opposed to contacts. Impulses are calculated based
    on standard collision resolution formulas.
 */
+// HH: Modified for Tribes 2 compatibility.
+// Retail's (0x60cc10) goes over the contacts again until a pass applies no
+// impulse; Torque's makes one pass.
 bool Vehicle::resolveCollision(Rigid&  ns,CollisionList& cList)
 {
    PROFILE_SCOPE( Vehicle_ResolveCollision );
 
    // Apply impulses to resolve collision
    bool collided = false;
-   for (S32 i = 0; i < cList.getCount(); i++) 
+   bool resolved;
+   do
    {
-      Collision& c = cList[i];
-      if (c.distance < mDataBlock->collisionTol) 
+      resolved = false;
+      for (S32 i = 0; i < cList.getCount(); i++) 
       {
-         // Velocity into surface
-         Point3F v,r;
-         ns.getOriginVector(c.point,&r);
-         ns.getVelocity(r,&v);
-         F32 vn = mDot(v,c.normal);
-
-         // Only interested in velocities greater than sContactTol,
-         // velocities less than that will be dealt with as contacts
-         // "constraints".
-         if (vn < -mDataBlock->contactTol) 
+         Collision& c = cList[i];
+         if (c.distance < sCollisionTol) 
          {
+            // Velocity into surface
+            Point3F v,r = c.point - ns.linPosition;
+            ns.getVelocity(r,&v);
+            F32 vn = mDot(v,c.normal);
 
-            // Apply impulses to the rigid body to keep it from
-            // penetrating the surface.
-            ns.resolveCollision(cList[i].point,
-               cList[i].normal);
-            collided  = true;
-
-            // Keep track of objects we collide with
-            if (!isGhost() && c.object->getTypeMask() & ShapeBaseObjectType) 
+            // Only interested in velocities greater than sImpactSpeed,
+            // velocities less than that will be dealt with as contacts
+            // "constraints".
+            if (vn < sImpactSpeed) 
             {
-               ShapeBase* col = static_cast<ShapeBase*>(c.object);
-               queueCollision(col,v - col->getVelocity());
+
+               // Apply impulses to the rigid body to keep it from
+               // penetrating the surface.
+               resolveImpact(ns, c.point, c.normal);
+               resolved = collided = true;
+
+               // Keep track of objects we collide with
+               if (!isGhost() && c.object->getTypeMask() & ShapeBaseObjectType) 
+               {
+                  ShapeBase* col = static_cast<ShapeBase*>(c.object);
+                  queueCollision(col,v - col->getVelocity());
+               }
             }
          }
       }
-   }
+   } while (resolved);
 
    return collided;
 }
@@ -1223,51 +1303,45 @@ bool Vehicle::resolveCollision(Rigid&  ns,CollisionList& cList)
    Resolve contact forces using the "penalty" method. Forces are generated based
    on the depth of penetration and the moment of inertia at the point of contact.
 */
+// HH: Modified for Tribes 2 compatibility.
+// Retail's (0x60cd90): the spring grows with the square of how far into the
+// tolerance the contact is, 400 at full depth, and damps at twice the speed
+// into the surface. Friction is the spring's force times the body's
+// friction, against the slide, uncapped.
 bool Vehicle::resolveContacts(Rigid& ns,CollisionList& cList,F32 dt)
 {
    PROFILE_SCOPE( Vehicle_ResolveContacts );
 
    // Use spring forces to manage contact constraints.
-   bool collided = false;
    Point3F t,p(0,0,0),l(0,0,0);
    for (S32 i = 0; i < cList.getCount(); i++) 
    {
       const Collision& c = cList[i];
-      if (c.distance < mDataBlock->collisionTol) 
+      if (c.distance < sCollisionTol) 
       {
 
          // Velocity into the surface
-         Point3F v,r;
-         ns.getOriginVector(c.point,&r);
+         Point3F v,r = c.point - ns.linPosition;
          ns.getVelocity(r,&v);
          F32 vn = mDot(v,c.normal);
 
-         // Only interested in velocities less than mDataBlock->contactTol,
-         // velocities greater than that are dealt with as collisions.
-         if (mFabs(vn) < mDataBlock->contactTol) 
+         // Only interested in velocities greater than sImpactSpeed,
+         // velocities less than that are dealt with as collisions.
+         if (vn > sImpactSpeed) 
          {
-            collided = true;
-
             // Penetration force. This is actually a spring which
             // will seperate the body from the collision surface.
-            F32 zi = 2 * mFabs(mRigid.getZeroImpulse(r,c.normal));
-            F32 s = (mDataBlock->collisionTol - c.distance) * zi - ((vn / mDataBlock->contactTol) * zi);
-            Point3F f = c.normal * s;
+            F32 zi = mRigid.getZeroImpulse(r,c.normal);
+            F32 depth = (sCollisionTol - c.distance) * (1.0f / sCollisionTol);
+            F32 s = depth * depth * zi * 400.0f - vn * 2.0f;
+            Point3F f = c.normal * (s * dt);
 
-            // Friction impulse, calculated as a function of the
-            // amount of force it would take to stop the motion
-            // perpendicular to the normal.
+            // Friction impulse against the motion perpendicular to the
+            // normal.
             Point3F uv = v - (c.normal * vn);
             F32 ul = uv.len();
-            if (s > 0 && ul) 
-            {
-               uv /= -ul;
-               F32 u = ul * ns.getZeroImpulse(r,uv);
-               s *= mRigid.friction;
-               if (u > s)
-                  u = s;
-               f += uv * u;
-            }
+            if (s > 0 && ul != 0.0f) 
+               f -= uv * (s * mRigid.friction * dt / ul);
 
             // Accumulate forces
             p += f;
@@ -1278,8 +1352,8 @@ bool Vehicle::resolveContacts(Rigid& ns,CollisionList& cList,F32 dt)
    }
 
    // Contact constraint forces act over time...
-   ns.linMomentum += p * dt;
-   ns.angMomentum += l * dt;
+   ns.linMomentum += p;
+   ns.angMomentum += l;
    ns.updateVelocity();
    return true;
 }
