@@ -1528,7 +1528,14 @@ void InteriorConvex::getFeatures(const MatrixF& mat, const VectorF& n, ConvexFea
             cf->mFaceList.last().vertex[0] = pRemaps[verts[0]];
             cf->mFaceList.last().vertex[1] = pRemaps[verts[1]];
             cf->mFaceList.last().vertex[2] = pRemaps[verts[2]];
-            cf->mFaceList.last().normal = pInterior->getPlane(planeIndex);
+            // HH: Modified for Tribes 2 compatibility.
+            // As for the other hulls, the face's own world-space vertices
+            // give its normal (0x0051f37e); planeIndex is the hull's, not an
+            // index into the interior's planes.
+            PlaneF plane(cf->mVertexList[pRemaps[verts[0]]],
+                         cf->mVertexList[pRemaps[verts[1]]],
+                         cf->mVertexList[pRemaps[verts[2]]]);
+            cf->mFaceList.last().normal = plane;
 
             // Shift the fan over
             verts[1] = verts[2];

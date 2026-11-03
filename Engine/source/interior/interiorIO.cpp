@@ -1148,7 +1148,12 @@ bool Interior::readVehicleCollision(Stream& stream)
       stream.read(&mVehicleNullSurfaces[i].windingStart);
       stream.read(&mVehicleNullSurfaces[i].planeIndex);
       stream.read(&mVehicleNullSurfaces[i].surfaceFlags);
-      stream.read(&mVehicleNullSurfaces[i].windingCount);
+      // HH: Modified for Tribes 2 compatibility.
+      // A byte in Tribes 2 (0x00515c58), as in Interior::read before
+      // version 13.
+      U8 count;
+      stream.read(&count);
+      mVehicleNullSurfaces[i].windingCount = (U32)count;
    }
 
    stream.read(&vectorSize);
