@@ -9,6 +9,7 @@
 #include "gfx/gfxStringEnumTranslate.h"
 #include "windowManager/platformWindowMgr.h"
 #include "console/console.h"
+#include "console/engineAPI.h"
 
 #include <SDL3/SDL.h>
 
@@ -36,7 +37,8 @@ void GFXGLDevice::enumerateAdapters(Vector<GFXAdapter*>& adapterList)
          {
             GFXVideoMode mode;
             mode.resolution.set(modes[i]->w, modes[i]->h);
-            mode.bitDepth    = SDL_BITSPERPIXEL(modes[i]->format);
+            // Padding counts, as it does on Windows: XRGB8888 is 32.
+            mode.bitDepth    = SDL_BYTESPERPIXEL(modes[i]->format) * 8;
             mode.refreshRate = U32(modes[i]->refresh_rate);
             mode.fullScreen  = true;
             toAdd->mAvailableModes.push_back(mode);
@@ -66,7 +68,7 @@ void GFXGLDevice::enumerateVideoModes()
       {
          GFXVideoMode mode;
          mode.resolution.set(modes[i]->w, modes[i]->h);
-         mode.bitDepth    = SDL_BITSPERPIXEL(modes[i]->format);
+         mode.bitDepth    = SDL_BYTESPERPIXEL(modes[i]->format) * 8;
          mode.refreshRate = U32(modes[i]->refresh_rate);
          mode.fullScreen  = true;
          mVideoModes.push_back(mode);
@@ -162,4 +164,29 @@ void GFXGLWindowTarget::_teardownCurrentMode()
 
 void GFXGLWindowTarget::_setupNewMode()
 {
+}
+
+// HH: Added for Tribes 2 compatibility.
+// The options dialog's driver info: vendor, renderer, version and extensions.
+DefineEngineFunction( getVideoDriverInfo, String, (),,
+   "@brief The GL driver's vendor, renderer, version and extensions, tab-separated.\n\n"
+   "@ingroup GFX" )
+{
+   if ( !GFXDevice::devicePresent() || GFX->getAdapterType() != OpenGL )
+      return String::EmptyString;
+
+   const GLenum names[] = { GL_VENDOR, GL_RENDERER, GL_VERSION, GL_EXTENSIONS };
+
+   StringBuilder str;
+   for ( U32 i = 0; i < 4; i++ )
+   {
+      if ( i )
+         str.append( '\t' );
+
+      const char *value = reinterpret_cast< const char * >( glGetString( names[i] ) );
+      if ( value )
+         str.append( value );
+   }
+
+   return str.end();
 }
