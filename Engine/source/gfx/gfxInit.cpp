@@ -110,6 +110,25 @@ inline static void _GFXInitGetInitialRes(GFXVideoMode &vm, const Point2I &initia
    vm.wideScreen = false;
 
    vm.parseFromString(resString);
+
+   // HH: Modified for Tribes 2 compatibility.
+   // Tribes 2 keeps the size and full-screen state in prefs of its own, and
+   // reads them as its window opens: a missing width, height or depth is 800,
+   // 600 or 16, split on spaces or an "x". A window takes the desktop's depth.
+   char resolution[64];
+   dStrncpy(resolution, Con::getVariable("$pref::Video::resolution"), sizeof(resolution));
+   resolution[sizeof(resolution) - 1] = '\0';
+
+   char *token = dStrtok(resolution, " x");
+   vm.resolution.x = token ? dAtoi(token) : 800;
+   token = dStrtok(NULL, " x");
+   vm.resolution.y = token ? dAtoi(token) : 600;
+   token = dStrtok(NULL, " x");
+   vm.bitDepth = token ? dAtoi(token) : 16;
+
+   vm.fullScreen = Con::getBoolVariable("$pref::Video::fullScreen", false);
+   if (!vm.fullScreen)
+      vm.bitDepth = desktopVm.bitDepth;
 }
 
 GFXInit::RegisterDeviceSignal& GFXInit::getRegisterDeviceSignal()

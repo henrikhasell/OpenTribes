@@ -2814,8 +2814,9 @@ static PlatformWindow *_getCanvasWindow()
 }
 
 // HH: Added for Tribes 2 compatibility.
-// The options dialog compares its menus against $pref::Video::resolution and
-// fullScreen, and the window comes back from $pref::Video::mode next launch.
+// The window opens next launch from $pref::Video::resolution and fullScreen,
+// which the options dialog also compares its menus against. Torque 3D's own
+// $pref::Video::mode is kept in step: the canvas re-reads it for lighting.
 static bool _setScreenMode( S32 width, S32 height, S32 bpp, bool fullScreen )
 {
    PlatformWindow *window = _getCanvasWindow();
