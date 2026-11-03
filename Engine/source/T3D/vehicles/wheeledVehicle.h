@@ -37,62 +37,6 @@ class ParticleEmitterData;
 
 //----------------------------------------------------------------------------
 
-struct WheeledVehicleTire: public SimDataBlock 
-{
-   typedef SimDataBlock Parent;
-
-   //
-   StringTableEntry shapeName;// Max shape to render
-
-   // Physical properties
-   F32 mass;                  // Mass of the whole wheel
-   F32 kineticFriction;       // Tire friction coefficient
-   F32 staticFriction;        // Tire friction coefficient
-   F32 restitution;           // Currently not used
-
-   // Tires act as springs and generate lateral and longitudinal
-   // forces to move the vehicle. These distortion/spring forces
-   // are what convert wheel angular velocity into forces that
-   // act on the rigid body.
-   F32 lateralForce;          // Spring force
-   F32 lateralDamping;        // Damping force
-   F32 lateralRelaxation;     // The tire will relax if left alone
-   F32 longitudinalForce;
-   F32 longitudinalDamping;
-   F32 longitudinalRelaxation;
-
-   // Shape information initialized in the preload
-   Resource<TSShape> shape;   // The loaded shape
-   F32 radius;                // Tire radius
-
-   //
-   WheeledVehicleTire();
-   DECLARE_CONOBJECT(WheeledVehicleTire);
-   static void initPersistFields();
-   bool preload(bool, String &errorStr);
-};
-
-
-//----------------------------------------------------------------------------
-
-struct WheeledVehicleSpring: public SimDataBlock 
-{
-   typedef SimDataBlock Parent;
-
-   F32 length;                // Travel distance from root hub position
-   F32 force;                 // Spring force
-   F32 damping;               // Damping force
-   F32 antiSway;              // Opposite wheel anti-sway
-
-   //
-   WheeledVehicleSpring();
-   DECLARE_CONOBJECT(WheeledVehicleSpring);
-   static void initPersistFields();
-};
-
-
-//----------------------------------------------------------------------------
-
 struct WheeledVehicleData: public VehicleData 
 {
    typedef VehicleData Parent;
@@ -111,30 +55,56 @@ struct WheeledVehicleData: public VehicleData
       WheelImpactSound,
       MaxSounds,
    };
-   SFXTrack* sound[MaxSounds];
+   // HH: Modified for Tribes 2 compatibility.
+   SFXProfile* sound[MaxSounds];
+   S32 soundID[MaxSounds];
 
    ParticleEmitterData* tireEmitter;
+   S32 tireEmitterID;               // HH: Added for Tribes 2 compatibility.
 
    F32 maxWheelSpeed;            // Engine torque is scale based on wheel speed
    F32 engineTorque;             // Engine force controlled through throttle
-   F32 engineBrake;              // Break force applied when throttle is 0
-   F32 brakeTorque;              // Force used when brakeing
+   F32 brakeTorque;              // Force used when brakeing (breakTorque)
 
-   // Initialized onAdd
+   // HH: Added for Tribes 2 compatibility.
+   // Tribes 2 has no tire or spring datablocks: the vehicle's own carries one
+   // tire and one spring for all its wheels.
+   F32 tireFriction;
+   F32 tireRestitution;
+   F32 tireRadius;
+   F32 tireLateralForce;
+   F32 tireLateralDamping;
+   F32 tireLateralRelaxation;
+   F32 tireLongitudinalForce;
+   F32 tireLongitudinalDamping;
+   F32 tireLongitudinalRelaxation;  ///< registered as tireLogitudinalRelaxation
+   F32 staticLoadScale;
+   F32 springForce;
+   F32 springDamping;
+   F32 antiSwayForce;
+   F32 antiRockForce;
+   F32 stabilizerForce;
+   F32 gyroForce;
+   F32 gyroDamping;
+
+   // HH: Modified for Tribes 2 compatibility.
+   // What preload (0x611f42) finds of each wheel in the vehicle's own shape:
+   // a ground%d node and a spring%d sequence make a wheel.
    struct Wheel 
    {
-      S32 opposite;              // Opposite wheel on Y axis (or -1 for none)
-      Point3F pos;               // Root pos of spring
-      S32 springNode;            // Wheel spring/hub node
-      S32 springSequence;        // Suspension animation
-      F32 springLength;          // Suspension animation length
+      bool steers;               ///< it has a turn%d sequence
+      S32 opposite;              ///< the wheel across from this one, or -1
+      Point3F hubPos;            ///< pos raised by tireRadius, unmirrored
+      Point3F pos;               ///< ground%d at the end of spring%d
+      Point3F springTravel;      ///< from pos to ground%d at its start
+      S32 groundNode;
+      S32 springSequence;
+      S32 wheelSequence;
+      S32 turnSequence;
    } wheel[MaxWheels];
    U32 wheelCount;
-   // HH: Added for Tribes 2 compatibility.
-   U32 t2WheelCount;             ///< the wheels Tribes 2 finds ([db+0x6e8])
    ClippedPolyList rigidBody;    // Extracted from shape
-   S32 brakeLightSequence;       // Brakes
-   S32 steeringSequence;         // Steering animation
+   S32 tailLightSequence;        // HH: Modified for Tribes 2 compatibility.
 
    //
    WheeledVehicleData();
@@ -142,6 +112,8 @@ struct WheeledVehicleData: public VehicleData
    static void initPersistFields();
    bool preload(bool, String &errorStr);
    bool mirrorWheel(Wheel* we);
+   // HH: Added for Tribes 2 compatibility.
+   bool unpackData(BitStream *stream, U32 classId) override;
 };
 
 
@@ -151,12 +123,6 @@ class WheeledVehicle: public Vehicle
 {
    typedef Vehicle Parent;
 
-   enum MaskBits 
-   {
-      WheelMask    = Parent::NextFreeMask << 0,
-      NextFreeMask = Parent::NextFreeMask << 1
-   };
-
    WheeledVehicleData* mDataBlock;
 
    bool mBraking;
@@ -165,50 +131,49 @@ class WheeledVehicle: public Vehicle
    SFXSource* mEngineSound;
    SFXSource* mSquealSound;
 
+   // HH: Modified for Tribes 2 compatibility.
+   // Each wheel's state as retail keeps it (0x70 bytes a wheel from +0xb2c).
    struct Wheel 
    {
-      WheeledVehicleTire *tire;
-      WheeledVehicleSpring *spring;
       WheeledVehicleData::Wheel* data;
 
-      F32 extension;          // Spring extension (0-1)
-      F32 avel;               // Angular velocity
-      F32 apos;               // Anuglar position (client side only)
-      F32 Dy,Dx;              // Current tire deformation
+      F32 extension;          ///< 1 hangs the wheel out, 0 has it compressed
+      F32 avel;               ///< Angular velocity
+      F32 apos;               ///< Angular position (client side only)
+      F32 Dy,Dx;              ///< Current tire deformation
 
       struct Surface 
       {
-         bool contact;        // Wheel is touching a surface
-         Point3F normal;      // Surface normal
-         BaseMatInstance* material; // Surface material
-         Point3F pos;         // Point of contact
-         SceneObject* object; // Object in contact with
+         bool contact;        ///< Wheel is touching a surface
+         Point3F normal;      ///< Surface normal
+         Point3F pos;         ///< The tire's foot at its extension
+         SceneObject* object; ///< Object in contact with
       } surface;
 
-      TSShapeInstance* shapeInstance;
-      TSThread* springThread;
-
-      F32 steering;           // Wheel steering scale
-      bool powered;           // Powered by engine
-      bool slipping;          // Traction on last tick
-      F32 torqueScale;        // Max torque % applied to wheel (0-1)
-      F32 slip;               // Amount of wheel slip (0-1)
+      TSThread* turnThread;   ///< on the wheel's turn%d
+      TSThread* springThread; ///< on its spring%d
+      TSThread* wheelThread;  ///< on its wheel%d
+      F32 torqueScale;        ///< Max torque % applied to wheel (0-1)
+      F32 slip;               ///< Amount of wheel slip (0-1)
+      F32 dustTime;           ///< HH: dust ms not yet emitted
       SimObjectPtr<ParticleEmitter> emitter;
    };
    Wheel mWheel[WheeledVehicleData::MaxWheels];
-   TSThread* mSteeringThread;
+   // HH: Added for Tribes 2 compatibility.
+   bool mWheelContact;        ///< a wheel touched at the last extension
 
    //
    bool onNewDataBlock( GameBaseData *dptr, bool reload );
    void processTick(const Move *move);
    void updateMove(const Move *move);
    void updateForces(F32 dt);
-   void extendWheels(bool clientHack = false);
-   void prepBatchRender( SceneRenderState *state, S32 mountedImageIndex );
+   void extendWheels();
+   // HH: Added for Tribes 2 compatibility.
+   void onWarpTick() override;
 
    // Client sounds & particles
    void updateWheelThreads();
-   void updateWheelParticles(F32 dt);
+   void updateWheelParticles(Wheel* wheel, F32 dt);
    void updateEngineSound(F32 level);
    void updateSquealSound(F32 level);
    void updateJetSound();
@@ -229,12 +194,6 @@ public:
 
    S32 getWheelCount();
    Wheel *getWheel(U32 index) {return &mWheel[index];}
-   void setWheelSteering(S32 wheel,F32 steering);
-   void setWheelPowered(S32 wheel,bool powered);
-   void setWheelTire(S32 wheel,WheeledVehicleTire*);
-   void setWheelSpring(S32 wheel,WheeledVehicleSpring*);
-
-   void getWheelInstAndTransform( U32 wheel, TSShapeInstance** inst, MatrixF* xfrm ) const;
 
    void writePacketData(GameConnection * conn, BitStream *stream);
    void readPacketData(GameConnection * conn, BitStream *stream);
@@ -242,6 +201,7 @@ public:
    // HH: Added for Tribes 2 compatibility.
    void getT2Subject(T2Layout::Subject *subject,
                      NetConnection *conn) const override;
+   void onT2BodyRead(const T2Layout::Body &body) override;
 };
 
 

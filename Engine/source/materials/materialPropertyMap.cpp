@@ -56,12 +56,13 @@ void MaterialPropertyMap::add(const char *textureName,
 
       if(!dStricmp(kind, "color"))
       {
-         F32 c[NumColors * 4] = { 0.0f };
-         dSscanf(values, "%g %g %g %g %g %g %g %g",
-                 &c[0], &c[1], &c[2], &c[3], &c[4], &c[5], &c[6], &c[7]);
+         // "red green blue startAlpha endAlpha" (0x44d650): one colour,
+         // fading from the first alpha to the second.
+         F32 c[5] = { 0.0f };
+         dSscanf(values, "%g %g %g %g %g", &c[0], &c[1], &c[2], &c[3], &c[4]);
          e.hasColor = true;
-         for(U32 j = 0; j < NumColors; j++)
-            e.color[j].set(c[j * 4], c[j * 4 + 1], c[j * 4 + 2], c[j * 4 + 3]);
+         e.color[0].set(c[0], c[1], c[2], c[3]);
+         e.color[1].set(c[0], c[1], c[2], c[4]);
       }
       else if(!dStricmp(kind, "sound"))
       {
