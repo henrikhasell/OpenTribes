@@ -66,6 +66,9 @@ void _initShaderGenGLSL( ShaderGen *shaderGen )
    FEATUREMGR->registerFeature( MFT_IsTranslucent, new NamedFeatureGLSL( "Translucent" ) );
    // HH: Added for Tribes 2 compatibility.
    FEATUREMGR->registerFeature( MFT_T2FadeAlpha, new NamedFeatureGLSL( "T2 Fade Alpha" ) );
+   FEATUREMGR->registerFeature( MFT_T2InteriorLights, new T2InteriorLightsFeatGLSL );   // HH: Added for Tribes 2 compatibility.
+   FEATUREMGR->registerFeature( MFT_T2PixelFog, new NamedFeatureGLSL( "T2 Pixel Fog" ) );   // HH: Added for Tribes 2 compatibility.
+   FEATUREMGR->registerFeature( MFT_T2VertexLighting, new NamedFeatureGLSL( "T2 Vertex Lighting" ) );   // HH: Added for Tribes 2 compatibility.
    FEATUREMGR->registerFeature( MFT_Visibility, new VisibilityFeatGLSL );
    FEATUREMGR->registerFeature( MFT_Fog, new FogFeatGLSL );
 

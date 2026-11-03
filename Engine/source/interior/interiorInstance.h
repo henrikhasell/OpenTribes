@@ -79,6 +79,14 @@ class InteriorInstance : public SceneZoneSpace
       static bool smDontRestrictOutside;
       static F32  smDetailModification;
 
+      // HH: Added for Tribes 2 compatibility.
+      /// $pref::Interior::DynamicLights, and the pixels across a light's
+      /// radius below which it is dropped and below which it fades:
+      /// $pref::Interior::DynamicLightsClipPix and DynamicLightsFadePix.
+      static bool smRenderDynamicLights;
+      static F32  smDynamicLightsClipPix;
+      static F32  smDynamicLightsFadePix;
+
    protected:
 
       enum UpdateMaskBits

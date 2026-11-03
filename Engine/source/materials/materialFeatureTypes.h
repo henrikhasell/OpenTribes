@@ -173,5 +173,18 @@ DeclareFeatureType( MFT_ImposterVert );
 // HH: Added for Tribes 2 compatibility.
 DeclareFeatureType( MFT_T2FadeAlpha );
 
+// HH: Added for Tribes 2 compatibility.
+/// The dynamic lights retail adds over a lightmapped interior surface.
+DeclareFeatureType( MFT_T2InteriorLights );
+
+// HH: Added for Tribes 2 compatibility.
+/// Fog worked out for each pixel where the device would do it per vertex,
+/// as retail's textured fog for interiors is.
+DeclareFeatureType( MFT_T2PixelFog );
+
+// HH: Added for Tribes 2 compatibility.
+/// A lightmap read at the vertices only, for retail's vertex lighting.
+DeclareFeatureType( MFT_T2VertexLighting );
+
 
 #endif // _MATERIALFEATURETYPES_H_

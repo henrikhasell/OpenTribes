@@ -139,6 +139,12 @@ class ParticleEmitter : public GameBase
 
    static Point3F mWindVelocity;
    static void setWindVelocity( const Point3F &vel ){ mWindVelocity = vel; }
+
+   // HH: Added for Tribes 2 compatibility.
+   /// $pref::ParticleDensity: an emitter's clock runs at one over it, so
+   /// it ejects that many times fewer particles.
+   static F32 smParticleDensity;
+   static void consoleInit();
    
    ColorF getCollectiveColor();
 

@@ -31,6 +31,7 @@
 #include "materials/processedMaterial.h"
 #include "materials/materialFeatureTypes.h"
 #include "core/util/autoPtr.h"
+#include "gfx/gfxTextureProfile.h"   // HH: Added for Tribes 2 compatibility.
 
 #include "lighting/advanced/advancedLightBinManager.h"
 
@@ -945,6 +946,30 @@ void LightmapFeatGLSL::processVert( Vector<ShaderComponent*> &componentList,
 
    // setup language elements to output incoming tex coords to output
    output = new GenOp( "   @ = @;\r\n", outTex, inTex );
+
+   // HH: Added for Tribes 2 compatibility.
+   // Vertex lighting: the light at each vertex, read off the lightmap
+   // there, is all that reaches the pixels between, as retail's per-vertex
+   // colours are (0x005223bf). The pixel shader binds the sampler's unit.
+   if ( fd.features[MFT_T2VertexLighting] )
+   {
+      Var *lightMap = new Var;
+      lightMap->setType( "sampler2D" );
+      lightMap->setName( "lightMap" );
+      lightMap->uniform = true;
+      lightMap->sampler = true;
+      lightMap->constNum = 0;
+
+      Var *outColor = connectComp->getElement( RT_TEXCOORD );
+      outColor->setName( "outVertexLightT2" );
+      outColor->setType( "vec4" );
+      outColor->mapsToSampler = false;
+
+      MultiLine *meta = new MultiLine;
+      meta->addStatement( output );
+      meta->addStatement( new GenOp( "   @ = texture2DLod( @, @, 0.0 );\r\n", outColor, lightMap, inTex ) );
+      output = meta;
+   }
 }
 
 void LightmapFeatGLSL::processPix(  Vector<ShaderComponent*> &componentList, 
@@ -1001,6 +1026,15 @@ void LightmapFeatGLSL::processPix(  Vector<ShaderComponent*> &componentList,
       }
    }
 
+   // HH: Added for Tribes 2 compatibility.
+   if( fd.features[MFT_T2VertexLighting] )
+   {
+      Var *inColor = connectComp->getElement( RT_TEXCOORD );
+      inColor->setName( "outVertexLightT2" );
+      inColor->setType( "vec4" );
+      statement = new GenOp( "@", inColor );
+   }
+
    // HH: Modified for Tribes 2 compatibility.
    if( !statement )
       statement = new GenOp( "texture2D(@, @)", lightMap, inTex );
@@ -1016,7 +1050,7 @@ ShaderFeature::Resources LightmapFeatGLSL::getResources( const MaterialFeatureDa
 {
    Resources res; 
    res.numTex = 1;
-   res.numTexReg = 1;
+   res.numTexReg = fd.features[MFT_T2VertexLighting] ? 2 : 1;   // HH: Modified for Tribes 2 compatibility.
 
    return res;
 }
@@ -1807,6 +1841,104 @@ ShaderFeature::Resources RTLightingFeatGLSL::getResources( const MaterialFeature
 
 
 //****************************************************************************
+// HH: Added for Tribes 2 compatibility.
+// Tribes 2 interior dynamic lights
+//****************************************************************************
+
+namespace
+{
+   GFXTexHandle sgInteriorLightFalloff;
+}
+
+T2InteriorLightsFeatGLSL::T2InteriorLightsFeatGLSL()
+   :  mLightingDep( "shaders/common/gl/lighting.glsl" ),
+      mDep( "shaders/common/gl/interiorLightsT2.glsl" )
+{
+   addDependency( &mLightingDep );
+   addDependency( &mDep );
+}
+
+void T2InteriorLightsFeatGLSL::processVert( Vector<ShaderComponent*> &componentList, 
+                                            const MaterialFeatureData &fd )
+{
+   MultiLine *meta = new MultiLine;
+
+   Var *inNormal = (Var*)LangElement::find( "inNormal" );
+   if ( !inNormal )
+      inNormal = (Var*)LangElement::find( "normal" );
+
+   if ( inNormal && !LangElement::find( "outWsNormal" ) )
+   {
+      ShaderConnector *connectComp = dynamic_cast<ShaderConnector *>( componentList[C_CONNECTOR] );
+      Var *objTrans = getObjTrans( componentList, fd.features[MFT_UseInstancing], meta );
+
+      Var *outNormal = connectComp->getElement( RT_TEXCOORD );
+      outNormal->setName( "outWsNormal" );
+      outNormal->setType( "vec3" );
+      outNormal->mapsToSampler = false;
+
+      meta->addStatement( new GenOp( "   @ = ( @ * vec4( normalize( @ ), 0.0 ) ).xyz;\r\n", outNormal, objTrans, inNormal ) );
+   }
+
+   addOutWsPosition( componentList, fd.features[MFT_UseInstancing], meta );
+
+   output = meta;
+}
+
+void T2InteriorLightsFeatGLSL::processPix( Vector<ShaderComponent*> &componentList, 
+                                           const MaterialFeatureData &fd )
+{
+   ShaderConnector *connectComp = dynamic_cast<ShaderConnector *>( componentList[C_CONNECTOR] );
+   MultiLine *meta = new MultiLine;
+
+   Var *wsNormal = (Var*)LangElement::find( "wsNormal" );
+   if ( !wsNormal )
+   {
+      Var *outWsNormal = connectComp->getElement( RT_TEXCOORD );
+      outWsNormal->setName( "outWsNormal" );
+      outWsNormal->setType( "vec3" );
+
+      wsNormal = new Var( "wsNormal", "vec3" );
+      meta->addStatement( new GenOp( "   @ = normalize( @ );\r\n", new DecOp( wsNormal ), outWsNormal ) );
+   }
+
+   Var *wsPosition = getInWsPosition( componentList );
+
+   Var *falloff = new Var;
+   falloff->setType( "sampler2D" );
+   falloff->setName( "lightFalloffT2" );
+   falloff->uniform = true;
+   falloff->sampler = true;
+   falloff->constNum = Var::getTexUnitNum();
+
+   LangElement *lights = new GenOp( "vec4( interiorLightsT2( @, @, @ ), 0.0 )", wsPosition, wsNormal, falloff );
+   meta->addStatement( new GenOp( "   @;\r\n", assignColor( lights, Material::Add ) ) );
+
+   output = meta;
+}
+
+ShaderFeature::Resources T2InteriorLightsFeatGLSL::getResources( const MaterialFeatureData &fd )
+{
+   Resources res; 
+   res.numTex = 1;
+   res.numTexReg = 2;
+   return res;
+}
+
+void T2InteriorLightsFeatGLSL::setTexData( Material::StageData &stageDat,
+                                           const MaterialFeatureData &fd,
+                                           RenderPassData &passData,
+                                           U32 &texIndex )
+{
+   if ( sgInteriorLightFalloff.isNull() )
+      sgInteriorLightFalloff.set( "textures/special/lightFalloffMono",
+                                  &GFXDefaultStaticDiffuseProfile, "T2InteriorLightsFeatGLSL" );
+
+   passData.mTexSlot[ texIndex++ ].texObject = sgInteriorLightFalloff;
+}
+
+
+//****************************************************************************
 // Fog
 //****************************************************************************
 
@@ -1821,8 +1953,10 @@ void FogFeatGLSL::processVert(   Vector<ShaderComponent*> &componentList,
 {
    MultiLine *meta = new MultiLine;
 	
-   const bool vertexFog = Con::getBoolVariable( "$useVertexFog", false );
-   if ( vertexFog || GFX->getPixelShaderVersion() < 3.0 )
+   // HH: Modified for Tribes 2 compatibility.
+   const bool vertexFog = ( Con::getBoolVariable( "$useVertexFog", false ) || GFX->getPixelShaderVersion() < 3.0 ) &&
+                          !fd.features[MFT_T2PixelFog];
+   if ( vertexFog )
    {
       // Grab the eye position.
       Var *eyePos = (Var*)LangElement::find( "eyePosWorld" );
@@ -1907,8 +2041,10 @@ void FogFeatGLSL::processPix( Vector<ShaderComponent*> &componentList,
 	
    Var *fogAmount;
 	
-   const bool vertexFog = Con::getBoolVariable( "$useVertexFog", false );
-   if ( vertexFog || GFX->getPixelShaderVersion() < 3.0 )
+   // HH: Modified for Tribes 2 compatibility.
+   const bool vertexFog = ( Con::getBoolVariable( "$useVertexFog", false ) || GFX->getPixelShaderVersion() < 3.0 ) &&
+                          !fd.features[MFT_T2PixelFog];
+   if ( vertexFog )
    {
       // Per-vertex.... just get the fog amount.
       ShaderConnector *connectComp = dynamic_cast<ShaderConnector *>( componentList[C_CONNECTOR] );

@@ -54,6 +54,12 @@ MODULE_BEGIN( TSShapeInstance )
          "mesh heavy scenes.  The default value is 1.\n"
          "@ingroup Rendering\n" );
 
+      // HH: Added for Tribes 2 compatibility.
+      Con::addVariable("$pref::TS::screenError", TypeF32, &TSShapeInstance::smScreenError,
+         "@brief The pixels of error a shape with error metrics may be drawn with.\n"
+         "Tribes 2's Shape Detail slider sets it between 2 and 20; the default is 5.\n"
+         "@ingroup Rendering\n" );
+
       Con::addVariable("$pref::TS::skipLoadDLs", TypeS32, &TSShape::smNumSkipLoadDetails,
          "@brief User perference which causes TSShapes to skip loading higher lods.\n"
          "This potentialy reduces the GPU resources and materials generated as well as "
@@ -85,6 +91,8 @@ MODULE_END;
 
 
 F32                           TSShapeInstance::smDetailAdjust = 1.0f;
+// HH: Added for Tribes 2 compatibility.
+F32                           TSShapeInstance::smScreenError = 5.0f;
 F32                           TSShapeInstance::smSmallestVisiblePixelSize = -1.0f;
 S32                           TSShapeInstance::smNumSkipRenderDetails = 0;
 
@@ -944,7 +952,9 @@ S32 TSShapeInstance::setDetailFromDistance( const SceneRenderState *state, F32 s
    {
       // The pixel size of 1 meter at the input distance.
       F32 pixelRadius = state->projectRadius( scaledDistance, 1.0f ) * pixelScale;
-      static const F32 smScreenError = 5.0f;
+      // HH: Modified for Tribes 2 compatibility.
+      // Retail divides $pref::TS::screenError by it (0x006b62d0), where
+      // Torque 3D kept that pref's default as a constant.
       return setDetailFromScreenError( smScreenError / pixelRadius );
    }
 

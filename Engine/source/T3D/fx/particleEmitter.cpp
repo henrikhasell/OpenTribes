@@ -44,10 +44,19 @@
 #endif
 
 Point3F ParticleEmitter::mWindVelocity( 0.0, 0.0, 0.0 );
+F32 ParticleEmitter::smParticleDensity = 1.0f;   // HH: Added for Tribes 2 compatibility.
 const F32 ParticleEmitter::AgedSpinToRadians = (1.0f/1000.0f) * (1.0f/360.0f) * M_PI_F * 2.0f;
 
 IMPLEMENT_CO_DATABLOCK_V1(ParticleEmitterData);
 IMPLEMENT_CONOBJECT(ParticleEmitter);
+
+// HH: Added for Tribes 2 compatibility.
+void ParticleEmitter::consoleInit()
+{
+   Con::addVariable( "$pref::ParticleDensity", TypeF32, &smParticleDensity,
+      "Divides the time an emitter is given to eject particles over; "
+      "Tribes 2's Particle Density slider sets it between 1 and 4.\n" );
+}
 
 ConsoleDocClass( ParticleEmitter,
    "@brief This object is responsible for spawning particles.\n\n"
@@ -966,12 +975,20 @@ void ParticleEmitter::emitParticles(const Point3F& start,
                                     const Point3F& end,
                                     const Point3F& axis,
                                     const Point3F& velocity,
-                                    const U32      numMilliseconds)
+                                    const U32      numMilliseconds_)
 {
    if( mDead ) return;
    
    if( mDataBlock->particleDataBlocks.empty() )
       return;
+
+   // HH: Modified for Tribes 2 compatibility.
+   // Retail runs the whole emission over the time it was given times one
+   // over $pref::ParticleDensity (0x006246d0), so its period, its lifetime
+   // and the age of what it ejects all stretch with it.
+   if( smParticleDensity <= 0.0f )
+      return;
+   const U32 numMilliseconds = U32( F64( numMilliseconds_ ) * ( 1.0 / smParticleDensity ) );
 
    // lifetime over - no more particles
    if( mLifetimeMS > 0 && mElapsedTimeMS > mLifetimeMS )

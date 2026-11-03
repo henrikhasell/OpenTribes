@@ -92,6 +92,11 @@ static bool sgScopeBoolArray[256];
 
 bool InteriorInstance::smDontRestrictOutside = false;
 F32  InteriorInstance::smDetailModification = 1.0f;
+// HH: Added for Tribes 2 compatibility.
+// Retail's defaults (0x0077fb00, 0x0077fb0c, 0x0077fb10).
+bool InteriorInstance::smRenderDynamicLights = true;
+F32  InteriorInstance::smDynamicLightsClipPix = 10.0f;
+F32  InteriorInstance::smDynamicLightsFadePix = 20.0f;
 
 
 
@@ -153,6 +158,31 @@ void InteriorInstance::initPersistFields()
 
 //-----------------------------------------------------------------------------
 
+// HH: Added for Tribes 2 compatibility.
+static bool sgUsedFogCoord = true;
+
+static bool sgUsedVertexLighting = false;
+
+static void vertexLightingChanged()
+{
+   if ( Interior::smUseVertexLighting == sgUsedVertexLighting )
+      return;
+
+   sgUsedVertexLighting = Interior::smUseVertexLighting;
+   if ( MATMGR )
+      MATMGR->flushAndReInitInstances();
+}
+
+static void fogChanged()
+{
+   if ( Interior::useFogCoord() == sgUsedFogCoord )
+      return;
+
+   sgUsedFogCoord = Interior::useFogCoord();
+   if ( MATMGR )
+      MATMGR->flushAndReInitInstances();
+}
+
 void InteriorInstance::consoleInit()
 {
    //-------------------------------------- Class level variables
@@ -162,6 +192,35 @@ void InteriorInstance::consoleInit()
    Con::addVariable( "pref::Interior::detailAdjust", TypeF32, &InteriorInstance::smDetailModification,
       "Forces all InteriorInstance rendering to a particular detail level.\n"
       "@ingroup Interior" );
+
+   // HH: Added for Tribes 2 compatibility.
+   // Retail's InteriorInstance::consoleInit (0x005207cb-0x00520836).
+   Con::addVariable( "pref::Interior::DynamicLights", TypeBool, &InteriorInstance::smRenderDynamicLights,
+      "Whether dynamic lights fall on interiors.\n"
+      "@ingroup Interior" );
+   Con::addVariable( "pref::Interior::TexturedFog", TypeBool, &Interior::smUseTexturedFog,
+      "Fog interiors per pixel, as retail's fog texture does, rather than per vertex.\n"
+      "@ingroup Interior" );
+   Con::addVariable( "pref::Interior::DynamicLightsClipPix", TypeF32, &InteriorInstance::smDynamicLightsClipPix,
+      "A dynamic light whose radius covers no more pixels than this is not drawn on interiors.\n"
+      "@ingroup Interior" );
+   Con::addVariable( "pref::Interior::DynamicLightsFadePix", TypeF32, &InteriorInstance::smDynamicLightsFadePix,
+      "A dynamic light whose radius covers fewer pixels than this fades on interiors.\n"
+      "@ingroup Interior" );
+   Con::addVariable( "pref::OpenGL::disableEXTFogCoord", TypeBool, &Interior::smDisableFogCoord,
+      "Fog interiors as if the device had no fog coordinates.\n"
+      "@ingroup Interior" );
+
+   // Retail picks a render path per frame (0x00511460); a shader has its
+   // fog built in, so the materials are rebuilt instead.
+   // Retail relights the mission when vertex lighting changes, which the
+   // options dialog flushes the textures for; here it is a shader change.
+   Con::NotifyDelegate vertexLightingCallback( &vertexLightingChanged );
+   Con::addVariableNotify( "$pref::Interior::VertexLighting", vertexLightingCallback );
+
+   Con::NotifyDelegate fogCallback( &fogChanged );
+   Con::addVariableNotify( "$pref::Interior::TexturedFog", fogCallback );
+   Con::addVariableNotify( "$pref::OpenGL::disableEXTFogCoord", fogCallback );
 
    // DEBUG ONLY!!!
 #ifndef TORQUE_SHIPPING

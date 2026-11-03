@@ -448,6 +448,45 @@ public:
 };
 
 
+// HH: Added for Tribes 2 compatibility.
+/// The additive pass retail draws over a lightmapped interior surface for
+/// each dynamic light near it (0x00518c10): special/lightFalloffMono laid
+/// flat on the surface under the light, as wide as the light's sphere cuts
+/// the surface's plane, in the light's colour at the share of its radius
+/// the plane is inside it. Lights 1 to 3 are the dynamic ones; 0 is the
+/// sun the lightmap already has.
+class T2InteriorLightsFeatGLSL : public ShaderFeatureGLSL
+{
+protected:
+
+   ShaderIncludeDependency mLightingDep;
+   ShaderIncludeDependency mDep;
+
+public:
+   T2InteriorLightsFeatGLSL();
+
+   virtual void processVert( Vector<ShaderComponent*> &componentList,
+                             const MaterialFeatureData &fd );
+
+   virtual void processPix( Vector<ShaderComponent*> &componentList, 
+                            const MaterialFeatureData &fd );
+
+   virtual Resources getResources( const MaterialFeatureData &fd );
+
+   virtual void setTexData( Material::StageData &stageDat,
+                            const MaterialFeatureData &fd,
+                            RenderPassData &passData,
+                            U32 &texIndex );
+
+   virtual Material::BlendOp getBlendOp() { return Material::Add; }
+
+   virtual String getName()
+   {
+      return "T2 Interior Lights";
+   }
+};
+
+
 /// Fog
 class FogFeatGLSL : public ShaderFeatureGLSL
 {
