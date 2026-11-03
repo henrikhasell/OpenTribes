@@ -367,6 +367,68 @@ DefineEngineFunction( getDesktopResolution, Point3F, (),,
    return Point3F( res.resolution.x, res.resolution.y, res.bitDepth );
 }
 
+// HH: Added for Tribes 2 compatibility.
+// The options dialog fills its resolution and bit depth menus from this. The
+// bit depth is the adapter's own, so a 24-bit colour mode is 24, not the 32
+// retail counted with its padding.
+DefineEngineFunction( getResolutionList, String, ( const char *deviceName ),,
+   "@brief The device's modes, as tab-separated \"width height bpp\" fields.\n\n"
+   "@ingroup GFX" )
+{
+   Vector<GFXAdapter*> adapters( __FILE__, __LINE__ );
+   GFXInit::getAdapters( &adapters );
+
+   GFXAdapter *adapter = NULL;
+   for ( U32 i = 0; i < adapters.size(); i++ )
+   {
+      if ( dStrcmp( adapters[i]->mName, deviceName ) == 0 )
+      {
+         adapter = adapters[i];
+         break;
+      }
+   }
+
+   if ( !adapter )
+   {
+      Con::warnf( "\"%s\" display device not found!", deviceName );
+      return String::EmptyString;
+   }
+
+   const bool clipHigh = Con::getBoolVariable( "$pref::Video::clipHigh", false );
+   const bool only16   = Con::getBoolVariable( "$pref::Video::only16", false );
+
+   Vector<GFXVideoMode> modes;
+   for ( U32 i = 0; i < adapter->mAvailableModes.size(); i++ )
+   {
+      const GFXVideoMode &mode = adapter->mAvailableModes[i];
+
+      if ( mode.resolution.x < 640 || mode.resolution.y < 480 || mode.bitDepth < 16 )
+         continue;
+      if ( clipHigh && ( mode.resolution.x > 1152 || mode.resolution.y > 864 ) )
+         continue;
+      if ( only16 && mode.bitDepth != 16 )
+         continue;
+
+      // SDL lists a mode once per refresh rate.
+      bool listed = false;
+      for ( U32 j = 0; j < modes.size() && !listed; j++ )
+         listed = modes[j].resolution == mode.resolution && modes[j].bitDepth == mode.bitDepth;
+
+      if ( !listed )
+         modes.push_back( mode );
+   }
+
+   StringBuilder str;
+   for ( U32 i = 0; i < modes.size(); i++ )
+   {
+      if ( i )
+         str.append( '\t' );
+      str.format( "%d %d %d", modes[i].resolution.x, modes[i].resolution.y, modes[i].bitDepth );
+   }
+
+   return str.end();
+}
+
 DefineEngineStaticMethod( GFXInit, getAdapterCount, S32, (),,
    "Return the number of graphics adapters available. @ingroup GFX")
 {
