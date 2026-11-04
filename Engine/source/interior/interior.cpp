@@ -2462,10 +2462,6 @@ void Interior::_enableLightMapFeature( ProcessedMaterial *mat,
       // pass after the surface's own.
       if ( stageNum == mat->getNumStages() - 1 )
          fd.features.addFeature( MFT_T2InteriorLights );
-
-      // HH: Added for Tribes 2 compatibility.
-      if ( smUseVertexLighting )
-         fd.features.addFeature( MFT_T2VertexLighting );
    }
 
    _enableInteriorFeatures( mat, stageNum, fd, features );   // HH: Added for Tribes 2 compatibility.

@@ -178,17 +178,6 @@ static void reinitInteriorMaterials()
 
 static bool sgUsedFogCoord = true;
 
-static bool sgUsedVertexLighting = false;
-
-static void vertexLightingChanged()
-{
-   if ( Interior::smUseVertexLighting == sgUsedVertexLighting )
-      return;
-
-   sgUsedVertexLighting = Interior::smUseVertexLighting;
-   reinitInteriorMaterials();
-}
-
 static void fogChanged()
 {
    if ( Interior::useFogCoord() == sgUsedFogCoord )
@@ -228,11 +217,6 @@ void InteriorInstance::consoleInit()
 
    // Retail picks a render path per frame (0x00511460); a shader has its
    // fog built in, so the materials are rebuilt instead.
-   // Retail relights the mission when vertex lighting changes, which the
-   // options dialog flushes the textures for; here it is a shader change.
-   Con::NotifyDelegate vertexLightingCallback( &vertexLightingChanged );
-   Con::addVariableNotify( "$pref::Interior::VertexLighting", vertexLightingCallback );
-
    Con::NotifyDelegate fogCallback( &fogChanged );
    Con::addVariableNotify( "$pref::Interior::TexturedFog", fogCallback );
    Con::addVariableNotify( "$pref::OpenGL::disableEXTFogCoord", fogCallback );

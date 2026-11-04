@@ -45,7 +45,6 @@
 #endif
 
 #include "gfx/gfxInit.h"
-#include "gfx/gammaRampT2.h"   // HH: Added for Tribes 2 compatibility.
 #include "core/util/journal/process.h"
 
 #ifdef TORQUE_GFX_STATE_DEBUG
@@ -1849,10 +1848,6 @@ void GuiCanvas::renderFrame(bool preRenderOnly, bool bufferSwap /* = true */)
 #ifdef TORQUE_DEMO_TIMEOUT
    checkTimeOut();
 #endif  
-
-   // HH: Added for Tribes 2 compatibility.
-   // A ramp retail would have loaded into the display covers everything.
-   GammaRampT2::apply();
 
    PROFILE_END();
 

@@ -946,30 +946,6 @@ void LightmapFeatGLSL::processVert( Vector<ShaderComponent*> &componentList,
 
    // setup language elements to output incoming tex coords to output
    output = new GenOp( "   @ = @;\r\n", outTex, inTex );
-
-   // HH: Added for Tribes 2 compatibility.
-   // Vertex lighting: the light at each vertex, read off the lightmap
-   // there, is all that reaches the pixels between, as retail's per-vertex
-   // colours are (0x005223bf). The pixel shader binds the sampler's unit.
-   if ( fd.features[MFT_T2VertexLighting] )
-   {
-      Var *lightMap = new Var;
-      lightMap->setType( "sampler2D" );
-      lightMap->setName( "lightMap" );
-      lightMap->uniform = true;
-      lightMap->sampler = true;
-      lightMap->constNum = 0;
-
-      Var *outColor = connectComp->getElement( RT_TEXCOORD );
-      outColor->setName( "outVertexLightT2" );
-      outColor->setType( "vec4" );
-      outColor->mapsToSampler = false;
-
-      MultiLine *meta = new MultiLine;
-      meta->addStatement( output );
-      meta->addStatement( new GenOp( "   @ = texture2DLod( @, @, 0.0 );\r\n", outColor, lightMap, inTex ) );
-      output = meta;
-   }
 }
 
 void LightmapFeatGLSL::processPix(  Vector<ShaderComponent*> &componentList, 
@@ -1026,15 +1002,6 @@ void LightmapFeatGLSL::processPix(  Vector<ShaderComponent*> &componentList,
       }
    }
 
-   // HH: Added for Tribes 2 compatibility.
-   if( fd.features[MFT_T2VertexLighting] )
-   {
-      Var *inColor = connectComp->getElement( RT_TEXCOORD );
-      inColor->setName( "outVertexLightT2" );
-      inColor->setType( "vec4" );
-      statement = new GenOp( "@", inColor );
-   }
-
    // HH: Modified for Tribes 2 compatibility.
    if( !statement )
       statement = new GenOp( "texture2D(@, @)", lightMap, inTex );
@@ -1050,7 +1017,7 @@ ShaderFeature::Resources LightmapFeatGLSL::getResources( const MaterialFeatureDa
 {
    Resources res; 
    res.numTex = 1;
-   res.numTexReg = fd.features[MFT_T2VertexLighting] ? 2 : 1;   // HH: Modified for Tribes 2 compatibility.
+   res.numTexReg = 1;
 
    return res;
 }

@@ -182,9 +182,5 @@ DeclareFeatureType( MFT_T2InteriorLights );
 /// as retail's textured fog for interiors is.
 DeclareFeatureType( MFT_T2PixelFog );
 
-// HH: Added for Tribes 2 compatibility.
-/// A lightmap read at the vertices only, for retail's vertex lighting.
-DeclareFeatureType( MFT_T2VertexLighting );
-
 
 #endif // _MATERIALFEATURETYPES_H_
