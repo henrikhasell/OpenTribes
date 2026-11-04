@@ -33,7 +33,6 @@
 #include "ts/tsRenderState.h"
 #include "gfx/sim/cubemapData.h"
 #include "scene/reflector.h"
-#include "T3D/decal/decalManager.h"
 #include "core/module.h"
 
 
@@ -168,9 +167,6 @@ void BasicSceneObjectPluginFactory::_setEnabled()
    {
       SceneObject::smSceneObjectAdd.notify(this, &BasicSceneObjectPluginFactory::addLightPlugin);
       SceneObject::smSceneObjectRemove.notify(this, &BasicSceneObjectPluginFactory::removeLightPlugin);
-      
-      if( gDecalManager )
-         gDecalManager->getClearDataSignal().notify( this, &BasicSceneObjectPluginFactory::_onDecalManagerClear );
          
       addToExistingObjects();
    } 
@@ -178,19 +174,11 @@ void BasicSceneObjectPluginFactory::_setEnabled()
    {
       SceneObject::smSceneObjectAdd.remove(this, &BasicSceneObjectPluginFactory::addLightPlugin);
       SceneObject::smSceneObjectRemove.remove(this, &BasicSceneObjectPluginFactory::removeLightPlugin);
-      
-      if( gDecalManager )
-         gDecalManager->getClearDataSignal().remove( this, &BasicSceneObjectPluginFactory::_onDecalManagerClear );
          
       BasicSceneObjectLightingPlugin::cleanupPluginInstances();
    }
 
    mEnabled = enable;
-}
-
-void BasicSceneObjectPluginFactory::_onDecalManagerClear()
-{
-   BasicSceneObjectLightingPlugin::resetAll();
 }
 
 void BasicSceneObjectPluginFactory::removeLightPlugin( SceneObject *obj )

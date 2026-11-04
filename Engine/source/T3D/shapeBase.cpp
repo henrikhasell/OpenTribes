@@ -157,6 +157,12 @@ ShapeBaseData::ShapeBaseData()
    shadowMaxVisibleDistance( 80.0f ),
    shadowProjectionDistance( 10.0f ),
    shadowSphereAdjust( 1.0f ),
+   // HH: Added for Tribes 2 compatibility.
+   // Tribes 2's ShapeBaseData constructor (0x005e3f83); above any detail
+   // level, so no shadow unless a class lowers them.
+   genericShadowLevel( 2.0f ),
+   noShadowLevel( 2.0f ),
+   shadowNode( -1 ),
    shapeName( StringTable->insert("") ),
    cloakTexName( StringTable->insert("") ),
    mass( 1.0f ),

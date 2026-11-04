@@ -812,6 +812,12 @@ public:
    void readPacketData (GameConnection *conn, BitStream *stream);
 
    virtual void prepRenderImage( SceneRenderState* state );
+
+   // HH: Added for Tribes 2 compatibility.
+   /// Whether this is the player seen in first person and not drawn there,
+   /// which takes its shadow too.
+   bool isHiddenInFirstPerson();
+
    virtual void renderConvex( ObjectRenderInst *ri, SceneRenderState *state, BaseMatInstance *overrideMat );   
    virtual void renderMountedImage( U32 imageSlot, TSRenderState &rstate, SceneRenderState *state );
 };

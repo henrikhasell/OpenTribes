@@ -72,8 +72,6 @@ U32 BasicLightManager::smActiveShadowPlugins = 0;
 U32 BasicLightManager::smShadowsUpdated = 0;
 U32 BasicLightManager::smElapsedUpdateMs = 0;
 
-F32 BasicLightManager::smProjectedShadowFilterDistance = 40.0f;
-
 static S32 QSORT_CALLBACK comparePluginScores( const void *a, const void *b )
 {
    const BasicSceneObjectLightingPlugin *A = *((BasicSceneObjectLightingPlugin**)a);
@@ -111,24 +109,9 @@ BasicLightManager::BasicLightManager()
       "The number of milliseconds spent this frame updating Basic Lighting shadows.\n"
       "@ingroup BasicLighting\n" );
 
-   Con::addVariable( "$BasicLightManager::shadowFilterDistance", 
-      TypeF32, &smProjectedShadowFilterDistance,
-      "The maximum distance in meters that projected shadows will get soft filtering.\n"
-      "@ingroup BasicLighting\n" );
-
-   Con::addVariable( "$pref::ProjectedShadow::fadeStartPixelSize", 
-      TypeF32, &ProjectedShadow::smFadeStartPixelSize,
-      "A size in pixels at which BL shadows begin to fade out. "
-      "This should be a larger value than fadeEndPixelSize.\n"
-      "@see DecalData\n"
-      "@ingroup BasicLighting\n" );
-
-   Con::addVariable( "$pref::ProjectedShadow::fadeEndPixelSize", 
-      TypeF32, &ProjectedShadow::smFadeEndPixelSize,
-      "A size in pixels at which BL shadows are fully faded out. "
-      "This should be a smaller value than fadeStartPixelSize.\n"
-      "@see DecalData\n"
-      "@ingroup BasicLighting\n" );
+   // HH: Modified for Tribes 2 compatibility.
+   // A shadow fades and blurs as Tribes 2's does, by its size on screen, so
+   // Torque 3D's filter distance and fade sizes are gone.
 }
 
 BasicLightManager::~BasicLightManager()

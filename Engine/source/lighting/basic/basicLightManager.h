@@ -63,8 +63,6 @@ public:
    virtual void setLightInfo(ProcessedMaterial* pmat, const Material* mat, const SceneData& sgData, const SceneRenderState *state, U32 pass, GFXShaderConstBuffer* shaderConsts);
    virtual bool setTextureStage(const SceneData& sgData, const U32 currTexFlag, const U32 textureSlot, GFXShaderConstBuffer* shaderConsts, ShaderConstHandles* handles) { return false; }
 
-   static F32 getShadowFilterDistance() { return smProjectedShadowFilterDistance; }
-
 protected:
 
    // LightManager
@@ -112,11 +110,6 @@ protected:
    static U32 smActiveShadowPlugins;
    static U32 smShadowsUpdated;
    static U32 smElapsedUpdateMs;
-
-   /// This is used to determine the distance
-   /// at which the shadow filtering PostEffect
-   /// will be enabled for ProjectedShadow.
-   static F32 smProjectedShadowFilterDistance;
 
    /// A timer used for tracking update time.
    PlatformTimer *mTimer;
