@@ -173,7 +173,11 @@ void DepthSortList::sortByYExtents()
 void DepthSortList::set(const MatrixF & mat, Point3F & extents)
 {
    setBaseTransform(mat);
-   mNormal.set(0,1,0); // ignore polys not facing up...
+   // HH: Modified for Tribes 2 compatibility.
+   // Torque 3D's ClippedPolyList::end keeps a poly facing along mNormal where
+   // Torque's dropped it, so this points back up the light to keep the polys
+   // facing up it.
+   mNormal.set(0,-1,0); // ignore polys not facing up...
    mExtent = extents;
    mExtent *= 0.5f;
 

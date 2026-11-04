@@ -35,82 +35,132 @@
 #ifndef _LIGHTINGSYSTEM_SHADOWBASE_H_
 #include "lighting/common/shadowBase.h"
 #endif
+#ifndef _GFXSTATEBLOCK_H_
+#include "gfx/gfxStateBlock.h"
+#endif
+#ifndef _GFXSHADER_H_
+#include "gfx/gfxShader.h"
+#endif
 
 class ShapeBase;
-class LightInfo;
-class DecalData;
-class DecalInstance;
 class RenderPassManager;
-class PostEffect;
-class RenderMeshMgr;
-class CustomMaterial;
 class BaseMatInstance;
-class MaterialParameterHandle;
+struct ObjectRenderInst;
 
 
 GFX_DeclareTextureProfile( BLProjectedShadowProfile );
 GFX_DeclareTextureProfile( BLProjectedShadowZProfile );
 
+// HH: Modified for Tribes 2 compatibility.
+/// A shape's shadow as Tribes 2 casts it (Shadow, 0x00652430): the shape's
+/// outline seen from a fixed light, laid on the terrain and interior polygons
+/// under it, which darken by it as they lie further down the light.
+///
+/// It is its own geometry, drawn in the shadow bin, and not a decal, so it
+/// does not go with $pref::decalsOn.
 class ProjectedShadow : public ShadowBase
 {
+public:
+
+   /// How a shadow's direction and length change with its distance from the
+   /// camera.
+   struct DistanceDetail
+   {
+      F32 dist;
+      F32 directionSkew;
+      F32 lengthSkew;
+   };
+
+   /// How a shadow's outline is drawn at its size on screen.
+   struct PixelSizeDetail
+   {
+      F32 size;
+      U32 frameExpiration;
+      U32 bmpDim;
+      bool blur;
+      bool generic;
+   };
 
 protected:
-
-
-   /// This parameter is used to
-   /// adjust the far plane out for our
-   /// orthographic render in order to 
-   /// force our object towards one end of the
-   /// the eye space depth range.
-   static F32 smDepthAdjust;
-
-   F32 mRadius;
-   MatrixF mWorldToLight;
-   U32 mLastRenderTime;
-
-   F32 mShadowLength;
-
-   F32 mScore;
-   bool mUpdateTexture;
-
-   Point3F mLastObjectScale;
-   Point3F mLastObjectPosition;
-   VectorF mLastLightDir;
-
-   DecalData *mDecalData;
-   DecalInstance *mDecalInstance;
 
    SceneObject *mParentObject;
    ShapeBase *mShapeBase;
 
-   MaterialParameterHandle *mCasterPositionSC;
-   MaterialParameterHandle *mShadowLengthSC;
+   F32 mRadius;
+   MatrixF mLightToWorld;
+   F32 mInvShadowDistance;
 
-   static SimObjectPtr<RenderPassManager> smRenderPass;
+   Vector<DepthSortList::Poly> mPartition;
+   Vector<Point3F> mPartitionVerts;
+   Vector<Point2F> mPartitionTVerts;
+   Vector<U8> mPartitionShades;
 
-   static SimObjectPtr<PostEffect> smShadowFilter;
+   bool mUseGeneric;
+   bool mNeedOutline;
+   U32 mOutlineDim;
+   bool mOutlineBlur;
+   U32 mOutlineTime;
 
-   static RenderPassManager* _getRenderPass();
+   U32 mLastRenderTime;
+   F32 mScore;
 
    GFXTexHandle mShadowTexture;
+   GFXTexHandle mGenericTexture;
    GFXTextureTargetRef mRenderTarget;
+   GFXTextureTargetRef mBlurTarget;
+
+   GFXStateBlockRef mDrawSB;
+   GFXStateBlockRef mBlurSB;
+   GFXShaderRef mBlurShader;
+   GFXShaderConstBufferRef mBlurConsts;
+   GFXShaderConstHandle *mBlurModelViewSC;
+   GFXShaderConstHandle *mBlurTexelSizeSC;
+   GFXShaderConstHandle *mBlurSC;
+
+   static SimObjectPtr<RenderPassManager> smRenderPass;
+   static RenderPassManager* _getRenderPass();
+
+   static DepthSortList smDepthSortList;
+   static Box3F smShadowBox;
+   static SphereF smShadowSphere;
+   static U32 smShadowMask;
+
+   static const DistanceDetail smDistanceDetails[];
+   static const PixelSizeDetail smPixelSizeDetails[];
+
+   static void _findDistanceDetail( F32 dist, DistanceDetail *dd );
+   static const PixelSizeDetail* _findPixelSizeDetail( F32 pixelSize );
+   static void _collisionCallback( SceneObject *obj, void *key );
+
+   bool _castsShadow();
+   bool _prepare( const SceneRenderState *state );
+   void _buildPartition( const Point3F &pos, const VectorF &lightDir, F32 radius, F32 shadowLen );
+   void _updatePartition( F32 fog );
+
+   void _renderPartition( ObjectRenderInst *ri, SceneRenderState *state, BaseMatInstance *overrideMat );
 
    GFXTextureObject* _getDepthTarget( U32 width, U32 height );
-   void _renderToTexture( F32 camDist, const TSRenderState &rdata );
+   void _renderToTexture( const TSRenderState &rdata );
+   bool _initBlur();
+   const GFXTexHandle& _getGenericTexture();
 
-   bool _updateDecal( const SceneRenderState *sceneState );
-
-   void _calcScore( const SceneRenderState *state );
- 
    /// Returns a spotlight shadow material for use when
    /// rendering meshes into the projected shadow.
    static BaseMatInstance* _getShadowMaterial( BaseMatInstance *inMat );
 
 public:
 
-   /// @see DecalData
-   static float smFadeStartPixelSize;
-   static float smFadeEndPixelSize;
+   /// Tribes 2's shadow detail level, 0 to 1, and what it sets; see
+   /// setGlobalShadowDetailLevel.
+   static F32 smGlobalShadowDetail;
+   static F32 smShapeDetailScale;
+   static S32 smShapeDetailMin;
+   static F32 smSmallestVisibleSize;
+   static F32 smLightDirSkew;
+   static F32 smLightLenSkew;
+   static F32 smGenericRadiusSkew;
+
+   static void setGlobalShadowDetailLevel( F32 level );
 
    ProjectedShadow( SceneObject *object );
    virtual ~ProjectedShadow();

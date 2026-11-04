@@ -77,8 +77,6 @@ protected:
    /// @see LightManager::addActivateCallback
    void _onLMActivate( const char *lm, bool enable );   
    
-   void _onDecalManagerClear();
-
    void removeLightPlugin(SceneObject* obj);
    void addLightPlugin(SceneObject* obj);
    void addToExistingObjects();

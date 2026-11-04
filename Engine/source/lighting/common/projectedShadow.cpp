@@ -23,40 +23,97 @@
 #include "platform/platform.h"
 #include "lighting/common/projectedShadow.h"
 
-#include "gfx/primBuilder.h"
+#include "gfx/gfxDevice.h"
+#include "gfx/gfxVertexBuffer.h"
 #include "gfx/gfxTextureManager.h"
-#include "gfx/bitmap/gBitmap.h"
+#include "gfx/gfxTransformSaver.h"
 #include "gfx/gfxDebugEvent.h"
-#include "math/mathUtils.h"
-#include "lighting/lightInfo.h"
-#include "lighting/lightingInterfaces.h"
+#include "gfx/bitmap/gBitmap.h"
 #include "T3D/shapeBase.h"
+#include "T3D/player.h"
 #include "scene/sceneManager.h"
-#include "lighting/lightManager.h"
+#include "scene/sceneRenderState.h"
 #include "ts/tsMesh.h"
-#include "T3D/decal/decalManager.h"
-#include "T3D/decal/decalInstance.h"
+#include "ts/tsRenderState.h"
 #include "renderInstance/renderPassManager.h"
 #include "renderInstance/renderMeshMgr.h"
-#include "gfx/gfxTransformSaver.h"
-#include "materials/customMaterialDefinition.h"
-#include "materials/materialFeatureTypes.h"
-#include "console/console.h"
-#include "postFx/postEffect.h"
 #include "materials/shaderData.h"
-#include "gfx/sim/gfxStateBlockData.h"
-#include "lighting/basic/basicLightManager.h"
-#include "lighting/shadowMap/shadowMatHook.h"
 #include "materials/materialManager.h"
-#include "lighting/shadowMap/lightShadowMap.h"
+#include "lighting/shadowMap/shadowMatHook.h"
+#include "console/console.h"
+#include "console/engineAPI.h"
 
 
 SimObjectPtr<RenderPassManager> ProjectedShadow::smRenderPass = NULL;
-SimObjectPtr<PostEffect> ProjectedShadow::smShadowFilter = NULL;
-F32 ProjectedShadow::smDepthAdjust = 10.0f;
 
-float ProjectedShadow::smFadeStartPixelSize = 200.0f;
-float ProjectedShadow::smFadeEndPixelSize = 35.0f;
+// HH: Added for Tribes 2 compatibility.
+// Tribes 2's Shadow statics, at full detail until the scripts set a level.
+F32 ProjectedShadow::smGlobalShadowDetail = 1.0f;
+F32 ProjectedShadow::smShapeDetailScale = 1.0f;
+S32 ProjectedShadow::smShapeDetailMin = 2;
+F32 ProjectedShadow::smSmallestVisibleSize = 6.0f;
+F32 ProjectedShadow::smLightDirSkew = 0.0f;
+F32 ProjectedShadow::smLightLenSkew = 0.0f;
+F32 ProjectedShadow::smGenericRadiusSkew = 0.4f;
+
+// HH: Added for Tribes 2 compatibility.
+// A shadow falls on terrain and interiors only (0x007b2554).
+U32 ProjectedShadow::smShadowMask = TerrainObjectType | InteriorObjectType;
+DepthSortList ProjectedShadow::smDepthSortList;
+Box3F ProjectedShadow::smShadowBox;
+SphereF ProjectedShadow::smShadowSphere;
+
+// HH: Added for Tribes 2 compatibility.
+// Tribes 2's tables (0x007b256c): from 100m out a shadow turns toward
+// straight down and shortens.
+const ProjectedShadow::DistanceDetail ProjectedShadow::smDistanceDetails[] =
+{
+   {    0.0f, 0.0f, 0.0f },
+   {  100.0f, 0.0f, 0.0f },
+   {  500.0f, 1.0f, 0.5f },
+   { 1000.0f, 1.0f, 0.7f }
+};
+
+// (0x007b259c): the size of the outline, whether it is blurred and how often
+// it is redrawn, by the shape's size on screen. Under 10 pixels the shadow is
+// the generic blob.
+const ProjectedShadow::PixelSizeDetail ProjectedShadow::smPixelSizeDetails[] =
+{
+   { 130.0f,  25, 64, true,  false },
+   {  25.0f, 100, 64, true,  false },
+   {  10.0f, 100, 32, false, false },
+   {   0.0f,   0,  0, false, true  }
+};
+
+// HH: Added for Tribes 2 compatibility.
+// Tribes 2's Shadow::setGlobalShadowDetailLevel (0x00652350).
+void ProjectedShadow::setGlobalShadowDetailLevel( F32 level )
+{
+   smGlobalShadowDetail = level;
+
+   smShapeDetailScale = 0.5f + level * 0.5f;
+   smShapeDetailMin = level > 0.49f ? 2 : 3;
+   smSmallestVisibleSize = level > 0.7f ? 6.0f : ( level > 0.4f ? 7.0f :
+                           ( level > 0.3f ? 8.0f : ( level > 0.2f ? 9.0f : 10.0f ) ) );
+   smLightDirSkew = 0.85f * ( 1.0f - level );
+   smLightLenSkew = ( 1.0f - level ) * 0.5f;
+}
+
+// HH: Added for Tribes 2 compatibility.
+// Tribes 2's setShadowDetailLevel (0x005f2220), which the options dialog's
+// "Shadow Detail" slider and console_start.cs call.
+DefineEngineFunction( setShadowDetailLevel, void, ( F32 level ),,
+   "@brief Set the shadow detail level, from 0 to 1, and $pref::Shadows.\n\n"
+   "@ingroup Lighting" )
+{
+   level = mClampF( level, 0.0f, 1.0f );
+
+   if ( mFabs( ProjectedShadow::smGlobalShadowDetail - level ) < 0.001f )
+      return;
+
+   ProjectedShadow::setGlobalShadowDetailLevel( level );
+   Con::setFloatVariable( "$pref::Shadows", level );
+}
 
 
 GFX_ImplementTextureProfile( BLProjectedShadowProfile,
@@ -79,385 +136,449 @@ ProjectedShadow::ProjectedShadow( SceneObject *object )
    mParentObject = object;
    mShapeBase = dynamic_cast<ShapeBase*>( object );
 
-   mRadius = 0;
+   mRadius = 0.0f;
+   mLightToWorld.identity();
+   mInvShadowDistance = 1.0f;
+
+   mUseGeneric = false;
+   mNeedOutline = false;
+   mOutlineDim = 0;
+   mOutlineBlur = false;
+   mOutlineTime = 0;
+
    mLastRenderTime = 0;
-   mUpdateTexture = false;
+   mScore = 0.0f;
 
-   mShadowLength = 10.0f;
-
-   mDecalData = new DecalData;
-   mDecalData->skipVertexNormals = true;
-
-   mDecalInstance = NULL;
-   
-   mLastLightDir.set( 0, 0, 0 );
-   mLastObjectPosition.set( object->getRenderPosition() );
-   mLastObjectScale.set( object->getScale() );
-
-   CustomMaterial *customMat = dynamic_cast< CustomMaterial* >(
-      MATMGR->getMaterialDefinitionByName( "BL_ProjectedShadowMaterial" ) );
-   if ( customMat )
-   {
-      mDecalData->material = customMat;
-      mDecalData->matInst = customMat->createMatInstance();
-   }
-   else
-      mDecalData->matInst = MATMGR->createMatInstance( "WarningMaterial" );
-
-   mDecalData->matInst->init( MATMGR->getDefaultFeatures(), getGFXVertexFormat<GFXVertexPNTT>() );
-
-   mCasterPositionSC = NULL;
-   mShadowLengthSC = NULL;
+   mBlurModelViewSC = NULL;
+   mBlurTexelSizeSC = NULL;
+   mBlurSC = NULL;
 }
 
 ProjectedShadow::~ProjectedShadow()
 {
-   if ( mDecalInstance )
-      gDecalManager->removeDecal( mDecalInstance );
-
-   delete mDecalData;
-   
    mShadowTexture = NULL;
+   mGenericTexture = NULL;
    mRenderTarget = NULL;
 }
 
-bool ProjectedShadow::shouldRender( const SceneRenderState *state )
+/// How much of the fog lies between the eye and a point, as Tribes 2's
+/// getHazeAndFog (0x00570b40) has it: the haze that thickens out to the
+/// visible distance and the share of each fog volume the line crosses.
+static F32 hazeAndFog( const FogData &fog, const Point3F &eye, const Point3F &at )
 {
-   // Don't render if our object has been removed from the
-   // scene graph.
-      
-   if( !mParentObject->getSceneManager() )
-      return false;
+   const F32 dist = ( at - eye ).len();
 
-   // Don't render if the ShapeBase 
-   // object's fade value is greater 
-   // than the visibility epsilon.
-   bool shapeFade = mShapeBase && mShapeBase->getFadeVal() < TSMesh::VISIBILITY_EPSILON;
+   const F32 t = mClampF( ( dist - fog.densityOffset ) * fog.hazeScale, 0.0f, 1.0f ) - 1.0f;
+   F32 fogged = 1.0f - t * t;
 
-   // Get the shapebase datablock if we have one.
-   ShapeBaseData *data = NULL;
-   if ( mShapeBase )
-      data = static_cast<ShapeBaseData*>( mShapeBase->getDataBlock() );
-   
-   // Also don't render if 
-   // the camera distance is greater
-   // than the shadow length.
-   if (  shapeFade || !mDecalData || 
-         (  mDecalInstance && 
-            mDecalInstance->calcPixelSize( state->getViewport().extent.y, state->getCameraPosition(), state->getWorldToScreenScale().y ) < mDecalInstance->mDataBlock->fadeEndPixelSize ) )
+   const F32 dz = at.z - eye.z;
+   for ( U32 i = 0; i < FogData::MaxBands; i++ )
    {
-      // Release our shadow texture
-      // so that others can grab it out
-      // of the pool.
-      mShadowTexture = NULL;
+      if ( fog.bandFactor[i] == 0.0f )
+         continue;
 
+      const F32 lo = fog.bandMin[i];
+      const F32 hi = fog.bandMax[i];
+      F32 frac;
+      if ( mFabs( dz ) > 1e-4f )
+         frac = ( mClampF( at.z, lo, hi ) - mClampF( eye.z, lo, hi ) ) / dz;
+      else
+         frac = ( eye.z >= lo && eye.z <= hi ) ? 1.0f : 0.0f;
+      fogged += dist * frac * fog.bandFactor[i];
+   }
+
+   return mClampF( fogged, 0.0f, 1.0f );
+}
+
+void ProjectedShadow::_findDistanceDetail( F32 dist, DistanceDetail *dd )
+{
+   const S32 count = sizeof( smDistanceDetails ) / sizeof( DistanceDetail );
+   for ( S32 i = 0; i < count; i++ )
+   {
+      if ( dist > smDistanceDetails[i].dist )
+         continue;
+
+      if ( i == 0 )
+         *dd = smDistanceDetails[0];
+      else
+      {
+         const DistanceDetail &lo = smDistanceDetails[i - 1];
+         const DistanceDetail &hi = smDistanceDetails[i];
+         const F32 t = ( dist - lo.dist ) / ( hi.dist - lo.dist );
+         dd->dist = dist;
+         dd->directionSkew = lo.directionSkew + t * ( hi.directionSkew - lo.directionSkew );
+         dd->lengthSkew = lo.lengthSkew + t * ( hi.lengthSkew - lo.lengthSkew );
+      }
+      return;
+   }
+
+   *dd = smDistanceDetails[count - 1];
+}
+
+const ProjectedShadow::PixelSizeDetail* ProjectedShadow::_findPixelSizeDetail( F32 pixelSize )
+{
+   const S32 count = sizeof( smPixelSizeDetails ) / sizeof( PixelSizeDetail );
+   for ( S32 i = 0; i < count - 1; i++ )
+      if ( pixelSize >= smPixelSizeDetails[i].size )
+         return &smPixelSizeDetails[i];
+
+   return &smPixelSizeDetails[count - 1];
+}
+
+bool ProjectedShadow::_castsShadow()
+{
+   if ( !mShapeBase || !mShapeBase->getShapeInstance() || !mParentObject->getSceneManager() )
       return false;
+
+   if ( mShapeBase->isHidden() )
+      return false;
+
+   const ShapeBaseData *data = static_cast<ShapeBaseData*>( mShapeBase->getDataBlock() );
+   if ( !data || smGlobalShadowDetail < data->noShadowLevel )
+      return false;
+
+   if ( mShapeBase->getDamageState() == ShapeBase::Destroyed && !data->renderWhenDestroyed )
+      return false;
+
+   // A shape with nothing opaque casts no shadow (0x005eda42).
+   const TSShape *shape = mShapeBase->getShapeInstance()->getShape();
+   if ( shape->subShapeFirstTranslucentObject.empty() || shape->subShapeFirstTranslucentObject[0] == 0 )
+      return false;
+
+   // Nor does one that is cloaked, riding something, faded out, or the
+   // player's own when it is not drawn in first person (0x005dd215).
+   if ( mShapeBase->getCloakLevel() != 0.0f || mShapeBase->isMounted() )
+      return false;
+
+   if ( mShapeBase->getFadeVal() < TSMesh::VISIBILITY_EPSILON )
+      return false;
+
+   Player *player = dynamic_cast<Player*>( mShapeBase );
+   if ( player && player->isHiddenInFirstPerson() )
+      return false;
+
+   return true;
+}
+
+bool ProjectedShadow::_prepare( const SceneRenderState *state )
+{
+   if ( !_castsShadow() )
+      return false;
+
+   TSShapeInstance *shapeInst = mShapeBase->getShapeInstance();
+   const TSShape *shape = shapeInst->getShape();
+   const ShapeBaseData *data = static_cast<ShapeBaseData*>( mShapeBase->getDataBlock() );
+   const Point3F &scale = mParentObject->getScale();
+
+   // Below the class's generic level the shadow is the blob, moved halfway
+   // down toward the shape's feet (0x005edb2a).
+   const bool generic = smGlobalShadowDetail < data->genericShadowLevel;
+
+   // The shadow is centred on the shape's centre, moved across with the
+   // shadow node as it leaves the bounds (0x005edb5a).
+   Point3F pos = shape->center;
+   if ( generic )
+      pos *= 0.5f;
+
+   const S32 node = data->shadowNode;
+   if ( node >= 0 && node < shapeInst->mNodeTransforms.size() )
+   {
+      Point3F offset = shapeInst->mNodeTransforms[node].getPosition() - shape->defaultTranslations[node];
+      pos.x += offset.x;
+      pos.y += offset.y;
+   }
+
+   pos.convolve( scale );
+   mParentObject->getRenderTransform().mulP( pos );
+
+   // Half the diagonal of the shape's bounds (0x00652b90).
+   Point3F halfExtents = shape->bounds.getExtents() * 0.5f;
+   halfExtents.convolve( scale );
+   mRadius = halfExtents.len();
+
+   const Point3F &camPos = state->getCameraPosition();
+   const Point3F &objPos = mParentObject->getRenderPosition();
+   const F32 dist = ( objPos - camPos ).len();
+   F32 fog = hazeAndFog( state->getSceneManager()->getFogData(), camPos, objPos );
+
+   // A shadow too small on screen is dropped, and one nearly so fades into a
+   // pseudo fog (0x00652e70).
+   const F32 maxScale = getMax( scale.x, getMax( scale.y, scale.z ) );
+   const F32 scaledDist = getMax( dist / maxScale, 0.001f );
+   const F32 width = state->getViewport().extent.x;
+   const F32 pixelSize = ( shape->radius / scaledDist ) * state->getWorldToScreenScale().x *
+                         ( width / 640.0f ) * TSShapeInstance::smDetailAdjust;
+   const F32 smallest = getMax( smSmallestVisibleSize, shape->mSmallestVisibleSize );
+   if ( pixelSize * smShapeDetailScale < smallest )
+      return false;
+
+   F32 pseudoFog = smallest / ( pixelSize * smShapeDetailScale );
+   pseudoFog = pseudoFog > 0.5f ? 2.0f * ( pseudoFog - 0.5f ) : 0.0f;
+   if ( fog < pseudoFog )
+   {
+      if ( pseudoFog >= 0.99f )
+         return false;
+      fog = pseudoFog;
+   }
+
+   DistanceDetail dd;
+   _findDistanceDetail( dist, &dd );
+   const PixelSizeDetail *psd = _findPixelSizeDetail( pixelSize );
+
+   // The light is fixed, not the sun (0x005edc8a), and turns toward straight
+   // down with distance and a lower detail level (0x00652ff0).
+   VectorF lightDir( 0.57f, 0.57f, -0.57f );
+   const F32 dirMult = ( 1.0f - dd.directionSkew ) * ( 1.0f - smLightDirSkew );
+   if ( dirMult < 0.99f )
+   {
+      lightDir.z *= dirMult;
+      lightDir.z -= 1.0f - dirMult;
+   }
+   lightDir.normalize();
+
+   // Ten times the shape's radius, shortened the same way (0x005edadd).
+   const F32 shadowLen = 10.0f * shape->radius *
+                         ( 1.0f - dd.lengthSkew ) * ( 1.0f - smLightLenSkew );
+
+   mUseGeneric = generic || psd->generic;
+
+   F32 radius = mRadius;
+   if ( mUseGeneric )
+      radius *= smGenericRadiusSkew;
+
+   _buildPartition( pos, lightDir, radius, shadowLen );
+   if ( mPartition.empty() )
+      return false;
+
+   // A fading shape's shadow is drawn in the fade, with no falloff of its own
+   // (0x006538db).
+   const F32 fade = mShapeBase->getFadeVal();
+   if ( fade < 1.0f )
+   {
+      mPartitionShades.setSize( mPartitionVerts.size() );
+      const U8 shade = U8( mClampF( fade, 0.0f, 1.0f ) * 255.0f );
+      for ( S32 i = 0; i < mPartitionShades.size(); i++ )
+         mPartitionShades[i] = shade;
+   }
+   else
+      _updatePartition( fog );
+
+   if ( mUseGeneric )
+   {
+      mShadowTexture = NULL;
+      return true;
+   }
+
+   // The outline is redrawn as often as its size on screen asks for, and when
+   // that size calls for another texture (0x006530e0).
+   const U32 now = Platform::getVirtualMilliseconds();
+   const bool expired = now - mOutlineTime > psd->frameExpiration;
+   const bool changed = mShadowTexture.isNull() || psd->bmpDim != mOutlineDim || psd->blur != mOutlineBlur;
+   if ( expired || changed )
+   {
+      mNeedOutline = true;
+      mOutlineDim = psd->bmpDim;
+      mOutlineBlur = psd->blur;
+      mScore = 1.0f + F32( now - mOutlineTime ) / 1000.0f;
    }
 
    return true;
 }
 
-bool ProjectedShadow::_updateDecal( const SceneRenderState *state )
+void ProjectedShadow::_buildPartition( const Point3F &pos, const VectorF &lightDir, F32 radius, F32 shadowLen )
 {
-   PROFILE_SCOPE( ProjectedShadow_UpdateDecal );
-
-   if ( !LIGHTMGR )
-      return false;
-
-   // Get the position of the decal first.   
-   const Box3F &objBox = mParentObject->getObjBox();
-   const Point3F boxCenter = objBox.getCenter();
-   Point3F decalPos = boxCenter;
-   const MatrixF &renderTransform = mParentObject->getRenderTransform();
+   // Light space: x and z across the light, y down it from the shape.
+   Point3F x, z;
+   if ( mFabs( lightDir.z ) > 0.001f )
    {
-      // Set up the decal position.
-      // We use the object space box center
-      // multiplied by the render transform
-      // of the object to ensure we benefit
-      // from interpolation.
-      MatrixF t( renderTransform );   
-      t.setColumn(2,Point3F::UnitZ);
-      t.mulP( decalPos );
+      z.set( 0.0f, lightDir.z, -lightDir.y );
+      z.normalize();
+      mCross( lightDir, z, &x );
+   }
+   else
+   {
+      mCross( lightDir, Point3F( 0, 0, 1 ), &x );
+      x.normalize();
+      mCross( x, lightDir, &z );
    }
 
-   // HH: Added for Tribes 2 compatibility.
-   if ( mShapeBase && mShapeBase->getFadeVal() < TSMesh::VISIBILITY_EPSILON )
+   mLightToWorld.identity();
+   mLightToWorld.setColumn( 0, x );
+   mLightToWorld.setColumn( 1, lightDir );
+   mLightToWorld.setColumn( 2, z );
+   mLightToWorld.setColumn( 3, pos );
+
+   MatrixF worldToLight( mLightToWorld );
+   worldToLight.inverse();
+
+   Point3F extent( 2.0f * radius, shadowLen, 2.0f * radius );
+   smDepthSortList.clear();
+   smDepthSortList.set( worldToLight, extent );
+   smDepthSortList.setInterestNormal( lightDir );
+
+   mInvShadowDistance = 1.0f / getMax( shadowLen, 1.0f );
+
+   // The world box and sphere around the shadow's volume.
+   const Point3F bx = x * radius;
+   const Point3F by = lightDir * shadowLen;
+   const Point3F bz = z * radius;
+   const Point3F half( mFabs( bx.x ) + mFabs( by.x ) + mFabs( bz.x ),
+                       mFabs( bx.y ) + mFabs( by.y ) + mFabs( bz.y ),
+                       mFabs( bx.z ) + mFabs( by.z ) + mFabs( bz.z ) );
+   const Point3F center = pos + by * 0.5f;
+   smShadowSphere.center = center;
+   smShadowSphere.radius = half.len();
+   smShadowBox.minExtents = center - half;
+   smShadowBox.maxExtents = center + half;
+
+   mParentObject->getContainer()->findObjects( smShadowBox, smShadowMask, _collisionCallback, this );
+
+   // Only the first surface down the light takes each part of the shadow.
+   const Point3F square[4] =
    {
-      if ( mDecalInstance )
-      {
-         gDecalManager->removeDecal( mDecalInstance );
-         mDecalInstance = NULL;
-      }
-      return false;
-   }
+      Point3F( -radius, 0.0f, -radius ),
+      Point3F( -radius, 0.0f,  radius ),
+      Point3F(  radius, 0.0f,  radius ),
+      Point3F(  radius, 0.0f, -radius )
+   };
 
-   if ( mDecalInstance )
-   {
-      mDecalInstance->mPosition = decalPos;
-      if ( !shouldRender( state ) )
-         return false;
-   }
+   mPartition.clear();
+   mPartitionVerts.clear();
+   smDepthSortList.depthPartition( square, 4, mPartition, mPartitionVerts );
 
-   // Get the sunlight for the shadow projection.
-   // We want the LightManager to return NULL if it can't
-   // get the "real" sun, so we specify false for the useDefault parameter.
-   LightInfo *lights[4] = {0};
-   LightQuery query;
-   query.init( mParentObject->getWorldSphere() );
-	query.getLights( lights, 4 );
-
-   Point3F pos = renderTransform.getPosition();
-
-   Point3F lightDir( 0, 0, 0 );
-   Point3F tmp( 0, 0, 0 );
-   F32 weight = 0;
-   F32 range = 0;
-   U32 lightCount = 0;
-   F32 dist = 0;
-   F32 fade = 0;
-   for ( U32 i = 0; i < 4; i++ )
-   {
-      // If we got a NULL light, 
-      // we're at the end of the list.
-      if ( !lights[i] )
-         break;
-
-      if ( !lights[i]->getCastShadows() )
-         continue;
-
-      if ( lights[i]->getType() != LightInfo::Point )
-         tmp = lights[i]->getDirection();
-      else
-         tmp = pos - lights[i]->getPosition();
-
-      range = lights[i]->getRange().x;
-      dist = ( (tmp.lenSquared()) / ((range * range) * 0.5f));
-      weight = mClampF( 1.0f - ( tmp.lenSquared() / (range * range)), 0.00001f, 1.0f );
-
-      if ( lights[i]->getType() == LightInfo::Vector )
-         fade = getMax( fade, 1.0f );
-      else
-         fade = getMax( fade, mClampF( 1.0f - dist, 0.00001f, 1.0f ) );
-
-      lightDir += tmp * weight;
-      lightCount++;
-   }
-
-   lightDir.normalize();
-   
-   // No light... no shadow.
-   if ( !lights[0] )
-      return false;
-     
-   // Has the light direction
-   // changed since last update?
-   bool lightDirChanged = !mLastLightDir.equal( lightDir );
-
-   // Has the parent object moved
-   // or scaled since the last update?
-   bool hasMoved = !mLastObjectPosition.equal( mParentObject->getRenderPosition() );
-   bool hasScaled = !mLastObjectScale.equal( mParentObject->getScale() );
-
-   // Set the last light direction
-   // to the current light direction.
-   mLastLightDir = lightDir;
-   mLastObjectPosition = mParentObject->getRenderPosition();
-   mLastObjectScale = mParentObject->getScale();
-
-
-   // Temps used to generate
-   // tangent vector for DecalInstance below.
-   VectorF right( 0, 0, 0 );
-   VectorF fwd( 0, 0, 0 );
-   VectorF tmpFwd( 0, 0, 0 );
-   
-   U32 idx = lightDir.getLeastComponentIndex();
-
-   tmpFwd[idx] = 1.0f;
-
-   right = mCross( tmpFwd, lightDir );
-   fwd = mCross( lightDir, right );
-   right = mCross( fwd, lightDir );
-
-   right.normalize();
-
-   // Set up the world to light space
-   // matrix, along with proper position
-   // and rotation to be used as the world
-   // matrix for the render to texture later on.
-   static MatrixF sRotMat(EulerF( 0.0f, -(M_PI_F/2.0f), 0.0f));
-   mWorldToLight.identity();
-   MathUtils::getMatrixFromForwardVector( lightDir, &mWorldToLight );
-   mWorldToLight.setPosition( ( pos + boxCenter ) - ( ( (mRadius * smDepthAdjust) + 0.001f ) * lightDir ) );
-   mWorldToLight.mul( sRotMat );
-   mWorldToLight.inverse();
-   
-   // Get the shapebase datablock if we have one.
-   ShapeBaseData *data = NULL;
-   if ( mShapeBase )
-      data = static_cast<ShapeBaseData*>( mShapeBase->getDataBlock() );
-
-   // We use the object box's extents multiplied
-   // by the object's scale divided by 2 for the radius
-   // because the object's worldsphere radius is not
-   // rotationally invariant.
-   mRadius = (objBox.getExtents() * mParentObject->getScale()).len() * 0.5f;
-
-   if ( data )
-      mRadius *= data->shadowSphereAdjust;
-
-   // HH: Added for Tribes 2 compatibility.
-   const bool newDecal = !mDecalInstance;
-
-   // Create the decal if we don't have one yet.
-   if ( !mDecalInstance )
-      mDecalInstance = gDecalManager->addDecal( decalPos, 
-                                                lightDir, 
-                                                right, 
-                                                mDecalData, 
-                                                1.0f, 
-                                                0, 
-                                                PermanentDecal | ClipDecal | CustomDecal );
-
-   if ( !mDecalInstance )
-      return false;
-
-   // HH: Modified for Tribes 2 compatibility.
-   // Tribes 2 drew a fading shape's shadow in the fade's colour, in place of
-   // its own falloff (0x006538db), so the shadow goes with the shape.
-   mDecalInstance->mVisibility = fade;
-   if ( mShapeBase )
-      mDecalInstance->mVisibility *= mShapeBase->getFadeVal();
-
-   // Setup decal parameters.
-   mDecalInstance->mSize = mRadius * 2.0f;
-   mDecalInstance->mNormal = -lightDir;
-   mDecalInstance->mTangent = -right;
-   mDecalInstance->mRotAroundNormal = 0;
-   mDecalInstance->mPosition = decalPos;
-   mDecalInstance->mDataBlock = mDecalData;
-   
-   // If the position of the world 
-   // space box center is the same
-   // as the decal's position, and
-   // the light direction has not 
-   // changed, we don't need to clip.
-   // HH: Modified for Tribes 2 compatibility.
-   bool shouldClip = lightDirChanged || hasMoved || hasScaled || newDecal;
-
-   // Now, check and see if the object is visible.
-   const Frustum &frust = state->getFrustum();
-   if ( frust.isCulled( SphereF( mDecalInstance->mPosition, mDecalInstance->mSize * mDecalInstance->mSize ) ) && !shouldClip )
-      return false;
-
-   F32 shadowLen = 10.0f;
-   if ( data )
-      shadowLen = data->shadowProjectionDistance;
-
-   const Point3F &boxExtents = objBox.getExtents();
-   
-   
-   mShadowLength = shadowLen * mParentObject->getScale().z;
-
-   // Set up clip depth, and box half 
-   // offset for decal clipping.
-   Point2F clipParams(  mShadowLength, (boxExtents.x + boxExtents.y) * 0.25f );
-
-   bool render = false;
-   bool clipSucceeded = true;
-
-   // Clip!
-   if ( shouldClip )
-   {
-      clipSucceeded = gDecalManager->clipDecal( mDecalInstance, 
-                                                NULL, 
-                                                &clipParams );
-   }
-
-   // If the clip failed,
-   // we'll return false in
-   // order to keep from
-   // unnecessarily rendering
-   // into the texture.  If
-   // there was no reason to clip
-   // on this update, we'll assume we
-   // should update the texture.
-   render = clipSucceeded;
-
-   // Tell the DecalManager we've changed this decal.
-   gDecalManager->notifyDecalModified( mDecalInstance );
-
-   return render;
+   const F32 invRadius = 1.0f / radius;
+   mPartitionTVerts.setSize( mPartitionVerts.size() );
+   for ( S32 i = 0; i < mPartitionVerts.size(); i++ )
+      mPartitionTVerts[i].set( 0.5f + 0.5f * mPartitionVerts[i].x * invRadius,
+                               0.5f + 0.5f * mPartitionVerts[i].z * invRadius );
 }
 
-void ProjectedShadow::_calcScore( const SceneRenderState *state )
+void ProjectedShadow::_updatePartition( F32 fog )
 {
-   if ( !mDecalInstance )
-      return;
+   // Full strength where the shadow leaves the shape, none at its far end,
+   // less any fog (0x006536e0).
+   const F32 clear = 1.0f - fog;
 
-   F32 pixRadius = mDecalInstance->calcPixelSize( state->getViewport().extent.y, state->getCameraPosition(), state->getWorldToScreenScale().y ); 
- 
-   F32 pct = pixRadius / mDecalInstance->mDataBlock->fadeStartPixelSize;
+   mPartitionShades.setSize( mPartitionVerts.size() );
+   for ( S32 i = 0; i < mPartitionVerts.size(); i++ )
+   {
+      const F32 val = 1.0f - mPartitionVerts[i].y * mInvShadowDistance;
+      mPartitionShades[i] = U8( mClampF( val * clear, 0.0f, 1.0f ) * 255.0f );
+   }
+}
 
-   U32 msSinceLastRender = Platform::getVirtualMilliseconds() - getLastRenderTime();
+void ProjectedShadow::_collisionCallback( SceneObject *obj, void *key )
+{
+   if ( obj->getWorldBox().isOverlapped( smShadowBox ) )
+      obj->buildPolyList( PLC_Collision, &smDepthSortList, smShadowBox, smShadowSphere );
+}
 
-   ShapeBaseData *data = NULL;
-   if ( mShapeBase )
-      data = static_cast<ShapeBaseData*>( mShapeBase->getDataBlock() );
-
-   // For every 1s this shadow hasn't been
-   // updated we'll add 10 to the score.
-   F32 secs = mFloor( (F32)msSinceLastRender / 1000.0f );
-   
-   mScore = pct + secs;
-   mClampF( mScore, 0.0f, 2000.0f );
+bool ProjectedShadow::shouldRender( const SceneRenderState *state )
+{
+   return mNeedOutline;
 }
 
 void ProjectedShadow::update( const SceneRenderState *state )
 {
-   mUpdateTexture = true;
+   if ( !state->isDiffusePass() )
+      return;
 
-   // Set the decal lod settings.
-   mDecalData->fadeStartPixelSize = smFadeStartPixelSize;
-   mDecalData->fadeEndPixelSize = smFadeEndPixelSize;
+   mNeedOutline = false;
+   mScore = 0.0f;
 
-   // Update our decal before
-   // we render to texture.
-   // If it fails, something bad happened
-   // (no light to grab/failed clip) and we should return.
-   if ( !_updateDecal( state ) )
+   if ( !_prepare( state ) )
    {
-      // Release our shadow texture
-      // so that others can grab it out
-      // of the pool.
-      mShadowTexture = NULL;      
-      mUpdateTexture = false;
+      // Let another shadow have the texture from the pool.
+      mShadowTexture = NULL;
       return;
    }
 
-   _calcScore( state );
+   ObjectRenderInst *ri = state->getRenderPass()->allocInst<ObjectRenderInst>();
+   ri->renderDelegate.bind( this, &ProjectedShadow::_renderPartition );
+   ri->type = RenderPassManager::RIT_Shadow;
+   state->getRenderPass()->addInst( ri );
+}
 
-   if ( !mCasterPositionSC || !mCasterPositionSC->isValid() )
-      mCasterPositionSC = mDecalData->matInst->getMaterialParameterHandle( "$shadowCasterPosition" );
+void ProjectedShadow::_renderPartition( ObjectRenderInst *ri, SceneRenderState *state, BaseMatInstance *overrideMat )
+{
+   if ( overrideMat || mPartitionVerts.empty() )
+      return;
 
-   if ( !mShadowLengthSC || !mShadowLengthSC->isValid() )
-      mShadowLengthSC = mDecalData->matInst->getMaterialParameterHandle( "$shadowLength" );
+   const GFXTexHandle &texture = mUseGeneric ? _getGenericTexture() : mShadowTexture;
+   if ( texture.isNull() )
+      return;
 
-   MaterialParameters *matParams = mDecalData->matInst->getMaterialParameters();
+   GFXDEBUGEVENT_SCOPE( ProjectedShadow_RenderPartition, ColorI( 255, 0, 0 ) );
 
-   matParams->setSafe( mCasterPositionSC, mParentObject->getRenderPosition() );   
-   matParams->setSafe( mShadowLengthSC, mShadowLength / 4.0f );
+   if ( !mDrawSB )
+   {
+      // The shadow multiplies what is under it by one less its shade
+      // (0x0065385d), pulled toward the eye against the surface (0x00653994).
+      GFXStateBlockDesc desc;
+      desc.setCullMode( GFXCullNone );
+      desc.setZReadWrite( true, false );
+      desc.zBias = -0.0002f;
+      desc.setBlend( true, GFXBlendZero, GFXBlendInvSrcColor );
+      desc.samplersDefined = true;
+      desc.samplers[0] = GFXSamplerStateDesc::getClampLinear();
+      mDrawSB = GFX->createStateBlock( desc );
+   }
+
+   GFXVertexBufferHandle<GFXVertexPCT> verts( GFX, mPartitionVerts.size(), GFXBufferTypeVolatile );
+   GFXVertexPCT *v = verts.lock();
+   if ( !v )
+      return;
+
+   for ( S32 i = 0; i < mPartitionVerts.size(); i++ )
+   {
+      mLightToWorld.mulP( mPartitionVerts[i], &v[i].point );
+      const U8 shade = mPartitionShades[i];
+      v[i].color.set( shade, shade, shade, shade );
+      v[i].texCoord = mPartitionTVerts[i];
+   }
+   verts.unlock();
+
+   GFX->setStateBlock( mDrawSB );
+   GFX->setupGenericShaders( GFXDevice::GSModColorTexture );
+   GFX->setTexture( 0, texture );
+   GFX->setVertexBuffer( verts );
+
+   for ( S32 i = 0; i < mPartition.size(); i++ )
+      GFX->drawPrimitive( GFXTriangleFan, mPartition[i].vertexStart, mPartition[i].vertexCount - 2 );
+}
+
+const GFXTexHandle& ProjectedShadow::_getGenericTexture()
+{
+   // Tribes 2's generic shadow (0x00652620): 180 at the centre falling to
+   // nothing at the edge.
+   if ( mGenericTexture.isNull() )
+   {
+      const S32 dim = 32;
+      const S32 center = dim >> 1;
+      const F32 invRadiusSq = 1.0f / (F32)( center * center );
+
+      GBitmap *bitmap = new GBitmap( dim, dim, false, GFXFormatR8G8B8A8 );
+      for ( S32 i = 0; i < dim; i++ )
+         for ( S32 j = 0; j < dim; j++ )
+         {
+            const F32 t = (F32)( ( i - center ) * ( i - center ) + ( j - center ) * ( j - center ) ) * invRadiusSq;
+            const U8 val = t > 0.99f ? 0 : U8( 180.0f - 180.0f * t );
+            bitmap->setColor( j, i, ColorI( val, val, val, val ) );
+         }
+
+      mGenericTexture.set( bitmap, &GFXDefaultStaticDiffuseProfile, true, "BLGenericShadow" );
+   }
+
+   return mGenericTexture;
 }
 
 void ProjectedShadow::render( F32 camDist, const TSRenderState &rdata )
 {
-   if ( !mUpdateTexture )
+   if ( !mNeedOutline || mUseGeneric )
       return;
-            
-   // Do the render to texture,
-   // DecalManager handles rendering
-   // the shadow onto the world.
-   _renderToTexture( camDist, rdata );
+
+   mNeedOutline = false;
+   _renderToTexture( rdata );
 }
 
 BaseMatInstance* ProjectedShadow::_getShadowMaterial( BaseMatInstance *inMat )
@@ -475,105 +596,65 @@ BaseMatInstance* ProjectedShadow::_getShadowMaterial( BaseMatInstance *inMat )
    return hook->getShadowMat( ShadowType_Spot );
 }
 
-static void setField( SimObject *obj, const char *field, const char *value,
-                      const char *array = NULL )
+bool ProjectedShadow::_initBlur()
 {
-   obj->setDataField( StringTable->insert( field ), array, value );
-}
+   if ( mBlurShader )
+      return true;
 
-template< class T >
-static T *registerDefault( T *obj, const char *name )
-{
-   if( !obj->registerObject( name ) )
+   ShaderData *shaderData;
+   if ( !Sim::findObject( "BL_ShadowBlurShader", shaderData ) )
    {
-      delete obj;
-      return NULL;
+      shaderData = new ShaderData;
+      shaderData->setField( "OGLVertexShaderFile", "shaders/common/fixedFunction/gl/modColorTextureV.glsl" );
+      shaderData->setField( "OGLPixelShaderFile", "shaders/common/lighting/basic/gl/shadowBlurP.glsl" );
+      shaderData->setDataField( StringTable->insert( "samplerNames" ), "0", "diffuseMap" );
+      shaderData->setField( "pixVersion", "2.0" );
+      if ( !shaderData->registerObject( "BL_ShadowBlurShader" ) )
+      {
+         delete shaderData;
+         return false;
+      }
+      Sim::getRootGroup()->addObject( shaderData );
    }
 
-   Sim::getRootGroup()->addObject( obj );
-   return obj;
+   mBlurShader = shaderData->getShader();
+   if ( !mBlurShader )
+      return false;
+
+   mBlurConsts = mBlurShader->allocConstBuffer();
+   mBlurModelViewSC = mBlurShader->getShaderConstHandle( "$modelview" );
+   mBlurTexelSizeSC = mBlurShader->getShaderConstHandle( "$texelSize" );
+   mBlurSC = mBlurShader->getShaderConstHandle( "$blur" );
+
+   GFXStateBlockDesc desc;
+   desc.setCullMode( GFXCullNone );
+   desc.setZReadWrite( false, false );
+   desc.samplersDefined = true;
+   desc.samplers[0] = GFXSamplerStateDesc::getClampPoint();
+   mBlurSB = GFX->createStateBlock( desc );
+
+   return true;
 }
 
-static ShaderData *createFilterShader( const char *name, const char *blurDir )
-{
-   ShaderData *shader = new ShaderData;
-   setField( shader, "DXVertexShaderFile",
-             "shaders/common/lighting/basic/shadowFilterV.hlsl" );
-   setField( shader, "DXPixelShaderFile",
-             "shaders/common/lighting/basic/shadowFilterP.hlsl" );
-   setField( shader, "OGLVertexShaderFile",
-             "shaders/common/lighting/basic/gl/shadowFilterV.glsl" );
-   setField( shader, "OGLPixelShaderFile",
-             "shaders/common/lighting/basic/gl/shadowFilterP.glsl" );
-   setField( shader, "samplerNames", "$diffuseMap", "0" );
-   setField( shader, "defines", blurDir );
-   setField( shader, "pixVersion", "2.0" );
-
-   return registerDefault( shader, name );
-}
-
-static GFXStateBlockData *createPostFxStateBlock()
-{
-   GFXStateBlockData *block;
-   if( Sim::findObject( "PFX_DefaultStateBlock", block ) )
-      return block;
-
-   block = new GFXStateBlockData;
-   setField( block, "zDefined", "true" );
-   setField( block, "zEnable", "false" );
-   setField( block, "zWriteEnable", "false" );
-
-   SimObject *sampler;
-   if( Sim::findObject( "SamplerClampLinear", sampler ) )
-   {
-      setField( block, "samplersDefined", "true" );
-      setField( block, "samplerStates", "SamplerClampLinear", "0" );
-   }
-
-   return registerDefault( block, "PFX_DefaultStateBlock" );
-}
-
-static PostEffect *createShadowFilter()
-{
-   if( !createFilterShader( "BL_ShadowFilterShaderV",
-                            "BLUR_DIR=float2(1.0,0.0)" ) ||
-       !createFilterShader( "BL_ShadowFilterShaderH",
-                            "BLUR_DIR=float2(0.0,1.0)" ) ||
-       !createPostFxStateBlock() )
-      return NULL;
-
-   PostEffect *vertical = new PostEffect;
-   setField( vertical, "shader", "BL_ShadowFilterShaderV" );
-   setField( vertical, "stateBlock", "PFX_DefaultStateBlock" );
-   setField( vertical, "targetClear", "PFXTargetClear_OnDraw" );
-   setField( vertical, "targetClearColor", "0 0 0 0" );
-   setField( vertical, "texture", "$inTex", "0" );
-   setField( vertical, "target", "$outTex" );
-   if( !registerDefault( vertical, "BL_ShadowFilterPostFx" ) )
-      return NULL;
-
-   PostEffect *horizontal = new PostEffect;
-   setField( horizontal, "shader", "BL_ShadowFilterShaderH" );
-   setField( horizontal, "stateBlock", "PFX_DefaultStateBlock" );
-   setField( horizontal, "texture", "$inTex", "0" );
-   setField( horizontal, "target", "$outTex" );
-   if( horizontal->registerObject() )
-      vertical->addObject( horizontal );
-   else
-      delete horizontal;
-
-   return vertical;
-}
-
-void ProjectedShadow::_renderToTexture( F32 camDist, const TSRenderState &rdata )
+void ProjectedShadow::_renderToTexture( const TSRenderState &rdata )
 {
    PROFILE_SCOPE( ProjectedShadow_RenderToTexture );
 
    GFXDEBUGEVENT_SCOPE( ProjectedShadow_RenderToTexture, ColorI( 255, 0, 0 ) );
 
    RenderPassManager *renderPass = _getRenderPass();
-   if ( !renderPass )
+   if ( !renderPass || !_initBlur() )
       return;
+
+   const U32 dim = mOutlineDim;
+
+   // Tribes 2 draws the shape from the light into a bitmap a bit to a pixel,
+   // and widens each bit to a byte, through a 3x3 blur at the larger sizes
+   // (0x0065319d, 0x00443cd0). The outline here is drawn on the card and the
+   // blur turns whatever it covers into those bits.
+   GFXTexHandle outline( dim, dim, GFXFormatR8G8B8A8, &BLProjectedShadowProfile, "BLShadowOutline" );
+   if ( mShadowTexture.isNull() || mShadowTexture.getWidth() != dim )
+      mShadowTexture.set( dim, dim, GFXFormatR8G8B8A8, &BLProjectedShadowProfile, "BLShadow" );
 
    GFXTransformSaver saver;
    
@@ -581,36 +662,28 @@ void ProjectedShadow::_renderToTexture( F32 camDist, const TSRenderState &rdata 
    // so we must save it here before we modify it.
    F32 l, r, b, t, n, f;
    bool ortho;
-   GFX->getFrustum( &l, &r, &b, &t, &n, &f, &ortho );  
+   GFX->getFrustum( &l, &r, &b, &t, &n, &f, &ortho );
+   const RectI viewport = GFX->getViewport();
 
-   // Set the orthographic projection
-   // matrix up, to be based on the radius
-   // generated based on our shape.
-   GFX->setOrtho( -mRadius, mRadius, -mRadius, mRadius, 0.001f, (mRadius * 2) * smDepthAdjust, true );
+   // Look down the light at the shape, with light space's x and z across the
+   // texture as the shadow's texture coordinates have them.
+   const F32 back = 3.0f * mRadius;
+   MatrixF lightCam( mLightToWorld );
+   Point3F lightDir;
+   mLightToWorld.getColumn( 1, &lightDir );
+   lightCam.setPosition( mLightToWorld.getPosition() - lightDir * back );
+   lightCam.inverse();
 
-   // Set the world to light space
-   // matrix set up in shouldRender().
-   GFX->setWorldMatrix( mWorldToLight );
-
-   // Get the shapebase datablock if we have one.
-   ShapeBaseData *data = NULL;
-   if ( mShapeBase )
-      data = static_cast<ShapeBaseData*>( mShapeBase->getDataBlock() );
-
-   // Init or update the shadow texture size.
-   if ( mShadowTexture.isNull() || ( data && data->shadowSize != mShadowTexture.getWidth() ) )
-   {
-      U32 texSize = getNextPow2( data ? data->shadowSize : 256 * LightShadowMap::smShadowTexScalar );
-      mShadowTexture.set( texSize, texSize, GFXFormatR8G8B8A8, &PostFxTargetProfile, "BLShadow" );
-   }
+   GFX->setOrtho( -mRadius, mRadius, -mRadius, mRadius, 0.0f, 2.0f * back, true );
+   GFX->setWorldMatrix( lightCam );
 
    GFX->pushActiveRenderTarget();
 
    if ( !mRenderTarget )
       mRenderTarget = GFX->allocRenderToTextureTarget();
 
-   mRenderTarget->attachTexture( GFXTextureTarget::DepthStencil, _getDepthTarget( mShadowTexture->getWidth(), mShadowTexture->getHeight() ) );
-   mRenderTarget->attachTexture( GFXTextureTarget::Color0, mShadowTexture );
+   mRenderTarget->attachTexture( GFXTextureTarget::DepthStencil, _getDepthTarget( dim, dim ) );
+   mRenderTarget->attachTexture( GFXTextureTarget::Color0, outline );
    GFX->setActiveRenderTarget( mRenderTarget );
 
    GFX->clear( GFXClearZBuffer | GFXClearStencil | GFXClearTarget, ColorI( 0, 0, 0, 0 ), 1.0f, 0 );
@@ -630,51 +703,64 @@ void ProjectedShadow::_renderToTexture( F32 camDist, const TSRenderState &rdata 
    baseState.setDiffuseCameraTransform( diffuseState->getCameraTransform() );
    baseState.setWorldToScreenScale( diffuseState->getWorldToScreenScale() );
    baseState.getCullingState().disableZoneCulling( true );
-   
+
+   // Tribes 2 draws a shadow's shape at a detail scaled by the shadow detail
+   // level, and never finer than its minimum (0x00652928, 0x00652906).
+   const F32 saveDetailAdjust = TSShapeInstance::smDetailAdjust;
+   const S32 saveSkipDetails = TSShapeInstance::smNumSkipRenderDetails;
+   TSShapeInstance::smDetailAdjust *= smShapeDetailScale;
+   TSShapeInstance::smNumSkipRenderDetails = smShapeDetailMin;
+
    mParentObject->prepRenderImage( &baseState );
    renderPass->renderPass( &baseState );
 
-   // Delete the SceneRenderState we allocated.
+   TSShapeInstance::smDetailAdjust = saveDetailAdjust;
+   TSShapeInstance::smNumSkipRenderDetails = saveSkipDetails;
+
    mRenderTarget->resolve();
-   GFX->popActiveRenderTarget();
 
-   // If we're close enough then filter the shadow.
-   if ( camDist < BasicLightManager::getShadowFilterDistance() )
+   // Then into the shadow's own texture, through the blur.
+   if ( !mBlurTarget )
+      mBlurTarget = GFX->allocRenderToTextureTarget();
+
+   mBlurTarget->attachTexture( GFXTextureTarget::Color0, mShadowTexture );
+   GFX->setActiveRenderTarget( mBlurTarget );
+
+   GFXVertexBufferHandle<GFXVertexPCT> quad( GFX, 4, GFXBufferTypeVolatile );
+   GFXVertexPCT *v = quad.lock();
+   if ( v )
    {
-      static bool sAskedForFilter = false;
-      if ( !smShadowFilter && !sAskedForFilter )
-      {
-         sAskedForFilter = true;
+      v[0].point.set( -1.0f, -1.0f, 0.0f ); v[0].texCoord.set( 0.0f, 0.0f );
+      v[1].point.set(  1.0f, -1.0f, 0.0f ); v[1].texCoord.set( 1.0f, 0.0f );
+      v[2].point.set( -1.0f,  1.0f, 0.0f ); v[2].texCoord.set( 0.0f, 1.0f );
+      v[3].point.set(  1.0f,  1.0f, 0.0f ); v[3].texCoord.set( 1.0f, 1.0f );
+      for ( U32 i = 0; i < 4; i++ )
+         v[i].color.set( 255, 255, 255, 255 );
+      quad.unlock();
 
-         PostEffect *filter = NULL;
-         if ( !Sim::findObject( "BL_ShadowFilterPostFx", filter ) )
-         {
-            filter = createShadowFilter();
-            if ( filter )
-               Con::warnf( "ProjectedShadow: no BL_ShadowFilterPostFx was set "
-                           "up in script; using a default one." );
-            else
-               Con::errorf( "ProjectedShadow::_renderToTexture() - 'BL_ShadowFilterPostFx' not found!" );
-         }
-
-         smShadowFilter = filter;
-      }
-
-      if ( smShadowFilter )
-         smShadowFilter->process( NULL, mShadowTexture );
+      GFX->setStateBlock( mBlurSB );
+      GFX->setShader( mBlurShader );
+      GFX->setShaderConstBuffer( mBlurConsts );
+      mBlurConsts->setSafe( mBlurModelViewSC, MatrixF( true ) );
+      mBlurConsts->setSafe( mBlurTexelSizeSC, Point2F( 1.0f / dim, 1.0f / dim ) );
+      mBlurConsts->setSafe( mBlurSC, mOutlineBlur ? 1.0f : 0.0f );
+      GFX->setTexture( 0, outline );
+      GFX->setVertexBuffer( quad );
+      GFX->drawPrimitive( GFXTriangleStrip, 0, 2 );
+      GFX->setTexture( 0, NULL );
    }
 
+   mBlurTarget->resolve();
+   GFX->popActiveRenderTarget();
+   GFX->setViewport( viewport );
+
    // Restore frustum
-   if (!ortho)
-      GFX->setFrustum(l, r, b, t, n, f);
+   if ( !ortho )
+      GFX->setFrustum( l, r, b, t, n, f );
    else
-      GFX->setOrtho(l, r, b, t, n, f);
+      GFX->setOrtho( l, r, b, t, n, f );
 
-   // Set the last render time.
-   mLastRenderTime = Platform::getVirtualMilliseconds();
-
-   // HACK: Will remove in future release!
-   mDecalInstance->mCustomTex = &mShadowTexture;
+   mOutlineTime = mLastRenderTime = Platform::getVirtualMilliseconds();
 }
 
 RenderPassManager* ProjectedShadow::_getRenderPass()

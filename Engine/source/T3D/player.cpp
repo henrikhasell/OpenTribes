@@ -255,6 +255,11 @@ PlayerData::PlayerData()
    shadowSize = 256;
    shadowProjectionDistance = 14.0f;
 
+   // HH: Added for Tribes 2 compatibility.
+   // Tribes 2's PlayerData constructor (0x005cdd3f).
+   genericShadowLevel = 0.4f;
+   noShadowLevel = 0.01f;
+
    renderFirstPerson = true;
 
    // Used for third person image rendering
@@ -694,6 +699,10 @@ bool PlayerData::preload(bool server, String &errorStr)
       spineNode[3] = mShape->findNode("Bip01 Spine2");
       spineNode[4] = mShape->findNode("Bip01 Neck");
       spineNode[5] = mShape->findNode("Bip01 Head");
+
+      // HH: Added for Tribes 2 compatibility.
+      // The shadow follows the pelvis (0x005ce380).
+      shadowNode = spineNode[0];
 
       // Recoil animations
       recoilSequence[0] = mShape->findSequence("light_recoil");
@@ -6814,6 +6823,16 @@ void Player::prepRenderImage( SceneRenderState* state )
    return ShapeBase::_prepRenderImage( state, 
                                        renderPlayer, 
                                        renderItems );
+}
+
+// HH: Added for Tribes 2 compatibility.
+bool Player::isHiddenInFirstPerson()
+{
+   GameConnection* connection = GameConnection::getConnectionToServer();
+   if( !connection || connection->getControlObject() != this || !connection->isFirstPerson() )
+      return false;
+
+   return !mDataBlock->renderFirstPerson || !sRenderMyPlayer;
 }
 
 void Player::renderConvex( ObjectRenderInst *ri, SceneRenderState *state, BaseMatInstance *overrideMat )
