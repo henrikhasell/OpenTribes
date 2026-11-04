@@ -2739,7 +2739,7 @@ static bool matchShapeData(T2ShapeDataMap *map, S32 *end)
    // renderWhenDestroyed, in that order.
    static const S32 sFlags[] =
    {
-      -1, -1, T2DbObserveThroughObject, -1, T2DbIsInvincible,
+      -1, -1, T2DbObserveThroughObject, T2DbEmap, T2DbIsInvincible,
       T2DbRenderWhenDestroyed,
    };
    for(U32 i = 0; i < ELEMENTS(sFlags); i++)

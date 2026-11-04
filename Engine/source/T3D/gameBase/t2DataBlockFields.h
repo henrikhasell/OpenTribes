@@ -291,6 +291,9 @@ namespace T2Protocol
    // and whether a cloak may thin the image as a flag at node 19, just before
    // the light type's ranged write (0x005f585d).
       { "ShapeBaseImageData", 19, OpFlag, 1, T2DbImageCloakable },
+   // and whether it reflects the sky's environment map as a bare flag at node
+   // 27, just after the casing's datablock id (0x005f59fe).
+      { "ShapeBaseImageData", 27, OpFlag, 1, T2DbImageEmap },
    // A TurretImageData's layout is ShapeBaseImageData's with its own run
    // inserted at node 59, so all of those keep their nodes.
       { "TurretImageData",     2, OpRaw, 32, T2DbImageMountPoint },
@@ -302,6 +305,7 @@ namespace T2Protocol
       { "TurretImageData",     9, OpRaw, 32, T2DataBlockField(T2DbImageOffset + 5) },
       { "TurretImageData",    10, OpFlag, 1, T2DbImageOffsetWNegative             },
       { "TurretImageData",    19, OpFlag, 1, T2DbImageCloakable },
+      { "TurretImageData",    27, OpFlag, 1, T2DbImageEmap },
 
    // Every projectile carries the same run of datablock ids, the emitters then
    // the explosions then the splash and the sound, so the sound is three past

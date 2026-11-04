@@ -254,6 +254,7 @@ namespace T2Layout
       T2DbCameraMaxDist,
       T2DbImageMountPoint,
       T2DbImageCloakable,
+      T2DbImageEmap,   // HH: Added for Tribes 2 compatibility.
       T2DbImageOffset,
       T2DbImageOffsetLast = T2DbImageOffset + 5,
       T2DbImageOffsetWNegative,
@@ -391,6 +392,7 @@ namespace T2Layout
       T2DbCmdMiniIconName,
       T2DbCmdIcon,
       T2DbObserveThroughObject,
+      T2DbEmap,   // HH: Added for Tribes 2 compatibility.
       T2DbIsInvincible,
       T2DbRenderWhenDestroyed,
       T2DbInheritEnergyFromMount,

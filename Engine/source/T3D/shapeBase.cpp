@@ -65,6 +65,7 @@
 // HH: Added for Tribes 2 compatibility.
 #include "materials/materialDefinition.h"
 #include "terrain/terrData.h"   // HH: Added for Tribes 2 compatibility.
+#include "environment/sky.h"   // HH: Added for Tribes 2 compatibility.
 #include "gui/3d/guiTSControl.h"
 #include "materials/materialFeatureTypes.h"
 #include "renderInstance/renderOcclusionMgr.h"
@@ -136,6 +137,7 @@ IMPLEMENT_CALLBACK( ShapeBaseData, onForceUncloak, void, ( ShapeBase* obj, const
 static SimTime sAudioTimeout = 500;
 F32  ShapeBase::sWhiteoutDec = 0.007f;
 F32  ShapeBase::sDamageFlashDec = 0.02f;
+bool ShapeBase::smEnvironmentMapsT2 = true;   // HH: Added for Tribes 2 compatibility.
 F32  ShapeBase::sFullCorrectionDistance = 0.5f;
 F32  ShapeBase::sCloakSpeed = 0.5;
 U32  ShapeBase::sLastRenderFrame = 0;
@@ -207,6 +209,7 @@ ShapeBaseData::ShapeBaseData()
    cubeDescId( 0 ),
    reflectorDesc( NULL ),
    observeThroughObject( false ),
+   emap( false ),   // HH: Added for Tribes 2 compatibility.
    computeCRC( false ),
    inheritEnergyFromMount( false ),
    mCRC( 0 ),
@@ -374,6 +377,7 @@ bool ShapeBaseData::unpackData(BitStream *stream, U32 classId)
    {
       { T2Layout::T2DbObserveThroughObject,
                                        &ShapeBaseData::observeThroughObject   },
+      { T2Layout::T2DbEmap,                 &ShapeBaseData::emap                },
       { T2Layout::T2DbIsInvincible,         &ShapeBaseData::isInvincible        },
       { T2Layout::T2DbRenderWhenDestroyed,  &ShapeBaseData::renderWhenDestroyed },
       { T2Layout::T2DbInheritEnergyFromMount,
@@ -768,6 +772,9 @@ void ShapeBaseData::initPersistFields()
          "Observe this object through its camera transform and default fov.\n"
          "If true, when this object is the camera it can provide a custom camera "
          "transform and FOV (instead of the default eye transform)." );
+      // HH: Added for Tribes 2 compatibility.
+      addField( "emap", TypeBool, Offset(emap, ShapeBaseData),
+         "Reflect the sky's environment map on the shape's reflective materials." );
 
    endGroup("Camera");
 
@@ -3539,6 +3546,14 @@ void ShapeBase::prepBatchRender(SceneRenderState* state, S32 mountedImageIndex )
    if ( !state->isShadowPass() )
       query.setSunOverride( mSurfaceLighting.getLight( this ) );
 
+   // HH: Added for Tribes 2 compatibility.
+   // The shape and each image reflect the sky's environment map if their
+   // datablock asks for it and the shape is not cloaked, with
+   // $pref::environmentMaps on (0x005ed768 for the shape, 0x005ed41a for an
+   // image).
+   const bool envMaps = smEnvironmentMapsT2 && mCloakLevel == 0.0f &&
+                        !state->isShadowPass() && Sky::getEnvironmentMap();
+
    if( mountedImageIndex != -1 )
    {
       MountedImage& image = mMountedImageList[mountedImageIndex];
@@ -3556,6 +3571,7 @@ void ShapeBase::prepBatchRender(SceneRenderState* state, S32 mountedImageIndex )
                                              : ( blend ? alpha : 1.0f ) * mFadeVal );
             rdata.setBlendAlways( blend );
          }
+         rdata.setEnvMapAlphaT2( envMaps && image.dataBlock->emap ? 1.0f : 0.0f );   // HH: Added for Tribes 2 compatibility.
          renderMountedImage( mountedImageIndex, rdata, state );
       }
    }
@@ -3564,6 +3580,8 @@ void ShapeBase::prepBatchRender(SceneRenderState* state, S32 mountedImageIndex )
       MatrixF mat = getRenderTransform();
       mat.scale( mObjScale );
       GFX->setWorldMatrix( mat );
+
+      rdata.setEnvMapAlphaT2( envMaps && mDataBlock->emap ? 1.0f : 0.0f );   // HH: Added for Tribes 2 compatibility.
 
       if ( state->isDiffusePass() && mCubeReflector.isEnabled() && mCubeReflector.getOcclusionQuery() )
       {
@@ -5411,6 +5429,12 @@ DefineEngineMethod( ShapeBase, getSkinName, const char*, (),,
 //----------------------------------------------------------------------------
 void ShapeBase::consoleInit()
 {
+   // HH: Added for Tribes 2 compatibility.
+   // Registered by ShapeBase in Tribes 2 too (0x005f2692).
+   Con::addVariable( "$pref::environmentMaps", TypeBool, &smEnvironmentMapsT2,
+      "Whether a shape whose datablock sets emap reflects the sky's environment map.\n\n"
+      "@ingroup gameObjects" );
+
    Con::addVariable("SB::DFDec", TypeF32, &sDamageFlashDec, "Speed to reduce the damage flash effect per tick.\n\n"
       "@see ShapeBase::setDamageFlash()\n"
       "@see ShapeBase::getDamageFlash()\n"

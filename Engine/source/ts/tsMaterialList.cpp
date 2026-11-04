@@ -26,6 +26,8 @@
 #include "ts/tsShape.h"
 #include "materials/matInstance.h"
 #include "materials/materialManager.h"
+#include "materials/materialFeatureTypes.h"   // HH: Added for Tribes 2 compatibility.
+#include "materials/materialFeatureData.h"   // HH: Added for Tribes 2 compatibility.
 
 
 TSMaterialList::TSMaterialList(U32 materialCount,
@@ -167,6 +169,52 @@ F32 TSMaterialList::getReflectionAmount(U32 index) const
 {
    AssertFatal(index < size(),"TSMaterialList::getReflectionAmount: index out of range");
    return index < mReflectionAmounts.size() ? mReflectionAmounts[index] : 1.0f;
+}
+
+// HH: Added for Tribes 2 compatibility.
+/// Adds the environment map to a reflective slot's material, after its own
+/// features are settled, provided it has a texture whose alpha says how
+/// reflective it is.
+static void addEnvMapFeature( ProcessedMaterial *mat,
+                              U32 stageNum,
+                              MaterialFeatureData &fd,
+                              const FeatureSet &features )
+{
+   if ( fd.features.hasFeature( MFT_DiffuseMap ) )
+      fd.features.addFeature( MFT_T2EnvMap );
+}
+
+// HH: Added for Tribes 2 compatibility.
+void TSMaterialList::initMatInstances( const FeatureSet &features,
+                                       const GFXVertexFormat *vertexFormat )
+{
+   for ( U32 i = 0; i < mMatInstList.size(); i++ )
+   {
+      BaseMatInstance *matInst = mMatInstList[i];
+      if ( !matInst )
+         continue;
+
+      // Tribes 2 turns the environment map's stage off for a material the
+      // shape flags NeverEnvMap (0x6a6910) or draws additive or subtractive
+      // (0x6a698e), and scales it by the material's reflection amount, which
+      // every stock shape leaves at 1 or 0.
+      const U32 flags = getShapeFlags( i );
+      if ( !( flags & ( NeverEnvMap | Additive | Subtractive ) ) &&
+           getReflectionAmount( i ) > 0.0f )
+         matInst->getFeaturesDelegate().bind( &addEnvMapFeature );
+
+      if ( !matInst->init( features, vertexFormat ) )
+      {
+         Con::errorf( "TSMaterialList::initMatInstances - failed to initialize material instance for '%s'",
+            matInst->getMaterial()->getName() );
+
+         // Fall back to warning material.
+         SAFE_DELETE( matInst );
+         matInst = MATMGR->createMatInstance( "WarningMaterial" );
+         matInst->init( MATMGR->getDefaultFeatures(), vertexFormat );
+         mMatInstList[ i ] = matInst;
+      }
+   }
 }
 
 bool TSMaterialList::write(Stream & s)

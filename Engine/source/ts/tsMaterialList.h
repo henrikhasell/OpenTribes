@@ -89,6 +89,12 @@ class TSMaterialList : public MaterialList
    U32 getShapeFlags(U32 index) const;
    F32 getReflectionAmount(U32 index) const;
 
+   // HH: Added for Tribes 2 compatibility.
+   /// MaterialList's, with the environment map on each slot Tribes 2 would
+   /// draw it on.
+   void initMatInstances( const FeatureSet &features,
+                          const GFXVertexFormat *vertexFormat );
+
    bool renameMaterial(U32 index, const String& newName); // use to support reskinning
 
    /// pre-load only

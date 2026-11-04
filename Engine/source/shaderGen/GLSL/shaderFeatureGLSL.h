@@ -490,6 +490,33 @@ public:
    }
 };
 
+// HH: Added for Tribes 2 compatibility.
+/// Draws a shape's reflective material towards the sky's environment map,
+/// sphere mapped, by its texture's alpha, as Tribes 2 did in one more
+/// texture stage (0x6a5bb4).
+class T2EnvMapFeatGLSL : public ShaderFeatureGLSL
+{
+public:
+
+   virtual void processVert( Vector<ShaderComponent*> &componentList,
+                             const MaterialFeatureData &fd );
+
+   virtual void processPix( Vector<ShaderComponent*> &componentList,
+                            const MaterialFeatureData &fd );
+
+   virtual Resources getResources( const MaterialFeatureData &fd );
+
+   virtual void setTexData( Material::StageData &stageDat,
+                            const MaterialFeatureData &fd,
+                            RenderPassData &passData,
+                            U32 &texIndex );
+
+   virtual String getName()
+   {
+      return "T2 Environment Map";
+   }
+};
+
 
 /// Fog
 class FogFeatGLSL : public ShaderFeatureGLSL

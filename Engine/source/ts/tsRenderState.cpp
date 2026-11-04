@@ -40,7 +40,8 @@ TSRenderState::TSRenderState()
       mMaterialOverride( NULL ),
       mBlendAlways( false ),
       mFadeAlpha( false ),
-      mNoDecals( false )
+      mNoDecals( false ),
+      mEnvMapAlphaT2( 0.0f )
 {
 }
 
@@ -60,6 +61,7 @@ TSRenderState::TSRenderState( const TSRenderState &state )
       mMaterialOverride( state.mMaterialOverride ),
       mBlendAlways( state.mBlendAlways ),
       mFadeAlpha( state.mFadeAlpha ),
-      mNoDecals( state.mNoDecals )
+      mNoDecals( state.mNoDecals ),
+      mEnvMapAlphaT2( state.mEnvMapAlphaT2 )
 {
 }

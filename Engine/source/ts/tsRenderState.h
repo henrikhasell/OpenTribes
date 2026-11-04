@@ -131,6 +131,11 @@ protected:
    /// body (0x005dcd0f), so its damage is not left hanging in the air.
    bool mNoDecals;
 
+   // HH: Added for Tribes 2 compatibility.
+   /// How far the shape's reflective materials are drawn towards the sky's
+   /// environment map: one when the shape takes it, else none.
+   F32 mEnvMapAlphaT2;
+
 public:
 
    TSRenderState();
@@ -184,6 +189,11 @@ public:
    }
    BaseMatInstance* getOverrideMaterial() const { return mOverrideMaterial; }
    BaseMatInstance* getSelfIllumOverrideMaterial() const { return mSelfIllumOverrideMaterial; }
+
+   // HH: Added for Tribes 2 compatibility.
+   ///@see mEnvMapAlphaT2
+   void setEnvMapAlphaT2( F32 alpha ) { mEnvMapAlphaT2 = alpha; }
+   F32 getEnvMapAlphaT2() const { return mEnvMapAlphaT2; }
 
    // HH: Added for Tribes 2 compatibility.
    void setMaterialOverride( Material *material ) { mMaterialOverride = material; }

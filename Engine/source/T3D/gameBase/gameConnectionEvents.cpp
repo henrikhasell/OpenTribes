@@ -541,6 +541,11 @@ void SimDataBlockEvent::unpack(NetConnection *cptr, BitStream *bstream)
             if( T2Layout::lastDataBlockWord( T2Layout::T2DbImageCloakable,
                                              &cloakable ) )
                si->cloakable = cloakable != 0;
+
+            // HH: Added for Tribes 2 compatibility.
+            U32 emap;
+            if( T2Layout::lastDataBlockWord( T2Layout::T2DbImageEmap, &emap ) )
+               si->emap = emap != 0;
          }
 
                // HH: Added for Tribes 2 compatibility.

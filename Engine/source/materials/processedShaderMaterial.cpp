@@ -62,6 +62,7 @@ void ShaderConstHandles::init( GFXShader *shader, CustomMaterial* mat /*=NULL*/ 
    mFogColorSC = shader->getShaderConstHandle(ShaderGenVars::fogColor);
    mDetailScaleSC = shader->getShaderConstHandle(ShaderGenVars::detailScale);
    mVisiblitySC = shader->getShaderConstHandle(ShaderGenVars::visibility);
+   mEnvMapAlphaT2SC = shader->getShaderConstHandle("$envMapAlphaT2");   // HH: Added for Tribes 2 compatibility.
    mColorMultiplySC = shader->getShaderConstHandle(ShaderGenVars::colorMultiply);
    mAlphaTestValueSC = shader->getShaderConstHandle(ShaderGenVars::alphaTestValue);
    mModelViewProjSC = shader->getShaderConstHandle(ShaderGenVars::modelview);
@@ -1181,6 +1182,7 @@ void ProcessedShaderMaterial::setSceneInfo(SceneRenderState * state, const Scene
    }
 
    shaderConsts->setSafe(handles->mVisiblitySC, sgData.visibility);
+   shaderConsts->setSafe(handles->mEnvMapAlphaT2SC, sgData.envMapAlphaT2);   // HH: Added for Tribes 2 compatibility.
 
    shaderConsts->setSafe(handles->mEyePosWorldSC, eyePosWorld);   
 

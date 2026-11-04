@@ -57,6 +57,11 @@ BaseMatInstance* InstancingMaterialHook::getInstancingMat( BaseMatInstance *matI
       FeatureSet features( matInst->getRequestedFeatures() );
       features.addFeature( MFT_UseInstancing ); 
 
+      // HH: Added for Tribes 2 compatibility.
+      // The features a shape's material list added to the slot, such as its
+      // environment map, go with it.
+      instMat->getFeaturesDelegate() = matInst->getFeaturesDelegate();
+
       if ( !instMat->init( features, matInst->getVertexFormat() ) )
          SAFE_DELETE( instMat );
 
