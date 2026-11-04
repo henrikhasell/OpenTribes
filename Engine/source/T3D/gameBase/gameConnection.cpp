@@ -811,11 +811,6 @@ bool GameConnection::isControlObjectRotDampedCamera()
    return false;
 }
 
-void GameConnection::setFirstPerson(bool firstPerson)
-{
-   sFirstPerson = firstPerson;
-}
-
 
 
 //----------------------------------------------------------------------------
@@ -2312,23 +2307,4 @@ DefineEngineMethod( GameConnection, clearCameraObject, void, (),,
    "@see GameConnection::setCameraObject() and GameConnection::getCameraObject()\n\n")
 {
    object->setCameraObject(NULL);
-}
-
-DefineEngineMethod( GameConnection, isFirstPerson, bool, (),,
-   "@brief Returns true if this connection is in first person mode.\n\n"
-
-   "@note Transition to first person occurs over time via mCameraPos, so this "
-   "won't immediately return true after a set.\n\n")
-{
-   // Note: Transition to first person occurs over time via mCameraPos, so this
-   // won't immediately return true after a set.
-   return object->isFirstPerson();
-}
-
-DefineEngineMethod( GameConnection, setFirstPerson, void, (bool firstPerson),,
-   "@brief On the server, sets this connection into or out of first person mode.\n\n"
-   
-   "@param firstPerson Set to true to put the connection into first person mode.\n\n")
-{
-   object->setFirstPerson(firstPerson);
 }
