@@ -5574,30 +5574,34 @@ void Player::renderMountedImage( U32 imageSlot, TSRenderState &rstate, SceneRend
          getRenderEyeBaseTransform(&nmat);
          world.mul(nmat,data.eyeOffset);
       }
-
-      if ( imageSlot == 0 )
-      {
-         MatrixF nmat;
-         MatrixF smat;
-
-         getRenderRetractionTransform(0,&nmat);         
-         getRenderImageTransform(0,&smat);
-
-         // See if we are pushed into a wall...
-         Point3F start, end;
-         smat.getColumn(3, &start);
-         nmat.getColumn(3, &end);
-
-         Point3F displace = (start - end) * mWeaponBackFraction;
-
-         world.setPosition( world.getPosition() + displace );
-      }
    }
    else 
    {
       MatrixF nmat;
       getRenderMountTransform( 0.0f, data.mountPoint, MatrixF::Identity, &nmat);
       world.mul(nmat,data.mountTransform[imageShapeIndex]);
+   }
+
+   // HH: Modified for Tribes 2 compatibility.
+   // An image pushed into a wall is drawn slid back along the line from its
+   // muzzle to the hand, in every view and only while the player is alive
+   // (0x005dc854).
+   if ( imageSlot == 0 && mWeaponBackFraction != 0.0f && getDamageState() == Enabled )
+   {
+      MatrixF nmat;
+      MatrixF smat;
+
+      Parent::getRenderMuzzleTransform(0,&nmat);
+      Parent::getRenderMountTransform(0.0f, 0, MatrixF::Identity, &smat);
+
+      // See if we are pushed into a wall...
+      Point3F start, end;
+      smat.getColumn(3, &start);
+      nmat.getColumn(3, &end);
+
+      Point3F displace = (start - end) * mWeaponBackFraction;
+
+      world.setPosition( world.getPosition() + displace );
    }
 
    GFX->setWorldMatrix( world );
