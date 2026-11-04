@@ -3524,6 +3524,12 @@ void ShapeBase::prepBatchRender(SceneRenderState* state, S32 mountedImageIndex )
    query.init( getWorldSphere() );
    rdata.setLightQuery( &query );
 
+   // HH: Added for Tribes 2 compatibility.
+   // The shape and its images are lit by the surface beneath it, in the
+   // sun's place (0x005ecac2).
+   if ( !state->isShadowPass() )
+      query.setSunOverride( mSurfaceLighting.getLight( this ) );
+
    if( mountedImageIndex != -1 )
    {
       MountedImage& image = mMountedImageList[mountedImageIndex];

@@ -29,6 +29,10 @@
 #ifndef _GAMEBASE_H_
 #include "T3D/gameBase/gameBase.h"
 #endif
+// HH: Added for Tribes 2 compatibility.
+#ifndef _SURFACELIGHTINGT2_H_
+#include "lighting/surfaceLightingT2.h"
+#endif
 
 class ParticleEmitterData;
 class ParticleEmitter;
@@ -113,6 +117,10 @@ private:
    DebrisData *      mDataBlock;
    F32               mElapsedTime;
    TSShapeInstance * mShape;
+
+   // HH: Added for Tribes 2 compatibility.
+   SurfaceLightingT2 mSurfaceLighting;
+
    TSPartInstance *  mPart;
    MatrixF           mInitialTrans;
    F32               mXRotSpeed;

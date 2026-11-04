@@ -552,6 +552,11 @@ void TSStatic::prepRenderImage( SceneRenderState* state )
    query.init( getWorldSphere() );
    rdata.setLightQuery( &query );
 
+   // HH: Added for Tribes 2 compatibility.
+   // Lit by the surface beneath it, in the sun's place (0x0068fb80).
+   if ( !state->isShadowPass() )
+      query.setSunOverride( mSurfaceLighting.getLight( this ) );
+
    MatrixF mat = getRenderTransform();
    mat.scale( mObjScale );
    GFX->setWorldMatrix( mat );

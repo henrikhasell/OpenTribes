@@ -38,6 +38,10 @@
 #ifndef _TSSHAPE_H_
 #include "ts/tsShape.h"
 #endif
+// HH: Added for Tribes 2 compatibility.
+#ifndef _SURFACELIGHTINGT2_H_
+#include "lighting/surfaceLightingT2.h"
+#endif
 
 class TSShapeInstance;
 class TSThread;
@@ -148,6 +152,9 @@ protected:
    Vector<S32> mCollisionDetails;
    Vector<S32> mLOSDetails;
    TSShapeInstance *mShapeInstance;
+
+   // HH: Added for Tribes 2 compatibility.
+   SurfaceLightingT2 mSurfaceLighting;
 
    NetStringHandle   mSkinNameHandle;
    String            mAppliedSkinName;
