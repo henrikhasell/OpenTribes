@@ -2451,6 +2451,12 @@ void Interior::_enableLightMapFeature( ProcessedMaterial *mat,
    {
       fd.features.addFeature( MFT_LightMap );
       fd.features.removeFeature( MFT_ToneMap );
+
+      // HH: Added for Tribes 2 compatibility.
+      // Retail adds dynamic lights over what the lightmap lit, in one more
+      // pass after the surface's own.
+      if ( stageNum == mat->getNumStages() - 1 )
+         fd.features.addFeature( MFT_T2InteriorLights );
    }
 }
 

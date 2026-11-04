@@ -38,6 +38,7 @@
 #include "materials/matInstance.h"
 #include "materials/materialFeatureTypes.h"
 #include "math/mathUtils.h"
+#include "lighting/dynamicLightsT2.h"   // HH: Added for Tribes 2 compatibility.
 #include "renderInstance/renderPassManager.h"
 #include "core/frameAllocator.h"
 
@@ -249,6 +250,15 @@ void Interior::prepBatchRender( InteriorInstance *intInst, SceneRenderState *sta
    sgData.init( state );
    setupRender( intInst, state, coreRi, &state->getWorldViewMatrix() );
    ZoneVisDeterminer zoneVis = setupZoneVis( intInst, state );
+
+   // HH: Added for Tribes 2 compatibility.
+   // Retail lights an interior with every dynamic light near it, pref
+   // allowing (0x005228c0); slot 0 stays the sun, set per node below.
+   if ( InteriorInstance::smRenderDynamicLights && !state->isShadowPass() )
+      DynamicLightsT2::gather( state, intInst->getWorldSphere(),
+                               InteriorInstance::smDynamicLightsClipPix,
+                               InteriorInstance::smDynamicLightsFadePix,
+                               &coreRi->lights[1], 3 );
 
 // GFX2_RENDER_MERGE
 #ifndef TORQUE_SHIPPING

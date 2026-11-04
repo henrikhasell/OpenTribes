@@ -173,5 +173,9 @@ DeclareFeatureType( MFT_ImposterVert );
 // HH: Added for Tribes 2 compatibility.
 DeclareFeatureType( MFT_T2FadeAlpha );
 
+// HH: Added for Tribes 2 compatibility.
+/// The dynamic lights retail adds over a lightmapped interior surface.
+DeclareFeatureType( MFT_T2InteriorLights );
+
 
 #endif // _MATERIALFEATURETYPES_H_

@@ -53,6 +53,36 @@
 #include "gfx/gfxDebugEvent.h"
 #include "gfx/gfxCardProfile.h"
 #include "core/stream/fileStream.h"
+// HH: Added for Tribes 2 compatibility.
+#include "lighting/dynamicLightsT2.h"
+#include "core/module.h"
+#include "console/consoleTypes.h"
+
+// HH: Added for Tribes 2 compatibility.
+// $pref::Terrain::dynamicLights and the terrain's own clip and fade pixels
+// for dynamic lights, at retail's defaults (0x007952cc, 0x007952d0,
+// 0x007952d4).
+static bool sgTerrainDynamicLights = true;
+static F32 sgTerrainDynamicLightsClipPix = 10.0f;
+static F32 sgTerrainDynamicLightsFadePix = 20.0f;
+
+MODULE_BEGIN( TerrainRenderT2 )
+
+   MODULE_INIT
+   {
+      // Retail's TerrainRender::init (0x005a00e6-0x005a013d).
+      Con::addVariable( "$pref::Terrain::dynamicLights", TypeBool, &sgTerrainDynamicLights,
+         "Whether dynamic lights fall on the terrain.\n"
+         "@ingroup Terrain" );
+      Con::addVariable( "$pref::Terrain::DynamicLightsClipPix", TypeF32, &sgTerrainDynamicLightsClipPix,
+         "A dynamic light whose radius covers no more pixels than this is not drawn on the terrain.\n"
+         "@ingroup Terrain" );
+      Con::addVariable( "$pref::Terrain::DynamicLightsFadePix", TypeF32, &sgTerrainDynamicLightsFadePix,
+         "A dynamic light whose radius covers fewer pixels than this fades on the terrain.\n"
+         "@ingroup Terrain" );
+   }
+
+MODULE_END;
 
 
 bool TerrainBlock::smDebugRender = false;
@@ -643,7 +673,23 @@ void TerrainBlock::_renderBlock( SceneRenderState *state )
 
          LightQuery query;
          query.init( bounds );
-		   query.getLights( inst->lights, 8 );
+
+         // HH: Modified for Tribes 2 compatibility.
+         // The sun as it was, and the dynamic lights only as retail lets
+         // them fall on the terrain (0x005a8409).
+         LightInfo *queried[8] = { NULL };
+         query.getLights( queried, 8 );
+
+         U32 count = 0;
+         for ( U32 l = 0; l < 8 && queried[l]; l++ )
+            if ( queried[l]->getType() != LightInfo::Point && queried[l]->getType() != LightInfo::Spot )
+               inst->lights[count++] = queried[l];
+
+         if ( sgTerrainDynamicLights )
+            DynamicLightsT2::gather( state, bounds,
+                                     sgTerrainDynamicLightsClipPix,
+                                     sgTerrainDynamicLightsFadePix,
+                                     &inst->lights[count], 8 - count );
       }
 
       GFXVertexBufferHandleBase vertBuff;

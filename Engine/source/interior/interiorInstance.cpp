@@ -92,6 +92,11 @@ static bool sgScopeBoolArray[256];
 
 bool InteriorInstance::smDontRestrictOutside = false;
 F32  InteriorInstance::smDetailModification = 1.0f;
+// HH: Added for Tribes 2 compatibility.
+// Retail's defaults (0x0077fb00, 0x0077fb0c, 0x0077fb10).
+bool InteriorInstance::smRenderDynamicLights = true;
+F32  InteriorInstance::smDynamicLightsClipPix = 10.0f;
+F32  InteriorInstance::smDynamicLightsFadePix = 20.0f;
 
 
 
@@ -161,6 +166,18 @@ void InteriorInstance::consoleInit()
       "@ingroup Interior" );
    Con::addVariable( "pref::Interior::detailAdjust", TypeF32, &InteriorInstance::smDetailModification,
       "Forces all InteriorInstance rendering to a particular detail level.\n"
+      "@ingroup Interior" );
+
+   // HH: Added for Tribes 2 compatibility.
+   // Retail's InteriorInstance::consoleInit (0x005207cb-0x00520836).
+   Con::addVariable( "pref::Interior::DynamicLights", TypeBool, &InteriorInstance::smRenderDynamicLights,
+      "Whether dynamic lights fall on interiors.\n"
+      "@ingroup Interior" );
+   Con::addVariable( "pref::Interior::DynamicLightsClipPix", TypeF32, &InteriorInstance::smDynamicLightsClipPix,
+      "A dynamic light whose radius covers no more pixels than this is not drawn on interiors.\n"
+      "@ingroup Interior" );
+   Con::addVariable( "pref::Interior::DynamicLightsFadePix", TypeF32, &InteriorInstance::smDynamicLightsFadePix,
+      "A dynamic light whose radius covers fewer pixels than this fades on interiors.\n"
       "@ingroup Interior" );
 
    // DEBUG ONLY!!!

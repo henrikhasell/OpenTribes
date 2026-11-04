@@ -31,6 +31,7 @@
 #include "materials/processedMaterial.h"
 #include "materials/materialFeatureTypes.h"
 #include "core/util/autoPtr.h"
+#include "gfx/gfxTextureProfile.h"   // HH: Added for Tribes 2 compatibility.
 
 #include "lighting/advanced/advancedLightBinManager.h"
 
@@ -1803,6 +1804,104 @@ ShaderFeature::Resources RTLightingFeatGLSL::getResources( const MaterialFeature
    }
 
    return res;
+}
+
+
+//****************************************************************************
+// HH: Added for Tribes 2 compatibility.
+// Tribes 2 interior dynamic lights
+//****************************************************************************
+
+namespace
+{
+   GFXTexHandle sgInteriorLightFalloff;
+}
+
+T2InteriorLightsFeatGLSL::T2InteriorLightsFeatGLSL()
+   :  mLightingDep( "shaders/common/gl/lighting.glsl" ),
+      mDep( "shaders/common/gl/interiorLightsT2.glsl" )
+{
+   addDependency( &mLightingDep );
+   addDependency( &mDep );
+}
+
+void T2InteriorLightsFeatGLSL::processVert( Vector<ShaderComponent*> &componentList, 
+                                            const MaterialFeatureData &fd )
+{
+   MultiLine *meta = new MultiLine;
+
+   Var *inNormal = (Var*)LangElement::find( "inNormal" );
+   if ( !inNormal )
+      inNormal = (Var*)LangElement::find( "normal" );
+
+   if ( inNormal && !LangElement::find( "outWsNormal" ) )
+   {
+      ShaderConnector *connectComp = dynamic_cast<ShaderConnector *>( componentList[C_CONNECTOR] );
+      Var *objTrans = getObjTrans( componentList, fd.features[MFT_UseInstancing], meta );
+
+      Var *outNormal = connectComp->getElement( RT_TEXCOORD );
+      outNormal->setName( "outWsNormal" );
+      outNormal->setType( "vec3" );
+      outNormal->mapsToSampler = false;
+
+      meta->addStatement( new GenOp( "   @ = ( @ * vec4( normalize( @ ), 0.0 ) ).xyz;\r\n", outNormal, objTrans, inNormal ) );
+   }
+
+   addOutWsPosition( componentList, fd.features[MFT_UseInstancing], meta );
+
+   output = meta;
+}
+
+void T2InteriorLightsFeatGLSL::processPix( Vector<ShaderComponent*> &componentList, 
+                                           const MaterialFeatureData &fd )
+{
+   ShaderConnector *connectComp = dynamic_cast<ShaderConnector *>( componentList[C_CONNECTOR] );
+   MultiLine *meta = new MultiLine;
+
+   Var *wsNormal = (Var*)LangElement::find( "wsNormal" );
+   if ( !wsNormal )
+   {
+      Var *outWsNormal = connectComp->getElement( RT_TEXCOORD );
+      outWsNormal->setName( "outWsNormal" );
+      outWsNormal->setType( "vec3" );
+
+      wsNormal = new Var( "wsNormal", "vec3" );
+      meta->addStatement( new GenOp( "   @ = normalize( @ );\r\n", new DecOp( wsNormal ), outWsNormal ) );
+   }
+
+   Var *wsPosition = getInWsPosition( componentList );
+
+   Var *falloff = new Var;
+   falloff->setType( "sampler2D" );
+   falloff->setName( "lightFalloffT2" );
+   falloff->uniform = true;
+   falloff->sampler = true;
+   falloff->constNum = Var::getTexUnitNum();
+
+   LangElement *lights = new GenOp( "vec4( interiorLightsT2( @, @, @ ), 0.0 )", wsPosition, wsNormal, falloff );
+   meta->addStatement( new GenOp( "   @;\r\n", assignColor( lights, Material::Add ) ) );
+
+   output = meta;
+}
+
+ShaderFeature::Resources T2InteriorLightsFeatGLSL::getResources( const MaterialFeatureData &fd )
+{
+   Resources res; 
+   res.numTex = 1;
+   res.numTexReg = 2;
+   return res;
+}
+
+void T2InteriorLightsFeatGLSL::setTexData( Material::StageData &stageDat,
+                                           const MaterialFeatureData &fd,
+                                           RenderPassData &passData,
+                                           U32 &texIndex )
+{
+   if ( sgInteriorLightFalloff.isNull() )
+      sgInteriorLightFalloff.set( "textures/special/lightFalloffMono",
+                                  &GFXDefaultStaticDiffuseProfile, "T2InteriorLightsFeatGLSL" );
+
+   passData.mTexSlot[ texIndex++ ].texObject = sgInteriorLightFalloff;
 }
 
 

@@ -1871,7 +1871,11 @@ void GuiCanvas::renderFrame(bool preRenderOnly, bool bufferSwap /* = true */)
    GFX->endScene();
    PROFILE_END();
 
-   swapBuffers();
+   // HH: Modified for Tribes 2 compatibility.
+   // A screenshot reads this frame back off the back buffer, which a swap
+   // would leave undefined -- the frame before, or black.
+   if ( bufferSwap )
+      swapBuffers();
 
    GuiCanvas::getGuiCanvasFrameSignal().trigger(false);
 
