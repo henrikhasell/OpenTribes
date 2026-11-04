@@ -2872,8 +2872,11 @@ void ShapeBase::updateThread(Thread& st)
 	{
 		case Thread::Stop:
 			{
+				// HH: Modified for Tribes 2 compatibility.
+				// A stopped thread goes back to its first frame whichever way
+				// it ran, so a station that folded itself away stays folded.
 				mShapeInstance->setTimeScale( st.thread, 1.f );
-				mShapeInstance->setPos( st.thread, ( st.timescale > 0.f ) ? 0.0f : 1.0f );
+				mShapeInstance->setPos( st.thread, 0.0f );
 			} // Drop through to pause state
 
 		case Thread::Pause:
