@@ -115,6 +115,13 @@ public:
    /// Returns the last camera query set in onRender.
    const CameraQuery& getLastCameraQuery() const { return mLastCameraQuery; }   
    
+   // HH: Added for Tribes 2 compatibility.
+   /// Tribes 2 takes a camera's fov as the angle across the view
+   /// (GuiTSCtrl::onRender, 0x4d0cf0), where a CameraQuery's is the angle up
+   /// it.  These convert between the two at this control's shape.
+   F32 fovFromHorizontal( F32 horizontalFov ) const;
+   F32 horizontalFromFov( F32 fov ) const;
+   
    /// Returns the screen space X,Y and Z for world space point.
    /// The input z coord is depth, from 0 to 1.
    bool project( const Point3F &pt, Point3F *dest ) const; 

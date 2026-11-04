@@ -71,6 +71,15 @@ bool GameTSCtrl::processCameraQuery(CameraQuery *camq)
 {
    GameUpdateCameraFov();
    mHaveCamera = GameProcessCameraQuery(camq);
+
+   // HH: Added for Tribes 2 compatibility.
+   // The game's fov is Tribes 2's, the angle across the view at any aspect
+   // (0x4d0cf0).  Read as Torque's, 90 degrees at 4:3 shows 106 across and
+   // draws everything, and every pixel size taken from the frustum, a quarter
+   // too small.
+   if (mHaveCamera && !camq->ortho)
+      camq->fov = fovFromHorizontal(camq->fov);
+
    return mHaveCamera;
 }
 

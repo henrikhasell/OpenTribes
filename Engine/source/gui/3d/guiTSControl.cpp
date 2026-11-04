@@ -236,6 +236,26 @@ F32 GuiTSCtrl::projectRadius( F32 dist, F32 radius ) const
 
 //-----------------------------------------------------------------------------
 
+// HH: Added for Tribes 2 compatibility.
+F32 GuiTSCtrl::fovFromHorizontal( F32 horizontalFov ) const
+{
+   if ( getWidth() <= 0 || getHeight() <= 0 )
+      return horizontalFov;
+
+   return 2.0f * mAtan( mTan( horizontalFov * 0.5f ) * F32( getHeight() ) / F32( getWidth() ) );
+}
+
+// HH: Added for Tribes 2 compatibility.
+F32 GuiTSCtrl::horizontalFromFov( F32 fov ) const
+{
+   if ( getWidth() <= 0 || getHeight() <= 0 )
+      return fov;
+
+   return 2.0f * mAtan( mTan( fov * 0.5f ) * F32( getWidth() ) / F32( getHeight() ) );
+}
+
+//-----------------------------------------------------------------------------
+
 bool GuiTSCtrl::project( const Point3F &pt, Point3F *dest ) const
 {
    return MathUtils::mProjectWorldToScreen(pt,dest,mSaveViewport,mSaveModelview,mSaveProjection);
