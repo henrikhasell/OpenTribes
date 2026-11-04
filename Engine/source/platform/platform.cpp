@@ -36,12 +36,7 @@ const F32 TypeTraits< F32 >::MAX = F32_MAX;
 const F32 TypeTraits< F32 >::ZERO = 0;
 const F32 Float_Inf = std::numeric_limits< F32 >::infinity();
 
-// The tools prefer to allow the CPU time to process
-#ifndef TORQUE_TOOLS
-S32 sgBackgroundProcessSleepTime = 25;
-#else
-S32 sgBackgroundProcessSleepTime = 200;
-#endif
+S32 sgBackgroundProcessSleepTime = 0;
 S32 sgTimeManagerProcessInterval = 1;
 
 Vector<Platform::KeyboardInputExclusion> gKeyboardExclusionList;
