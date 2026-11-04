@@ -208,6 +208,14 @@ void HudPulsingBitmap::onRender(Point2I offset, const RectI &updateRect)
       return;
    }
 
+   GameConnection *conn = GameConnection::getConnectionToServer();
+   if(!conn)
+      return;
+
+      // An observer has no sensors to show (0x00502f5b).
+   if(dynamic_cast<Camera*>(conn->getControlObject()))
+      return;
+
    // Jammed beats pinging beats resting: what the sensor is doing matters more
    // than what it is showing.
    ColorI colour = mJam ? mJamColor : (mPing ? mPingColor : mColor);
@@ -272,8 +280,7 @@ void HudCrosshair::onRender(Point2I offset, const RectI &updateRect)
 HudClock::HudClock()
 {
    mSubRegion.set(0, 0, 0, 0);
-   mTime = -1;
-   mSetAt = 0;
+   mOffset = 0;
 }
 
 void HudClock::initPersistFields()
@@ -283,26 +290,42 @@ void HudClock::initPersistFields()
    addField("subRegion", TypeRectI, Offset(mSubRegion, HudClock));
 }
 
-void HudClock::setTime(S32 seconds)
+S32 HudClock::sinceZero() const
 {
-   mTime = seconds;
-   mSetAt = Platform::getVirtualMilliseconds();
+   return S32(Platform::getVirtualMilliseconds()) + mOffset;
+}
+
+/// HudClock::setTime at 0x004fe7e0.
+void HudClock::setTime(F32 minutes)
+{
+   mOffset = -S32(F64(Platform::getVirtualMilliseconds()) + F64(minutes) * 60000.0);
    setUpdate();
+}
+
+/// HudClock::getTime at 0x004fe840.
+F32 HudClock::getTime() const
+{
+   return F32(mAbs(sinceZero())) / (60.f * 1000.f);
 }
 
 /// HudClock::onRender at 0x004fe8a0 draws the time and nothing else.
 void HudClock::onRender(Point2I offset, const RectI &updateRect)
 {
-   if(mTime < 0 || !mProfile || !mProfile->mFont)
+   if(!mProfile || !mProfile->mFont)
       return;
 
-   // Script sets the clock once and lets it run, so what is on it now is what
-         // Retail keeps counting past zero and shows the overtime; this stops.
-   const S32 elapsed = S32((Platform::getVirtualMilliseconds() - mSetAt) / 1000);
-   const S32 left = getMax(mTime - elapsed, 0);
+   const S32 since = sinceZero();
+   const S32 ms = mAbs(since);
+   const S32 seconds = ms / 1000;
+   const S32 hundredths = ms % 1000 / 10;
+   const S32 minutes = seconds % 3600 / 60;
 
+      // The last minute of a countdown goes to hundredths.
    char buf[32];
-   dSprintf(buf, sizeof(buf), "%02d:%02d", left / 60, left % 60);
+   if(minutes == 0 && since < 0)
+      dSprintf(buf, sizeof(buf), "%02d.%02d", seconds % 60, hundredths);
+   else
+      dSprintf(buf, sizeof(buf), "%02d:%02d", minutes, seconds % 60);
 
    GFont *font = mProfile->mFont;
    const S32 width = S32(font->getStrWidth((const UTF8*)buf));
@@ -385,9 +408,16 @@ DefineEngineMethod(HudPulsingBitmap, update, void, (), ,
    object->update();
 }
 
-DefineEngineMethod(HudClock, setTime, void, (S32 seconds), ,
-   "@brief Start the clock at this many seconds; negative stops it.\n\n"
+DefineEngineMethod(HudClock, setTime, void, (F32 minutes), ,
+   "@brief Put this many minutes on the clock.\n\n"
+   "It counts down to zero and then up again.\n\n"
    "@ingroup GuiHud")
 {
-   object->setTime(seconds);
+   object->setTime(minutes);
+}
+
+DefineEngineMethod(HudClock, getTime, F32, (), ,
+   "@brief The minutes on the clock.\n\n@ingroup GuiHud")
+{
+   return object->getTime();
 }

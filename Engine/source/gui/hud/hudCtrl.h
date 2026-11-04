@@ -134,9 +134,11 @@ class HudClock : public HudCtrl
 
    RectI mSubRegion;
 
-   /// Seconds on the clock, and when that was true.
-   S32 mTime;
-   U32 mSetAt;
+   /// The virtual millisecond the clock reads zero at, negated.
+   S32 mOffset;
+
+   /// Signed milliseconds from the clock's zero to now.
+   S32 sinceZero() const;
 
 public:
    HudClock();
@@ -144,8 +146,11 @@ public:
    DECLARE_CONOBJECT(HudClock);
    static void initPersistFields();
 
-   /// Set the clock going from `seconds`.  A negative value stops it.
-   void setTime(S32 seconds);
+   /// Put `minutes` on the clock.  It counts down to zero and then up again.
+   void setTime(F32 minutes);
+
+   /// The minutes on the clock.
+   F32 getTime() const;
 
    void onRender(Point2I offset, const RectI &updateRect);
 };
