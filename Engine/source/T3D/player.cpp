@@ -6290,12 +6290,15 @@ DefineEngineMethod( Player, getNumDeathAnimations, S32, ( ),,
 //----------------------------------------------------------------------------
 void Player::consoleInit()
 {
-   Con::addVariable("$player::renderMyPlayer",TypeBool, &sRenderMyPlayer,
+   // HH: Modified for Tribes 2 compatibility.
+   // Tribes 2's names (0x005dc3ea), which the options dialog's "First Person
+   // Draw" menu sets.
+   Con::addVariable("$pref::Player::renderMyPlayer",TypeBool, &sRenderMyPlayer,
       "@brief Determines if the player is rendered or not.\n\n"
       "Used on the client side to disable the rendering of all Player objects.  This is "
       "mainly for the tools or debugging.\n"
 	   "@ingroup GameObjects\n");
-   Con::addVariable("$player::renderMyItems",TypeBool, &sRenderMyItems,
+   Con::addVariable("$pref::Player::renderMyItems",TypeBool, &sRenderMyItems,
       "@brief Determines if mounted shapes are rendered or not.\n\n"
       "Used on the client side to disable the rendering of all Player mounted objects.  This is "
       "mainly used for the tools or debugging.\n"

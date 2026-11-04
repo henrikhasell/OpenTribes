@@ -81,7 +81,8 @@ ConsoleDocClass( TerrainBlock,
 
 Signal<void(U32,TerrainBlock*,const Point2I& ,const Point2I&)> TerrainBlock::smUpdateSignal;
 
-F32 TerrainBlock::smLODScale = 0.75f;
+F32 TerrainBlock::smScreenError = 4.0f;
+bool TerrainBlock::smEnableDetails = true;
 F32 TerrainBlock::smDetailScale = 4.0f;
 
 
@@ -180,7 +181,6 @@ TerrainBlock::TerrainBlock()
  : mSquareSize( 1.0f ),
    mTile( false ),
    mCastShadows( true ),
-   mScreenError( 16 ),   
    mDetailsDirty( false ),
    mLayerTexDirty( false ),
    mLightMap( NULL ),
@@ -1253,8 +1253,6 @@ void TerrainBlock::initPersistFields()
          &TerrainBlock::_setLightMapSize, &defaultProtectedGetFn,
          "Light map dimensions in pixels." );
 
-      addField( "screenError", TypeS32, Offset( mScreenError, TerrainBlock ), "Not yet implemented." );
-
    endGroup( "Misc" );
 
    Parent::initPersistFields();
@@ -1264,7 +1262,18 @@ void TerrainBlock::initPersistFields()
    Con::addVariable( "$TerrainBlock::debugRender", TypeBool, &smDebugRender, "Triggers debug rendering of terrain cells\n\n"
 	   "@ingroup Terrain");
    
-   Con::addVariable( "$pref::Terrain::lodScale", TypeF32, &smLODScale, "A global LOD scale used to tweak the default terrain screen error value.\n\n"
+   // HH: Modified for Tribes 2 compatibility.
+   // Tribes 2 takes the terrain's screen error from this alone (0x005a0101,
+   // read at 0x005a65fb), in place of Torque 3D's $pref::Terrain::lodScale
+   // and each block's screenError. The options dialog's "Terrain Detail"
+   // slider sets it.
+   Con::addVariable( "$pref::Terrain::screenError", TypeF32, &smScreenError, "How many pixels a terrain cell may stray from the full detail terrain before it is split.\n\n"
+		"@ingroup Terrain");
+
+   // HH: Added for Tribes 2 compatibility.
+   // Tribes 2 draws the mission's detail texture only while this is set
+   // (0x005a00d9, read at 0x005a1424); the "TERRAIN DETAILS" toggle sets it.
+   Con::addVariable( "$pref::Terrain::enableDetails", TypeBool, &smEnableDetails, "Draw the mission's detail texture on the terrain.\n\n"
 		"@ingroup Terrain");
 
    Con::addVariable( "$pref::Terrain::detailScale", TypeF32, &smDetailScale, "A global detail scale used to tweak the material detail distances.\n\n" 

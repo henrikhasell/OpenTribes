@@ -310,6 +310,18 @@ void Precipitation::setTransform(const MatrixF & mat)
 
 IRangeValidator ValidNumDropsRange(1, 100000);
 
+bool Precipitation::smPrecipitationOn = true;
+
+void Precipitation::consoleInit()
+{
+   // HH: Added for Tribes 2 compatibility.
+   // Tribes 2's switch for all precipitation (0x00680c3a), in place of Torque
+   // 3D's $pref::precipitationDensity.
+   Con::addVariable( "$pref::precipitationOn", TypeBool, &smPrecipitationOn,
+      "Draw precipitation and play its sound.\n\n"
+      "@ingroup FX" );
+}
+
 void Precipitation::initPersistFields()
 {
    addGroup("Precipitation");
@@ -549,7 +561,9 @@ bool Precipitation::onNewDataBlock( GameBaseData *dptr, bool reload )
    {
       SFX_DELETE( mAmbientSound );
 
-      if ( mDataBlock->soundProfile )
+      // HH: Modified for Tribes 2 compatibility.
+      // Tribes 2 starts no sound with precipitation off (0x00680d76).
+      if ( mDataBlock->soundProfile && smPrecipitationOn )
       {
          mAmbientSound = SFX->createSource( mDataBlock->soundProfile, &getTransform() );
          if ( mAmbientSound )
@@ -636,8 +650,7 @@ void Precipitation::fillDropList()
 {
    AssertFatal(isClientObject(), "Precipitation is doing stuff on the server - BAD!");
 
-   F32 density = Con::getFloatVariable("$pref::precipitationDensity", 1.0f);
-   U32 newDropCount = (U32)(mNumDrops * mPercentage * density);
+   U32 newDropCount = (U32)(mNumDrops * mPercentage);
    U32 dropCount = 0;
 
    if (newDropCount == 0)
@@ -1309,10 +1322,28 @@ void Precipitation::prepRenderImage(SceneRenderState* state)
 {
    PROFILE_SCOPE(Precipitation_prepRenderImage);
 
+   // HH: Added for Tribes 2 compatibility.
+   // With precipitation off Tribes 2 stops its sound and draws nothing
+   // (0x00681781).
+   if ( !smPrecipitationOn )
+   {
+      SFX_DELETE( mAmbientSound );
+      return;
+   }
+
    // We we have no drops then skip rendering
    // and don't bother with the sound.
    if (mMaxVBDrops == 0)
       return;
+
+   // HH: Added for Tribes 2 compatibility.
+   // Back on, so start the sound again (0x006817d5).
+   if ( !mAmbientSound && mDataBlock && mDataBlock->soundProfile )
+   {
+      mAmbientSound = SFX->createSource( mDataBlock->soundProfile, &getTransform() );
+      if ( mAmbientSound )
+         mAmbientSound->play();
+   }
 
    // We do nothing if we're not supposed to be reflected.
    if ( state->isReflectPass() && !mReflect )

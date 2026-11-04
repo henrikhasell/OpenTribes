@@ -246,7 +246,10 @@ DecalManager::~DecalManager()
 
 void DecalManager::consoleInit()
 {
-   Con::addVariable( "$pref::Decals::enabled", TypeBool, &smDecalsOn,
+   // HH: Modified for Tribes 2 compatibility.
+   // Tribes 2's name (0x00593d8a), which the options dialog's "DECALS" toggle
+   // sets.
+   Con::addVariable( "$pref::decalsOn", TypeBool, &smDecalsOn,
       "Controls whether decals are rendered.\n"
       "@ingroup Decals" );
 

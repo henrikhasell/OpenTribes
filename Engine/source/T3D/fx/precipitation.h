@@ -267,6 +267,11 @@ class Precipitation : public GameBase
    bool onNewDataBlock( GameBaseData *dptr, bool reload );
    DECLARE_CONOBJECT(Precipitation);
    static void initPersistFields();
+   static void consoleInit();
+
+   // HH: Added for Tribes 2 compatibility.
+   /// $pref::precipitationOn, the options dialog's "PRECIPITATION" toggle.
+   static bool smPrecipitationOn;
    
 
    void setPercentage(F32 pct);

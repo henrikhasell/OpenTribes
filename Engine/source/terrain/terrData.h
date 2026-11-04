@@ -167,8 +167,6 @@ protected:
 
    PhysicsBody *mPhysicsRep;
 
-   U32 mScreenError;
-
    /// The shared primitive buffer used in rendering.
    GFXPrimitiveBufferHandle mPrimBuffer;
 
@@ -184,9 +182,15 @@ protected:
 	/// Allows the terrain to cast shadows onto itself and other objects.
 	bool mCastShadows;
 
-   /// A global LOD scale used to tweak the default
-   /// terrain screen error value.
-   static F32 smLODScale;
+   // HH: Modified for Tribes 2 compatibility.
+   /// $pref::Terrain::screenError, how many pixels a cell may stray from the
+   /// full detail terrain before it is split.
+   static F32 smScreenError;
+
+   // HH: Added for Tribes 2 compatibility.
+   /// $pref::Terrain::enableDetails, whether the mission's detail texture is
+   /// drawn.
+   static bool smEnableDetails;
 
    /// A global detail scale used to tweak the 
    /// material detail distances.
@@ -430,7 +434,7 @@ public:
    /// Retuns the dimensions of the terrain in samples.
    U32 getBlockSize() const { return mFile->mSize; }
 
-   U32 getScreenError() const { return smLODScale * mScreenError; }
+   F32 getScreenError() const { return smScreenError; }
 
    // SceneObject
    void setTransform( const MatrixF &mat );

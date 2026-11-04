@@ -785,8 +785,12 @@ bool TerrainCellMaterial::setupPass(   const SceneRenderState *state,
    {
       GFX->setTexture( pass.missionDetailTexConst->getSamplerRegister(), missionDetail );
 
+      // HH: Modified for Tribes 2 compatibility.
+      // With terrain details off Tribes 2 skips the detail pass (0x005a1424),
+      // so here the detail fades out at no distance at all.
       const F32 squareSize = mTerrain->getSquareSize();
-      const F32 zeroDetail = squareSize * state->projectRadius( 1.0f, 1.0f ) / 64.0f
+      const F32 zeroDetail = !TerrainBlock::smEnableDetails ? 0.0f
+                           : squareSize * state->projectRadius( 1.0f, 1.0f ) / 64.0f
                            - mFloor( squareSize * 0.5f );
 
       Point4F info( 62.0f / (F32)missionDetail->getWidth(),
