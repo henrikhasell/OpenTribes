@@ -31,7 +31,7 @@
 // HH: Modified for Tribes 2 compatibility.
 // Raised whenever what gets lit changes, so a cache lit the old way is
 // relit rather than loaded.
-U32 PersistInfo::smFileVersion   = 0x12;
+U32 PersistInfo::smFileVersion   = 0x13;
 
 PersistInfo::~PersistInfo()
 {
