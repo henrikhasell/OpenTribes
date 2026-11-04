@@ -134,6 +134,9 @@ protected:
 
       GFXShaderConstHandle *missionDetailTexConst;
       GFXShaderConstHandle *missionDetailInfoConst;
+
+      // HH: Added for Tribes 2 compatibility.
+      GFXShaderConstHandle *lightFalloffTexConst;
    };
 
    TerrainBlock *mTerrain;
@@ -149,6 +152,10 @@ protected:
    GFXTexHandle mLayerMapTexture;
 
    NamedTexTargetRef mLightInfoTarget;
+
+   // HH: Added for Tribes 2 compatibility.
+   /// The falloff a dynamic light lays on the terrain.
+   GFXTexHandle mLightFalloffTex;
 
    /// The prepass material for this material.
    TerrainCellMaterial *mPrePassMat;

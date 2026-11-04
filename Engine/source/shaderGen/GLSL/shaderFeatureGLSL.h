@@ -207,6 +207,10 @@ protected:
 
    ShaderIncludeDependency mDep;
 
+   // HH: Added for Tribes 2 compatibility.
+   // A terrain's dynamic lights are the interiors' pass.
+   ShaderIncludeDependency mTerrainLightsDep;
+
 public:
 
    RTLightingFeatGLSL();
