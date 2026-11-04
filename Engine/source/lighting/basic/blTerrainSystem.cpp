@@ -104,6 +104,10 @@ protected:
    /// The dimension of the terrain height map sample array.
    const U32 mTerrainBlockSize;
 
+   // HH: Added for Tribes 2 compatibility.
+   /// Samples to a lexel per side, as a power of two.
+   U32 mGenerateLevel;
+
    ColorF *sgBakedLightmap;
    Vector<LightInfo *> sgLights;
    bool sgMarkStaticShadow(void *terrainproxy, SceneObject *sceneobject, LightInfo *light);
@@ -159,6 +163,7 @@ blTerrainProxy::blTerrainProxy( SceneObject *obj ) :
    Parent( obj ),
    mLightMapSize( getObject()->getLightMapSize() ),
    mTerrainBlockSize( getObject()->getBlockSize() ),
+   mGenerateLevel( 0 ),   // HH: Added for Tribes 2 compatibility.
    mLightmap( NULL )
 {
 }
@@ -174,6 +179,11 @@ void blTerrainProxy::init()
    mLightmap = new ColorF[ mLightMapSize * mLightMapSize ];
    dMemset(mLightmap, 0, mLightMapSize * mLightMapSize * sizeof(ColorF));
    mShadowMask.setSize( mTerrainBlockSize * mTerrainBlockSize );
+
+   // HH: Added for Tribes 2 compatibility.
+   // How many samples a lexel gets per side, as a power of two
+   // (`TerrainProxy::init`, 0x57b840).
+   mGenerateLevel = mClamp( Con::getIntVariable( "$pref::sceneLighting::terrainGenerateLevel", 0 ), 0, 4 );
 }
 
 bool blTerrainProxy::preLight(LightInfo * light)
@@ -236,10 +246,16 @@ void blTerrainProxy::light(LightInfo * light)
    // reset
    mShadowVolume = new ShadowVolumeBSP;
 
-   // build interior shadow volume
+   // HH: Modified for Tribes 2 compatibility.
+   // Only an interior shadows a terrain: `TerrainProxy::light` (0x57bb90)
+   // tests each lit object's type for one (0x57bc13) before marking the
+   // squares it shadows and adding it to the shadow volume.
    for(ObjectProxy ** itr = gLighting->mLitObjects.begin(); itr != gLighting->mLitObjects.end(); itr++)
    {
       ObjectProxy* objproxy = *itr;
+      if ( !objproxy->getObject() || !( objproxy->getObject()->getTypeMask() & InteriorObjectType ) )
+         continue;
+
       if (markObjectShadow(objproxy))
          objproxy->addToShadowVolume(mShadowVolume, light, SceneLighting::SHADOW_DETAIL);
    }
@@ -249,122 +265,26 @@ void blTerrainProxy::light(LightInfo * light)
    // set the lightmap...
    terrain->clearLightMap();
 
-   // Blur...
-   F32 kernel[3][3] = { {1, 2, 1},
-                        {2, 3, 2},
-                        {1, 2, 1} };
-
-   F32 modifier = 1;
-   F32 divisor = 0;
-
-
-   for( U32 i=0; i<3; i++ )
-   {
-      for( U32 j=0; j<3; j++ )
-      {
-         if( i==1 && j==1 )
-         {
-            kernel[i][j] = 1 + kernel[i][j] * modifier;
-         }
-         else
-         {
-            kernel[i][j] = kernel[i][j] * modifier;
-         }
-
-         divisor += kernel[i][j];
-      }
-   }
-
-   for( U32 i=0; i < mLightMapSize; i++ )
-   {
-      for( U32 j=0; j < mLightMapSize; j++ )
-      {
-
-         ColorF val;
-         val  = _getValue( i-1, j-1  ) * kernel[0][0];
-         val += _getValue( i-1, j    ) * kernel[0][1];
-         val += _getValue( i-1, j+1  ) * kernel[0][2];
-         val += _getValue(   i, j-1  ) * kernel[1][0];
-         val += _getValue(   i, j    ) * kernel[1][1];
-         val += _getValue(   i, j+1  ) * kernel[1][2];
-         val += _getValue( i+1, j-1  ) * kernel[2][0];
-         val += _getValue( i+1, j    ) * kernel[2][1];
-         val += _getValue( i+1, j+1  ) * kernel[2][2];
-
-         U32 edge = 0;
-
-         if( j == 0 || j == mLightMapSize - 1 )
-            edge++;
-
-         if( i == 0 || i == mLightMapSize - 1 )
-            edge++;
-
-         if( !edge )
-            val = val / divisor;
-         else
-            val = mLightmap[ i * mLightMapSize + j ];
-
-         // clamp values
-         mLightmap[ i * mLightMapSize + j ]= val;
-      }
-   }
-
-   // And stuff it into the texture...
+   // HH: Modified for Tribes 2 compatibility.
+   // Tribes 2 does not blur a terrain's lightmap: each lexel is already the
+   // share of it the sun reaches (0x57bb13 hands lightVector's lexels
+   // straight to the lightmap).
    GBitmap *terrLightMap = terrain->getLightMap();
    for(U32 y = 0; y < mLightMapSize; y++)
    {
       for(U32 x = 0; x < mLightMapSize; x++)
       {
+         ColorF lexel = mLightmap[x + y * mLightMapSize];
+         lexel.clamp();
+
          ColorI color(255, 255, 255, 255);
-         
-         color.red   = mLightmap[x + y * mLightMapSize].red   * 255;
-         color.green = mLightmap[x + y * mLightMapSize].green * 255;
-         color.blue  = mLightmap[x + y * mLightMapSize].blue  * 255;
+         color.red   = lexel.red   * 255;
+         color.green = lexel.green * 255;
+         color.blue  = lexel.blue  * 255;
 
          terrLightMap->setColor(x, y, color);
       }
    }
-
-   /*
-   // This handles matching up the outer edges of the terrain
-   // lightmap when it has neighbors
-   if (!terrain->isTiling())
-   {
-      for (S32 y = 0; y < terrLightMap->getHeight(); y++)
-      {
-         ColorI c;
-         if (terrain->getFile()->mEdgeTerrainFiles[0])
-         {
-            terrLightMap->getColor(terrLightMap->getWidth()-1,y,c);
-            terrLightMap->setColor(0,y,c);
-            terrLightMap->setColor(1,y,c);
-         }
-         else
-         {
-            terrLightMap->getColor(0,y,c);
-            terrLightMap->setColor(terrLightMap->getWidth()-1,y,c);
-            terrLightMap->setColor(terrLightMap->getWidth()-2,y,c);
-         }
-      }
-
-      for (S32 x = 0; x < terrLightMap->getHeight(); x++)
-      {
-         ColorI c;
-         if (terrain->getFile()->mEdgeTerrainFiles[1])
-         {
-            terrLightMap->getColor(x,terrLightMap->getHeight()-1,c);
-            terrLightMap->setColor(x,0,c);
-            terrLightMap->setColor(x,1,c);
-         }
-         else
-         {
-            terrLightMap->getColor(x,0,c);
-            terrLightMap->setColor(x,terrLightMap->getHeight()-1,c);
-            terrLightMap->setColor(x,terrLightMap->getHeight()-2,c);
-         }
-      }
-   }
-   */
 
    delete mShadowVolume;
 
@@ -429,13 +349,17 @@ bool blTerrainProxy::getShadowedSquares(const Vector<PlaneF> & clipPlanes, Vecto
    if ( !terrain )
       return false;
 
-   // TODO: Fix me for variable terrain sizes!
-   return true;
+   // HH: Modified for Tribes 2 compatibility.
+   // The squares an interior's shadow can reach, walked down the terrain's
+   // quadtree as Tribes 2 walks it (0x57c1d0). Only these lexels have their
+   // lit share measured against the shadow volume.
+   const TerrainFile *file = terrain->getFile();
+   const U32 blockShift = getBinLog2( mTerrainBlockSize );
 
-   /*
-   SquareStackNode stack[TerrainBlock::BlockShift * 4];
+   Vector<SquareStackNode> stack;
+   stack.setSize( blockShift * 4 + 1 );
 
-   stack[0].mLevel = TerrainBlock::BlockShift;
+   stack[0].mLevel = blockShift;
    stack[0].mClipFlags = 0xff;
    stack[0].mPos.set(0,0);
 
@@ -443,8 +367,7 @@ bool blTerrainProxy::getShadowedSquares(const Vector<PlaneF> & clipPlanes, Vecto
 
    Point3F blockPos;
    terrain->getTransform().getColumn(3, &blockPos);
-   S32 squareSize = terrain->getSquareSize();
-   F32 floatSquareSize = (F32)squareSize;
+   const F32 squareSize = terrain->getSquareSize();
 
    bool marked = false;
 
@@ -455,20 +378,20 @@ bool blTerrainProxy::getShadowedSquares(const Vector<PlaneF> & clipPlanes, Vecto
 
       S32 clipFlags = node->mClipFlags;
       Point2I pos = node->mPos;
-      GridSquare * sq = terrain->findSquare(node->mLevel, pos);
+      const TerrainSquare * sq = file->findSquare(node->mLevel, pos.x, pos.y);
 
       Point3F minPoint, maxPoint;
       minPoint.set(squareSize * pos.x + blockPos.x,
          squareSize * pos.y + blockPos.y,
-         fixedToFloat(sq->minHeight));
-      maxPoint.set(minPoint.x + (squareSize << node->mLevel),
-         minPoint.y + (squareSize << node->mLevel),
-         fixedToFloat(sq->maxHeight));
+         fixedToFloat(sq->minHeight) + blockPos.z);
+      maxPoint.set(minPoint.x + squareSize * (1 << node->mLevel),
+         minPoint.y + squareSize * (1 << node->mLevel),
+         fixedToFloat(sq->maxHeight) + blockPos.z);
 
       // test the square against the current level
       if(clipFlags)
       {
-         clipFlags = testSquare(minPoint, maxPoint, clipFlags, floatSquareSize, clipPlanes);
+         clipFlags = testSquare(minPoint, maxPoint, clipFlags, squareSize, clipPlanes);
          if(clipFlags == U16(-1))
          {
             stackSize--;
@@ -480,7 +403,7 @@ bool blTerrainProxy::getShadowedSquares(const Vector<PlaneF> & clipPlanes, Vecto
       if(node->mLevel == 0)
       {
          marked = true;
-         shadowList.push_back(pos.x + (pos.y << TerrainBlock::BlockShift));
+         shadowList.push_back(pos.x + (pos.y << blockShift));
          stackSize--;
          continue;
       }
@@ -504,88 +427,465 @@ bool blTerrainProxy::getShadowedSquares(const Vector<PlaneF> & clipPlanes, Vecto
    }
 
    return marked;
-   */
 }
 
+// HH: Modified for Tribes 2 compatibility.
+// Tribes 2's `TerrainProxy::lightVector` (0x57c330). Torque 3D cast a ray
+// from each lexel and kept only whether it hit anything; the shader then
+// lit the terrain itself. Tribes 2 bakes all of a lexel's light into it:
+// the ambient, plus the sun by how squarely the ground faces it and by the
+// share of the lexel no interior shadows. The terrain shadows itself by a
+// running height swept along the sun, and the work is done at
+// $pref::sceneLighting::terrainGenerateLevel samples a lexel per side,
+// averaged.
 void blTerrainProxy::lightVector(LightInfo * light)
 {
-   // Grab our terrain object
    TerrainBlock* terrain = getObject();
    if (!terrain)
       return;
 
-   // Get the direction to the light (the inverse of the direction
-   // the light is pointing)
-   Point3F lightDir = -light->getDirection();
+   Point3F lightDir = light->getDirection();
    lightDir.normalize();
 
-   // Get the ratio between the light map pixel and world space (used below)   
-   F32 lmTerrRatio = (F32)mTerrainBlockSize / (F32) mLightMapSize;
-   lmTerrRatio *= terrain->getSquareSize();
+   const ColorF & ambient = light->getAmbient();
+   const ColorF & lightColor = light->getColor();
 
-   // Get the terrain position
-   Point3F terrPos( terrain->getTransform().getPosition() );
+   // A sun straight overhead lights nothing.
+   if(lightDir.x == 0 && lightDir.y == 0)
+      return;
 
-   U32 i = 0;
-   for (U32 y = 0; y < mLightMapSize; y++)
+   const TerrainFile * file = terrain->getFile();
+
+   const U32 blockSize = mTerrainBlockSize;
+   const U32 blockShift = getBinLog2(blockSize);
+   const U32 blockMask = blockSize - 1;
+   const U32 lightmapShift = getBinLog2(mLightMapSize);
+
+   const U32 generateDim = mLightMapSize << mGenerateLevel;
+   const U32 generateShift = lightmapShift + mGenerateLevel;
+   const U32 generateMask = generateDim - 1;
+
+   const F32 squareSize = terrain->getSquareSize();
+   const F32 stepSize = squareSize / F32(generateDim / blockSize);
+
+   // Walk the samples in columns along whichever axis the sun travels
+   // furthest in, so each column's shadow heights come from the last.
+   F32 zStep;
+   F32 frac;
+
+   Point2I blockColStep;
+   Point2I blockRowStep;
+   Point2I blockFirstPos;
+   Point2I lmFirstPos;
+
+   if(mFabs(lightDir.x) >= mFabs(lightDir.y))
    {
-      for (U32 x = 0; x < mLightMapSize; x++)
+      if(lightDir.x > 0)
       {
-         // Get the relative pixel position and scale it
-         // by the ratio between lightmap and world space
-         Point2F pixelPos(x, y);
-         pixelPos *= lmTerrRatio;         
-         
-         // Start with a default normal of straight up
-         Point3F normal(0.0f, 0.0f, 1.0f);
-         
-         // Try to get the actual normal from the terrain.
-         // Note: this won't change the default normal if
-         // it can't find a normal.
-         terrain->getNormal(pixelPos, &normal);
+         zStep = lightDir.z / lightDir.x;
+         frac = lightDir.y / lightDir.x;
 
-         // The terrain lightmap only contains shadows.
-         F32 shadowed = 0.0f;
-
-         // Get the height at the lightmap pixel's position
-         F32 height = 0.0f;
-         terrain->getHeight(pixelPos, &height);
-
-         // Calculate the 3D position of the pixel
-         Point3F pixelPos3F(pixelPos.x, pixelPos.y, height);
-
-         // Translate that position by the terrain's transform
-         terrain->getTransform().mulP(pixelPos3F);
-
-         // Offset slighting along the normal so that we don't
-         // raycast into ourself
-         pixelPos3F += (normal * 0.1f);
-
-         // Calculate the light's position.
-         // If it is a vector light like the sun (no position
-         // just direction) then translate along that direction
-         // a reasonable distance to get a point sufficiently
-         // far away
-         Point3F lightPos = light->getPosition();
-         if(light->getType() == LightInfo::Vector)
-         {
-            lightPos = 1000.f * lightDir;            
-            lightPos = pixelPos3F + lightPos;
-         }
-
-         // Cast a ray from the world space position of the lightmap pixel to the light source.
-         // If we hit something then we are in shadow. This allows us to be shadowed by anything
-         // that supports a castRay operation.
-         RayInfo info;
-         if(terrain->getContainer()->castRay(pixelPos3F, lightPos, STATIC_COLLISION_TYPEMASK, &info))
-         {
-            // Shadow the pixel.
-            shadowed = 1.0f;
-         }
-
-         // Set the final lightmap color.
-         mLightmap[i++] += ColorF::WHITE * mClampF( 1.0f - shadowed, 0.0f, 1.0f );
+         blockColStep.set(1, 0);
+         blockRowStep.set(0, 1);
+         blockFirstPos.set(0, 0);
+         lmFirstPos.set(0, 0);
       }
+      else
+      {
+         zStep = -lightDir.z / lightDir.x;
+         frac = -lightDir.y / lightDir.x;
+
+         blockColStep.set(-1, 0);
+         blockRowStep.set(0, 1);
+         blockFirstPos.set(blockMask, 0);
+         lmFirstPos.set(mLightMapSize - 1, 0);
+      }
+   }
+   else
+   {
+      if(lightDir.y > 0)
+      {
+         zStep = lightDir.z / lightDir.y;
+         frac = lightDir.x / lightDir.y;
+
+         blockColStep.set(0, 1);
+         blockRowStep.set(1, 0);
+         blockFirstPos.set(0, 0);
+         lmFirstPos.set(0, 0);
+      }
+      else
+      {
+         zStep = -lightDir.z / lightDir.y;
+         frac = -lightDir.x / lightDir.y;
+
+         blockColStep.set(0, -1);
+         blockRowStep.set(1, 0);
+         blockFirstPos.set(0, blockMask);
+         lmFirstPos.set(0, mLightMapSize - 1);
+      }
+   }
+   zStep *= stepSize;
+
+   S32 fracStep = -1;
+   if(frac < 0)
+   {
+      fracStep = 1;
+      frac = -frac;
+   }
+   const F32 oneMinusFrac = 1 - frac;
+
+   // Samples to a square and to a lexel, per side.
+   const U32 squareShift = generateShift - blockShift;
+   const U32 lexelShift = generateShift - lightmapShift;
+
+   const U32 squareStep = 1 << squareShift;
+   const U32 squareMask = squareStep - 1;
+   const U32 lexelStep = 1 << lexelShift;
+   const U32 lexelNormalOffset = lexelStep >> 1;
+   const U32 lexelMask = lexelStep - 1;
+
+   Vector<F32> heightStore[2];
+   heightStore[0].setSize(generateDim);
+   heightStore[1].setSize(generateDim);
+   F32 * heightArray = heightStore[0].address();
+   F32 * nextHeightArray = heightStore[1].address();
+
+   Vector<F32> terrainHeights[2];
+   terrainHeights[0].setSize(blockSize);
+   terrainHeights[1].setSize(blockSize);
+   F32 * pTerrainHeights = terrainHeights[0].address();
+   F32 * pNextTerrainHeights = terrainHeights[1].address();
+
+   Vector<F32> terrainZRowStep;
+   Vector<F32> nextTerrainZRowStep;
+   Vector<F32> terrainZColStep;
+   terrainZRowStep.setSize(blockSize);
+   nextTerrainZRowStep.setSize(blockSize);
+   terrainZColStep.setSize(blockSize);
+
+   const F32 heightStep = 1.f / squareStep;
+   U32 i;
+
+   // The grid's own heights, the terrain repeating.
+   auto gridHeight = [&]( const Point2I &p )
+   {
+      return fixedToFloat( file->getHeight( p.x & blockMask, p.y & blockMask ) );
+   };
+
+   // The slopes between one column of grid points and the next.
+   auto fillSteps = [&]()
+   {
+      for(U32 j = 0; j < blockSize; j++)
+      {
+         terrainZRowStep[j] = (pTerrainHeights[(j+1) & blockMask] - pTerrainHeights[j]) * heightStep;
+         nextTerrainZRowStep[j] = (pNextTerrainHeights[(j+1) & blockMask] - pNextTerrainHeights[j]) * heightStep;
+         terrainZColStep[j] = (pNextTerrainHeights[j] - pTerrainHeights[j]) * heightStep;
+      }
+   };
+
+   // The height of the ground at a sample, on whichever of its square's two
+   // triangles it is: the terrain splits a square on its 135 degree
+   // diagonal where the square's coordinates differ in parity.
+   auto groundHeight = [&]( const Point2I &bwalk, U32 xmask, U32 ymask, U32 bi, U32 binext, F32 &xstep, F32 &ystep )
+   {
+      if((bwalk.x ^ bwalk.y) & 1)
+      {
+         U32 xsub = squareStep - xmask;
+         if(xsub > ymask)
+         {
+            xstep = terrainZColStep[bi];
+            ystep = terrainZRowStep[bi];
+            return pTerrainHeights[bi] + xmask * xstep + ymask * ystep;
+         }
+
+         xstep = -terrainZColStep[binext];
+         ystep = nextTerrainZRowStep[bi];
+         return pNextTerrainHeights[bi] + xsub * xstep + ymask * ystep;
+      }
+
+      if(xmask > ymask)
+      {
+         xstep = terrainZColStep[bi];
+         ystep = nextTerrainZRowStep[bi];
+      }
+      else
+      {
+         xstep = terrainZColStep[binext];
+         ystep = terrainZRowStep[bi];
+      }
+      return pTerrainHeights[bi] + xmask * xstep + ymask * ystep;
+   };
+
+   Point2I bp = blockFirstPos;
+   for(i = 0; i < blockSize; i++)
+   {
+      pTerrainHeights[i] = gridHeight(bp);
+      bp += blockRowStep;
+   }
+
+   bp = blockFirstPos + blockColStep;
+   for(i = 0; i < blockSize; i++)
+   {
+      pNextTerrainHeights[i] = gridHeight(bp);
+      bp += blockRowStep;
+   }
+
+   fillSteps();
+
+   // The first column of shadow heights is the ground itself.
+   for(i = 0; i < generateDim; i++)
+   {
+      U32 bi = i >> squareShift;
+      heightArray[i] = pTerrainHeights[bi] + (i & squareMask) * terrainZRowStep[bi];
+   }
+
+   bp = blockFirstPos;
+   if(generateDim == blockSize)
+      bp += blockColStep;
+
+   // Sweep the block once to carry the shadow heights round, the terrain
+   // repeating, before the lighting pass starts.
+   U32 x, y;
+   for(x = 1; x < generateDim; x++)
+   {
+      U32 xmask = x & squareMask;
+
+      if(!xmask)
+      {
+         F32 * tmp = pTerrainHeights;
+         pTerrainHeights = pNextTerrainHeights;
+         pNextTerrainHeights = tmp;
+
+         bp += blockColStep;
+
+         Point2I bwalk = bp;
+         for(i = 0; i < blockSize; i++, bwalk += blockRowStep)
+            pNextTerrainHeights[i] = gridHeight(bwalk);
+
+         fillSteps();
+      }
+
+      Point2I bwalk = bp - blockRowStep;
+      for(y = 0; y < generateDim; y++)
+      {
+         U32 ymask = y & squareMask;
+         if(!ymask)
+            bwalk += blockRowStep;
+
+         U32 bi = y >> squareShift;
+         U32 binext = (bi + 1) & blockMask;
+
+         F32 xstep, ystep;
+         F32 height = groundHeight(bwalk, xmask, ymask, bi, binext, xstep, ystep);
+
+         F32 intHeight = heightArray[y] * oneMinusFrac + heightArray[(y + fracStep) & generateMask] * frac + zStep;
+         nextHeightArray[y] = getMax(height, intHeight);
+      }
+
+      F32 * swapHeights = heightArray;
+      heightArray = nextHeightArray;
+      nextHeightArray = swapHeights;
+   }
+
+   const F32 lexelDim = squareSize * F32(blockSize) / F32(mLightMapSize);
+
+   // A sample's normal is its square's corner normals, each weighted by
+   // how near the sample is to it.
+   Vector<Point3F> normals[2];
+   normals[0].setSize(blockSize);
+   normals[1].setSize(blockSize);
+   Point3F * pNormals = normals[0].address();
+   Point3F * pNextNormals = normals[1].address();
+
+   Vector<F32> normTable;
+   normTable.setSize(squareStep * squareStep * 4);
+
+   const Point2F corners[4] = {
+      Point2F(0.f, 0.f),
+      Point2F(1.f, 0.f),
+      Point2F(1.f, 1.f),
+      Point2F(0.f, 1.f)
+   };
+
+   U32 idx = 0;
+   const F32 step = 1.f / squareStep;
+   Point2F pos(0.f, 0.f);
+   for(x = 0; x < squareStep; x++, pos.x += step, pos.y = 0.f)
+   {
+      for(y = 0; y < squareStep; y++, pos.y += step)
+      {
+         for(i = 0; i < 4; i++, idx++)
+            normTable[idx] = 1.f - getMin(Point2F(pos - corners[i]).len(), 1.f);
+      }
+   }
+
+   auto gridNormal = [&]( const Point2I &p, Point3F &out )
+   {
+      out.set(0.f, 0.f, 1.f);
+      terrain->getNormal(Point2F(p.x * squareSize, p.y * squareSize), &out, true, false);
+   };
+
+   bp = blockFirstPos;
+   for(x = 0; x < blockSize; x++)
+   {
+      pNextTerrainHeights[x] = gridHeight(bp);
+      gridNormal(bp, pNextNormals[x]);
+      bp += blockRowStep;
+   }
+
+   // get swapped on first pass
+   pTerrainHeights = terrainHeights[1].address();
+   pNextTerrainHeights = terrainHeights[0].address();
+
+   Point3F worldOffset;
+   terrain->getTransform().getColumn(3, &worldOffset);
+
+   const F32 ratio = F32(1 << lexelShift);
+   const F32 inverseRatioSquared = 1.f / (ratio * ratio);
+
+   Vector<F32> lightScale;
+   lightScale.setSize(mLightMapSize);
+
+   // walk it...
+   bp = blockFirstPos - blockColStep;
+   for(x = 0; x < generateDim; x++)
+   {
+      U32 xmask = x & squareMask;
+      U32 lxmask = x & lexelMask;
+
+      if(!xmask)
+      {
+         bp += blockColStep;
+
+         Point3F * temp = pNormals;
+         pNormals = pNextNormals;
+         pNextNormals = temp;
+
+         Point2I bwalk = bp + blockColStep;
+         for(i = 0; i < blockSize; i++)
+         {
+            gridNormal(bwalk, pNextNormals[i]);
+            bwalk += blockRowStep;
+         }
+
+         F32 * tmp = pTerrainHeights;
+         pTerrainHeights = pNextTerrainHeights;
+         pNextTerrainHeights = tmp;
+
+         bwalk = bp + blockColStep;
+         for(i = 0; i < blockSize; i++, bwalk += blockRowStep)
+            pNextTerrainHeights[i] = gridHeight(bwalk);
+
+         fillSteps();
+      }
+
+      // A new column of lexels starts fully lit.
+      if(!lxmask)
+         for(i = 0; i < mLightMapSize; i++)
+            lightScale[i] = 1.f;
+
+      Point2I bwalk = bp - blockRowStep;
+      for(y = 0; y < generateDim; y++)
+      {
+         U32 lymask = y & lexelMask;
+         U32 ymask = y & squareMask;
+         if(!ymask)
+            bwalk += blockRowStep;
+
+         U32 bi = y >> squareShift;
+         U32 binext = (bi + 1) & blockMask;
+
+         F32 xstep, ystep;
+         F32 height = groundHeight(bwalk, xmask, ymask, bi, binext, xstep, ystep);
+
+         F32 intHeight = heightArray[y] * oneMinusFrac + heightArray[(y + fracStep) & generateMask] * frac + zStep;
+
+         U32 lsi = y >> lexelShift;
+
+         Point2I lmPos = lmFirstPos + blockColStep * (x >> lexelShift) + blockRowStep * lsi;
+
+         ColorF & col = mLightmap[lmPos.x + (lmPos.y << lightmapShift)];
+
+         // Measure the share of a lexel an interior leaves lit, once, at
+         // its first sample, where its square is in an interior's shadow.
+         Point2I terrPos = lmPos;
+         terrPos.x >>= lightmapShift - blockShift;
+         terrPos.y >>= lightmapShift - blockShift;
+
+         if(!lxmask && !lymask && mShadowMask.test(terrPos.x + (terrPos.y << blockShift)))
+         {
+            U32 nidx = (xmask + lexelNormalOffset + ((ymask + lexelNormalOffset) << squareShift)) << 2;
+
+            Point3F normal = pNormals[bi] * normTable[nidx++];
+            normal += pNormals[binext] * normTable[nidx++];
+            normal += pNextNormals[binext] * normTable[nidx++];
+            normal += pNextNormals[bi] * normTable[nidx];
+            normal.normalize();
+
+            nextHeightArray[y] = height;
+            F32 colorScale = -mDot(normal, lightDir);
+
+            if(colorScale > 0.f)
+            {
+               Point2F wPos(lmPos.x * lexelDim + worldOffset.x,
+                            lmPos.y * lexelDim + worldOffset.y);
+
+               F32 xh = xstep * ratio;
+               F32 yh = ystep * ratio;
+               F32 z = height + worldOffset.z;
+
+               ShadowVolumeBSP::SVPoly * poly = mShadowVolume->createPoly();
+               poly->mWindingCount = 4;
+               poly->mWinding[0].set(wPos.x, wPos.y, z);
+               poly->mWinding[1].set(wPos.x + lexelDim, wPos.y, z + xh);
+               poly->mWinding[2].set(wPos.x + lexelDim, wPos.y + lexelDim, z + xh + yh);
+               poly->mWinding[3].set(wPos.x, wPos.y + lexelDim, z + yh);
+               poly->mPlane.set(poly->mWinding[0], poly->mWinding[1], poly->mWinding[2]);
+
+               F32 lexelSize = mShadowVolume->getPolySurfaceArea(poly);
+               F32 intensity = mShadowVolume->getClippedSurfaceArea(poly) / lexelSize;
+               lightScale[lsi] = mClampF(intensity, 0.f, 1.f);
+            }
+            else
+               lightScale[lsi] = 0.f;
+         }
+
+         // Above the swept shadow height the sun reaches the ground.
+         if(height >= intHeight)
+         {
+            U32 nidx = (xmask + (ymask << squareShift)) << 2;
+
+            Point3F normal = pNormals[bi] * normTable[nidx++];
+            normal += pNormals[binext] * normTable[nidx++];
+            normal += pNextNormals[binext] * normTable[nidx++];
+            normal += pNextNormals[bi] * normTable[nidx];
+            normal.normalize();
+
+            nextHeightArray[y] = height;
+            F32 colorScale = -mDot(normal, lightDir);
+
+            if(colorScale > 0.f)
+               col += ambient + lightColor * colorScale * lightScale[lsi];
+            else
+               col += ambient;
+         }
+         else
+         {
+            nextHeightArray[y] = intHeight;
+            col += ambient;
+         }
+      }
+
+      F32 * swapHeights = heightArray;
+      heightArray = nextHeightArray;
+      nextHeightArray = swapHeights;
+   }
+
+   // Average each lexel's samples.
+   for(i = 0; i < mLightMapSize * mLightMapSize; i++)
+   {
+      mLightmap[i] *= inverseRatioSquared;
+      mLightmap[i].clamp();
    }
 }
 

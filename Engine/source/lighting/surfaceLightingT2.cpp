@@ -308,22 +308,10 @@ bool SurfaceLightingT2::_sampleTerrain( TerrainBlock *terrain, const RayInfo &ra
    if ( !lightmap->getColor( x, y, texel ) )
       return false;
 
-   // Ours holds only where the sun reaches.  Retail's holds the sun's
-   // ambient, and its colour by how squarely the ground faces it where
-   // it reaches (0x0057e7b4).
-   const F32 lit = texel.red / 255.0f;
-
-   LightInfo *sun = LIGHTMGR->getSpecialLight( LightManager::slSunLightType, false );
-   if ( !sun )
-   {
-      mDefaultColor.set( lit, lit, lit, 1.0f );
-      return true;
-   }
-
-   const F32 facing = getMax( -mDot( ray.normal, sun->getDirection() ), 0.0f );
-   ColorF color = sun->getAmbient() + sun->getColor() * ( sun->getBrightness() * facing * lit );
-   color.clamp();
-   color.alpha = 1.0f;
+   // The lexel's own colour: the sun's ambient, and its colour by how
+   // squarely the ground faces it where it reaches (0x0057e7b4), as the
+   // terrain's lighting baked it.
+   ColorF color( texel.red / 255.0f, texel.green / 255.0f, texel.blue / 255.0f, 1.0f );
    mDefaultColor = color;
    return true;
 }
