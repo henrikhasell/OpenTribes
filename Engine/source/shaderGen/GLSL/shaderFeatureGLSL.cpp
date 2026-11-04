@@ -1779,8 +1779,24 @@ void RTLightingFeatGLSL::processPix(   Vector<ShaderComponent*> &componentList,
    if ( lightMask )
       meta->addStatement( new GenOp( "   @.rgb *= @;\r\n", rtShading, lightMask ) );
 
+   // HH: Modified for Tribes 2 compatibility.
+   // Tribes 2's terrain lightmap held the sun and the ambient clamped at
+   // one (0x0057e771, 0x00574800), so a terrain was never brighter than
+   // its texture. Its dynamic lights were a pass of their own over it
+   // (0x005a76d0), outside the clamp. A terrain's sun is its first light.
+   LangElement *lighting;
+   if ( lightMask )
+   {
+      Var *sunShading = new Var( "sunShading", "vec3" );
+      meta->addStatement( new GenOp( "   @ = computeFirstLight( @, @ ).rgb * @;\r\n",
+         new DecOp( sunShading ), wsPosition, wsNormal, lightMask ) );
+      lighting = new GenOp( "vec4( clamp( @ + ambient.rgb, 0.0, 1.0 ) + @.rgb - @, 1 )",
+         sunShading, rtShading, sunShading );
+   }
+   else
+      lighting = new GenOp( "vec4( @.rgb + ambient.rgb, 1 )", rtShading );
+
    // Apply the lighting to the diffuse color.
-   LangElement *lighting = new GenOp( "vec4( @.rgb + ambient.rgb, 1 )", rtShading );
    meta->addStatement( new GenOp( "   @;\r\n", assignColor( lighting, Material::Mul ) ) );
    output = meta;  
 }
