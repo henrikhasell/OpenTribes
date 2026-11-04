@@ -255,11 +255,6 @@ PlayerData::PlayerData()
    shadowSize = 256;
    shadowProjectionDistance = 14.0f;
 
-   // HH: Added for Tribes 2 compatibility.
-   // Tribes 2's PlayerData constructor (0x005cdd3f).
-   genericShadowLevel = 0.4f;
-   noShadowLevel = 0.01f;
-
    renderFirstPerson = true;
 
    // Used for third person image rendering

@@ -48,8 +48,6 @@
 #include "lighting/basic/basicLightManager.h"
 #include "lighting/shadowMap/shadowMatHook.h"
 #include "materials/materialManager.h"
-#include "console/engineAPI.h"
-#include "ts/tsShapeInstance.h"
 #include "lighting/shadowMap/lightShadowMap.h"
 
 
@@ -59,46 +57,6 @@ F32 ProjectedShadow::smDepthAdjust = 10.0f;
 
 float ProjectedShadow::smFadeStartPixelSize = 200.0f;
 float ProjectedShadow::smFadeEndPixelSize = 35.0f;
-
-// HH: Added for Tribes 2 compatibility.
-// Tribes 2's Shadow statics, at full detail until the scripts set a level.
-F32 ProjectedShadow::smGlobalShadowDetail = 1.0f;
-F32 ProjectedShadow::smShapeDetailScale = 1.0f;
-S32 ProjectedShadow::smShapeDetailMin = 2;
-F32 ProjectedShadow::smSmallestVisibleSize = 6.0f;
-F32 ProjectedShadow::smLightDirSkew = 0.0f;
-F32 ProjectedShadow::smLightLenSkew = 0.0f;
-F32 ProjectedShadow::smGenericRadiusSkew = 0.4f;
-
-// HH: Added for Tribes 2 compatibility.
-// Tribes 2's Shadow::setGlobalShadowDetailLevel (0x00652350).
-void ProjectedShadow::setGlobalShadowDetailLevel( F32 level )
-{
-   smGlobalShadowDetail = level;
-
-   smShapeDetailScale = 0.5f + level * 0.5f;
-   smShapeDetailMin = level > 0.49f ? 2 : 3;
-   smSmallestVisibleSize = level > 0.7f ? 6.0f : ( level > 0.4f ? 7.0f :
-                           ( level > 0.3f ? 8.0f : ( level > 0.2f ? 9.0f : 10.0f ) ) );
-   smLightDirSkew = 0.85f * ( 1.0f - level );
-   smLightLenSkew = ( 1.0f - level ) * 0.5f;
-}
-
-// HH: Added for Tribes 2 compatibility.
-// Tribes 2's setShadowDetailLevel (0x005f2220), which the options dialog's
-// "Shadow Detail" slider and console_start.cs call.
-DefineEngineFunction( setShadowDetailLevel, void, ( F32 level ),,
-   "@brief Set the shadow detail level, from 0 to 1, and $pref::Shadows.\n\n"
-   "@ingroup Lighting" )
-{
-   level = mClampF( level, 0.0f, 1.0f );
-
-   if ( mFabs( ProjectedShadow::smGlobalShadowDetail - level ) < 0.001f )
-      return;
-
-   ProjectedShadow::setGlobalShadowDetailLevel( level );
-   Con::setFloatVariable( "$pref::Shadows", level );
-}
 
 
 GFX_ImplementTextureProfile( BLProjectedShadowProfile,
@@ -150,8 +108,6 @@ ProjectedShadow::ProjectedShadow( SceneObject *object )
 
    mCasterPositionSC = NULL;
    mShadowLengthSC = NULL;
-
-   mGeneric = false;
 }
 
 ProjectedShadow::~ProjectedShadow()
@@ -235,55 +191,6 @@ bool ProjectedShadow::_updateDecal( const SceneRenderState *state )
       return false;
    }
 
-   // HH: Added for Tribes 2 compatibility.
-   // The shadow detail level decides whether the shape has a shadow and
-   // whether it is its own or the generic one, as in Tribes 2's
-   // ShapeBase::renderShadow (0x005eda08). Then a shadow too small on screen
-   // is dropped, and one nearly so fades, as in Shadow::prepare (0x00652ef2).
-   F32 pseudoFog = 0.0f;
-   {
-      const ShapeBaseData *levelData = mShapeBase
-         ? static_cast<ShapeBaseData*>( mShapeBase->getDataBlock() ) : NULL;
-
-      bool drop = levelData && smGlobalShadowDetail < levelData->noShadowLevel;
-      mGeneric = levelData && smGlobalShadowDetail < levelData->genericShadowLevel;
-
-      const TSShapeInstance *shapeInst = mShapeBase ? mShapeBase->getShapeInstance() : NULL;
-      if ( !drop && shapeInst )
-      {
-         const TSShape *shape = shapeInst->getShape();
-         const Point3F &scale = mParentObject->getScale();
-         const F32 maxScale = getMax( scale.x, getMax( scale.y, scale.z ) );
-         const F32 dist = getMax( ( mParentObject->getRenderPosition() -
-                                    state->getDiffuseCameraPosition() ).len() / maxScale, 0.01f );
-
-         // The pixel size Torque 3D's shape detail selection works with.
-         const F32 pixelScale = state->getViewport().extent.y / 300.0f;
-         const F32 pixelSize = ( shape->radius / dist ) * state->getWorldToScreenScale().y *
-                               pixelScale * TSShapeInstance::smDetailAdjust * smShapeDetailScale;
-         const F32 smallest = getMax( smSmallestVisibleSize, shape->mSmallestVisibleSize );
-
-         if ( pixelSize < smallest )
-            drop = true;
-         else
-         {
-            pseudoFog = smallest / pixelSize;
-            pseudoFog = pseudoFog > 0.5f ? 2.0f * ( pseudoFog - 0.5f ) : 0.0f;
-            drop = pseudoFog >= 0.99f;
-         }
-      }
-
-      if ( drop )
-      {
-         if ( mDecalInstance )
-         {
-            gDecalManager->removeDecal( mDecalInstance );
-            mDecalInstance = NULL;
-         }
-         return false;
-      }
-   }
-
    if ( mDecalInstance )
    {
       mDecalInstance->mPosition = decalPos;
@@ -341,17 +248,6 @@ bool ProjectedShadow::_updateDecal( const SceneRenderState *state )
    // No light... no shadow.
    if ( !lights[0] )
       return false;
-
-   // HH: Added for Tribes 2 compatibility.
-   // A lower shadow detail level turns the light toward straight down
-   // (0x00652ff0).
-   const F32 dirMult = 1.0f - smLightDirSkew;
-   if ( dirMult < 0.99f )
-   {
-      lightDir.z *= dirMult;
-      lightDir.z -= 1.0f - dirMult;
-      lightDir.normalize();
-   }
      
    // Has the light direction
    // changed since last update?
@@ -411,18 +307,6 @@ bool ProjectedShadow::_updateDecal( const SceneRenderState *state )
       mRadius *= data->shadowSphereAdjust;
 
    // HH: Added for Tribes 2 compatibility.
-   // Tribes 2 shrinks a generic shadow (0x00653078) and moves it halfway down
-   // the shape toward its feet (0x005edb2a).
-   if ( mGeneric )
-   {
-      mRadius *= smGenericRadiusSkew;
-
-      MatrixF t( renderTransform );
-      t.setColumn( 2, Point3F::UnitZ );
-      t.mulP( boxCenter * 0.5f, &decalPos );
-   }
-
-   // HH: Added for Tribes 2 compatibility.
    const bool newDecal = !mDecalInstance;
 
    // Create the decal if we don't have one yet.
@@ -444,9 +328,6 @@ bool ProjectedShadow::_updateDecal( const SceneRenderState *state )
    mDecalInstance->mVisibility = fade;
    if ( mShapeBase )
       mDecalInstance->mVisibility *= mShapeBase->getFadeVal();
-
-   // HH: Added for Tribes 2 compatibility.
-   mDecalInstance->mVisibility *= 1.0f - pseudoFog;
 
    // Setup decal parameters.
    mDecalInstance->mSize = mRadius * 2.0f;
@@ -477,10 +358,6 @@ bool ProjectedShadow::_updateDecal( const SceneRenderState *state )
    
    
    mShadowLength = shadowLen * mParentObject->getScale().z;
-
-   // HH: Added for Tribes 2 compatibility.
-   // A lower shadow detail level shortens the shadow too (0x00653040).
-   mShadowLength *= 1.0f - smLightLenSkew;
 
    // Set up clip depth, and box half 
    // offset for decal clipping.
@@ -576,34 +453,6 @@ void ProjectedShadow::render( F32 camDist, const TSRenderState &rdata )
 {
    if ( !mUpdateTexture )
       return;
-
-   // HH: Added for Tribes 2 compatibility.
-   // A generic shadow is Tribes 2's blob, not the shape drawn from the light:
-   // 180 at the centre falling to nothing at the edge (0x00652620).
-   if ( mGeneric )
-   {
-      if ( mGenericTexture.isNull() )
-      {
-         const S32 dim = 32;
-         const S32 center = dim >> 1;
-         const F32 invRadiusSq = 1.0f / (F32)( center * center );
-
-         GBitmap *bitmap = new GBitmap( dim, dim, false, GFXFormatR8G8B8A8 );
-         for ( S32 i = 0; i < dim; i++ )
-            for ( S32 j = 0; j < dim; j++ )
-            {
-               const F32 t = (F32)( ( i - center ) * ( i - center ) + ( j - center ) * ( j - center ) ) * invRadiusSq;
-               bitmap->setColor( j, i, ColorI( 0, 0, 0, t > 0.99f ? 0 : U8( 180.0f - 180.0f * t ) ) );
-            }
-
-         mGenericTexture.set( bitmap, &GFXDefaultStaticDiffuseProfile, true, "BLGenericShadow" );
-      }
-
-      mShadowTexture = NULL;
-      mLastRenderTime = Platform::getVirtualMilliseconds();
-      mDecalInstance->mCustomTex = &mGenericTexture;
-      return;
-   }
             
    // Do the render to texture,
    // DecalManager handles rendering
@@ -782,19 +631,8 @@ void ProjectedShadow::_renderToTexture( F32 camDist, const TSRenderState &rdata 
    baseState.setWorldToScreenScale( diffuseState->getWorldToScreenScale() );
    baseState.getCullingState().disableZoneCulling( true );
    
-   // HH: Modified for Tribes 2 compatibility.
-   // Tribes 2 draws a shadow's shape at a detail scaled by the shadow detail
-   // level, and never finer than its minimum (0x00652928, 0x00652906).
-   const F32 saveDetailAdjust = TSShapeInstance::smDetailAdjust;
-   const S32 saveSkipDetails = TSShapeInstance::smNumSkipRenderDetails;
-   TSShapeInstance::smDetailAdjust *= smShapeDetailScale;
-   TSShapeInstance::smNumSkipRenderDetails = smShapeDetailMin;
-
    mParentObject->prepRenderImage( &baseState );
    renderPass->renderPass( &baseState );
-
-   TSShapeInstance::smDetailAdjust = saveDetailAdjust;
-   TSShapeInstance::smNumSkipRenderDetails = saveSkipDetails;
 
    // Delete the SceneRenderState we allocated.
    mRenderTarget->resolve();

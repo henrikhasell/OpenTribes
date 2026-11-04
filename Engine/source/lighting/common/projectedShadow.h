@@ -95,12 +95,6 @@ protected:
    GFXTexHandle mShadowTexture;
    GFXTextureTargetRef mRenderTarget;
 
-   // HH: Added for Tribes 2 compatibility.
-   /// Whether the shadow detail level leaves this shape the generic blob in
-   /// place of its own outline, and the blob itself.
-   bool mGeneric;
-   GFXTexHandle mGenericTexture;
-
    GFXTextureObject* _getDepthTarget( U32 width, U32 height );
    void _renderToTexture( F32 camDist, const TSRenderState &rdata );
 
@@ -117,19 +111,6 @@ public:
    /// @see DecalData
    static float smFadeStartPixelSize;
    static float smFadeEndPixelSize;
-
-   // HH: Added for Tribes 2 compatibility.
-   /// Tribes 2's shadow detail level, 0 to 1, and what it sets; see
-   /// setGlobalShadowDetailLevel.
-   static F32 smGlobalShadowDetail;
-   static F32 smShapeDetailScale;
-   static S32 smShapeDetailMin;
-   static F32 smSmallestVisibleSize;
-   static F32 smLightDirSkew;
-   static F32 smLightLenSkew;
-   static F32 smGenericRadiusSkew;
-
-   static void setGlobalShadowDetailLevel( F32 level );
 
    ProjectedShadow( SceneObject *object );
    virtual ~ProjectedShadow();

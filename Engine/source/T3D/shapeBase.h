@@ -557,13 +557,6 @@ public:
    F32 shadowProjectionDistance;
    F32 shadowSphereAdjust;
 
-   // HH: Added for Tribes 2 compatibility.
-   /// Below this shadow detail level ($pref::Shadows) the shape's shadow is a
-   /// generic blob. Each class sets it; it is not a datablock field.
-   F32 genericShadowLevel;
-   /// Below this shadow detail level the shape casts no shadow.
-   F32 noShadowLevel;
-
 
    StringTableEntry  shapeName;
    StringTableEntry  cloakTexName;

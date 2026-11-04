@@ -57,16 +57,26 @@ MODULE_END;
 
 AFTER_MODULE_INIT( Sim )
 {
-   // HH: Modified for Tribes 2 compatibility.
-   // Shadows follow Tribes 2's $pref::Shadows, set through
-   // setShadowDetailLevel, so Torque 3D's $pref::Shadows::textureScalar and
-   // $pref::Shadows::disable are gone.
+   Con::addVariable( "$pref::Shadows::textureScalar",	
+      TypeF32, &LightShadowMap::smShadowTexScalar,
+      "@brief Used to scale the shadow texture sizes.\n"
+      "This can reduce the shadow quality and texture memory overhead or increase them.\n"
+      "@ingroup AdvancedLighting\n" );
+   Con::NotifyDelegate callabck( &LightShadowMap::releaseAllTextures );
+   Con::addVariableNotify( "$pref::Shadows::textureScalar", callabck );
+
+   Con::addVariable( "$pref::Shadows::disable", 
+      TypeBool, &ShadowMapPass::smDisableShadowsPref,
+      "Used to disable all shadow rendering.\n"
+      "@ingroup AdvancedLighting\n" );
+
    Con::addVariable( "$Shadows::disable", 
       TypeBool, &ShadowMapPass::smDisableShadowsEditor,
       "Used by the editor to disable all shadow rendering.\n"
       "@ingroup AdvancedLighting\n" );
 
    Con::NotifyDelegate shadowCallback( &ShadowMapManager::updateShadowDisable );
+   Con::addVariableNotify( "$pref::Shadows::disable", shadowCallback );
    Con::addVariableNotify( "$Shadows::disable", shadowCallback );
 }
 
