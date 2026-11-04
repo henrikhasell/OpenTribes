@@ -985,7 +985,8 @@ IMPLEMENT_CALLBACK( ShapeBase, validateCameraFov, F32, (F32 fov), (fov),
    "@see ShapeBaseData\n\n");
 
 ShapeBase::ShapeBase()
- : mDrag( 0.0f ),
+ : mGenerateShadowT2( false ),   // HH: Added for Tribes 2 compatibility.
+   mDrag( 0.0f ),
    mBuoyancy( 0.0f ),
    mWaterCoverage( 0.0f ),
    mLiquidHeight( 0.0f ),

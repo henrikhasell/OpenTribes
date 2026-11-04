@@ -1450,6 +1450,10 @@ Player::Player()
 {
    mTypeMask |= PlayerObjectType | DynamicShapeObjectType;
 
+   // HH: Added for Tribes 2 compatibility.
+   // A player casts a shadow (0x005d09ed).
+   mGenerateShadowT2 = true;
+
    delta.pos = mAnchorPoint = Point3F(0,0,100);
    delta.rot = delta.head = Point3F(0,0,0);
    delta.rotOffset.set(0.0f,0.0f,0.0f);
