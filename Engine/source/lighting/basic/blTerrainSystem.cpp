@@ -269,18 +269,28 @@ void blTerrainProxy::light(LightInfo * light)
    // Tribes 2 does not blur a terrain's lightmap: each lexel is already the
    // share of it the sun reaches (0x57bb13 hands lightVector's lexels
    // straight to the lightmap).
+   //
+   // It also keeps the lightmap at five bits a channel: each one is
+   // clamped, scaled by 31 and truncated (`convertColor`, 0x574800), so a
+   // lexel is up to a 31st darker than the light it was lit with. Each is
+   // stored here as the colour those five bits stand for.
+   auto fiveBits = []( F32 channel )
+   {
+      const U32 level = U32( mClampF( channel, 0.0f, 1.0f ) * 31.0f );
+      return U8( ( level * 255 + 15 ) / 31 );
+   };
+
    GBitmap *terrLightMap = terrain->getLightMap();
    for(U32 y = 0; y < mLightMapSize; y++)
    {
       for(U32 x = 0; x < mLightMapSize; x++)
       {
-         ColorF lexel = mLightmap[x + y * mLightMapSize];
-         lexel.clamp();
+         const ColorF & lexel = mLightmap[x + y * mLightMapSize];
 
          ColorI color(255, 255, 255, 255);
-         color.red   = lexel.red   * 255;
-         color.green = lexel.green * 255;
-         color.blue  = lexel.blue  * 255;
+         color.red   = fiveBits( lexel.red );
+         color.green = fiveBits( lexel.green );
+         color.blue  = fiveBits( lexel.blue );
 
          terrLightMap->setColor(x, y, color);
       }
