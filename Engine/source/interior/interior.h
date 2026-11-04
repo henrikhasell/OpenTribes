@@ -285,14 +285,6 @@ protected:
                                        U32 stageNum,
                                        MaterialFeatureData &fd, 
                                        const FeatureSet &features );
-
-   // HH: Added for Tribes 2 compatibility.
-   /// What retail's interior surfaces get without a lightmap: the fog it
-   /// chooses for them.
-   static void _enableInteriorFeatures( ProcessedMaterial *mat,
-                                        U32 stageNum,
-                                        MaterialFeatureData &fd, 
-                                        const FeatureSet &features );
    /// @}
 
    //-------------------------------------- Global rendering control
@@ -331,17 +323,6 @@ public:
    static bool smFocusedDebug;
    static bool smUseVertexLighting;
    static U32  smFileVersion;
-
-   // HH: Added for Tribes 2 compatibility.
-   /// $pref::Interior::TexturedFog and $pref::OpenGL::disableEXTFogCoord.
-   static bool smUseTexturedFog;
-   static bool smDisableFogCoord;
-
-   // HH: Added for Tribes 2 compatibility.
-   /// Retail's Interior::useFogCoord (0x00511460): whether interiors are
-   /// fogged per vertex, as GL fog coordinates do, or by retail's fog
-   /// texture, which comes out per pixel.
-   static bool useFogCoord() { return !smDisableFogCoord && !smUseTexturedFog; }
    static bool smLightingCastRays;
    static bool smLightingBuildPolyList;
 

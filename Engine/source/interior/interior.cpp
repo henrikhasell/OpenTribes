@@ -44,8 +44,6 @@
 U32  Interior::smRenderMode            = 0;
 bool Interior::smFocusedDebug          = false;
 bool Interior::smUseVertexLighting     = false;
-bool Interior::smUseTexturedFog        = false;   // HH: Added for Tribes 2 compatibility.
-bool Interior::smDisableFogCoord       = false;   // HH: Added for Tribes 2 compatibility.
 bool Interior::smLightingCastRays      = false;
 bool Interior::smLightingBuildPolyList = false;
 
@@ -2410,9 +2408,6 @@ void Interior::initMatInstances()
             // is added for the material.    
             if ( node.lightMapIndex != (U8)-1 )
                mat->getFeaturesDelegate().bind( &Interior::_enableLightMapFeature );
-            // HH: Added for Tribes 2 compatibility.
-            else
-               mat->getFeaturesDelegate().bind( &Interior::_enableInteriorFeatures );
             mat->init( MATMGR->getDefaultFeatures(), getGFXVertexFormat<GFXVertexPNTTB>());
 
             // We need to know if we have non-zwrite translucent materials 
@@ -2463,18 +2458,6 @@ void Interior::_enableLightMapFeature( ProcessedMaterial *mat,
       if ( stageNum == mat->getNumStages() - 1 )
          fd.features.addFeature( MFT_T2InteriorLights );
    }
-
-   _enableInteriorFeatures( mat, stageNum, fd, features );   // HH: Added for Tribes 2 compatibility.
-}
-
-// HH: Added for Tribes 2 compatibility.
-void Interior::_enableInteriorFeatures( ProcessedMaterial *mat,
-                                        U32 stageNum,
-                                        MaterialFeatureData &fd, 
-                                        const FeatureSet &features )
-{
-   if ( !useFogCoord() )
-      fd.features.addFeature( MFT_T2PixelFog );
 }
 
 //--------------------------------------------------------------------------

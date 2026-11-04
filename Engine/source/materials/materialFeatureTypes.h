@@ -177,10 +177,5 @@ DeclareFeatureType( MFT_T2FadeAlpha );
 /// The dynamic lights retail adds over a lightmapped interior surface.
 DeclareFeatureType( MFT_T2InteriorLights );
 
-// HH: Added for Tribes 2 compatibility.
-/// Fog worked out for each pixel where the device would do it per vertex,
-/// as retail's textured fog for interiors is.
-DeclareFeatureType( MFT_T2PixelFog );
-
 
 #endif // _MATERIALFEATURETYPES_H_

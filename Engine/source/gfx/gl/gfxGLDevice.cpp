@@ -114,12 +114,6 @@ void GFXGLDevice::initGLState()
       mPixelShaderVersion = 3.0f;
       
    mSupportsAnisotropic = mCardProfiler->queryProfile( "GL::suppAnisotropic" );
-
-   // HH: Added for Tribes 2 compatibility.
-   // Retail sets this from EXT_fog_coord (0x0055fd34), and the options
-   // dialog only offers textured fog where it is set. A shader can fog per
-   // vertex anywhere.
-   Con::setBoolVariable( "$FogCoordSupported", true );
 }
 
 GFXGLDevice::GFXGLDevice(U32 adapterIndex) :

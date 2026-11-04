@@ -158,35 +158,6 @@ void InteriorInstance::initPersistFields()
 
 //-----------------------------------------------------------------------------
 
-// HH: Added for Tribes 2 compatibility.
-// The materials of the interiors a client has, built again for a pref
-// their shaders depend on.
-static void reinitInteriorMaterials()
-{
-   Vector<SceneObject*> found;
-   gClientContainer.findObjectList( InteriorObjectType, &found );
-   for ( U32 i = 0; i < found.size(); i++ )
-   {
-      InteriorInstance *instance = dynamic_cast<InteriorInstance*>( found[i] );
-      if ( !instance )
-         continue;
-
-      for ( U32 d = 0; d < instance->getNumDetailLevels(); d++ )
-         instance->getDetailLevel( d )->initMatInstances();
-   }
-}
-
-static bool sgUsedFogCoord = true;
-
-static void fogChanged()
-{
-   if ( Interior::useFogCoord() == sgUsedFogCoord )
-      return;
-
-   sgUsedFogCoord = Interior::useFogCoord();
-   reinitInteriorMaterials();
-}
-
 void InteriorInstance::consoleInit()
 {
    //-------------------------------------- Class level variables
@@ -202,24 +173,12 @@ void InteriorInstance::consoleInit()
    Con::addVariable( "pref::Interior::DynamicLights", TypeBool, &InteriorInstance::smRenderDynamicLights,
       "Whether dynamic lights fall on interiors.\n"
       "@ingroup Interior" );
-   Con::addVariable( "pref::Interior::TexturedFog", TypeBool, &Interior::smUseTexturedFog,
-      "Fog interiors per pixel, as retail's fog texture does, rather than per vertex.\n"
-      "@ingroup Interior" );
    Con::addVariable( "pref::Interior::DynamicLightsClipPix", TypeF32, &InteriorInstance::smDynamicLightsClipPix,
       "A dynamic light whose radius covers no more pixels than this is not drawn on interiors.\n"
       "@ingroup Interior" );
    Con::addVariable( "pref::Interior::DynamicLightsFadePix", TypeF32, &InteriorInstance::smDynamicLightsFadePix,
       "A dynamic light whose radius covers fewer pixels than this fades on interiors.\n"
       "@ingroup Interior" );
-   Con::addVariable( "pref::OpenGL::disableEXTFogCoord", TypeBool, &Interior::smDisableFogCoord,
-      "Fog interiors as if the device had no fog coordinates.\n"
-      "@ingroup Interior" );
-
-   // Retail picks a render path per frame (0x00511460); a shader has its
-   // fog built in, so the materials are rebuilt instead.
-   Con::NotifyDelegate fogCallback( &fogChanged );
-   Con::addVariableNotify( "$pref::Interior::TexturedFog", fogCallback );
-   Con::addVariableNotify( "$pref::OpenGL::disableEXTFogCoord", fogCallback );
 
    // DEBUG ONLY!!!
 #ifndef TORQUE_SHIPPING

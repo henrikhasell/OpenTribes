@@ -1920,10 +1920,8 @@ void FogFeatGLSL::processVert(   Vector<ShaderComponent*> &componentList,
 {
    MultiLine *meta = new MultiLine;
 	
-   // HH: Modified for Tribes 2 compatibility.
-   const bool vertexFog = ( Con::getBoolVariable( "$useVertexFog", false ) || GFX->getPixelShaderVersion() < 3.0 ) &&
-                          !fd.features[MFT_T2PixelFog];
-   if ( vertexFog )
+   const bool vertexFog = Con::getBoolVariable( "$useVertexFog", false );
+   if ( vertexFog || GFX->getPixelShaderVersion() < 3.0 )
    {
       // Grab the eye position.
       Var *eyePos = (Var*)LangElement::find( "eyePosWorld" );
@@ -2008,10 +2006,8 @@ void FogFeatGLSL::processPix( Vector<ShaderComponent*> &componentList,
 	
    Var *fogAmount;
 	
-   // HH: Modified for Tribes 2 compatibility.
-   const bool vertexFog = ( Con::getBoolVariable( "$useVertexFog", false ) || GFX->getPixelShaderVersion() < 3.0 ) &&
-                          !fd.features[MFT_T2PixelFog];
-   if ( vertexFog )
+   const bool vertexFog = Con::getBoolVariable( "$useVertexFog", false );
+   if ( vertexFog || GFX->getPixelShaderVersion() < 3.0 )
    {
       // Per-vertex.... just get the fog amount.
       ShaderConnector *connectComp = dynamic_cast<ShaderConnector *>( componentList[C_CONNECTOR] );
