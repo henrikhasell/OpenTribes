@@ -55,6 +55,7 @@ public:
    GFXShaderConstHandle* mDetailScaleSC;
    GFXShaderConstHandle* mVisiblitySC;
    GFXShaderConstHandle* mEnvMapAlphaT2SC;   // HH: Added for Tribes 2 compatibility.
+   GFXShaderConstHandle* mEnvFactorT2SC;   // HH: Added for Tribes 2 compatibility.
    GFXShaderConstHandle* mColorMultiplySC;
    GFXShaderConstHandle* mAlphaTestValueSC;
    GFXShaderConstHandle* mModelViewProjSC;

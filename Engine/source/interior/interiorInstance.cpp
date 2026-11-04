@@ -22,6 +22,7 @@
 
 #include "platform/platform.h"
 #include "interior/interiorInstance.h"
+#include "materials/materialDefinition.h"   // HH: Added for Tribes 2 compatibility.
 
 #include "T3D/gameBase/t2Layout.h"
 
@@ -161,6 +162,12 @@ void InteriorInstance::initPersistFields()
 void InteriorInstance::consoleInit()
 {
    //-------------------------------------- Class level variables
+   // HH: Added for Tribes 2 compatibility.
+   // Registered by InteriorInstance in Tribes 2 too (0x005207be).
+   Con::addVariable( "pref::Interior::ShowEnvironmentMaps", TypeBool, &Material::smT2ShowEnvironmentMaps,
+      "Whether interior surfaces reflect the environment maps the material property map gives them.\n"
+      "@ingroup Interiors" );
+
    Con::addVariable( "pref::Interior::VertexLighting", TypeBool, &Interior::smUseVertexLighting,
       "Forces all InteriorInstances to not render their lightmaps.\n"
       "@ingroup Interior" );

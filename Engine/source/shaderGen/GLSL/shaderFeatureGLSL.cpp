@@ -1938,6 +1938,93 @@ void T2InteriorLightsFeatGLSL::setTexData( Material::StageData &stageDat,
 
 //****************************************************************************
 // HH: Added for Tribes 2 compatibility.
+// T2 Interior Environment Map
+//****************************************************************************
+
+void T2InteriorEnvMapFeatGLSL::processVert( Vector<ShaderComponent*> &componentList,
+                                            const MaterialFeatureData &fd )
+{
+   MultiLine *meta = new MultiLine;
+
+   Var *inPosition = (Var*)LangElement::find( "position" );
+   Var *inNormal = (Var*)LangElement::find( "normal" );
+
+   Var *eyePos = (Var*)LangElement::find( "eyePos" );
+   if ( !eyePos )
+   {
+      eyePos = new Var( "eyePos", "vec3" );
+      eyePos->uniform = true;
+      eyePos->constSortPos = cspPass;
+   }
+
+   ShaderConnector *connectComp = dynamic_cast<ShaderConnector *>( componentList[C_CONNECTOR] );
+   Var *outEnvCoord = connectComp->getElement( RT_TEXCOORD );
+   outEnvCoord->setName( "outInteriorEnvCoordT2" );
+   outEnvCoord->setType( "vec2" );
+
+   // Tribes 2 works the coordinates out itself for each corner, in the
+   // interior's own space: the ray from the camera to the corner, not made
+   // a unit, reflected in the surface, then sphere mapped (0x00517e88 to
+   // 0x00517f6f).
+   meta->addStatement( new GenOp( "   vec3 interiorEnvRayT2 = @.xyz - @;\r\n", inPosition, eyePos ) );
+   meta->addStatement( new GenOp( "   interiorEnvRayT2 -= @ * ( 2.0 * dot( @, interiorEnvRayT2 ) );\r\n", inNormal, inNormal ) );
+   meta->addStatement( new GenOp( "   interiorEnvRayT2.z += 1.0;\r\n" ) );
+   meta->addStatement( new GenOp( "   @ = interiorEnvRayT2.xy / ( 2.0 * length( interiorEnvRayT2 ) ) + 0.5;\r\n", outEnvCoord ) );
+
+   output = meta;
+}
+
+void T2InteriorEnvMapFeatGLSL::processPix( Vector<ShaderComponent*> &componentList,
+                                           const MaterialFeatureData &fd )
+{
+   Var *col = (Var*)LangElement::find( "col" );
+   if ( !col )
+   {
+      output = NULL;
+      return;
+   }
+
+   Var *envCoord = getInTexCoord( "outInteriorEnvCoordT2", "vec2", false, componentList );
+
+   Var *envMap = new Var;
+   envMap->setType( "sampler2D" );
+   envMap->setName( "interiorEnvMapT2" );
+   envMap->uniform = true;
+   envMap->sampler = true;
+   envMap->constNum = Var::getTexUnitNum();
+
+   Var *envFactor = new Var( "envFactorT2", "float" );
+   envFactor->uniform = true;
+   envFactor->constSortPos = cspPass;
+
+   // The map's colour blended over the lit surface by the surface texture's
+   // alpha times the material's factor: the base stage modulated by a
+   // colour whose alpha is the factor, the map's stage replacing only the
+   // colour, and the pass blended by source alpha (0x00517c72, 0x00517c9d,
+   // 0x00517f38).
+   output = new GenOp( "   @.rgb = mix( @.rgb, texture2D( @, @ ).rgb, @.a * @ );\r\n",
+      col, col, envMap, envCoord, col, envFactor );
+}
+
+ShaderFeature::Resources T2InteriorEnvMapFeatGLSL::getResources( const MaterialFeatureData &fd )
+{
+   Resources res;
+   res.numTex = 1;
+   res.numTexReg = 1;
+   return res;
+}
+
+void T2InteriorEnvMapFeatGLSL::setTexData( Material::StageData &stageDat,
+                                           const MaterialFeatureData &fd,
+                                           RenderPassData &passData,
+                                           U32 &texIndex )
+{
+   passData.mTexSlot[ texIndex++ ].texObject = stageDat.getTex( MFT_T2InteriorEnvMap );
+}
+
+
+//****************************************************************************
+// HH: Added for Tribes 2 compatibility.
 // T2 Environment Map
 //****************************************************************************
 

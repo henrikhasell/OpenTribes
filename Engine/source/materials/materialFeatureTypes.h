@@ -181,5 +181,10 @@ DeclareFeatureType( MFT_T2InteriorLights );
 /// A shape's reflective material drawn towards the sky's environment map.
 DeclareFeatureType( MFT_T2EnvMap );
 
+// HH: Added for Tribes 2 compatibility.
+/// An interior surface drawn over with the environment map its material
+/// property map entry gives it.
+DeclareFeatureType( MFT_T2InteriorEnvMap );
+
 
 #endif // _MATERIALFEATURETYPES_H_

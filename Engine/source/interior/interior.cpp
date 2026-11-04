@@ -40,6 +40,7 @@
 #include "renderInstance/renderPassManager.h"
 #include "materials/processedMaterial.h"
 #include "materials/materialFeatureTypes.h"
+#include "materials/materialPropertyMap.h"   // HH: Added for Tribes 2 compatibility.
 
 U32  Interior::smRenderMode            = 0;
 bool Interior::smFocusedDebug          = false;
@@ -2408,6 +2409,23 @@ void Interior::initMatInstances()
             // is added for the material.    
             if ( node.lightMapIndex != (U8)-1 )
                mat->getFeaturesDelegate().bind( &Interior::_enableLightMapFeature );
+
+            // HH: Added for Tribes 2 compatibility.
+            // A surface whose texture the material property map gives an
+            // environment map reflects it (Interior::setupEnvironMaps fills
+            // mEnvironMaps and mEnvironFactors from the map by texture name).
+            Material *envMat = dynamic_cast<Material*>( mat->getMaterial() );
+            if ( envMat && !envMat->mT2EnvMap )
+            {
+               const MaterialPropertyMap::Entry *entry =
+                  MaterialPropertyMap::get()->find( mMaterialList->getMaterialName( node.baseTexIndex ) );
+               if ( entry && entry->hasEnvironment )
+               {
+                  envMat->mT2EnvMap = entry->envTexture;
+                  envMat->mT2EnvFactor = entry->envFactor;
+               }
+            }
+
             mat->init( MATMGR->getDefaultFeatures(), getGFXVertexFormat<GFXVertexPNTTB>());
 
             // We need to know if we have non-zwrite translucent materials 
@@ -2457,6 +2475,13 @@ void Interior::_enableLightMapFeature( ProcessedMaterial *mat,
       // pass after the surface's own.
       if ( stageNum == mat->getNumStages() - 1 )
          fd.features.addFeature( MFT_T2InteriorLights );
+
+      // HH: Added for Tribes 2 compatibility.
+      // And draws an environment map over a surface that has one
+      // (0x00517c3a).
+      Material *pMat = dynamic_cast<Material*>( mat->getMaterial() );
+      if ( stageNum == 0 && pMat && pMat->mT2EnvMap && pMat->mT2EnvMap[0] )
+         fd.features.addFeature( MFT_T2InteriorEnvMap );
    }
 }
 

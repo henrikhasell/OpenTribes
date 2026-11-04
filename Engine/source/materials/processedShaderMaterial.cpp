@@ -63,6 +63,7 @@ void ShaderConstHandles::init( GFXShader *shader, CustomMaterial* mat /*=NULL*/ 
    mDetailScaleSC = shader->getShaderConstHandle(ShaderGenVars::detailScale);
    mVisiblitySC = shader->getShaderConstHandle(ShaderGenVars::visibility);
    mEnvMapAlphaT2SC = shader->getShaderConstHandle("$envMapAlphaT2");   // HH: Added for Tribes 2 compatibility.
+   mEnvFactorT2SC = shader->getShaderConstHandle("$envFactorT2");   // HH: Added for Tribes 2 compatibility.
    mColorMultiplySC = shader->getShaderConstHandle(ShaderGenVars::colorMultiply);
    mAlphaTestValueSC = shader->getShaderConstHandle(ShaderGenVars::alphaTestValue);
    mModelViewProjSC = shader->getShaderConstHandle(ShaderGenVars::modelview);
@@ -1011,6 +1012,12 @@ void ProcessedShaderMaterial::_setShaderConstants(SceneRenderState * state, cons
    }
 
    shaderConsts->setSafe( handles->mAccumTimeSC, MATMGR->getTotalTime() );
+
+   // HH: Added for Tribes 2 compatibility.
+   // Tribes 2 checks the pref each time it draws an interior (0x00511b4c),
+   // so this is set every pass, not only when the constants are lost.
+   shaderConsts->setSafe(handles->mEnvFactorT2SC,
+      Material::smT2ShowEnvironmentMaps ? mMaterial->mT2EnvFactor : 0.0f);
 
    // If the shader constants have not been lost then
    // they contain the content from a previous render pass.
