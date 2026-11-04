@@ -476,11 +476,6 @@ protected:
    /// detail levels.
    static F32 smDetailAdjust;
 
-   // HH: Added for Tribes 2 compatibility.
-   /// The pixels a shape that has error metrics may be off by before a
-   /// finer detail is drawn: $pref::TS::screenError.
-   static F32 smScreenError;
-
    /// If this is set to a positive pixel value shapes
    /// with a smaller pixel size than this will skip 
    /// rendering entirely.
