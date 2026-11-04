@@ -64,11 +64,12 @@ game gets questioned -- usually a faster answer than a rebuild, and the only
 way to ask retail anything. The justfile passes the port of each recipe above
 with passwords `rw` and `ro`.
 
+- All telnet communication goes through `scripts/probe.py`, by way of
+  `just telnet` -- never `nc`, `telnet` or a socket of your own.
 - `just telnet <port> <command>...` sends each argument as one console line
   and prints what comes back until the console has been quiet for a second;
   `--wait <seconds>` stretches that for a slow frame. Quote each command for
-  the shell: `just telnet 2323 'echo($pref::Video::fov);'`. It is the way to
-  drive a game -- do not hand-roll a connection.
+  the shell: `just telnet 2323 'echo($pref::Video::fov);'`.
 - With no commands it reads stdin to the end and sends every line in one go,
   so `just telnet 2323 < cmds.txt` runs a script of console lines. It is not
   a live session: nothing is sent until stdin closes.
@@ -86,13 +87,6 @@ with passwords `rw` and `ro`.
   path or blocked in D-state still holds the port and answers nothing, and
   because the port stays bound the next launch on that port refuses to
   start. Kill the wedged one first.
-- A console that answers is not necessarily ready. `exec` fails silently for
-  about a second after launch; wait on `isFunction` of something the scripts
-  define before driving it.
-- Input is capped at 512 chars (`Con::MaxLineLength`) and truncated past that
-  without a word. Put anything long in a file and `exec` it -- and anything
-  with a `%local` or a loop regardless, because a `%local` typed at retail's
-  console kills the game outright.
 
 ## The script debugger
 
