@@ -46,6 +46,11 @@ namespace FS
    bool MountDefaults();
    bool MountZips(const String &root);
    bool MountModDir(const String &root, const String &modDir);
+
+   /// Mount the mod directories in a semicolon separated list, then base,
+   /// in place of the ones mounted before.
+   void SetModPaths(const String &paths);
+   const String &GetModPaths();
    
    bool Touch( const Path &path );
 
