@@ -501,6 +501,14 @@ bool TerrainCellMaterial::_createPass( Vector<MaterialInfo*> *materials,
    pass->missionDetailTexConst = pass->shader->getShaderConstHandle( "$missionDetailMap" );
    pass->missionDetailInfoConst = pass->shader->getShaderConstHandle( "$missionDetailInfo" );
 
+   // HH: Added for Tribes 2 compatibility.
+   // Tribes 2 lays special/lightFalloffMono, clamped, under each dynamic
+   // light on a terrain (0x0059a401, 0x005a76e2).
+   pass->lightFalloffTexConst = pass->shader->getShaderConstHandle( "$lightFalloffT2" );
+   if ( pass->lightFalloffTexConst->isValid() && mLightFalloffTex.isNull() )
+      mLightFalloffTex.set( "textures/special/lightFalloffMono",
+                            &GFXDefaultStaticDiffuseProfile, "TerrainCellMaterial::_createPass() - LightFalloff" );
+
    // NOTE: We're assuming rtParams0 here as we know its the only
    // render target we currently get in a terrain material and the
    // DeferredRTLightingFeatHLSL will always use 0.
@@ -556,6 +564,10 @@ bool TerrainCellMaterial::_createPass( Vector<MaterialInfo*> *materials,
 
    if ( pass->lightMapTexConst->isValid() )
       desc.samplers[pass->lightMapTexConst->getSamplerRegister()] = GFXSamplerStateDesc::getWrapLinear();
+
+   // HH: Added for Tribes 2 compatibility.
+   if ( pass->lightFalloffTexConst->isValid() )
+      desc.samplers[pass->lightFalloffTexConst->getSamplerRegister()] = GFXSamplerStateDesc::getClampLinear();
 
    const U32 maxAnisotropy = MATMGR->getDefaultAnisotropy();
 
@@ -738,6 +750,10 @@ bool TerrainCellMaterial::setupPass(   const SceneRenderState *state,
 
    if ( pass.lightMapTexConst->isValid() )
       GFX->setTexture( pass.lightMapTexConst->getSamplerRegister(), mTerrain->getLightMapTex() );
+
+   // HH: Added for Tribes 2 compatibility.
+   if ( pass.lightFalloffTexConst->isValid() )
+      GFX->setTexture( pass.lightFalloffTexConst->getSamplerRegister(), mLightFalloffTex );
 
    if ( sceneData.wireframe )
       GFX->setStateBlock( pass.wireframeStateBlock );

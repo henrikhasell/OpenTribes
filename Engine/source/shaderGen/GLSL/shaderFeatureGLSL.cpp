@@ -1622,9 +1622,11 @@ void ReflectCubeFeatGLSL::setTexData(  Material::StageData &stageDat,
 //****************************************************************************
 
 RTLightingFeatGLSL::RTLightingFeatGLSL()
-   : mDep( "shaders/common/gl/lighting.glsl" )
+   : mDep( "shaders/common/gl/lighting.glsl" ),
+     mTerrainLightsDep( "shaders/common/gl/interiorLightsT2.glsl" )   // HH: Added for Tribes 2 compatibility.
 {
    addDependency( &mDep );
+   addDependency( &mTerrainLightsDep );   // HH: Added for Tribes 2 compatibility.
 }
 
 void RTLightingFeatGLSL::processVert(  Vector<ShaderComponent*> &componentList, 
@@ -1776,8 +1778,35 @@ void RTLightingFeatGLSL::processPix(   Vector<ShaderComponent*> &componentList,
    // Look for a light mask generated from a previous
    // feature (this is done for BL terrain lightmaps).
    Var *lightMask = (Var*)LangElement::find( "lightMask" );
+
+   // HH: Modified for Tribes 2 compatibility.
+   // Tribes 2's terrain lightmap held the sun and the ambient clamped at
+   // one (0x0057e771, 0x00574800), so a lit terrain was never brighter than
+   // its texture. Its dynamic lights were a pass of their own, added over
+   // the lit terrain whatever its texture (0x005a768b). A terrain's sun is
+   // its first light; the rest are its dynamic lights.
    if ( lightMask )
-      meta->addStatement( new GenOp( "   @.rgb *= @;\r\n", rtShading, lightMask ) );
+   {
+      Var *sunShading = new Var( "sunShading", "vec3" );
+      meta->addStatement( new GenOp( "   @ = computeFirstLight( @, @ ).rgb * @;\r\n",
+         new DecOp( sunShading ), wsPosition, wsNormal, lightMask ) );
+
+      LangElement *lighting = new GenOp( "vec4( clamp( @ + ambient.rgb, 0.0, 1.0 ), 1 )", sunShading );
+      meta->addStatement( new GenOp( "   @;\r\n", assignColor( lighting, Material::Mul ) ) );
+
+      Var *falloff = new Var;
+      falloff->setType( "sampler2D" );
+      falloff->setName( "lightFalloffT2" );
+      falloff->uniform = true;
+      falloff->sampler = true;
+      falloff->constNum = Var::getTexUnitNum();
+
+      LangElement *lights = new GenOp( "vec4( interiorLightsT2( @, @, @ ), 0.0 )", wsPosition, wsNormal, falloff );
+      meta->addStatement( new GenOp( "   @;\r\n", assignColor( lights, Material::Add ) ) );
+
+      output = meta;
+      return;
+   }
 
    // Apply the lighting to the diffuse color.
    LangElement *lighting = new GenOp( "vec4( @.rgb + ambient.rgb, 1 )", rtShading );
