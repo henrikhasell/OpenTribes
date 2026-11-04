@@ -417,6 +417,9 @@ bool StandardMainLoop::handleCommandLine( S32 argc, const char **argv )
    }
 #endif
 
+   // Tribes 2 mounts base before console_start.cs, whose -mod replaces it.
+   Platform::FS::SetModPaths( String::EmptyString );
+
    // Executes an entry script file. This is "console_start.cs"
    // by default, but any file name (with no whitespace
    // in it) may be run if it is specified as the first

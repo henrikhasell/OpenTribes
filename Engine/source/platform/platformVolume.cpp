@@ -63,6 +63,19 @@ static S32 compareArchiveNames( const String *a, const String *b )
    return dStricmp( a->c_str(), b->c_str() );
 }
 
+// What the last SetModPaths mounted, for the next one to unmount.
+static Vector<FileSystemRef> sgModFileSystems;
+static String sgModPaths;
+
+static bool MountModFS(const String &root, FileSystemRef fs)
+{
+   if ( !Mount( root, fs ) )
+      return false;
+
+   sgModFileSystems.push_back( fs );
+   return true;
+}
+
 bool MountModDir(const String &root, const String &modDir)
 {
    // HH: Load mod directories like in Tribes2.
@@ -76,13 +89,60 @@ bool MountModDir(const String &root, const String &modDir)
    archives.sort( compareArchiveNames );
 
    for ( S32 i = 0; i < archives.size(); ++i )
-      if ( !Mount( root, new ZipFileSystem( archives[ i ] ) ) )
+      if ( !MountModFS( root, new ZipFileSystem( archives[ i ] ) ) )
          return false;
 
-   if ( !Mount( root, createNativeFS( Path::Join( getAssetDir(), '/', modDir ) ) ) )
+   if ( !MountModFS( root, createNativeFS( Path::Join( getAssetDir(), '/', modDir ) ) ) )
       return false;
 
    return true;
+}
+
+void SetModPaths(const String &paths)
+{
+   for ( S32 i = 0; i < sgModFileSystems.size(); ++i )
+      Unmount( sgModFileSystems[ i ] );
+   sgModFileSystems.clear();
+
+   Vector<String> modDirs;
+   ( paths + ";base" ).split( ";", modDirs );
+
+   Vector<String> mountDirs;
+   for ( S32 i = 0; i < modDirs.size(); ++i )
+   {
+      const String modDir = modDirs[ i ].trim();
+      if ( modDir.isEmpty() || mountDirs.contains( modDir ) )
+         continue;
+
+      if ( modDir.equal( "variant", String::NoCase ) )
+      {
+         Con::errorf( "The string \"variant\" is reserved and may not be used as a mod path for Tribes 2." );
+         continue;
+      }
+
+      // A mod is a directory directly under the game root.
+      if ( dStrcspn( modDir.c_str(), "/.:" ) != modDir.length() )
+         continue;
+
+      mountDirs.push_back( modDir );
+   }
+
+   for ( S32 i = mountDirs.size() - 1; i >= 0; --i )
+      if ( !MountModDir( "game", mountDirs[ i ] ) )
+         Con::errorf( "setModPaths - could not mount mod directory '%s'", mountDirs[ i ].c_str() );
+
+   sgModPaths = String::EmptyString;
+   for ( S32 i = 0; i < mountDirs.size(); ++i )
+   {
+      if ( i )
+         sgModPaths += ';';
+      sgModPaths += mountDirs[ i ];
+   }
+}
+
+const String &GetModPaths()
+{
+   return sgModPaths;
 }
 
 bool MountZips(const String &root)
@@ -122,28 +182,23 @@ bool  Touch( const Path &path )
 //-----------------------------------------------------------------------------
 
 DefineEngineFunction( setModPaths, void, ( const char *paths ),,
-   "@brief Mount each mod directory in a semicolon separated list.\n\n"
+   "@brief Mount each mod directory in a semicolon separated list, and base.\n\n"
 
-   "Compatible with old versions of TGE and Tribes.\n\n"
+   "Unmounts the mods of the previous call. Compatible with old versions of TGE and Tribes.\n\n"
 
    "@param paths Semicolon separated mod directories, relative to the game root.\n\n"
 
    "@ingroup FileSystem" )
 {
-   Vector<String> modDirs;
-   ( String( paths ) + ";base" ).split( ";", modDirs );
+   Platform::FS::SetModPaths( paths );
+}
 
-   Vector<String> mountDirs;
-   for ( S32 i = 0; i < modDirs.size(); ++i )
-   {
-      const String modDir = modDirs[ i ].trim();
-      if ( modDir.isEmpty() || mountDirs.contains( modDir ) )
-         continue;
+DefineEngineFunction( getModPaths, const char*, (),,
+   "@brief The mod directories setModPaths mounted, base last.\n\n"
 
-      mountDirs.push_back( modDir );
-   }
+   "@return Semicolon separated mod directories, first taking precedence.\n\n"
 
-   for ( S32 i = mountDirs.size() - 1; i >= 0; --i )
-      if ( !Platform::FS::MountModDir( "game", mountDirs[ i ] ) )
-         Con::errorf( "setModPaths - could not mount mod directory '%s'", mountDirs[ i ].c_str() );
+   "@ingroup FileSystem" )
+{
+   return Platform::FS::GetModPaths().c_str();
 }
