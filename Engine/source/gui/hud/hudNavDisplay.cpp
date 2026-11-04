@@ -907,7 +907,9 @@ void HudNavDisplay::onRender(Point2I offset, const RectI &updateRect)
 
    mSensorGroup = T2Targets::clientSensorGroup();
 
-   collect(conn, control, camPos, fwd, query.fov,
+   // Retail hands on its view's fov (0x506c20), which is the angle
+   // across the view; the query's is the angle up it.
+   collect(conn, control, camPos, fwd, ts->horizontalFromFov(query.fov),
            gClientSceneGraph->getVisibleDistance());
 
    const Point2I &ext = getExtent();

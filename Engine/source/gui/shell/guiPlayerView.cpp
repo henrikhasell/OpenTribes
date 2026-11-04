@@ -79,7 +79,9 @@ bool GuiPlayerView::processCameraQuery( CameraQuery *query )
       return false;
 
    query->nearPlane = 0.1f;
-   query->fov = 0.8975979f;
+   // HH: Modified for Tribes 2 compatibility.  The angle across the view
+   // (0x67d857).
+   query->fov = fovFromHorizontal( 0.8975979f );
 
    return true;
 }
