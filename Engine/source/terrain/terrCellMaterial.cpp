@@ -577,6 +577,10 @@ bool TerrainCellMaterial::_createPass( Vector<MaterialInfo*> *materials,
 
       desc.samplers[sampler] = GFXSamplerStateDesc::getWrapLinear();
 
+      // HH: Added for Tribes 2 compatibility. See the detail maps below.
+      if ( !mTerrain->mLayerAlphaTex.empty() )
+         desc.samplers[sampler].mipFilter = GFXTextureFilterPoint;
+
       if ( maxAnisotropy > 1 )
       {
          desc.samplers[sampler].minFilter = GFXTextureFilterAnisotropic;
@@ -605,6 +609,14 @@ bool TerrainCellMaterial::_createPass( Vector<MaterialInfo*> *materials,
          desc.samplers[sampler] = GFXSamplerStateDesc::getWrapLinear();
          desc.samplers[sampler].magFilter = GFXTextureFilterLinear;
          desc.samplers[sampler].mipFilter = GFXTextureFilterLinear;
+
+         // HH: Added for Tribes 2 compatibility.
+         // A Tribes 2 terrain's own textures are its detail maps. Tribes 2
+         // filters every mipmapped texture it makes bilinearly from the
+         // nearest mip, never between two (0x44b871, 0x44ba09), so it stays
+         // a mip sharper than a trilinear filter where the mips change.
+         if ( !mTerrain->mLayerAlphaTex.empty() )
+            desc.samplers[sampler].mipFilter = GFXTextureFilterPoint;
 
          if ( maxAnisotropy > 1 )
          {
@@ -702,6 +714,14 @@ void TerrainCellMaterial::_updateMaterialConsts( Pass *pass )
 
       if ( !mIsZero( distance ) )
          detailScaleAndFade.w = 1.0f / distance;
+
+      // HH: Added for Tribes 2 compatibility.
+      // Tribes 2 has no distant base texture: its terrain is drawn from its
+      // own textures, at a size picked by distance, as far as it can be
+      // seen (0x5a12c0). So the detail maps do not fade into the base
+      // texture with distance; they hold until the detail distance and stop.
+      if ( !mTerrain->mLayerAlphaTex.empty() )
+         detailScaleAndFade.w = 1.0e4f;
 
       // HH: Modified for Tribes 2 compatibility.
       const F32 layerId = mTerrain->mLayerAlphaTex.empty()
