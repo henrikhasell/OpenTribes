@@ -73,6 +73,10 @@
 #ifndef _MATERIALPROPERTYMAP_H_
    #include "materials/materialPropertyMap.h"
 #endif
+// HH: Added for Tribes 2 compatibility.
+#ifndef _SURFACELIGHTINGT2_H_
+   #include "lighting/surfaceLightingT2.h"
+#endif
 
 
 class GFXCubemap;
@@ -1021,6 +1025,9 @@ protected:
 
    // HH: Added for Tribes 2 compatibility.
    ShieldImpactT2 mShieldImpact;
+
+   // HH: Added for Tribes 2 compatibility.
+   SurfaceLightingT2 mSurfaceLighting;
 
    /// Camera shake caused by weapon fire.
    CameraShake *mWeaponCamShake;

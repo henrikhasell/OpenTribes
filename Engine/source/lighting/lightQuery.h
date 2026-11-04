@@ -62,6 +62,10 @@ public:
    /// This returns the best lights based on the query volume.
    void getLights( LightInfo** outLights, U32 maxLights );
 
+   // HH: Added for Tribes 2 compatibility.
+   /// Light the object with this in the sun's place, ahead of the rest.
+   void setSunOverride( LightInfo *light ) { mSunOverride = light; }
+
 protected:
 
    void _scoreLights();
@@ -76,6 +80,9 @@ protected:
 
    /// The sphere used to query for lights.
    SphereF mVolume;
+
+   // HH: Added for Tribes 2 compatibility.
+   LightInfo *mSunOverride;
 };
 
 

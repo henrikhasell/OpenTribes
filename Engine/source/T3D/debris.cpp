@@ -830,6 +830,11 @@ void Debris::prepBatchRender( SceneRenderState *state )
    query.init( getWorldSphere() );
    rdata.setLightQuery( &query );
 
+   // HH: Added for Tribes 2 compatibility.
+   // Lit by the surface beneath it, in the sun's place (0x0068695e).
+   if ( !state->isShadowPass() )
+      query.setSunOverride( mSurfaceLighting.getLight( this ) );
+
    if( mShape )
    {
       MatrixF mat = getRenderTransform();

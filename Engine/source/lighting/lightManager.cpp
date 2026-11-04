@@ -393,8 +393,17 @@ void LightManager::_update4LightConsts(   const SceneData &sgData,
    // Setup the ambient lighting from the first 
    // light which is the directional light if 
    // one exists at all in the scene.
+   // HH: Modified for Tribes 2 compatibility.
+   // An ambient light, which lights a shape inside an interior in the
+   // sun's place, carries that shape's ambient with it (0x0058f8f3).
    if ( lightAmbientSC->isValid() )
-      shaderConsts->set( lightAmbientSC, sgData.ambientLightColor );
+   {
+      const LightInfo *first = sgData.lights[0];
+      if ( first && first->getType() == LightInfo::Ambient )
+         shaderConsts->set( lightAmbientSC, first->getAmbient() );
+      else
+         shaderConsts->set( lightAmbientSC, sgData.ambientLightColor );
+   }
 }
 
 AvailableSLInterfaces* LightManager::getSceneLightingInterface()

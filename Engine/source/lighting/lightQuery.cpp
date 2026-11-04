@@ -28,7 +28,8 @@
 
 
 LightQuery::LightQuery( U32 maxLights )
-   : mMaxLights( maxLights )
+   : mMaxLights( maxLights ),
+     mSunOverride( NULL )   // HH: Added for Tribes 2 compatibility.
 {
 }
 
@@ -66,10 +67,18 @@ void LightQuery::getLights( LightInfo** outLights, U32 maxLights )
    if ( mLights.empty() )
       _scoreLights();
 
-   U32 lightCount = getMin( (U32)mLights.size(), getMin( mMaxLights, maxLights ) );
+   // HH: Modified for Tribes 2 compatibility.
+   // The override takes the sun's place, first, whether or not there is
+   // a sun to take it from.
+   const U32 maxCount = getMin( mMaxLights, maxLights );
+   const LightInfo *sun = mSunOverride && LIGHTMGR ? LIGHTMGR->getSpecialLight( LightManager::slSunLightType, false ) : NULL;
+
+   U32 count = 0;
+   if ( mSunOverride && count < maxCount )
+      outLights[count++] = mSunOverride;
 
    // Copy them over.
-   for ( U32 i = 0; i < lightCount; i++ )
+   for ( U32 i = 0; i < mLights.size() && count < maxCount; i++ )
    {
       LightInfo *light = mLights[i];
 
@@ -78,7 +87,10 @@ void LightQuery::getLights( LightInfo** outLights, U32 maxLights )
       if ( light->getScore() <= 0.0f )
          break;
 
-      outLights[i] = light;
+      if ( light == sun )
+         continue;
+
+      outLights[count++] = light;
    }
 }
 
