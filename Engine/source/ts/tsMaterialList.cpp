@@ -380,6 +380,11 @@ static void applyTSMaterialFlags( Material *mat, U32 flags )
    if ( flags & TSMaterialList::SelfIlluminating )
       mat->mEmissive[0] = true;
 
+   // A decal's planes run well past its mark, so tiling would paper the
+   // whole face with it.
+   mat->mT2ClampU = !( flags & TSMaterialList::S_Wrap );
+   mat->mT2ClampV = !( flags & TSMaterialList::T_Wrap );
+
    const U32 blended = flags & ( TSMaterialList::Translucent |
                                  TSMaterialList::Additive |
                                  TSMaterialList::Subtractive );
@@ -457,8 +462,9 @@ void TSMaterialList::mapMaterial( U32 i )
       mShapeFlags.push_back( mFlags[ mShapeFlags.size() ] );
 
    if ( !mMatInstList[i] &&
-        ( mFlags[i] & ( Translucent | SelfIlluminating | Additive |
-                        Subtractive ) ) )
+        ( ( mFlags[i] & ( Translucent | SelfIlluminating | Additive |
+                          Subtractive ) ) ||
+          ( mFlags[i] & ( S_Wrap | T_Wrap ) ) != ( S_Wrap | T_Wrap ) ) )
       mMatInstList[i] = createTSMatInstance( i );
 
    Parent::mapMaterial( i );
