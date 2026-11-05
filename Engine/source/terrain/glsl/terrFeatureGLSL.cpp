@@ -792,7 +792,11 @@ void TerrainLightMapFeatGLSL::processPix( Vector<ShaderComponent*> &componentLis
    lightMask->setType( "vec3" );
    lightMask->setName( "lightMask" );
 
-   output = new GenOp( "   @ = texture2D( @, @.xy ).rgb;\r\n", new DecOp( lightMask ), lightMap, inTex );
+   // HH: Modified for Tribes 2 compatibility.
+   // Tribes 2's blender sets each lexel on the corner of its patch of
+   // ground and blends towards the next across it. A texture's texel sits
+   // in the middle of its patch, so it is read half a texel on.
+   output = new GenOp( "   @ = texture2D( @, @.xy + 0.5 / vec2( textureSize( @, 0 ) ) ).rgb;\r\n", new DecOp( lightMask ), lightMap, inTex, lightMap );
 }
 
 ShaderFeature::Resources TerrainLightMapFeatGLSL::getResources( const MaterialFeatureData &fd )

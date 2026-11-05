@@ -89,18 +89,6 @@ void compute4Lights( vec3 wsView,
 }
 
 
-// HH: Added for Tribes 2 compatibility.
-// The diffuse light of the first of the four lights alone, as
-// compute4Lights sums it.
-vec4 computeFirstLight( vec3 wsPosition, vec3 wsNormal )
-{
-   vec3 lightVector = vec3( inLightPos[0][0], inLightPos[1][0], inLightPos[2][0] ) - wsPosition;
-   float nDotL = max( dot( normalize( lightVector ), wsNormal ), 0.0 );
-   float atten = 1.0 - dot( lightVector, lightVector ) * inLightInvRadiusSq[0];
-   return vec4( clamp( nDotL * atten, 0.0, 1.0 ) ) * inLightColor[0];
-}
-
-
 /// The standard specular calculation.
 ///
 ///   @param toLight    Normalized vector representing direction from the pixel 
