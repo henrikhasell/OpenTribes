@@ -1955,16 +1955,18 @@ void T2EnvMapFeatGLSL::processVert( Vector<ShaderComponent*> &componentList,
    outEnvCoord->setName( "outT2EnvCoord" );
    outEnvCoord->setType( "vec2" );
 
-   // OpenGL's sphere map texture generation, in OpenGL's eye space: Torque
-   // looks down +y with z up, OpenGL down -z with y up.
-   meta->addStatement( new GenOp( "   vec3 t2EnvEye = normalize( ( @ * vec4( @.xyz, 1.0 ) ).xzy * vec3( 1.0, 1.0, -1.0 ) );\r\n", worldView, inPosition ) );
-   meta->addStatement( new GenOp( "   vec3 t2EnvNormal = normalize( ( @ * vec4( @.xyz, 0.0 ) ).xzy * vec3( 1.0, 1.0, -1.0 ) );\r\n", worldView, inNormal ) );
+   // OpenGL's sphere map texture generation, which runs in whatever space
+   // the modelview matrix leaves behind. Retail keeps the turn from
+   // Torque's axes to OpenGL's in the *projection* matrix (0x447470), so
+   // the space it sphere maps in is Torque's camera space: x right, y
+   // forward, z up. That is this engine's view space too, so there is
+   // nothing to convert: s is the reflection's right, t its forward, and
+   // the pole the map is singular at is straight up.
+   meta->addStatement( new GenOp( "   vec3 t2EnvEye = normalize( ( @ * vec4( @.xyz, 1.0 ) ).xyz );\r\n", worldView, inPosition ) );
+   meta->addStatement( new GenOp( "   vec3 t2EnvNormal = normalize( ( @ * vec4( @.xyz, 0.0 ) ).xyz );\r\n", worldView, inNormal ) );
    meta->addStatement( new GenOp( "   vec3 t2EnvReflect = t2EnvEye - 2.0 * dot( t2EnvNormal, t2EnvEye ) * t2EnvNormal;\r\n" ) );
    meta->addStatement( new GenOp( "   t2EnvReflect.z += 1.0;\r\n" ) );
    meta->addStatement( new GenOp( "   @ = t2EnvReflect.xy / ( 2.0 * length( t2EnvReflect ) ) + 0.5;\r\n", outEnvCoord ) );
-   // A texture's rows run the other way in t here from retail's, which
-   // its renders match only with t turned over.
-   meta->addStatement( new GenOp( "   @.y = 1.0 - @.y;\r\n", outEnvCoord, outEnvCoord ) );
 
    output = meta;
 }
