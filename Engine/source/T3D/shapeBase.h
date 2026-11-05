@@ -1097,6 +1097,11 @@ protected:
    bool mBlowApart;
    /// @}
 
+   // HH: Added for Tribes 2 compatibility.
+   /// Whether the shape casts a shadow at all (this+0x86c). Off for a
+   /// ShapeBase (0x005e6f86); only the classes that cast one turn it on.
+   bool mGenerateShadowT2;
+
    /// @name Cloaking
    /// @{
    bool mCloaked;
@@ -1614,6 +1619,10 @@ public:
 
    /// Returns level of cloaking, as it's not an instant "now you see it, now you don't"
    F32 getCloakLevel();
+
+   // HH: Added for Tribes 2 compatibility.
+   /// @see mGenerateShadowT2
+   bool generatesShadowT2() const { return mGenerateShadowT2; }
    /// @}
 
    /// @name Mounted objects
