@@ -2050,11 +2050,17 @@ void ShapeBase::readT2Images(const T2Layout::Body &body)
          }
       }
 
-            // A skin arrives as a net string id or as the name; only the name can be
-            // acted on.
-      NetStringHandle skin = mMountedImageList[i].skinNameHandle;
+            // A skin is sent as its name until the connection has the string, and
+            // as its id after that. None sent is none, as retail reads it (0x5ef608).
+      NetStringHandle skin;
       if (slot.hasSkinName && slot.skinName.isNotEmpty())
          skin = NetStringHandle(slot.skinName.c_str());
+      else if (slot.hasSkinTag)
+      {
+         NetConnection *conn = NetConnection::getConnectionToServer();
+         if (conn)
+            skin = conn->translateRemoteStringId(slot.skinTag);
+      }
 
       if (trace)
       {
