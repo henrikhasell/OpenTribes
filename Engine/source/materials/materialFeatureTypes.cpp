@@ -69,6 +69,7 @@ ImplementFeatureType( MFT_InterlacedPrePass, U32(-1), -1, true );
 // HH: Added for Tribes 2 compatibility.
 ImplementFeatureType( MFT_T2FadeAlpha, U32(-1), -1, true );
 ImplementFeatureType( MFT_T2InteriorLights, MFG_Lighting, 4.5f, true );   // HH: Added for Tribes 2 compatibility.
+ImplementFeatureType( MFT_T2InteriorEnvMap, MFG_Lighting, 4.2f, true );   // HH: Added for Tribes 2 compatibility.
 ImplementFeatureType( MFT_T2EnvMap, MFG_PostLighting, 0.5f, true );   // HH: Added for Tribes 2 compatibility.
 
 ImplementFeatureType( MFT_ParaboloidVertTransform, MFG_Transform, -1, false );

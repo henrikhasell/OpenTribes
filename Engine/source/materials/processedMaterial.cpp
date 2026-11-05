@@ -421,6 +421,17 @@ void ProcessedMaterial::_setStageData()
             mMaterial->logError("Failed to load light map %s for stage %i", _getTexturePath(mMaterial->mLightMapFilename[i]).c_str(), i);
       }
 
+      // HH: Added for Tribes 2 compatibility.
+      // An interior surface's environment map, from the textures folder as
+      // the material property map names it.
+      if( i == 0 && mMaterial->mT2EnvMap && mMaterial->mT2EnvMap[0] )
+      {
+         mStages[i].setTex( MFT_T2InteriorEnvMap, GFXTexHandle( String::ToString( "textures/%s", mMaterial->mT2EnvMap ),
+            &GFXDefaultStaticDiffuseProfile, "T2InteriorEnvMap" ) );
+         if(!mStages[i].getTex( MFT_T2InteriorEnvMap ))
+            mMaterial->logError("Failed to load environment map %s", mMaterial->mT2EnvMap);
+      }
+
       // ToneMap
       if( mMaterial->mToneMapFilename[i].isNotEmpty() )
       {

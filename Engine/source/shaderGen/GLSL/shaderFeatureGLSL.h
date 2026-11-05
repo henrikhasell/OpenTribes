@@ -491,6 +491,32 @@ public:
 };
 
 // HH: Added for Tribes 2 compatibility.
+/// Draws an interior surface over with its environment map, as Tribes 2's
+/// interior renderer did in a pass of its own (0x00517c3a).
+class T2InteriorEnvMapFeatGLSL : public ShaderFeatureGLSL
+{
+public:
+
+   virtual void processVert( Vector<ShaderComponent*> &componentList,
+                             const MaterialFeatureData &fd );
+
+   virtual void processPix( Vector<ShaderComponent*> &componentList,
+                            const MaterialFeatureData &fd );
+
+   virtual Resources getResources( const MaterialFeatureData &fd );
+
+   virtual void setTexData( Material::StageData &stageDat,
+                            const MaterialFeatureData &fd,
+                            RenderPassData &passData,
+                            U32 &texIndex );
+
+   virtual String getName()
+   {
+      return "T2 Interior Environment Map";
+   }
+};
+
+// HH: Added for Tribes 2 compatibility.
 /// Draws a shape's reflective material towards the sky's environment map,
 /// sphere mapped, by its texture's alpha, as Tribes 2 did in one more
 /// texture stage (0x6a5bb4).
