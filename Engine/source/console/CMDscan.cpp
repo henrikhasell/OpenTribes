@@ -2904,12 +2904,13 @@ void expandEscape(char *dest, const char *src)
          *dest++ = '\\';
          *dest++ = '\'';
       }
-      else if((c >= 1 && c <= 7) ||
+      else if((c >= 2 && c <= 8) ||
               (c >= 11 && c <= 12) ||
               (c >= 14 && c <= 15))
       {
-        /*  Remap around: \b = 0x8, \t = 0x9, \n = 0xa, \r = 0xd */
+        /*  Tribes 2's codes: 0x1 marks a tagged string, then around \t = 0x9, \n = 0xa, \r = 0xd */
         static U8 expandRemap[15] = { 0x0,
+                                        0x0,
                                         0x0,
                                         0x1,
                                         0x2,
@@ -2917,7 +2918,6 @@ void expandEscape(char *dest, const char *src)
                                         0x4,
                                         0x5,
                                         0x6,
-                                        0x0,
                                         0x0,
                                         0x0,
                                         0x7,
@@ -2982,14 +2982,14 @@ bool collapseEscape(char *buf)
          }
          else if(buf[i+1] == 'c')
          {
-            /*  Remap around: \b = 0x8, \t = 0x9, \n = 0xa, \r = 0xd */
-            static U8 collapseRemap[10] = { 0x1,
-                                              0x2,
+            /*  Tribes 2's codes: 0x1 marks a tagged string, then around \t = 0x9, \n = 0xa, \r = 0xd */
+            static U8 collapseRemap[10] = { 0x2,
                                               0x3,
                                               0x4,
                                               0x5,
                                               0x6,
                                               0x7,
+                                              0x8,
                                               0xb,
                                               0xc,
                                               0xe };
@@ -3007,19 +3007,8 @@ bool collapseEscape(char *buf)
                    return false;
                 buf[i] = collapseRemap[dig1];
             }
-            // Make sure we don't put 0x1 at the beginning of the string.
-            if ((buf[i] == 0x1) && (i == 0))
-            {
-               buf[i] = 0x2;
-               buf[i+1] = 0x1;
-               dMemmove(buf + i + 2, buf + i + 3, len - i - 1);
-               len -= 1;
-            }
-            else
-            {
-               dMemmove(buf + i + 1, buf + i + 3, len - i - 2);
-               len -= 2;
-            }
+            dMemmove(buf + i + 1, buf + i + 3, len - i - 2);
+            len -= 2;
             i++;
          }
          else

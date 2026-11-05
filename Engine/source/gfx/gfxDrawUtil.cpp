@@ -188,7 +188,7 @@ U32 GFXDrawUtil::drawTextN( GFont *font, const Point2I &ptDraw, const UTF16 *in_
       switch(c)
       {
          // We have to do a little dance here since \t = 0x9, \n = 0xa, and \r = 0xd
-      case 1: case 2: case 3: case 4: case 5: case 6: case 7:
+      case 2: case 3: case 4: case 5: case 6: case 7: case 8:
       case 11: case 12:
       case 14:
          {
@@ -198,14 +198,14 @@ U32 GFXDrawUtil::drawTextN( GFont *font, const Point2I &ptDraw, const UTF16 *in_
                static U8 remap[15] = 
                { 
                   0x0, // 0 special null terminator
-                  0x0, // 1 ascii start-of-heading??
+                  0x0, // 1 tagged string prefix
+                  0x0, 
                   0x1, 
                   0x2, 
                   0x3, 
                   0x4, 
                   0x5, 
                   0x6, 
-                  0x0, // 8 special backspace
                   0x0, // 9 special tab
                   0x0, // a special \n
                   0x7, 
