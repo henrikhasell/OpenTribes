@@ -364,6 +364,10 @@ struct MeshRenderInst : public RenderInst
    GFXTextureObject *miscTex;
    GFXCubemap   *cubemap;
 
+   // HH: Added for Tribes 2 compatibility.
+   /// @see TSRenderState::mEnvMapAlphaT2
+   F32 envMapAlphaT2;
+
    void clear();
 };
 

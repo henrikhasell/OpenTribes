@@ -342,6 +342,7 @@ void TSMesh::innerRender( TSMaterialList *materials, const TSRenderState &rdata,
 
    coreRI->visibility = meshVisibility;  
    coreRI->cubemap = rdata.getCubemap();
+   coreRI->envMapAlphaT2 = rdata.getEnvMapAlphaT2();   // HH: Added for Tribes 2 compatibility.
 
    // NOTICE: SFXBB is removed and refraction is disabled!
    //coreRI->backBuffTex = GFX->getSfxBackBuffer();

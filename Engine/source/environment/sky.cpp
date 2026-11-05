@@ -13,6 +13,7 @@
 #include "gfx/gfxDrawUtil.h"
 #include "gfx/gfxTransformSaver.h"
 #include "materials/materialList.h"
+#include "materials/matTextureTarget.h"
 #include "math/mathIO.h"
 #include "renderInstance/renderPassManager.h"
 #include "scene/sceneManager.h"
@@ -28,6 +29,21 @@ IMPLEMENT_CO_NETOBJECT_V1(Sky);
 
 bool Sky::smCloudsOn    = true;
 bool Sky::smSkyOn       = true;
+
+const String Sky::EnvMapTargetName( "T2EnvMap" );
+
+namespace
+{
+   /// Where the sky's environment map is published. A shape's material
+   /// binds it when it is made, which may be before any sky is loaded, so
+   /// it is there from the start.
+   NamedTexTarget sgEnvMapTarget;
+}
+
+GFXTextureObject* Sky::getEnvironmentMap()
+{
+   return sgEnvMapTarget.getTexture();
+}
 S32  Sky::smNumCloudsOn = MAX_NUM_LAYERS;
 F32  Sky::smVisibleDistanceMod = 1.0f;
 
@@ -255,6 +271,8 @@ void Sky::initPersistFields()
 
 void Sky::consoleInit()
 {
+   sgEnvMapTarget.registerWithName( EnvMapTargetName );
+
    Con::addVariable( "pref::CloudsOn", TypeBool, &smCloudsOn, "" );
    Con::addVariable( "pref::NumCloudLayers", TypeS32, &smNumCloudsOn, "" );
    Con::addVariable( "pref::SkyOn", TypeBool, &smSkyOn, "" );
@@ -300,6 +318,9 @@ bool Sky::onAdd()
 //---------------------------------------------------------------------------
 void Sky::onRemove()
 {
+   if( mEnvMapHandle.isValid() && sgEnvMapTarget.getTexture() == mEnvMapHandle.getPointer() )
+      sgEnvMapTarget.setTexture( NULL );
+
    removeFromScene();
    Parent::onRemove();
 }
@@ -379,6 +400,19 @@ bool Sky::loadDml()
       mSkyHandle[x].set( name, &GFXDefaultStaticDiffuseProfile, "Sky" );
       if( !mSkyHandle[x].isValid() )
          Con::warnf( "Sky box face is missing: %s", name.c_str() );
+   }
+
+   // The seventh texture is the environment map shapes reflect, as the
+   // retail engine's sky gave it out.
+   if( EnvMapMaterialOffset < names.size() )
+   {
+      String name = String::ToString( "%s/%s", path,
+         names[EnvMapMaterialOffset].c_str() );
+      mEnvMapHandle.set( name, &GFXDefaultStaticDiffuseProfile, "SkyEnvMap" );
+      if( mEnvMapHandle.isValid() )
+         sgEnvMapTarget.setTexture( mEnvMapHandle );
+      else
+         Con::warnf( "Sky environment map is missing: %s", name.c_str() );
    }
 
    for( S32 x = 0; x + CloudMaterialOffset < names.size() && x < MAX_NUM_LAYERS;

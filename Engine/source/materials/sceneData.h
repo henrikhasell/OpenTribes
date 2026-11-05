@@ -88,6 +88,10 @@ struct SceneData
    GFXCubemap *cubemap;
    F32 visibility;
 
+   // HH: Added for Tribes 2 compatibility.
+   /// @see TSRenderState::mEnvMapAlphaT2
+   F32 envMapAlphaT2;
+
    /// Enables wireframe rendering for the object.
    bool wireframe;
 

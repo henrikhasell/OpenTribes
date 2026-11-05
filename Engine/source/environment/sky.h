@@ -85,6 +85,7 @@ class Sky : public SceneObject
 
 private:
    GFXTexHandle mSkyHandle[6];
+   GFXTexHandle mEnvMapHandle;
    F32 mCloudHeight[MAX_NUM_LAYERS];
    F32 mCloudSpeed[MAX_NUM_LAYERS];
    Cloud mCloudLayer[MAX_NUM_LAYERS];
@@ -126,6 +127,17 @@ private:
    static F32  smVisibleDistanceMod;
 
    void calcPoints();
+
+public:
+
+   /// The texture target the sky's environment map is published under, for
+   /// the shapes that reflect it.
+   static const String EnvMapTargetName;
+
+   /// The environment map of the sky last loaded, if it has one.
+   static GFXTextureObject* getEnvironmentMap();
+
+private:
 
 protected:
    bool onAdd();

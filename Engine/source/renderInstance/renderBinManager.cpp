@@ -167,6 +167,7 @@ void RenderBinManager::setupSGData( MeshRenderInst *ri, SceneData &data )
    data.reflectTex   = ri->reflectTex;
    data.lightmap     = ri->lightmap;
    data.visibility   = ri->visibility;
+   data.envMapAlphaT2 = ri->envMapAlphaT2;   // HH: Added for Tribes 2 compatibility.
    data.materialHint = ri->materialHint;
 }
 

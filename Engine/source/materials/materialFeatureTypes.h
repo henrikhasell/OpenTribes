@@ -177,5 +177,9 @@ DeclareFeatureType( MFT_T2FadeAlpha );
 /// The dynamic lights retail adds over a lightmapped interior surface.
 DeclareFeatureType( MFT_T2InteriorLights );
 
+// HH: Added for Tribes 2 compatibility.
+/// A shape's reflective material drawn towards the sky's environment map.
+DeclareFeatureType( MFT_T2EnvMap );
+
 
 #endif // _MATERIALFEATURETYPES_H_

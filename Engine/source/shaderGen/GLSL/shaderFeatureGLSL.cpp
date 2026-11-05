@@ -32,6 +32,8 @@
 #include "materials/materialFeatureTypes.h"
 #include "core/util/autoPtr.h"
 #include "gfx/gfxTextureProfile.h"   // HH: Added for Tribes 2 compatibility.
+#include "materials/matTextureTarget.h"   // HH: Added for Tribes 2 compatibility.
+#include "environment/sky.h"   // HH: Added for Tribes 2 compatibility.
 
 #include "lighting/advanced/advancedLightBinManager.h"
 
@@ -1931,6 +1933,95 @@ void T2InteriorLightsFeatGLSL::setTexData( Material::StageData &stageDat,
                                   &GFXDefaultStaticDiffuseProfile, "T2InteriorLightsFeatGLSL" );
 
    passData.mTexSlot[ texIndex++ ].texObject = sgInteriorLightFalloff;
+}
+
+
+//****************************************************************************
+// HH: Added for Tribes 2 compatibility.
+// T2 Environment Map
+//****************************************************************************
+
+void T2EnvMapFeatGLSL::processVert( Vector<ShaderComponent*> &componentList,
+                                    const MaterialFeatureData &fd )
+{
+   MultiLine *meta = new MultiLine;
+
+   Var *inPosition = (Var*)LangElement::find( "position" );
+   Var *inNormal = (Var*)LangElement::find( "normal" );
+   Var *worldView = getWorldView( componentList, fd.features[MFT_UseInstancing], meta );
+
+   ShaderConnector *connectComp = dynamic_cast<ShaderConnector *>( componentList[C_CONNECTOR] );
+   Var *outEnvCoord = connectComp->getElement( RT_TEXCOORD );
+   outEnvCoord->setName( "outT2EnvCoord" );
+   outEnvCoord->setType( "vec2" );
+
+   // OpenGL's sphere map texture generation, which runs in whatever space
+   // the modelview matrix leaves behind. Retail keeps the turn from
+   // Torque's axes to OpenGL's in the *projection* matrix (0x447470), so
+   // the space it sphere maps in is Torque's camera space: x right, y
+   // forward, z up. That is this engine's view space too, so there is
+   // nothing to convert: s is the reflection's right, t its forward, and
+   // the pole the map is singular at is straight up.
+   meta->addStatement( new GenOp( "   vec3 t2EnvEye = normalize( ( @ * vec4( @.xyz, 1.0 ) ).xyz );\r\n", worldView, inPosition ) );
+   meta->addStatement( new GenOp( "   vec3 t2EnvNormal = normalize( ( @ * vec4( @.xyz, 0.0 ) ).xyz );\r\n", worldView, inNormal ) );
+   meta->addStatement( new GenOp( "   vec3 t2EnvReflect = t2EnvEye - 2.0 * dot( t2EnvNormal, t2EnvEye ) * t2EnvNormal;\r\n" ) );
+   meta->addStatement( new GenOp( "   t2EnvReflect.z += 1.0;\r\n" ) );
+   meta->addStatement( new GenOp( "   @ = t2EnvReflect.xy / ( 2.0 * length( t2EnvReflect ) ) + 0.5;\r\n", outEnvCoord ) );
+
+   output = meta;
+}
+
+void T2EnvMapFeatGLSL::processPix( Vector<ShaderComponent*> &componentList,
+                                   const MaterialFeatureData &fd )
+{
+   // The texture's alpha is how reflective it is. Lighting leaves the
+   // colour's alpha alone, so the colour still has it here.
+   Var *col = (Var*)LangElement::find( "col" );
+   if ( !col )
+   {
+      output = NULL;
+      return;
+   }
+
+   Var *envCoord = getInTexCoord( "outT2EnvCoord", "vec2", false, componentList );
+
+   Var *envMap = new Var;
+   envMap->setType( "sampler2D" );
+   envMap->setName( "t2EnvMap" );
+   envMap->uniform = true;
+   envMap->sampler = true;
+   envMap->constNum = Var::getTexUnitNum();
+
+   Var *envAlpha = new Var( "envMapAlphaT2", "float" );
+   envAlpha->uniform = true;
+   envAlpha->constSortPos = cspPrimitive;
+
+   // Interpolate from the lit colour to the map's by the texture's alpha
+   // and the shape's (0x6a5c16: GL_INTERPOLATE of the texture and the
+   // previous stage by the previous stage's alpha).
+   output = new GenOp( "   @.rgb = mix( @.rgb, texture2D( @, @ ).rgb, @.a * @ );\r\n",
+      col, col, envMap, envCoord, col, envAlpha );
+}
+
+ShaderFeature::Resources T2EnvMapFeatGLSL::getResources( const MaterialFeatureData &fd )
+{
+   Resources res;
+   res.numTex = 1;
+   res.numTexReg = 1;
+   return res;
+}
+
+void T2EnvMapFeatGLSL::setTexData( Material::StageData &stageDat,
+                                   const MaterialFeatureData &fd,
+                                   RenderPassData &passData,
+                                   U32 &texIndex )
+{
+   NamedTexTarget *texTarget = NamedTexTarget::find( Sky::EnvMapTargetName );
+   if ( texTarget )
+   {
+      passData.mTexType[ texIndex ] = Material::TexTarget;
+      passData.mTexSlot[ texIndex++ ].texTarget = texTarget;
+   }
 }
 
 

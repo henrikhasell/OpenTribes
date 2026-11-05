@@ -649,6 +649,10 @@ public:
    bool              observeThroughObject;   // observe this object through its camera transform and default fov
 
    // HH: Added for Tribes 2 compatibility.
+   /// Reflect the sky's environment map (`emap`, this+0x325).
+   bool              emap;
+
+   // HH: Added for Tribes 2 compatibility.
    S32               shieldEffectLifetimeMS; ///< How long a shield flash lasts.
    Point3F           shieldEffectScale;      ///< The flash's sphere, per axis.
 
@@ -1333,6 +1337,10 @@ public:
 
    static F32  sWhiteoutDec;
    static F32  sDamageFlashDec;
+
+   // HH: Added for Tribes 2 compatibility.
+   /// $pref::environmentMaps.
+   static bool smEnvironmentMapsT2;
    static F32  sFullCorrectionDistance;
    static F32  sCloakSpeed;               // Time to cloak, in seconds
       
