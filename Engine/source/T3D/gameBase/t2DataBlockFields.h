@@ -294,6 +294,15 @@ namespace T2Protocol
    // and whether it reflects the sky's environment map as a bare flag at node
    // 27, just after the casing's datablock id (0x005f59fe).
       { "ShapeBaseImageData", 27, OpFlag, 1, T2DbImageEmap },
+   // The light's run returns to node 21 for the shell's exit direction, its
+   // variance and its velocity (0x005f592e-0x005f599e); a set flag at node 26
+   // sends the casing's datablock id at node 1269 (0x005f59e0).
+      { "ShapeBaseImageData", 21, OpRaw, 32, T2DataBlockField(T2DbImageShellExitDir + 0) },
+      { "ShapeBaseImageData", 22, OpRaw, 32, T2DataBlockField(T2DbImageShellExitDir + 1) },
+      { "ShapeBaseImageData", 23, OpRaw, 32, T2DataBlockField(T2DbImageShellExitDir + 2) },
+      { "ShapeBaseImageData", 24, OpRaw, 32, T2DbImageShellExitVariance },
+      { "ShapeBaseImageData", 25, OpRaw, 32, T2DbImageShellVelocity },
+      { "ShapeBaseImageData", 1269, OpDataBlockId, 11, T2DbImageCasing },
    // A TurretImageData's layout is ShapeBaseImageData's with its own run
    // inserted at node 59, so all of those keep their nodes.
       { "TurretImageData",     2, OpRaw, 32, T2DbImageMountPoint },

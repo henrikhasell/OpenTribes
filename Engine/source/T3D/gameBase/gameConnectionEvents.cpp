@@ -546,6 +546,28 @@ void SimDataBlockEvent::unpack(NetConnection *cptr, BitStream *bstream)
             U32 emap;
             if( T2Layout::lastDataBlockWord( T2Layout::T2DbImageEmap, &emap ) )
                si->emap = emap != 0;
+
+            // HH: Added for Tribes 2 compatibility.
+            // The chaingun's casings; preload turns the id into the datablock.
+            F32 shell[5];
+            bool hasShell = true;
+            for( U32 j = 0; j < 3 && hasShell; j++ )
+               hasShell = T2Layout::lastDataBlockField(
+                  T2Layout::T2DbImageShellExitDir + j, &shell[j] );
+            if( hasShell &&
+                T2Layout::lastDataBlockField(
+                   T2Layout::T2DbImageShellExitVariance, &shell[3] ) &&
+                T2Layout::lastDataBlockField(
+                   T2Layout::T2DbImageShellVelocity, &shell[4] ) )
+            {
+               si->shellExitDir.set( shell[0], shell[1], shell[2] );
+               si->shellExitVariance = shell[3];
+               si->shellVelocity = shell[4];
+            }
+
+            U32 casing;
+            if( T2Layout::lastDataBlockWord( T2Layout::T2DbImageCasing, &casing ) )
+               si->casingID = casing + DataBlockObjectIdFirst;
          }
 
                // HH: Added for Tribes 2 compatibility.
