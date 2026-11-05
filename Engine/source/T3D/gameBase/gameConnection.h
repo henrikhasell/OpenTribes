@@ -293,8 +293,6 @@ public:
    // Used by editor
    bool isControlObjectRotDampedCamera();
 
-   void setFirstPerson(bool firstPerson);
-   
    /// @}
 
    void detectLag();
