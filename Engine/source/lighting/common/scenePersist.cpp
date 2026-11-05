@@ -28,7 +28,10 @@
 #include "lighting/lightManager.h"
 
 
-U32 PersistInfo::smFileVersion   = 0x11;
+// HH: Modified for Tribes 2 compatibility.
+// Raised whenever what gets lit changes, so a cache lit the old way is
+// relit rather than loaded.
+U32 PersistInfo::smFileVersion   = 0x12;
 
 PersistInfo::~PersistInfo()
 {

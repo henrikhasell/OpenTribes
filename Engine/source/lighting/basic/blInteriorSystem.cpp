@@ -879,13 +879,10 @@ void blInteriorProxy::light(LightInfo * light)
 
          F32 dot = mDot(projPlane, -light->getDirection());
 
-         // cancel out lambert dot product and ambient lighting on hardware
-         // with pixel shaders
-         if( GFX->getPixelShaderVersion() > 0.0 )
-         {
-            dot = 1.0f;
-            ambient.set( 0.0f, 0.0f, 0.0f );
-         }
+         // HH: Modified for Tribes 2 compatibility.
+         // Tribes 2 bakes the sun's lambert term and its ambient into the
+         // lightmap (0x579b47), and no shader puts them back afterwards, so
+         // they are not cancelled out here for pixel shaders.
 
          // shadowed?
          if(!surfaceInfo->mShadowed.size())
