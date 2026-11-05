@@ -494,7 +494,9 @@ bool ShapeBaseImageData::preload(bool server, String &errorStr)
          eyeNode[i] = shape[i]->findNode("eye");
          if (eyeNode[i] == -1)
             eyeNode[i] = eyeMountNode[i];
-         ejectNode[i] = shape[i]->findNode("ejectPoint");
+         // HH: Modified for Tribes 2 compatibility.
+         // Tribes 2 ejects casings from the image's mount0 (0x005f9633).
+         ejectNode[i] = shape[i]->findNode("mount0");
          muzzleNode[i] = shape[i]->findNode("muzzlePoint");
          retractNode[i] = shape[i]->findNode("retractionPoint");
          mountTransform[i] = mountOffset;
@@ -2954,9 +2956,10 @@ void ShapeBase::ejectShellCasing( U32 imageSlot )
    if (!imageData->casing)
       return;
 
-   // Shell casings are client-side only, so use the render transform.
+   // HH: Modified for Tribes 2 compatibility.
+   // Tribes 2 ejects from the tick's transforms, not the rendered ones.
    MatrixF ejectTrans;
-   getRenderImageTransform( imageSlot, imageData->ejectNode[getImageShapeIndex(image)], &ejectTrans );
+   getImageTransform( imageSlot, imageData->ejectNode[getImageShapeIndex(image)], &ejectTrans );
 
    Point3F ejectDir = imageData->shellExitDir;
    ejectDir.normalize();
@@ -2972,7 +2975,7 @@ void ShapeBase::ejectShellCasing( U32 imageSlot )
 
    ejectOrient.mulV( randomDir );
 
-   MatrixF imageTrans = getRenderTransform();
+   MatrixF imageTrans = getTransform();
    imageTrans.mulV( randomDir );
 
    Point3F shellVel = randomDir * imageData->shellVelocity;
