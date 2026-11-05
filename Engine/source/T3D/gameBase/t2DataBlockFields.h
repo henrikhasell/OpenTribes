@@ -393,6 +393,21 @@ namespace T2Protocol
       { "GrenadeProjectileData", 52, OpDataBlockId, 11,
         T2DbProjectileBubbleEmitter },
 
+   // The light, which ProjectileData::packData writes behind the hasLight
+   // flag as the radius over twenty at eight bits and the colour at seven
+   // (0x0063127d). Each layout reads it at the node twelve before its sound.
+#define T2_PROJECTILE_LIGHT_ROWS( cls, at )                                   \
+      { cls, at,     OpFloat, 8, T2DbProjectileLightRadius },                 \
+      { cls, at + 1, OpFloat, 7, T2DbProjectileLightColorR },                 \
+      { cls, at + 2, OpFloat, 7, T2DbProjectileLightColorG },                 \
+      { cls, at + 3, OpFloat, 7, T2DbProjectileLightColorB }
+      T2_PROJECTILE_LIGHT_ROWS( "EnergyProjectileData",      45 ),
+      T2_PROJECTILE_LIGHT_ROWS( "GrenadeProjectileData",     36 ),
+      T2_PROJECTILE_LIGHT_ROWS( "LinearFlareProjectileData", 45 ),
+      T2_PROJECTILE_LIGHT_ROWS( "LinearProjectileData",      38 ),
+      T2_PROJECTILE_LIGHT_ROWS( "TracerProjectileData",      48 ),
+#undef T2_PROJECTILE_LIGHT_ROWS
+
    // The shield effect's lifetime and scale, which ShapeBaseData::unpackData
    // (0x005e6b8a) reads after its two flags: the scale only when a flag
    // says it is not the default. Every ShapeBaseData layout puts the
