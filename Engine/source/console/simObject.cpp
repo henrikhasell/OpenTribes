@@ -228,11 +228,6 @@ bool SimObject::writeField(StringTableEntry fieldname, const char* value)
    if( fieldname == sParentGroup )
       return false;
 
-   // Don't write name, is within the parenthesis already
-   static StringTableEntry sName = StringTable->insert( "name" );
-   if( fieldname == sName )
-      return false;
-
    // Don't write className, it is read for legacy support but we
    // write it out as class.
    static StringTableEntry sClassName = StringTable->insert( "className" );
@@ -761,10 +756,9 @@ void SimObject::assignFieldsFrom(SimObject *parent)
          // Skip certain fields that we don't want to see copied so we don't
          // get error messages from their setters.
             
-         static StringTableEntry sName = StringTable->insert( "name" );
          static StringTableEntry sPersistentId = StringTable->insert( "persistentId" );
          
-         if( f->pFieldname == sName || f->pFieldname == sPersistentId )
+         if( f->pFieldname == sPersistentId )
             continue;
 
          S32 lastField = f->elementCount - 1;
