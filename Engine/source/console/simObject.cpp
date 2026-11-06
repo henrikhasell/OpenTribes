@@ -132,13 +132,6 @@ bool SimObject::processArguments(S32 argc, const char**argv)
 
 void SimObject::initPersistFields()
 {
-   addGroup( "Ungrouped" );
-
-      addProtectedField( "name", TypeName, Offset(objectName, SimObject), &setProtectedName, &defaultProtectedGetFn, 
-         "Optional global name of this object." );
-                  
-   endGroup( "Ungrouped" );
-
    addGroup( "Object" );
 
       addField( "internalName", TypeString, Offset(mInternalName, SimObject), 
@@ -1803,19 +1796,6 @@ bool SimObject::setProtectedParent( void *obj, const char *index, const char *da
       parent->addObject(object);
 
    // always return false, because we've set mGroup when we called addObject
-   return false;
-}
-
-//-----------------------------------------------------------------------------
-
-bool SimObject::setProtectedName(void *obj, const char *index, const char *data)
-{   
-   SimObject *object = static_cast<SimObject*>(obj);
-   
-   if ( object->isProperlyAdded() )
-      object->assignName( data );   
-
-   // always return false because we assign the name here
    return false;
 }
 

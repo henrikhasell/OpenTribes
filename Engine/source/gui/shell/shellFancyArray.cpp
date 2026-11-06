@@ -376,6 +376,10 @@ void ShellFancyArray::drawHeader( const Point2I &offset, S32 first, S32 last, S3
          {
             const S32 room = column.width - S32( column.icon->getBitmapWidth() );
 
+            // The icon is tinted like a column name would be.
+            draw->setBitmapModulation( S32( i ) == mMouseOverColumn
+               ? mHeaderFontColorHL : mHeaderFontColor );
+
             draw->drawBitmap( column.icon,
                Point2I( x + ( room > 8 ? room / 2 : 4 ),
                         top + ( inside - S32( column.icon->getBitmapHeight() ) ) / 2 ) );
@@ -465,7 +469,16 @@ void ShellFancyArray::drawColumns( const Point2I &offset, S32 first, S32 last,
 
       for ( S32 i = first; i < last; i++ )
       {
-         onRenderRow( at, mColumns[ i ], row, selected, mouseOver );
+         // A cell keeps its last column of pixels clear, which leaves
+         // a gap between two columns of the same row.
+         RectI cell( at.x, at.y, mColumns[ i ].width - 1, mRowHeight );
+
+         if ( cell.intersect( rowClip ) )
+         {
+            GFX->setClipRect( cell );
+            onRenderRow( at, mColumns[ i ], row, selected, mouseOver );
+         }
+
          at.x += mColumns[ i ].width;
       }
    }
@@ -600,6 +613,8 @@ void ShellFancyArray::addColumn( S32 key, const char *name, S32 width,
          column.flags |= AlignLeft;
       if ( dStrstr( flags, "numeric" ) )
          column.flags |= Numeric;
+      else if ( dStrstr( flags, "icon" ) )
+         column.flags |= Icon;
       if ( dStrstr( flags, "headericon" ) )
          column.flags |= HeaderIcon;
    }
@@ -818,7 +833,7 @@ void ShellFancyArray::forceUpdate()
 DefineEngineMethod( ShellFancyArray, addColumn, void,
    ( S32 key, const char *name, S32 width, S32 minWidth, S32 maxWidth,
      const char *flags ), ( "" ),
-   "@brief Add a column.  flags may name center, right, numeric or headericon.\n\n"
+   "@brief Add a column.  flags may name center, right, numeric, icon or headericon.\n\n"
    "@ingroup GuiShell" )
 {
    object->addColumn( key, name, width, minWidth, maxWidth, flags );

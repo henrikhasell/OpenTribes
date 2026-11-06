@@ -351,9 +351,6 @@ class SimObject: public ConsoleObject
       // Group hierarchy protected set method 
       static bool setProtectedParent(void *object, const char *index, const char *data);
 
-      // Object name protected set method
-      static bool setProtectedName(void *object, const char *index, const char *data);
-
    protected:
    
       /// Id number for this object.

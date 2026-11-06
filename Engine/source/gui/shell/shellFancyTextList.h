@@ -36,12 +36,24 @@ class ShellFancyTextList : public ShellFancyArray
       ColorI color[ StateCount ];
    };
 
+   struct IconBitmap
+   {
+      StringTableEntry name;
+      GFXTexHandle texture;
+   };
+
    Vector< Row > mRows;
    Vector< Style > mStyles;
+   Vector< IconBitmap > mIcons;
 
    bool mAllowColorChars;
 
    Style *styleFor( S32 row );
+
+   GFXTexHandle iconFor( const char *name, S32 length );
+
+   void drawIcons( const Point2I &offset, const Column &column,
+                   const char *text, S32 length );
 
    static const char *field( const char *text, S32 index, S32 &length );
 
@@ -57,6 +69,8 @@ public:
    DECLARE_DESCRIPTION( "A Tribes 2 browser list with columns of text." );
 
    static void initPersistFields();
+
+   void onSleep();
 
    void clearList();
    void setSortColumn( S32 key );
