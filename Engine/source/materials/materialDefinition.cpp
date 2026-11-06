@@ -171,6 +171,8 @@ Material::Material()
    // HH: Added for Tribes 2 compatibility.
    mT2FadeAlpha = false;
    mT2NoFog = false;
+   mT2ClampU = false;
+   mT2ClampV = false;
 
    mAlphaTest = false;
    mAlphaRef = 1;

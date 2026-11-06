@@ -254,8 +254,9 @@ void ProcessedMaterial::_initPassStateBlock( RenderPassData *rpd, GFXStateBlockD
          default:
          {
             result.samplers[i].textureColorOp = GFXTOPModulate;
-            result.samplers[i].addressModeU = GFXAddressWrap;
-            result.samplers[i].addressModeV = GFXAddressWrap;
+            // HH: Modified for Tribes 2 compatibility.
+            result.samplers[i].addressModeU = mMaterial->mT2ClampU ? GFXAddressClamp : GFXAddressWrap;
+            result.samplers[i].addressModeV = mMaterial->mT2ClampV ? GFXAddressClamp : GFXAddressWrap;
 
             if ( maxAnisotropy > 1 )
             {

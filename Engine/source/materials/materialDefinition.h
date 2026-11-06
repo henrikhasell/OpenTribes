@@ -298,6 +298,12 @@ public:
    /// none (0x005dd034).
    bool mT2NoFog;
 
+   // HH: Added for Tribes 2 compatibility.
+   /// Clamp the textures across or down instead of tiling them, as Tribes 2
+   /// did for a shape material without S_Wrap or T_Wrap (0x006a6bfb).
+   bool mT2ClampU;
+   bool mT2ClampV;
+
    /// A generic setting which tells the system to skip 
    /// generation of shadows from this material.
    bool mCastShadows;
