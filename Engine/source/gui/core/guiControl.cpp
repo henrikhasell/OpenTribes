@@ -2737,7 +2737,13 @@ DefineEngineMethod( GuiControl, resize, void, ( S32 x, S32 y, S32 width, S32 hei
 {
    Point2I newPos( x, y );
    Point2I newExt( width, height );
-   object->resize(newPos, newExt);
+
+   // HH: Modified for Tribes 2 compatibility.
+   // Tribes 2's scripts set position and extent as fields, which lay
+   // nothing out, then call resize with the same rect to apply them.
+   if ( !object->resize(newPos, newExt) )
+      if ( GuiControl *parent = object->getParent() )
+         parent->childResized( object );
 }
 
 //-----------------------------------------------------------------------------
