@@ -12,6 +12,8 @@
 #include "gfx/gfxTextureHandle.h"
 #include "gfx/gfxTransformSaver.h"
 #include "gfx/primBuilder.h"
+#include "lighting/lightInfo.h"
+#include "lighting/lightManager.h"
 #include "lighting/lightQuery.h"
 #include "math/mathUtils.h"
 #include "math/mRandom.h"
@@ -64,6 +66,11 @@ public:
    F32    flareSize[3];    ///< how far out they start and end
    ColorF flareColor;
    bool   faceViewer;      ///< its shape is turned to the camera
+   bool   hasLight;        ///< it lights what it flies past
+   F32    lightRadius;
+   ColorF lightColor;
+   bool   hasWaterLight; ///< and has another colour under water
+   ColorF waterLightColor;
 
    ProjectileDataT2();
 
@@ -104,7 +111,12 @@ ProjectileDataT2::ProjectileDataT2()
      blurColor(1.0f, 1.0f, 1.0f, 1.0f),
      numFlares(0),
      flareColor(1.0f, 1.0f, 1.0f, 1.0f),
-     faceViewer(false)
+     faceViewer(false),
+     hasLight(false),
+     lightRadius(1.0f),
+     lightColor(1.0f, 1.0f, 1.0f, 1.0f),
+     hasWaterLight(false),
+     waterLightColor(1.0f, 1.0f, 1.0f, 1.0f)
 {
    flareSize[0] = flareSize[1] = flareSize[2] = 0.0f;
 }
@@ -178,6 +190,26 @@ bool ProjectileDataT2::unpackData(BitStream *stream, U32 classId)
       flareSize[2] = value;
    if(T2Layout::lastDataBlockWord(T2Layout::T2DbFaceViewer, &word))
       faceViewer = word != 0;
+      // The light is only on the wire behind hasLight, and its radius goes
+      // over it as a share of twenty (0x006317f6).
+   hasLight = T2Layout::lastDataBlockWord(T2Layout::T2DbProjectileLightRadius,
+                                          &word);
+   if(hasLight)
+      lightRadius = T2Layout::t2Float(word, 8) * 20.0f;
+   if(T2Layout::lastDataBlockWord(T2Layout::T2DbProjectileLightColorR, &word))
+      lightColor.red = T2Layout::t2Float(word, 7);
+   if(T2Layout::lastDataBlockWord(T2Layout::T2DbProjectileLightColorG, &word))
+      lightColor.green = T2Layout::t2Float(word, 7);
+   if(T2Layout::lastDataBlockWord(T2Layout::T2DbProjectileLightColorB, &word))
+      lightColor.blue = T2Layout::t2Float(word, 7);
+   hasWaterLight = T2Layout::lastDataBlockWord(
+                      T2Layout::T2DbProjectileWaterLightColorR, &word);
+   if(hasWaterLight)
+      waterLightColor.red = T2Layout::t2Float(word, 7);
+   if(T2Layout::lastDataBlockWord(T2Layout::T2DbProjectileWaterLightColorG, &word))
+      waterLightColor.green = T2Layout::t2Float(word, 7);
+   if(T2Layout::lastDataBlockWord(T2Layout::T2DbProjectileWaterLightColorB, &word))
+      waterLightColor.blue = T2Layout::t2Float(word, 7);
 
       // Every one of these layouts names its shape first and its two
       // textures after it, which for a bolt are what it is drawn with along
@@ -210,7 +242,7 @@ IMPLEMENT_PROJECTILE_DATA_T2( TracerProjectileData );
 
 //----------------------------------------------------------------------------
 
-class ProjectileT2 : public GameBase
+class ProjectileT2 : public GameBase, public ISceneLight
 {
    typedef GameBase Parent;
 
@@ -269,6 +301,8 @@ class ProjectileT2 : public GameBase
    SimObjectId mVehicleObject;
    F32     mNoSourceHit;
 
+   LightInfo *mLight;
+
    GFXStateBlockRef boltStateBlock();
    TSThread *startThread(const char *name);
    ParticleEmitter *createEmitter(U32 dataId);
@@ -297,6 +331,9 @@ public:
    void onT2BodyRead(const T2Layout::Body &body);
    void advanceTime(F32 dt);
    void prepRenderImage(SceneRenderState *state);
+
+   void submitLights(LightManager *lm, bool staticLighting);
+   LightInfo *getLight() { return mLight; }
 
    DECLARE_CONOBJECT(ProjectileT2);
 };
@@ -333,7 +370,8 @@ ProjectileT2::ProjectileT2()
      mEmitMS(0.0f),
      mSourceObject(0),
      mVehicleObject(0),
-     mNoSourceHit(0.0f)
+     mNoSourceHit(0.0f),
+     mLight(NULL)
 {
    mTypeMask |= ProjectileObjectType;
 }
@@ -341,6 +379,7 @@ ProjectileT2::ProjectileT2()
 ProjectileT2::~ProjectileT2()
 {
    delete mShapeInstance;
+   SAFE_DELETE(mLight);
 }
 
 bool ProjectileT2::onAdd()
@@ -397,6 +436,11 @@ bool ProjectileT2::onNewDataBlock(GameBaseData *dptr, bool reload)
 
    mEmitter = createEmitter(mData->baseEmitterId);
    mBubbleEmitter = createEmitter(mData->bubbleEmitterId);
+
+   if(mData->hasLight)
+      mTypeMask |= LightObjectType;
+   else
+      mTypeMask &= ~LightObjectType;
 
    delete mShapeInstance;
    mShapeInstance = NULL;
@@ -885,6 +929,29 @@ void ProjectileT2::prepRenderImage(SceneRenderState *state)
    ri->renderDelegate.bind(this, &ProjectileT2::renderBolt);
    ri->type = RenderPassManager::RIT_Foliage;
    state->getRenderPass()->addInst(ri);
+}
+
+/// Projectile::registerLights (0x006323d0): a point light where the
+/// projectile is drawn, with the datablock's radius and colour, for as long
+/// as it has not gone off (0x006348c4). Its colour under water is taken only
+/// by a grenade's family, the one projectile that keeps track of whether it
+/// is in water (0x00635c01).
+void ProjectileT2::submitLights(LightManager *lm, bool staticLighting)
+{
+   if(staticLighting || !mData || !mData->hasLight || !mFlying)
+      return;
+
+   if(!mLight)
+      mLight = LightManager::createLightInfo();
+
+   mLight->setType(LightInfo::Point);
+   mLight->setPosition(getRenderPosition());
+   mLight->setRange(mData->lightRadius);
+   const bool underwater = mData->hasWaterLight && mBounces &&
+                           isInWater(mPosition);
+   mLight->setColor(underwater ? mData->waterLightColor : mData->lightColor);
+
+   lm->registerGlobalLight(mLight, this);
 }
 
 /// How much of the fog lies between the eye and a point: the haze that
