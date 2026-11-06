@@ -866,7 +866,10 @@ void ProjectileT2::step(F32 dt)
 
 /// A shape flies nose first along its own +Y, with the world's up for its
 /// roll: the trail of a disc runs down its -Y, and a roll taken from any
-/// perpendicular at all turns the disc over at random.
+/// perpendicular at all turns the disc over at random. Tribes 2 builds it
+/// with one routine (0x00553d00), and straight up or down, where the world's
+/// up gives no roll, that routine takes the world's +X for the right. A disc
+/// fired straight up then faces along -Y.
 void ProjectileT2::headingMatrix(MatrixF *mat)
 {
    VectorF forward = mVelocity;
@@ -875,8 +878,9 @@ void ProjectileT2::headingMatrix(MatrixF *mat)
    forward.normalize();
 
    VectorF right = mCross(forward, Point3F(0.0f, 0.0f, 1.0f));
-   if(right.len() < 0.001f)
-      right = mCross(forward, Point3F(1.0f, 0.0f, 0.0f));
+   if(right.x * right.x < 0.0001f && right.y * right.y < 0.0001f &&
+      right.z * right.z < 0.0001f)
+      right.set(1.0f, 0.0f, 0.0f);
    right.normalize();
 
    const VectorF up = mCross(right, forward);
