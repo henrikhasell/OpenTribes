@@ -65,6 +65,10 @@ class MissionArea : public NetObject
       UpdateMask     = BIT(0)
    };
 
+   // HH: Added for Tribes 2 compatibility.
+   U32  packUpdate(NetConnection *, U32 mask, BitStream *stream, bool isInitial) override;
+   bool unpackUpdate(BitStream *stream, bool isInitial) override;
+
    /// @}
 
    DECLARE_CONOBJECT(MissionArea);

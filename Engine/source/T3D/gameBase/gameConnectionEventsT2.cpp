@@ -38,11 +38,13 @@ namespace
       F32 voicePitch;
       U32 sensorGroup;
       U32 renderMask;
+      /// The datablock the server allocated it with, or 0 for none.
+      SimObjectId dataBlock;
       bool allocated;
       bool sensed;
 
       ClientTarget() : voicePitch(1.0f), sensorGroup(0), renderMask(0),
-                       allocated(false), sensed(false) {}
+                       dataBlock(0), allocated(false), sensed(false) {}
 
       /// What a freed target forgets. Whether it is sensed is the server's to
       /// change, and it sends only the changes, so that stays.
@@ -330,6 +332,34 @@ bool T2Targets::getTargetName(S32 target, char *buffer, U32 size)
    return true;
 }
 
+bool T2Targets::isAllocated(S32 target)
+{
+   return target >= 0 && target < NumTargets && sClientTargets[target].allocated;
+}
+
+SimDataBlock *T2Targets::dataBlock(S32 target)
+{
+   if (target < 0 || target >= NumTargets || !sClientTargets[target].dataBlock)
+      return NULL;
+
+   SimDataBlock *data;
+   return Sim::findObject(sClientTargets[target].dataBlock, data) ? data : NULL;
+}
+
+U32 T2Targets::typeTag(S32 target)
+{
+   if (target < 0 || target >= NumTargets)
+      return 0;
+   return sClientTargets[target].tags[ClientTarget::Type].getIndex();
+}
+
+U32 T2Targets::nameTag(S32 target)
+{
+   if (target < 0 || target >= NumTargets)
+      return 0;
+   return sClientTargets[target].tags[ClientTarget::Name].getIndex();
+}
+
 bool T2Targets::isSensed(S32 target)
 {
    if (target < 0 || target >= NumTargets)
@@ -410,7 +440,7 @@ void T2Targets::readDemoState(BitStream *stream)
 
       // The team targets below 32 carry no datablock.
       if (i >= 32 && stream->readFlag())
-         stream->readInt(11);
+         target.dataBlock = DataBlockObjectIdFirst + stream->readInt(11);
 
       target.voicePitch = 0.5f + 1.5f * stream->readFloat(7);
    }
@@ -828,6 +858,8 @@ class TargetInfoEvent : public NetEvent
    U32 mSensorGroup;
    bool mRenderMaskHere;
    U32 mRenderMask;
+   bool mDataBlockHere;
+   SimObjectId mDataBlock;
 
 public:
    TargetInfoEvent()
@@ -845,6 +877,8 @@ public:
       mSensorGroup = 0;
       mRenderMaskHere = false;
       mRenderMask = 0;
+      mDataBlockHere = false;
+      mDataBlock = 0;
    }
 
    void pack(NetConnection *, BitStream *) {}
@@ -862,8 +896,11 @@ public:
 
       if ((mSensorGroupHere = stream->readFlag()))
          mSensorGroup = stream->readInt(SensorGroupBits);
-      if (stream->readFlag() && stream->readFlag())
-         stream->readInt(DataBlockBits);
+      // A flag for a change, then a flag for a datablock at all.
+      if ((mDataBlockHere = stream->readFlag()))
+         mDataBlock = stream->readFlag()
+                    ? DataBlockObjectIdFirst + stream->readInt(DataBlockBits)
+                    : 0;
       if ((mRenderMaskHere = stream->readFlag()))
          mRenderMask = stream->readInt(RenderMaskBits);
       if ((mVoicePitchHere = stream->readFlag()))
@@ -890,6 +927,9 @@ public:
 
       if (mRenderMaskHere)
          target.renderMask = mRenderMask;
+
+      if (mDataBlockHere)
+         target.dataBlock = mDataBlock;
 
       // The team targets below 32 are never allocated.
       if (mTarget >= 32)

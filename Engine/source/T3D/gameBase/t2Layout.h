@@ -413,6 +413,13 @@ namespace T2Layout
       T2DbInheritEnergyFromMount,
       T2DbFirstPersonOnly,
       T2DbUseEyePoint,
+      T2DbSensorRadius,
+      T2DbSensorColorR,
+      T2DbSensorColorG,
+      T2DbSensorColorB,
+      T2DbSensorColorA,
+      T2DbCanControl,
+      T2DbCanObserve,
 
       // VehicleData's run, which every vehicle datablock carries next. Where
       // a field shares a name with one a PlayerData sends, it shares that

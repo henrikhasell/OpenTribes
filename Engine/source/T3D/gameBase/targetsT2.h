@@ -11,6 +11,7 @@
 
 class BitStream;
 class ShapeBase;
+class SimDataBlock;
 class TSShapeInstance;
 
 namespace T2Targets
@@ -47,6 +48,19 @@ namespace T2Targets
    /// out either if it is empty or starts with an underscore. False for a
    /// target that was never allocated.
    bool getTargetName(S32 target, char *buffer, U32 size);
+
+   /// Whether the server has told this client about a target.
+   bool isAllocated(S32 target);
+
+   /// The datablock a target was allocated with, which is what the commander
+   /// map lists and draws it by when its object is out of scope.
+   SimDataBlock *dataBlock(S32 target);
+
+   /// The net string index of a target's type, "_ClientConnection" for a
+   /// player's, or 0 for none.
+   U32 typeTag(S32 target);
+   /// The net string index of a target's name, or 0 for none.
+   U32 nameTag(S32 target);
 
    /// Whether the client's sensor group senses a target. The server sends
    /// only the changes, a word of 32 targets at a time.
