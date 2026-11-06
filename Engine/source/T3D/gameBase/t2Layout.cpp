@@ -2379,6 +2379,13 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
                   case T2FieldFadeTime:
                      dMemcpy(&sBody.fadeTime, &word, sizeof(F32));
                      break;
+                  case T2FieldHeadPitch:
+                     sBody.hasHead = true;
+                     sBody.head.x = t2SignedFloat(word, n.bits);
+                     break;
+                  case T2FieldHeadYaw:
+                     sBody.head.y = t2SignedFloat(word, n.bits);
+                     break;
                   case T2FieldTurretHeading:
                      sBody.turretHeading = t2Float(word, n.bits);
                      break;
@@ -3462,6 +3469,7 @@ static bool runGhost(BitStream *stream, const char *className,
    sWords.clear();
    sBody.hasPosition = false;
    sBody.hasYaw = false;
+   sBody.hasHead = false;
    sBody.hasRotation = false;
    sBody.hasScale = false;
    sBody.hasVelocity = false;

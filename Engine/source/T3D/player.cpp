@@ -5201,6 +5201,17 @@ void Player::onT2BodyRead(const T2Layout::Body &body)
 
    const Point3F rot(0.0f, 0.0f, body.hasYaw ? body.yaw : mRot.z);
 
+   // HH: Added for Tribes 2 compatibility.
+   // Retail scales the head's yaw by maxLookAngle too, not maxFreelookAngle
+   // (0x005db8d4, 0x005db8ef).
+   if (body.hasHead && mDataBlock)
+   {
+      mHead.x = body.head.x * mDataBlock->maxLookAngle;
+      mHead.z = body.head.y * mDataBlock->maxLookAngle;
+      delta.head = mHead;
+      delta.headVec.set(0.0f, 0.0f, 0.0f);
+   }
+
    delta.pos = body.position;
    delta.rot = rot;
    delta.posVec.set(0.0f, 0.0f, 0.0f);
