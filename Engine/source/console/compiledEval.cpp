@@ -1014,11 +1014,12 @@ breakContinue:
             ip = code[ip];
             break;
             
-         // This fixes a bug when not explicitly returning a value.
+         // HH: Modified for Tribes 2 compatibility.
+         // A function that ends without returning a value returns whatever
+         // string it evaluated last, and Tribes 2's scripts rely on it.
          case OP_RETURN_VOID:
-      		STR.setStringValue("");
       		// We're falling thru here on purpose.
-            
+
          case OP_RETURN:
          
             if( iterDepth > 0 )
