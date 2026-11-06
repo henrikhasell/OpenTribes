@@ -69,6 +69,8 @@ public:
    bool   hasLight;        ///< it lights what it flies past
    F32    lightRadius;
    ColorF lightColor;
+   bool   hasWaterLight; ///< and has another colour under water
+   ColorF waterLightColor;
 
    ProjectileDataT2();
 
@@ -112,7 +114,9 @@ ProjectileDataT2::ProjectileDataT2()
      faceViewer(false),
      hasLight(false),
      lightRadius(1.0f),
-     lightColor(1.0f, 1.0f, 1.0f, 1.0f)
+     lightColor(1.0f, 1.0f, 1.0f, 1.0f),
+     hasWaterLight(false),
+     waterLightColor(1.0f, 1.0f, 1.0f, 1.0f)
 {
    flareSize[0] = flareSize[1] = flareSize[2] = 0.0f;
 }
@@ -198,6 +202,14 @@ bool ProjectileDataT2::unpackData(BitStream *stream, U32 classId)
       lightColor.green = T2Layout::t2Float(word, 7);
    if(T2Layout::lastDataBlockWord(T2Layout::T2DbProjectileLightColorB, &word))
       lightColor.blue = T2Layout::t2Float(word, 7);
+   hasWaterLight = T2Layout::lastDataBlockWord(
+                      T2Layout::T2DbProjectileWaterLightColorR, &word);
+   if(hasWaterLight)
+      waterLightColor.red = T2Layout::t2Float(word, 7);
+   if(T2Layout::lastDataBlockWord(T2Layout::T2DbProjectileWaterLightColorG, &word))
+      waterLightColor.green = T2Layout::t2Float(word, 7);
+   if(T2Layout::lastDataBlockWord(T2Layout::T2DbProjectileWaterLightColorB, &word))
+      waterLightColor.blue = T2Layout::t2Float(word, 7);
 
       // Every one of these layouts names its shape first and its two
       // textures after it, which for a bolt are what it is drawn with along
@@ -921,7 +933,9 @@ void ProjectileT2::prepRenderImage(SceneRenderState *state)
 
 /// Projectile::registerLights (0x006323d0): a point light where the
 /// projectile is drawn, with the datablock's radius and colour, for as long
-/// as it has not gone off (0x006348c4).
+/// as it has not gone off (0x006348c4). Its colour under water is taken only
+/// by a grenade's family, the one projectile that keeps track of whether it
+/// is in water (0x00635c01).
 void ProjectileT2::submitLights(LightManager *lm, bool staticLighting)
 {
    if(staticLighting || !mData || !mData->hasLight || !mFlying)
@@ -933,7 +947,9 @@ void ProjectileT2::submitLights(LightManager *lm, bool staticLighting)
    mLight->setType(LightInfo::Point);
    mLight->setPosition(getRenderPosition());
    mLight->setRange(mData->lightRadius);
-   mLight->setColor(mData->lightColor);
+   const bool underwater = mData->hasWaterLight && mBounces &&
+                           isInWater(mPosition);
+   mLight->setColor(underwater ? mData->waterLightColor : mData->lightColor);
 
    lm->registerGlobalLight(mLight, this);
 }

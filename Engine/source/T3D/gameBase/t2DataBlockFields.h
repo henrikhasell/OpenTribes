@@ -396,7 +396,12 @@ namespace T2Protocol
    // The light, which ProjectileData::packData writes behind the hasLight
    // flag as the radius over twenty at eight bits and the colour at seven
    // (0x0063127d). Each layout reads it at the node twelve before its sound.
+   // The colour it has under water follows behind a flag of its own
+   // (0x006312db), and every layout reads that in the three nodes before.
 #define T2_PROJECTILE_LIGHT_ROWS( cls, at )                                   \
+      { cls, at - 3, OpFloat, 7, T2DbProjectileWaterLightColorR },            \
+      { cls, at - 2, OpFloat, 7, T2DbProjectileWaterLightColorG },            \
+      { cls, at - 1, OpFloat, 7, T2DbProjectileWaterLightColorB },            \
       { cls, at,     OpFloat, 8, T2DbProjectileLightRadius },                 \
       { cls, at + 1, OpFloat, 7, T2DbProjectileLightColorR },                 \
       { cls, at + 2, OpFloat, 7, T2DbProjectileLightColorG },                 \
