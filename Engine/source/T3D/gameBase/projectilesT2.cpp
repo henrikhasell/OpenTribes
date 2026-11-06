@@ -877,9 +877,11 @@ void ProjectileT2::headingMatrix(MatrixF *mat)
       return;
    forward.normalize();
 
+      // Each part on its own, not the length: within about 0.6 degrees of
+      // vertical, where a length test would still take a roll. A cross with
+      // the world's up has no z.
    VectorF right = mCross(forward, Point3F(0.0f, 0.0f, 1.0f));
-   if(right.x * right.x < 0.0001f && right.y * right.y < 0.0001f &&
-      right.z * right.z < 0.0001f)
+   if(mFabs(right.x) < 0.01f && mFabs(right.y) < 0.01f)
       right.set(1.0f, 0.0f, 0.0f);
    right.normalize();
 
