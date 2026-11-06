@@ -548,6 +548,12 @@ static void RegisterGameFunctions()
       "Show a player in the skin they chose rather than in their team's.\n\n"
 	   "@ingroup Game" );
 
+   // HH: Added for Tribes 2 compatibility.
+   Con::addVariable( "$pref::use512PlayerSkins", TypeBool,
+      &T2Targets::smUse512PlayerSkins,
+      "Take the larger artwork of a player's own skin where the game has "
+      "one.\n\n@ingroup Game" );
+
    // Stuff game types into the console
    Con::setIntVariable("$TypeMasks::StaticObjectType",         StaticObjectType);
    Con::setIntVariable("$TypeMasks::EnvironmentObjectType",    EnvironmentObjectType);
