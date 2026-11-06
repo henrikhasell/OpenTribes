@@ -132,13 +132,6 @@ bool SimObject::processArguments(S32 argc, const char**argv)
 
 void SimObject::initPersistFields()
 {
-   addGroup( "Ungrouped" );
-
-      addProtectedField( "name", TypeName, Offset(objectName, SimObject), &setProtectedName, &defaultProtectedGetFn, 
-         "Optional global name of this object." );
-                  
-   endGroup( "Ungrouped" );
-
    addGroup( "Object" );
 
       addField( "internalName", TypeString, Offset(mInternalName, SimObject), 
@@ -233,11 +226,6 @@ bool SimObject::writeField(StringTableEntry fieldname, const char* value)
    // Don't write ParentGroup
    static StringTableEntry sParentGroup = StringTable->insert( "parentGroup" );
    if( fieldname == sParentGroup )
-      return false;
-
-   // Don't write name, is within the parenthesis already
-   static StringTableEntry sName = StringTable->insert( "name" );
-   if( fieldname == sName )
       return false;
 
    // Don't write className, it is read for legacy support but we
@@ -768,10 +756,9 @@ void SimObject::assignFieldsFrom(SimObject *parent)
          // Skip certain fields that we don't want to see copied so we don't
          // get error messages from their setters.
             
-         static StringTableEntry sName = StringTable->insert( "name" );
          static StringTableEntry sPersistentId = StringTable->insert( "persistentId" );
          
-         if( f->pFieldname == sName || f->pFieldname == sPersistentId )
+         if( f->pFieldname == sPersistentId )
             continue;
 
          S32 lastField = f->elementCount - 1;
@@ -1803,19 +1790,6 @@ bool SimObject::setProtectedParent( void *obj, const char *index, const char *da
       parent->addObject(object);
 
    // always return false, because we've set mGroup when we called addObject
-   return false;
-}
-
-//-----------------------------------------------------------------------------
-
-bool SimObject::setProtectedName(void *obj, const char *index, const char *data)
-{   
-   SimObject *object = static_cast<SimObject*>(obj);
-   
-   if ( object->isProperlyAdded() )
-      object->assignName( data );   
-
-   // always return false because we assign the name here
    return false;
 }
 

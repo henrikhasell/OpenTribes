@@ -24,6 +24,7 @@ public:
       Numeric = BIT( 2 ),
       HeaderIcon = BIT( 3 ),
       AlignLeft = BIT( 4 ),
+      Icon = BIT( 5 ),
    };
 
    struct Column

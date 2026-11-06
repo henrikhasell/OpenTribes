@@ -4,6 +4,7 @@
 #include "console/console.h"
 #include "console/consoleTypes.h"
 #include "console/engineAPI.h"
+#include "core/stringTable.h"
 #include "core/strings/stringFunctions.h"
 #include "gfx/gfxDevice.h"
 #include "gfx/gfxDrawUtil.h"
@@ -23,7 +24,7 @@ ConsoleDocClass( ShellFancyTextList,
 
 ShellFancyTextList::ShellFancyTextList()
 {
-   mAllowColorChars = false;
+   mAllowColorChars = true;
 }
 
 void ShellFancyTextList::initPersistFields()
@@ -70,19 +71,94 @@ const char *ShellFancyTextList::field( const char *text, S32 index, S32 &length 
    return text;
 }
 
+void ShellFancyTextList::onSleep()
+{
+   mIcons.clear();
+   Parent::onSleep();
+}
+
+GFXTexHandle ShellFancyTextList::iconFor( const char *name, S32 length )
+{
+   char path[ 256 ];
+   dSprintf( path, sizeof( path ), "gui/%.*s", length, name );
+
+   StringTableEntry key = StringTable->insert( path );
+
+   for ( U32 i = 0; i < mIcons.size(); i++ )
+      if ( mIcons[ i ].name == key )
+         return mIcons[ i ].texture;
+
+   mIcons.increment();
+   mIcons.last().name = key;
+   mIcons.last().texture.set( path, &GFXDefaultPersistentProfile,
+                              avar( "%s() - icon", __FUNCTION__ ) );
+
+   return mIcons.last().texture;
+}
+
+void ShellFancyTextList::drawIcons( const Point2I &offset, const Column &column,
+                                    const char *text, S32 length )
+{
+   // An icon column names up to eight bitmaps, a colon between each.
+   GFXTexHandle icons[ 8 ];
+   U32 count = 0;
+   S32 span = 0;
+
+   const char *end = text + length;
+
+   for ( const char *name = text; name < end && count < 8; )
+   {
+      const char *colon = name;
+
+      while ( colon < end && *colon != ':' )
+         colon++;
+
+      if ( colon > name )
+      {
+         GFXTexHandle icon = iconFor( name, S32( colon - name ) );
+
+         if ( icon )
+         {
+            span += S32( icon->getBitmapWidth() );
+            icons[ count++ ] = icon;
+         }
+      }
+
+      name = colon + 1;
+   }
+
+   if ( !count )
+      return;
+
+   span += S32( count ) - 1;
+
+   S32 x = offset.x;
+
+   if ( column.width > span )
+      x += ( column.width - span ) / 2;
+
+   GFXDrawUtil *draw = GFX->getDrawUtil();
+   draw->clearBitmapModulation();
+
+   for ( U32 i = 0; i < count; i++ )
+   {
+      const S32 height = S32( icons[ i ]->getBitmapHeight() );
+
+      const S32 y = mRowHeight > height
+         ? offset.y + ( mRowHeight - height ) / 2 : offset.y;
+
+      draw->drawBitmap( icons[ i ], Point2I( x, y ) );
+
+      x += S32( icons[ i ]->getBitmapWidth() ) + 1;
+   }
+}
+
 void ShellFancyTextList::onRenderRow( const Point2I &offset, const Column &column,
                                       S32 row, bool selected, bool mouseOver )
 {
    Parent::onRenderRow( offset, column, row, selected, mouseOver );
 
    if ( row < 0 || row >= mRows.size() )
-      return;
-
-   Style *style = styleFor( row );
-
-   GFont *font = style && style->font ? (GFont *)style->font : mProfile->mFont;
-
-   if ( !font )
       return;
 
    S32 which = 0;
@@ -100,6 +176,19 @@ void ShellFancyTextList::onRenderRow( const Point2I &offset, const Column &colum
    if ( !text || !length )
       return;
 
+   if ( column.flags & Icon )
+   {
+      drawIcons( offset, column, text, length );
+      return;
+   }
+
+   Style *style = styleFor( row );
+
+   GFont *font = style && style->font ? (GFont *)style->font : mProfile->mFont;
+
+   if ( !font )
+      return;
+
    const S32 state = selected ? Selected : mouseOver ? Highlight : Resting;
 
    ColorI color;
@@ -113,31 +202,20 @@ void ShellFancyTextList::onRenderRow( const Point2I &offset, const Column &colum
 
    const S32 width = S32( font->getStrNWidth( (const UTF8 *)text, length ) );
 
-   S32 x = offset.x + 2;
+   S32 x = offset.x + 4;
 
    if ( column.flags & AlignCenter )
-      x = offset.x + ( column.width - width ) / 2;
+      x = offset.x + getMax( ( column.width - width ) / 2, 4 );
    else if ( column.flags & AlignRight )
-      x = offset.x + column.width - width - 2;
+      x = offset.x + getMax( column.width - width, 4 );
 
-   const S32 y = offset.y + ( mRowHeight - S32( font->getHeight() ) ) / 2;
+   const S32 y = offset.y + ( mRowHeight - ( S32( font->getHeight() ) - 2 ) ) / 2;
 
    GFXDrawUtil *draw = GFX->getDrawUtil();
 
-   const RectI saved = GFX->getClipRect();
-
-   RectI clip( offset.x, offset.y, column.width, mRowHeight );
-
-   if ( clip.intersect( saved ) )
-   {
-      GFX->setClipRect( clip );
-
-      draw->setBitmapModulation( color );
-      draw->drawTextN( font, Point2I( x, y ), text, length,
-                       mAllowColorChars ? mProfile->mFontColors : NULL );
-   }
-
-   GFX->setClipRect( saved );
+   draw->setBitmapModulation( color );
+   draw->drawTextN( font, Point2I( x, y ), text, length,
+                    mAllowColorChars ? mProfile->mFontColors : NULL );
 }
 
 void ShellFancyTextList::clearList()
@@ -326,12 +404,7 @@ void ShellFancyTextList::sort( S32 key, bool increasing )
          S32 order;
 
          if ( flags & Numeric )
-         {
-            const F32 av = a ? dAtof( a ) : 0.0f;
-            const F32 bv = b ? dAtof( b ) : 0.0f;
-
-            order = av < bv ? -1 : av > bv ? 1 : 0;
-         }
+            order = ( a ? dAtoi( a ) : 0 ) - ( b ? dAtoi( b ) : 0 );
          else
          {
             order = dStrnicmp( a ? a : "", b ? b : "",
@@ -343,6 +416,15 @@ void ShellFancyTextList::sort( S32 key, bool increasing )
 
          if ( !increasing )
             order = -order;
+
+         // Rows that tie stay in one order whichever way the column runs:
+         // a number by the whole row's text, then either by id.
+         if ( !order && ( flags & Numeric ) )
+            order = dStricmp( row.text.c_str(), mRows[ j - 1 ].text.c_str() );
+
+         if ( !order )
+            order = U32( row.id ) < U32( mRows[ j - 1 ].id ) ? -1
+                  : U32( row.id ) > U32( mRows[ j - 1 ].id ) ? 1 : 0;
 
          if ( order >= 0 )
             break;
