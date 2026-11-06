@@ -79,8 +79,9 @@ public:
       if ( !Parent::onWake() )
          return false;
 
-      // Fast enough to cover twice the height above it in a second, so the
-      // column reaches the top of the screen in half of one.
+      // Twice the height above it, as a step per 250 ms (0x004e2a13 divides
+      // by 250, not 1000): the column reaches the top of the screen in an
+      // eighth of a second.
       mRate = getPosition().y * 2;
       mLastTime = Platform::getRealMilliseconds();
       return true;
@@ -100,7 +101,7 @@ public:
       if ( getPosition().y > 0 )
       {
          const U32 now = Platform::getRealMilliseconds();
-         const S32 step = S32( ( now - mLastTime ) * U32( mRate ) / 1000 );
+         const S32 step = S32( ( now - mLastTime ) * U32( mRate ) / 250 );
 
          mLastTime = now;
 
