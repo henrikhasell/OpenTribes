@@ -175,6 +175,8 @@ bool ShellFancyArray::onWake()
    mMinColumnWidth = mHeaderSliced
       ? mHeaderCell[ 0 ].extent.x + mHeaderCell[ 6 ].extent.x - mGlowOffset * 2 : 0;
 
+   resize( getPosition(), getExtent() );
+
    return true;
 }
 
@@ -704,8 +706,14 @@ bool ShellFancyArray::resize( const Point2I &position, const Point2I &extent )
 {
    const bool changed = Parent::resize( position, extent );
 
+   // Each width fitted to is kept, so a screen that wakes at the size its
+   // .gui gives and then grows ends up with different columns from one
+   // that was fitted only once.
    if ( mFitColumns )
-      mFitPending = true;
+   {
+      mFitPending = false;
+      fitColumns();
+   }
 
    return changed;
 }
