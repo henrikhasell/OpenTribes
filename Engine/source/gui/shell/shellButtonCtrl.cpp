@@ -308,13 +308,33 @@ void ShellTabGroupCtrl::removeTabByIndex( S32 index )
       return;
 
    mTabs.erase( index );
-
-   if ( mSelected == index )
-      mSelected = -1;
-   else if ( mSelected > index )
-      mSelected--;
-
    setUpdate();
+
+   // Tribes 2 selects again whenever the selection moves (0x004f9585): the
+   // tab that takes the removed one's place, or the one before it if it was
+   // last, and from there back round to the first that is active. Selecting
+   // calls onSelect, which is what puts that tab's screen up in place of the
+   // closed one's.
+   S32 tab;
+   if ( mSelected == index )
+      tab = index < mTabs.size() ? index : index - 1;
+   else if ( mSelected > index )
+      tab = mSelected - 1;
+   else
+      return;
+
+   for ( S32 i = 0; i < mTabs.size(); i++, tab-- )
+   {
+      if ( tab < 0 )
+         tab = mTabs.size() - 1;
+      if ( mTabs[ tab ].active )
+      {
+         setSelectedByIndex( tab );
+         return;
+      }
+   }
+
+   mSelected = -1;
 }
 
 S32 ShellTabGroupCtrl::indexOfId( S32 id ) const

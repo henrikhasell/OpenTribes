@@ -806,7 +806,7 @@ void stripColorChars(char* line)
       if (cp < 18) 
       {
          // Could be a color control character; let's take a closer look.
-         if ((cp != 8) && (cp != 9) && (cp != 10) && (cp != 13)) 
+         if ((cp != 9) && (cp != 10) && (cp != 13)) 
          {
             // Yep... copy following chars forward over this.
             char* cprime = c;

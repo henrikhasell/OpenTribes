@@ -217,6 +217,8 @@ BaseMatInstance *TSGetBlendedMatInstance( BaseMatInstance *matInst,
          blended->mTranslucent = true;
          blended->mTranslucentBlendOp = Material::LerpAlpha;
          blended->mTranslucentZWrite = false;
+         blended->mT2ClampU = mat->mT2ClampU;
+         blended->mT2ClampV = mat->mT2ClampV;
       }
 
       sBlended.insertUnique( mat->getId(), blended );
@@ -269,6 +271,8 @@ BaseMatInstance *TSGetFadedMatInstance( BaseMatInstance *matInst,
                                                : Material::LerpAlpha;
          faded->mTranslucentZWrite = !additive;
          faded->mT2FadeAlpha = !keepTexAlpha;
+         faded->mT2ClampU = mat->mT2ClampU;
+         faded->mT2ClampV = mat->mT2ClampV;
       }
 
       sFaded.insertUnique( key, faded );
