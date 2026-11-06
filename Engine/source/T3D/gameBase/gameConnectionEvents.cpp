@@ -642,6 +642,11 @@ void SimDataBlockEvent::process(NetConnection *cptr)
          if( conn )
             conn->preloadDataBlock( mObj );
          
+         // HH: Added for Tribes 2 compatibility. Tribes 2 numbers datablocks
+         // from 0, which Sim otherwise takes for an object with no id yet.
+         if( id == 0 )
+            SimObject::setForcedId( id );
+
          if( mObj->registerObject(id) )
          {
                   // HH: Added for Tribes 2 compatibility.

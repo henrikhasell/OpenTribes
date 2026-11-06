@@ -205,6 +205,10 @@ ShapeBaseData::ShapeBaseData()
    cmdMiniIconName( StringTable->insert("") ),
    cmdIcon( NULL ),
    cmdIconID( -1 ),
+   sensorRadius( 0 ),
+   sensorColor( 255, 255, 255, 255 ),
+   canControl( false ),
+   canObserve( false ),
    firstPersonOnly( false ),
    useEyePoint( false ),
    cubeDescId( 0 ),
@@ -385,11 +389,25 @@ bool ShapeBaseData::unpackData(BitStream *stream, U32 classId)
                                        &ShapeBaseData::inheritEnergyFromMount },
       { T2Layout::T2DbFirstPersonOnly,      &ShapeBaseData::firstPersonOnly     },
       { T2Layout::T2DbUseEyePoint,          &ShapeBaseData::useEyePoint         },
+      { T2Layout::T2DbCanControl,           &ShapeBaseData::canControl          },
+      { T2Layout::T2DbCanObserve,           &ShapeBaseData::canObserve          },
    };
 
    for (U32 i = 0; i < sizeof(sFlags) / sizeof(sFlags[0]); i++)
       if (T2Layout::lastDataBlockWord(sFlags[i].field, &word))
          this->*sFlags[i].member = word != 0;
+
+   // The colour comes with the radius or not at all.
+   sensorRadius = 0;
+   if (T2Layout::lastDataBlockWord(T2Layout::T2DbSensorRadius, &word))
+   {
+      sensorRadius = S32(word);
+      U8 *rgba[] = { &sensorColor.red, &sensorColor.green, &sensorColor.blue,
+                     &sensorColor.alpha };
+      for (U32 i = 0; i < 4; i++)
+         if (T2Layout::lastDataBlockWord(T2Layout::T2DbSensorColorR + i, &word))
+            *rgba[i] = U8(word);
+   }
 
    U32 lifetime;
    if (T2Layout::lastDataBlockWord(T2Layout::T2DbShieldEffectLifetimeMS,
@@ -796,6 +814,14 @@ void ShapeBaseData::initPersistFields()
          "The CommanderIconData the commander map draws this shape with." );
       addField( "cmdMiniIconName", TypeString, Offset(cmdMiniIconName, ShapeBaseData),
          "The small icon the commander map lists this shape with." );
+      addField( "sensorRadius", TypeS32, Offset(sensorRadius, ShapeBaseData),
+         "How far the commander map rings this shape's sensor." );
+      addField( "sensorColor", TypeColorI, Offset(sensorColor, ShapeBaseData),
+         "The colour the commander map rings this shape's sensor in." );
+      addField( "canControl", TypeBool, Offset(canControl, ShapeBaseData),
+         "Whether a teammate can take this shape over from the commander map." );
+      addField( "canObserve", TypeBool, Offset(canObserve, ShapeBaseData),
+         "Whether a teammate can watch through this shape from the commander map." );
 
    endGroup( "Commander" );
 

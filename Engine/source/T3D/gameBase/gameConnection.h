@@ -195,6 +195,9 @@ protected:
    // The sensor group a server's scripts put this client in; 0 until they
    // do (0x5fa5eb).
    S32         mSensorGroup = 0;
+   /// Whether the commander map is open on this client, which scopes every
+   /// object its team knows of.
+   bool        mScopingCommanderMap = false;
 
    /// @name Flashing
    ////
@@ -270,6 +273,8 @@ public:
    // HH: Added for Tribes 2 compatibility.
    S32  getSensorGroup() const   { return mSensorGroup; }
    void setSensorGroup(S32 group) { mSensorGroup = group; }
+   bool isScopingCommanderMap() const    { return mScopingCommanderMap; }
+   void setScopingCommanderMap(bool on) { mScopingCommanderMap = on; }
 
    /// @name Control object
    /// @{

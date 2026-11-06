@@ -496,8 +496,9 @@ bool SimObject::registerObject()
       setId(smForcedId);
       smForceId = false;
    }
-
-   if( !mId )
+   // HH: Modified for Tribes 2 compatibility. A forced id is kept even when it
+   // is 0, which is the id of a Tribes 2 server's first datablock.
+   else if( !mId )
    {
       mId = Sim::gNextObjectId++;
       dSprintf( mIdString, sizeof( mIdString ), "%u", mId );
