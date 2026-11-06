@@ -110,6 +110,41 @@ bool MissionArea::onAdd()
 }
 
 //------------------------------------------------------------------------------
+// HH: Added for Tribes 2 compatibility.
+// The area's four corners then the flight ceiling and its range, each a word,
+// which is all the commander map has to frame the mission with.
+
+U32 MissionArea::packUpdate(NetConnection *, U32 mask, BitStream *stream, bool)
+{
+   if(stream->writeFlag(mask & UpdateMask))
+   {
+      stream->write(mArea.point.x);
+      stream->write(mArea.point.y);
+      stream->write(mArea.extent.x);
+      stream->write(mArea.extent.y);
+      stream->write(mFlightCeiling);
+      stream->write(mFlightCeilingRange);
+   }
+   return 0;
+}
+
+bool MissionArea::unpackUpdate(BitStream *stream, bool)
+{
+   if(stream->readFlag())
+   {
+      RectI area;
+      stream->read(&area.point.x);
+      stream->read(&area.point.y);
+      stream->read(&area.extent.x);
+      stream->read(&area.extent.y);
+      stream->read(&mFlightCeiling);
+      stream->read(&mFlightCeilingRange);
+      setArea(area);
+   }
+   return true;
+}
+
+//------------------------------------------------------------------------------
 
 void MissionArea::inspectPostApply()
 {

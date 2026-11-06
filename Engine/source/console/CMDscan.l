@@ -44,6 +44,11 @@ static int Sc_ScanVar();
 static int Sc_ScanHex();
 static int Sc_ScanIdent();
 
+// HH: Added for Tribes 2 compatibility.
+// "in" is a word only inside a foreach, which Tribes 2's script language
+// never had; its scripts use it as a bare string, as in cameraMove(in, true).
+static bool sScanningForeach = false;
+
 // Deal with debuggability of FLEX.
 #ifdef TORQUE_DEBUG
 #define FLEX_DEBUG 1
@@ -188,7 +193,7 @@ HEXDIGIT [a-fA-F0-9]
 "^" |
 "~" |
 "="         { CMDlval.i = MakeToken< int >( CMDtext[ 0 ], lineIndex ); return CMDtext[ 0 ]; }
-"in"        { CMDlval.i = MakeToken< int >( rwIN, lineIndex ); return(rwIN); }
+"in"        { if (!sScanningForeach) return Sc_ScanIdent(); sScanningForeach = false; CMDlval.i = MakeToken< int >( rwIN, lineIndex ); return(rwIN); }
 "or"        { CMDlval.i = MakeToken< int >( rwCASEOR, lineIndex ); return(rwCASEOR); }
 "break"     { CMDlval.i = MakeToken< int >( rwBREAK, lineIndex ); return(rwBREAK); }
 "return"    { CMDlval.i = MakeToken< int >( rwRETURN, lineIndex ); return(rwRETURN); }
@@ -197,8 +202,8 @@ HEXDIGIT [a-fA-F0-9]
 "while"     { CMDlval.i = MakeToken< int >( rwWHILE, lineIndex ); return(rwWHILE); }
 "do"        { CMDlval.i = MakeToken< int >( rwDO, lineIndex ); return(rwDO); }
 "if"        { CMDlval.i = MakeToken< int >( rwIF, lineIndex ); return(rwIF); }
-"foreach$"  { CMDlval.i = MakeToken< int >( rwFOREACHSTR, lineIndex ); return(rwFOREACHSTR); }
-"foreach"   { CMDlval.i = MakeToken< int >( rwFOREACH, lineIndex ); return(rwFOREACH); }
+"foreach$"  { sScanningForeach = true; CMDlval.i = MakeToken< int >( rwFOREACHSTR, lineIndex ); return(rwFOREACHSTR); }
+"foreach"   { sScanningForeach = true; CMDlval.i = MakeToken< int >( rwFOREACH, lineIndex ); return(rwFOREACH); }
 "for"       { CMDlval.i = MakeToken< int >( rwFOR, lineIndex ); return(rwFOR); }
 "continue"  { CMDlval.i = MakeToken< int >( rwCONTINUE, lineIndex ); return(rwCONTINUE); }
 "function"  { CMDlval.i = MakeToken< int >( rwDEFINE, lineIndex ); return(rwDEFINE); }

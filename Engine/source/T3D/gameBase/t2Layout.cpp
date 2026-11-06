@@ -2716,11 +2716,13 @@ static bool matchShapeData(T2ShapeDataMap *map, S32 *end)
    const T2DataNode *sensor = nodeAt(layout, at);
    if(!isBranch(sensor) || !isWord(nodeAt(layout, sensor->b), 10))
       return false;
+   addShapeDataRow(map, sensor->b, T2DbSensorRadius);
    S32 next = layout->nodes[sensor->b].a;
    for(U32 i = 0; i < 4; i++)
    {
       if(!isWord(nodeAt(layout, next), 8))
          return false;
+      addShapeDataRow(map, next, T2DbSensorColorR + i);
       next = layout->nodes[next].a;
    }
    if(next != sensor->a)
@@ -2746,8 +2748,8 @@ static bool matchShapeData(T2ShapeDataMap *map, S32 *end)
    // renderWhenDestroyed, in that order.
    static const S32 sFlags[] =
    {
-      -1, -1, T2DbObserveThroughObject, T2DbEmap, T2DbIsInvincible,
-      T2DbRenderWhenDestroyed,
+      T2DbCanControl, T2DbCanObserve, T2DbObserveThroughObject, T2DbEmap,
+      T2DbIsInvincible, T2DbRenderWhenDestroyed,
    };
    for(U32 i = 0; i < ELEMENTS(sFlags); i++)
    {

@@ -27,6 +27,7 @@ set(_engine_dirs
     gfx/video
     gui
     gui/buttons
+    gui/commander
     gui/containers
     gui/controls
     gui/core

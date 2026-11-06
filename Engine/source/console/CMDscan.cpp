@@ -928,6 +928,11 @@ static int Sc_ScanVar();
 static int Sc_ScanHex();
 static int Sc_ScanIdent();
 
+// HH: Added for Tribes 2 compatibility.
+// "in" is a word only inside a foreach, which Tribes 2's script language
+// never had; its scripts use it as a bare string, as in cameraMove(in, true).
+static bool sScanningForeach = false;
+
 // Deal with debuggability of FLEX.
 #ifdef TORQUE_DEBUG
 #define FLEX_DEBUG 1
@@ -1518,7 +1523,7 @@ YY_RULE_SETUP
 case 63:
 YY_RULE_SETUP
 #line 192 "CMDscan.l"
-{ CMDlval.i = MakeToken< int >( rwIN, lineIndex ); return(rwIN); }
+{ if (!sScanningForeach) return Sc_ScanIdent(); sScanningForeach = false; CMDlval.i = MakeToken< int >( rwIN, lineIndex ); return(rwIN); }
 	YY_BREAK
 case 64:
 YY_RULE_SETUP
@@ -1563,12 +1568,12 @@ YY_RULE_SETUP
 case 72:
 YY_RULE_SETUP
 #line 201 "CMDscan.l"
-{ CMDlval.i = MakeToken< int >( rwFOREACHSTR, lineIndex ); return(rwFOREACHSTR); }
+{ sScanningForeach = true; CMDlval.i = MakeToken< int >( rwFOREACHSTR, lineIndex ); return(rwFOREACHSTR); }
 	YY_BREAK
 case 73:
 YY_RULE_SETUP
 #line 202 "CMDscan.l"
-{ CMDlval.i = MakeToken< int >( rwFOREACH, lineIndex ); return(rwFOREACH); }
+{ sScanningForeach = true; CMDlval.i = MakeToken< int >( rwFOREACH, lineIndex ); return(rwFOREACH); }
 	YY_BREAK
 case 74:
 YY_RULE_SETUP

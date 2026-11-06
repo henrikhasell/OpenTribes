@@ -94,7 +94,6 @@ ConsoleDocClass( TSShapeConstructorT2,
    "@brief The Tribes 2 datablock that names a shape's animations.\n\n"
    "@internal" );
 
-IMPLEMENT_DATABLOCK_T2( CommanderIconData );
 IMPLEMENT_DATABLOCK_T2( CannedChatItem );
 IMPLEMENT_DATABLOCK_T2( SensorData );
 IMPLEMENT_DATABLOCK_T2( AudioEnvironment );
