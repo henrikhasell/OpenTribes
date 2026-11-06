@@ -86,6 +86,10 @@ namespace T2Protocol
       T2FieldWayPointHidden,        ///< the flag that stops it being marked
 
       T2FieldBeaconType,            ///< readInt(2): enemy, friend or vehicle
+
+      T2FieldHeadPitch,             ///< readSignedFloat(bits) of the head's
+                                    ///< pitch, a share of maxLookAngle
+      T2FieldHeadYaw,               ///< the same for its yaw
    };
 
    inline U32 t2FieldWords(U32 field)
@@ -119,6 +123,9 @@ namespace T2Protocol
       { "Player", 24, OpFlag,  1,  T2FieldVelocityHere },
       { "Player", 23, OpRaw,   13, T2FieldSpeed        },
       { "Player", 22, OpRaw,   21, T2FieldDirection    },
+   // Between the velocity and the yaw, the head (0x005db8c3).
+      { "Player", 21, OpRaw,   6,  T2FieldHeadPitch    },
+      { "Player", 20, OpRaw,   6,  T2FieldHeadYaw      },
       { "Player", 19, OpRaw,   7,  T2FieldYaw          },
 
       { "Player", 26, OpFlag,  1,  T2FieldJetting      },

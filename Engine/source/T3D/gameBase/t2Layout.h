@@ -42,6 +42,9 @@ namespace T2Layout
       Point3F position;
       bool    hasYaw;
       F32     yaw;                  ///< radians
+      bool    hasHead;
+      Point2F head;                 ///< a player's head pitch and yaw, each
+                                    ///< -1..1 of its datablock's maxLookAngle
       bool    hasRotation;
       MatrixF rotation;             ///< the whole orientation, where the body
       bool    hasScale;
