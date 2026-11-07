@@ -52,6 +52,7 @@ public:
    bool onWake();
    void onSleep();
 
+   void onMouseDown( const GuiEvent &event );
    void onRender( Point2I offset, const RectI &updateRect );
 };
 

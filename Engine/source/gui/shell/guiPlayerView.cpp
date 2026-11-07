@@ -5,6 +5,7 @@
 #include "console/consoleTypes.h"
 #include "console/engineAPI.h"
 #include "core/strings/stringFunctions.h"
+#include "T3D/gameBase/targetsT2.h"
 #include "renderInstance/renderMeshMgr.h"
 #include "renderInstance/renderPassManager.h"
 #include "renderInstance/renderTranslucentMgr.h"
@@ -95,7 +96,8 @@ void GuiPlayerView::setModel( const char *shape, const char *skin )
    dSprintf( path, sizeof( path ), "shapes/%s.dts", shape );
 
    setObjectModel( path );
-   setSkin( skin ? skin : "base" );
+   if ( mModel )
+      T2Targets::wearSkin( mModel, skin );
 
    const char *weapon = dStrstr( shape, "heavy" ) ? "shapes/weapon_mortar.dts"
                       : dStrstr( shape, "medium" ) ? "shapes/weapon_plasma.dts"

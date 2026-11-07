@@ -12,6 +12,7 @@
 class BitStream;
 class ShapeBase;
 class SimDataBlock;
+class TSShapeInstance;
 
 namespace T2Targets
 {
@@ -33,6 +34,11 @@ namespace T2Targets
    /// is what makes a flag its team's and a player their own or their team's.
    /// Does nothing for a shape with no target.
    void applySkin(ShapeBase *shape);
+
+   /// Put a skin on an instance fresh from its shape, as the shell's player
+   /// preview does: its larger artwork where the client asks for that, and
+   /// the shape's own material where the skin has no artwork for it.
+   void wearSkin(TSShapeInstance *inst, const char *skin);
 
    /// Which of the hud images of its datablock a target is drawn with, one
    /// bit each; bit 8 lists it on the commander map.

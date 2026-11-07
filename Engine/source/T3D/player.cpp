@@ -2440,11 +2440,18 @@ void Player::updateMove(const Move* move)
       else
       {
          mRot.z += y;
-         // Rotate the head back to the front, center horizontal
-         // as well if we're controlling another object.
-         mHead.z *= 0.5f;
-         if (mControlObject)
-            mHead.x *= 0.5f;
+         // HH: Modified for Tribes 2 compatibility.
+         // Another player's head is the wire's (0x005db8c3) and nothing here
+         // may recentre it: this predicts with a null move, where retail
+         // replays the move it read beside the head (0x005db91f).
+         if (!isGhost() || con)
+         {
+            // Rotate the head back to the front, center horizontal
+            // as well if we're controlling another object.
+            mHead.z *= 0.5f;
+            if (mControlObject)
+               mHead.x *= 0.5f;
+         }
       }
 
       // constrain the range of mRot.z

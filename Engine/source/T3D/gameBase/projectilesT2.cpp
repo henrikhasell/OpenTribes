@@ -321,6 +321,10 @@ class ProjectileT2 : public GameBase, public ISceneLight
    void drawFlares(F32 clear);
    void drawGlow(const SceneRenderState *state, F32 clear);
 
+protected:
+   bool    mStopsOnDamageable;///< an energy bolt goes off on anything it can
+                              ///< damage; a grenade bounces off it
+
 public:
    ProjectileT2();
    ~ProjectileT2();
@@ -373,6 +377,7 @@ ProjectileT2::ProjectileT2()
      mNoSourceHit(0.0f),
      mLight(NULL)
 {
+   mStopsOnDamageable = false;
    mTypeMask |= ProjectileObjectType;
 }
 
@@ -769,12 +774,21 @@ void ProjectileT2::advanceTime(F32 dt)
    mShapeInstance->advanceTime(dt);
 }
 
-/// A force field is in retail's static half of this, at 0x007abf60, next to
-/// static objects, terrain and interiors.
-static const U32 sProjectileCollisionMask =
+/// Retail casts a projectile's ray against two masks it ors together: the
+/// static half at 0x007abf60, which a force field is in next to static
+/// objects, terrain and interiors, and the half at 0x007abf64 of everything
+/// a projectile can damage -- players, vehicles, turrets, damageable items,
+/// sensors, stations and generators, which are all shapes here.
+static const U32 sProjectileStaticMask =
    StaticObjectType | TerrainObjectType | InteriorObjectType |
+   ForceFieldObjectType;
+
+static const U32 sProjectileDamageableMask =
    StaticShapeObjectType | PlayerObjectType | VehicleObjectType |
-   ItemObjectType | ForceFieldObjectType;
+   ItemObjectType;
+
+static const U32 sProjectileCollisionMask =
+   sProjectileStaticMask | sProjectileDamageableMask;
 
 /// Age every length of the trail from both ends and drop the ones that have
 /// run out, which is GrenadeBlur's advance at 0x00698380 and the pass after it
@@ -843,10 +857,15 @@ void ProjectileT2::step(F32 dt)
    mPosition = info.point;
    mImpactNormal = info.normal;
 
+   const bool damageable = info.object &&
+      (info.object->getTypeMask() & sProjectileDamageableMask) != 0;
+
       // A disc goes off on the first thing it touches; a grenade bounces
       // until its arming delay has run and goes off on the first thing after
-      // that (0x00634e0f).
-   if(!mBounces || mAge * 1000.0f > F32(mData->armingDelayMS))
+      // that (0x00634e0f); an energy bolt also goes off on anything it can
+      // damage, however young it is (0x0069588e).
+   if(!mBounces || mAge * 1000.0f > F32(mData->armingDelayMS) ||
+      (mStopsOnDamageable && damageable))
    {
       mFlying = false;
       explode();
@@ -1383,21 +1402,22 @@ void ProjectileT2::drawGlow(const SceneRenderState *state, F32 clear)
    }
 }
 
-#define IMPLEMENT_PROJECTILE_T2( className )                                 \
+#define IMPLEMENT_PROJECTILE_T2( className, stopsOnDamageable )              \
    class className : public ProjectileT2                                     \
    {                                                                         \
       typedef ProjectileT2 Parent;                                           \
    public:                                                                   \
+      className() { mStopsOnDamageable = stopsOnDamageable; }                \
       DECLARE_CONOBJECT(className);                                          \
    };                                                                        \
    IMPLEMENT_CO_NETOBJECT_V1(className);                                     \
    ConsoleDocClass( className, "@brief A Tribes 2 projectile.\n\n@internal" )
 
-IMPLEMENT_PROJECTILE_T2( EnergyProjectile );
-IMPLEMENT_PROJECTILE_T2( GrenadeProjectile );
-IMPLEMENT_PROJECTILE_T2( LinearFlareProjectile );
-IMPLEMENT_PROJECTILE_T2( LinearProjectile );
-IMPLEMENT_PROJECTILE_T2( TracerProjectile );
+IMPLEMENT_PROJECTILE_T2( EnergyProjectile, true );
+IMPLEMENT_PROJECTILE_T2( GrenadeProjectile, false );
+IMPLEMENT_PROJECTILE_T2( LinearFlareProjectile, false );
+IMPLEMENT_PROJECTILE_T2( LinearProjectile, false );
+IMPLEMENT_PROJECTILE_T2( TracerProjectile, false );
 
 //----------------------------------------------------------------------------
 
