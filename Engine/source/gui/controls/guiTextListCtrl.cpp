@@ -351,18 +351,12 @@ void GuiTextListCtrl::setSize(Point2I newSize)
    {
       if ( mSize.x == 1 && mFitParentWidth )
       {
-         // HH: Tribes 2 puts a scroll control's contents in a
-         // GuiScrollContentCtrl, so the scroll is one level further up than
-         // stock Torque looks.  Without this a list in a shell scroll keeps
-         // the width of its widest row instead of filling the scroll.
-         GuiControl *up = getParent();
-
-         if ( dynamic_cast<GuiScrollContentCtrl *>( up ) )
-            up = up->getParent();
-
-         GuiScrollCtrl* parent = dynamic_cast<GuiScrollCtrl *>( up );
-         if ( parent )
-            mCellSize.x = parent->getContentExtent().x;
+         // HH: Tribes 2 fills whatever it is in, not only a scroll control
+         // (0x004c50cc): the rest of its parent, from where the list starts.
+         // A list in a shell scroll is in that scroll's GuiScrollContentCtrl,
+         // whose extent is the content rect, so it still fills the scroll.
+         if ( GuiControl *parent = getParent() )
+            mCellSize.x = parent->getExtent().x - getPosition().x;
       }
       else
       {
