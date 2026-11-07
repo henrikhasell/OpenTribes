@@ -197,9 +197,8 @@ namespace
    /// where the shape has none. Found on the shape and not on the instance:
    /// a reskin clones the list and renames the copy, so only the resource
    /// still holds the "base" name a skin is recognised by.
-   S32 baseMaterialIndex(ShapeBase *shape)
+   S32 baseMaterialIndex(TSShapeInstance *inst)
    {
-      TSShapeInstance *inst = shape->getShapeInstance();
       if (!inst || !inst->getShape() || !inst->getShape()->materialList ||
           !inst->getMaterialList())
          return -1;
@@ -220,12 +219,10 @@ namespace
    /// The material this skin asks for, in its larger artwork where the client
    /// wants that and the game has it. Empty where the skin has no artwork for
    /// this shape at all, which is retail's reason to leave a material alone.
-   String skinnedTarget(const String &base, const NetStringHandle &skin,
-                        bool allow512)
+   String skinnedTarget(const String &base, const char *skin, bool allow512)
    {
       String name;
-      if (!skin.isValidString() ||
-          !skinnedName(base, skin.getString(), &name))
+      if (!skin || !skin[0] || !skinnedName(base, skin, &name))
          return String::EmptyString;
 
       if (allow512)
@@ -248,7 +245,7 @@ void T2Targets::applySkin(ShapeBase *shape)
    const ClientTarget &info = sClientTargets[target];
 
    TSShapeInstance *inst = shape->getShapeInstance();
-   const S32 slot = baseMaterialIndex(shape);
+   const S32 slot = baseMaterialIndex(inst);
    if (slot < 0)
       return;
 
@@ -263,10 +260,11 @@ void T2Targets::applySkin(ShapeBase *shape)
    // goes back to base rather than losing its texture.
    String want;
    if (smUsePrefSkins)
-      want = skinnedTarget(base, info.tags[ClientTarget::PrefSkin],
+      want = skinnedTarget(base, info.tags[ClientTarget::PrefSkin].getString(),
                            smUse512PlayerSkins);
    if (want.isEmpty())
-      want = skinnedTarget(base, info.tags[ClientTarget::Skin], false);
+      want = skinnedTarget(base, info.tags[ClientTarget::Skin].getString(),
+                           false);
    if (want.isEmpty())
       want = base;
 
@@ -283,6 +281,22 @@ void T2Targets::applySkin(ShapeBase *shape)
       return;
 
    shape->setTargetSkin(NetStringHandle((was + "=" + now).c_str()));
+}
+
+void T2Targets::wearSkin(TSShapeInstance *inst, const char *skin)
+{
+   const S32 slot = baseMaterialIndex(inst);
+   if (slot < 0)
+      return;
+
+   const String base =
+      inst->getShape()->materialList->getMaterialNameList()[slot];
+
+   // The Warrior Setup preview (0x0067cfd0) asks about 512 as a personal skin
+   // does, but not about usePrefSkins: the skin is the player's own choice.
+   const String want = skinnedTarget(base, skin, smUse512PlayerSkins);
+   if (!want.isEmpty())
+      inst->reSkin(fileOf(want), fileOf(base));
 }
 
 U32 T2Targets::renderMask(S32 target)
