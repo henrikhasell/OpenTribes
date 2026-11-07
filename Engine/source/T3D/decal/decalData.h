@@ -35,6 +35,9 @@
 #ifndef _DYNAMIC_CONSOLETYPES_H_
 #include "console/dynamicTypes.h"
 #endif
+#ifndef _GFXTEXTUREHANDLE_H_
+#include "gfx/gfxTextureHandle.h"   // HH: Added for Tribes 2 compatibility.
+#endif
 
 GFXDeclareVertexFormat( DecalVertex )
 {
@@ -97,6 +100,15 @@ class DecalData : public SimDataBlock
       /// Skip generating and collecting vertex normals for decals.
       bool skipVertexNormals;
 
+      // HH: Added for Tribes 2 compatibility.
+      /// A Tribes 2 decal is a texture of its own size laid flat on what it
+      /// marks, with no material behind it: half its width, half its height
+      /// and the texture, which is all its datablock carries (0x00593970).
+      F32 t2SizeX;
+      F32 t2SizeY;
+      StringTableEntry t2TextureName;
+      GFXTexHandle t2Texture;
+
    public:
 
       DecalData();
@@ -110,7 +122,10 @@ class DecalData : public SimDataBlock
       virtual void onRemove();
 
       virtual bool preload( bool server, String &errorStr );
-      
+
+      // HH: Added for Tribes 2 compatibility.
+      bool unpackData( BitStream *stream, U32 classId ) override;
+
       Material* getMaterial();
       BaseMatInstance* getMaterialInstance();
 

@@ -30,6 +30,7 @@
 #include "materials/baseMatInstance.h"
 #include "T3D/objectTypes.h"
 #include "console/engineAPI.h"
+#include "T3D/gameBase/t2Layout.h"   // HH: Added for Tribes 2 compatibility.
 
 GFXImplementVertexFormat( DecalVertex )
 {
@@ -98,9 +99,14 @@ DecalData::DecalData()
 
    texCoordCount = 1;
 
-   // TODO: We could in theory calculate if we can skip 
+   // TODO: We could in theory calculate if we can skip
    // normals on the decal by checking the material features.
    skipVertexNormals = false;
+
+   // HH: Added for Tribes 2 compatibility.
+   t2SizeX = 1.0f;
+   t2SizeY = 1.0f;
+   t2TextureName = StringTable->EmptyString();
 
    for ( S32 i = 0; i < 16; i++ )
    {
@@ -249,6 +255,32 @@ bool DecalData::preload( bool server, String &errorStr )
    // client assigns lookupName in unpack.
    if ( server )
       lookupName = getName();
+
+   // HH: Added for Tribes 2 compatibility.
+   if ( !server && t2TextureName[0] )
+      t2Texture.set( String( "textures/" ) + t2TextureName,
+                     &GFXDefaultStaticDiffuseProfile, "DecalDataT2" );
+
+   return true;
+}
+
+// HH: Added for Tribes 2 compatibility.
+/// Tribes 2 sends a decal as its two half sizes and the name of its texture,
+/// and nothing else (0x00593970).
+bool DecalData::unpackData( BitStream *stream, U32 classId )
+{
+   if ( !Parent::unpackData( stream, classId ) )
+      return false;
+
+   F32 value;
+   if ( T2Layout::lastDataBlockField( T2Layout::T2DbDecalSizeX, &value ) )
+      t2SizeX = value;
+   if ( T2Layout::lastDataBlockField( T2Layout::T2DbDecalSizeY, &value ) )
+      t2SizeY = value;
+
+   const Vector<String> &strings = T2Layout::lastStrings();
+   if ( strings.size() )
+      t2TextureName = StringTable->insert( strings[0].c_str() );
 
    return true;
 }

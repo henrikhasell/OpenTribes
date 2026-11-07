@@ -574,6 +574,8 @@ namespace T2Layout
       T2DbFootPuffNumParts,
       T2DbFootPuffRadius,
       T2DbDecalOffset,
+      T2DbDecalSizeX,
+      T2DbDecalSizeY,
       T2DbDustEmitter,
       T2DbGroundImpactMinSpeed,
       T2DbGroundImpactShakeFreqX,
