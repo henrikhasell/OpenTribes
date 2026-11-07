@@ -91,6 +91,8 @@ private:
       String text;
       Kind kind;
       bool open;
+      /// What is left of its slide open or shut, in milliseconds.
+      S32 slide;
       Vector<Entry> entries;
    };
 
@@ -129,6 +131,7 @@ private:
    Vector<Category> mCategories;
    Vector<EntryType> mEntryTypes;
    Hit mHover;
+   U32 mLastSlideTime;
 
    GFXTexHandle mBackdrop;
    GFXTexHandle mHeaderBitmap;
@@ -142,6 +145,8 @@ private:
    const EntryType *findEntryType(U32 type) const;
    void refresh();
    static bool listedBefore(const Entry &a, const Entry &b);
+   void setOpen(Category &cat, bool open);
+   S32  rowsHeight(const Category &cat) const;
    S32  contentHeight() const;
    Hit  hitTest(const Point2I &local) const;
    ColorI entryColor(const Entry &entry) const;
