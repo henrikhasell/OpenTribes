@@ -34,6 +34,7 @@ public:
    void setServerTarget(S32 target) { mServerTarget = target; }
    void setType(U32 type) { mType = type; }
    void setPosition(const Point3F &pos) { mPosition = pos; }
+   void setText(const char *text) { mText = StringTable->insert(text ? text : ""); }
 
    /// Become one of this client's own targets.
    bool makeTyped(U32 type, const char *text);
