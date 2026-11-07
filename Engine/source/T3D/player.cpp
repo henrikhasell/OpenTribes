@@ -54,6 +54,7 @@
 #include "T3D/physics/physicsPlugin.h"
 #include "T3D/physics/physicsPlayer.h"
 #include "T3D/decal/decalManager.h"
+#include "T3D/gameBase/decalsT2.h"   // HH: Added for Tribes 2 compatibility.
 #include "T3D/decal/decalData.h"
 #include "materials/baseMatInstance.h"
 #include "materials/materialPropertyMap.h"
@@ -566,6 +567,10 @@ bool PlayerData::unpackData(BitStream *stream, U32 classId)
    }
 
    // HH: Added for Tribes 2 compatibility.
+   // Kept for preload, which picks the footprint out of them by its class.
+   t2DataBlockIds = T2Layout::lastDataBlockIds();
+
+   // HH: Added for Tribes 2 compatibility.
    // Parked as an id, the way an image state's sound is, for preload to
    // resolve.  A sound the wire did not carry keeps what it had.
    for (U32 i = 0; i < MaxSounds; i++)
@@ -735,6 +740,16 @@ bool PlayerData::preload(bool server, String &errorStr)
    if (!decalData && decalID != 0 )
       if (!Sim::findObject(decalID, decalData))
          Con::errorf(ConsoleLogEntry::General, "PlayerData::preload Invalid packet, bad datablockId(decalData): 0x%x", decalID);
+
+   // HH: Added for Tribes 2 compatibility.
+   // The footprint is the only DecalData the body named, so it needs no node
+   // of its own: the ids the walk read are enough to find it.
+   for (U32 i = 0; !decalData && i < t2DataBlockIds.size(); i++)
+   {
+      DecalData *data;
+      if (Sim::findObject(t2DataBlockIds[i], data))
+         decalData = data;
+   }
 
    if (!dustEmitter && dustID != 0 )
       if (!Sim::findObject(dustID, dustEmitter))
@@ -3668,8 +3683,6 @@ void Player::updateActionThread()
                Point3F( pos.x, pos.y, pos.z - 2.0f ),
                TerrainObjectType | InteriorObjectType | VehicleObjectType, &rInfo ) )
          {
-            Material* material = ( rInfo.material ? dynamic_cast< Material* >( rInfo.material->getMaterial() ) : 0 );
-
             // HH: Added for Tribes 2 compatibility.
             // The sound is the terrain's property map entry's, a vehicle is
             // metal, and anything else has none.
@@ -3683,26 +3696,24 @@ void Player::updateActionThread()
                   // HH: Added for Tribes 2 compatibility.
                   // Puffs take their colours from the same entry, near the
                   // ground and out of the water.
-                  if( rInfo.t <= 0.5f && mWaterCoverage == 0.0f
-                      && mDataBlock->footPuffEmitter )
-                     emitFootPuff( pos, e );
+                  if( rInfo.t <= 0.5f && mWaterCoverage == 0.0f )
+                  {
+                     if( mDataBlock->footPuffEmitter )
+                        emitFootPuff( pos, e );
+
+                     // The print lies the way the player is facing
+                     // (0x005d60cb), and only ever on the ground: a print on
+                     // a floor or a vehicle is not a thing Tribes 2 leaves.
+                     if( mDataBlock->decalData && gDecalManagerT2 )
+                        gDecalManagerT2->addDecal( rInfo.point, rot, rInfo.normal,
+                                                   mDataBlock->decalData );
+                  }
                }
             }
             else if( rInfo.object->getTypeMask() & VehicleObjectType )
                sound = 2;
 
-            // Put footprints on surface, if appropriate for material.
 
-            if( material && material->mShowFootprints
-                && mDataBlock->decalData )
-            {
-               Point3F normal;
-               Point3F tangent;
-               mObjToWorld.getColumn( 0, &tangent );
-               mObjToWorld.getColumn( 2, &normal );
-               gDecalManager->addDecal( rInfo.point, normal, tangent, mDataBlock->decalData, getScale().y );
-            }
-            
             // Play footstep sound.
             
             playFootstepSound( triggeredLeft, sound );

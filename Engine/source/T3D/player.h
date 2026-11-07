@@ -329,6 +329,11 @@ struct PlayerData: public ShapeBaseData {
    DecalData* decalData;
    S32 decalID;
 
+   // HH: Added for Tribes 2 compatibility.
+   /// The datablocks the body named, of which the footprint is the only
+   /// DecalData; the rest are emitters, splashes and debris.
+   Vector<U32> t2DataBlockIds;
+
    ParticleEmitterData * dustEmitter;
    S32 dustID;
 
