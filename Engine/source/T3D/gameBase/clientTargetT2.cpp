@@ -4,9 +4,11 @@
 
 #include "console/consoleTypes.h"
 #include "console/engineAPI.h"
+#include "console/simBase.h"
 #include "core/stream/bitStream.h"
 #include "sim/netConnection.h"
 #include "sim/netStringTable.h"
+#include "T3D/gameBase/gameBase.h"
 #include "T3D/gameBase/gameConnection.h"
 #include "T3D/gameBase/targetManagerT2.h"
 #include "T3D/gameBase/targetsT2.h"
@@ -61,6 +63,8 @@ ClientTarget::ClientTarget()
    mServerTarget = -1;
    mLocalId = -1;
    mType = 0;
+   mKind = Location;
+   mDeathTime = 0;
    mPosition.zero();
    mText = StringTable->EmptyString();
 }
@@ -70,7 +74,7 @@ S32 ClientTarget::getTargetId() const
    return mLocalId != -1 ? mLocalId : mServerTarget;
 }
 
-bool ClientTarget::makeTyped(U32 type, const char *text)
+bool ClientTarget::makeTyped(Kind kind, const char *text)
 {
    if (mLocalId == -1)
    {
@@ -78,21 +82,86 @@ bool ClientTarget::makeTyped(U32 type, const char *text)
       smTyped.push_back(this);
    }
 
-   mType = type;
+   mKind = kind;
+   mType = typeId(kind);
    mText = StringTable->insert(text ? text : "");
+   mDeathTime = kind == PotentialTask
+              ? Sim::getCurrentTime() + PotentialTaskLife : 0;
    return true;
+}
+
+void ClientTarget::forget()
+{
+   if (mLocalId == -1)
+      return;
+
+   for (S32 i = 0; i < smTyped.size(); i++)
+      if (smTyped[i] == this)
+      {
+         smTyped.erase(i);
+         break;
+      }
+   mLocalId = -1;
+}
+
+void ClientTarget::die()
+{
+   // A waypoint is nobody's to answer, so it just goes.
+   if (mKind != PotentialTask && mKind != AssignedTask)
+   {
+      deleteObject();
+      return;
+   }
+
+   SimObjectPtr<ClientTarget> safe(this);
+   Con::executef(this, "onDie",
+                 mKind == AssignedTask ? "AssignedTask" : "PotentialTask");
+   if (safe.isNull())
+      return;
+
+   forget();
+
+   // The scripts keep a task their list still holds by moving it to a group
+   // of their own; one left where it was arrived is finished with.
+   SimGroup *group = getGroup();
+   if (!group || group == NetConnection::getConnectionToServer())
+      deleteObject();
+}
+
+void ClientTarget::update()
+{
+   const U32 now = Sim::getCurrentTime();
+   for (S32 i = smTyped.size() - 1; i >= 0; i--)
+      if (smTyped[i]->mDeathTime && smTyped[i]->mDeathTime < now)
+         smTyped[i]->die();
+
+   bool follows = false;
+   for (S32 i = 0; i < smTyped.size(); i++)
+      follows |= smTyped[i]->mServerTarget >= 0;
+
+   NetConnection *conn = NetConnection::getConnectionToServer();
+   if (!follows || !conn)
+      return;
+
+   // A task about a target is wherever the target is now.  A corpse keeps
+   // the target of the player it was, so an order about that player would
+   // otherwise follow the body it left behind.
+   for (SimSet::iterator i = conn->begin(); i != conn->end(); i++)
+   {
+      GameBase *object = dynamic_cast<GameBase *>(*i);
+      const S32 target = object ? object->getT2Target() : -1;
+      if (target < 0 || (object->getTypeMask() & CorpseObjectType))
+         continue;
+
+      for (S32 j = 0; j < smTyped.size(); j++)
+         if (smTyped[j]->mServerTarget == target)
+            smTyped[j]->mPosition = object->getWorldBox().getCenter();
+   }
 }
 
 void ClientTarget::onRemove()
 {
-   if (mLocalId != -1)
-      for (S32 i = 0; i < smTyped.size(); i++)
-         if (smTyped[i] == this)
-         {
-            smTyped.erase(i);
-            break;
-         }
-
+   forget();
    Parent::onRemove();
 }
 
@@ -143,6 +212,8 @@ public:
       mPosition = pos;
    }
 
+   /// The place comes with every order, target or not (0x005ff370): an order
+   /// about a target is still about where the commander pointed.
    void pack(NetConnection *, BitStream *stream)
    {
       writeTarget(stream, mTarget);
@@ -238,7 +309,7 @@ public:
 
       const ClientTarget::Kind kind = mAssign ? ClientTarget::AssignedTask
                                               : ClientTarget::PotentialTask;
-      target->makeTyped(ClientTarget::typeId(kind), "");
+      target->makeTyped(kind, "");
       Con::executef(target, "onAdd", mAssign ? "AssignedTask" : "PotentialTask");
    }
 
@@ -272,17 +343,18 @@ DefineEngineMethod( ClientTarget, createWaypoint, bool, (const char *text), ,
       Con::errorf("ClientTarget::cCreateWaypoint: target already typed");
       return false;
    }
-   return object->makeTyped(ClientTarget::typeId(ClientTarget::WayPoint), text);
+   return object->makeTyped(ClientTarget::WayPoint, text);
 }
 
 DefineEngineMethod( ClientTarget, addPotentialTask, bool, (), ,
-   "Show this task on the commander map until it is answered." )
+   "Offer this task again, on the map and the hud, until it is answered." )
 {
-   if (object->isTyped() &&
-       object->getType() != ClientTarget::typeId(ClientTarget::PotentialTask))
+   if (object->getKind() != ClientTarget::PotentialTask)
+      return false;
+   // One still being offered keeps the time it has left (0x0067189f).
+   if (object->isTyped())
       return true;
-   return object->makeTyped(ClientTarget::typeId(ClientTarget::PotentialTask),
-                            object->getText());
+   return object->makeTyped(ClientTarget::PotentialTask, object->getText());
 }
 
 DefineEngineMethod( ClientTarget, setText, void, (const char *text), ,
