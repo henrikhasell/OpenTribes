@@ -684,12 +684,28 @@ F32 GuiCommanderMap::textFade() const
    return (share - mMinDistanceScale) / (mMaxDistanceScale - mMinDistanceScale);
 }
 
+/// Of the icons under a point, the one whose centre is nearest it
+/// (0x65a810), so a base's icons each answer to their own middle however
+/// the players stood at them overlap.
 const GuiCommanderMap::Icon *GuiCommanderMap::iconAt(const Point2I &local) const
 {
-   for (S32 i = mIcons.size() - 1; i >= 0; i--)
-      if (mIcons[i].rect.pointInRect(local))
-         return &mIcons[i];
-   return NULL;
+   const Icon *nearest = NULL;
+   S32 nearestDist = 0;
+   for (S32 i = 0; i < mIcons.size(); i++)
+   {
+      const RectI &rect = mIcons[i].rect;
+      if (!rect.pointInRect(local))
+         continue;
+
+      const Point2I off = rect.point + rect.extent / 2 - local;
+      const S32 dist = off.x * off.x + off.y * off.y;
+      if (!nearest || dist < nearestDist)
+      {
+         nearest = &mIcons[i];
+         nearestDist = dist;
+      }
+   }
+   return nearest;
 }
 
 void GuiCommanderMap::fillPolygon(const Point2F *points, U32 count, const ColorI &color)
