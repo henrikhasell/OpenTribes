@@ -15,17 +15,28 @@ ConsoleDocClass( ShellTabButton,
    "@brief One tab of a Tribes 2 shell tab strip.\n\n"
 
    "The profile's bitmap is a grid three wide and three tall: a left cap, a "
-   "middle and a right cap, each resting, selected and lit.  Which of the "
-   "three is open is script's to say -- setValue latches a tab and nothing in "
-   "the control does.\n\n"
+   "middle and a right cap, each resting, selected and lit.  A click latches "
+   "the tab on; script turns the one it replaces off.\n\n"
 
    "@ingroup GuiShell"
 );
 
 ShellTabButton::ShellTabButton()
 {
-   mButtonType = ButtonTypePush;
+   // HH: Tribes 2's derives from GuiCheckBoxCtrl, whose action toggles the
+   // state the selected art is drawn from (0x004b3f80).
+   mButtonType = ButtonTypeCheck;
    mSliced = false;
+}
+
+void ShellTabButton::onMouseDown( const GuiEvent &event )
+{
+   // HH: An open tab takes no click, so it cannot be toggled shut and its
+   // sounds do not repeat (0x004f5150).
+   if ( mStateOn )
+      return;
+
+   Parent::onMouseDown( event );
 }
 
 bool ShellTabButton::onWake()
