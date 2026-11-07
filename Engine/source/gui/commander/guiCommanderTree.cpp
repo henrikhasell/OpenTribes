@@ -7,6 +7,7 @@
 #include "core/strings/stringUnit.h"
 #include "gfx/gfxDevice.h"
 #include "gfx/gfxDrawUtil.h"
+#include "gui/core/guiCanvas.h"
 #include "T3D/gameBase/clientTargetT2.h"
 #include "T3D/gameBase/targetManagerT2.h"
 #include "T3D/gameBase/targetsT2.h"
@@ -44,6 +45,7 @@ GuiCommanderTree::GuiCommanderTree()
    mHover.category = -1;
    mHover.entry = -1;
    mHover.onControl = false;
+   mLastSlideTime = 0;
 }
 
 void GuiCommanderTree::initPersistFields()
@@ -136,6 +138,7 @@ bool GuiCommanderTree::addCategory(const char *name, const char *text, const cha
    cat.name = StringTable->insert(name);
    cat.text = text;
    cat.open = true;
+   cat.slide = 0;
    if (!dStricmp(kind, "clients"))
       cat.kind = Clients;
    else if (!dStricmp(kind, "waypoints"))
@@ -151,8 +154,16 @@ bool GuiCommanderTree::openCategory(const char *name, bool open)
    Category *cat = findCategory(name);
    if (!cat)
       return false;
-   cat->open = open;
+   setOpen(*cat, open);
    return true;
+}
+
+/// Retail starts a slide even when nothing changes, and one asked for midway
+/// turns back from where the last one had got to.
+void GuiCommanderTree::setOpen(Category &cat, bool open)
+{
+   cat.open = open;
+   cat.slide = mClamp(mCategoryOpenTime - cat.slide, 0, mCategoryOpenTime);
 }
 
 bool GuiCommanderTree::registerEntryType(const char *category, U32 type, bool control,
@@ -296,22 +307,37 @@ void GuiCommanderTree::refresh()
    }
 }
 
+/// How much of a category's rows shows under its header: all or none of
+/// them, or a share that grows or shrinks evenly over categoryOpenTime.
+S32 GuiCommanderTree::rowsHeight(const Category &cat) const
+{
+   if (!cat.open && !cat.slide)
+      return 0;
+
+   const U32 full = mEntryHeight * (cat.entries.size() + (cat.kind == Clients ? 1 : 0));
+   if (!cat.slide)
+      return full;
+   const U32 part = full * cat.slide / mCategoryOpenTime;
+   return cat.open ? full - part : part;
+}
+
 S32 GuiCommanderTree::contentHeight() const
 {
    S32 height = 0;
    for (S32 i = 0; i < mCategories.size(); i++)
-   {
-      const Category &cat = mCategories[i];
-      height += mHeaderHeight;
-      if (cat.open)
-         height += mEntryHeight * (cat.entries.size() + (cat.kind == Clients ? 1 : 0));
-   }
+      height += mHeaderHeight + rowsHeight(mCategories[i]);
    return height;
 }
 
 void GuiCommanderTree::onPreRender()
 {
    refresh();
+
+   const U32 now = Platform::getVirtualMilliseconds();
+   const S32 elapsed = now - mLastSlideTime;
+   mLastSlideTime = now;
+   for (S32 i = 0; i < mCategories.size(); i++)
+      mCategories[i].slide = getMax(mCategories[i].slide - elapsed, 0);
 
    // Tall enough for everything, and never shorter than the scroll it is in,
    // so the backdrop reaches the bottom.
@@ -320,6 +346,12 @@ void GuiCommanderTree::onPreRender()
       height = getMax(height, parent->getHeight());
    if (height != getHeight())
       setExtent(getWidth(), height);
+
+   // Retail finds what is under the cursor every frame, so a row that
+   // slides under a still mouse lights up.
+   GuiCanvas *root = getRoot();
+   if (root && root->getMouseControl() == this)
+      mHover = hitTest(globalToLocalCoord(root->getCursorPos()));
 
    Parent::onPreRender();
 }
@@ -341,8 +373,14 @@ GuiCommanderTree::Hit GuiCommanderTree::hitTest(const Point2I &local) const
          return hit;
       }
       y += mHeaderHeight;
-      if (!cat.open)
+
+      // Rows still hidden by a slide are not there to be pointed at.
+      const S32 bottom = y + rowsHeight(cat);
+      if (local.y >= bottom)
+      {
+         y = bottom;
          continue;
+      }
 
       if (cat.kind == Clients)
       {
@@ -364,6 +402,7 @@ GuiCommanderTree::Hit GuiCommanderTree::hitTest(const Point2I &local) const
                RectI(mObjectControlRect.point + Point2I(0, y), mObjectControlRect.extent).pointInRect(local);
             return hit;
          }
+      return hit;
    }
 
    return hit;
@@ -413,10 +452,22 @@ void GuiCommanderTree::onRender(Point2I offset, const RectI &updateRect)
    else
       draw->drawRectFill(RectI(offset, getExtent()), ColorI(0, 0, 0, 255));
 
+   const RectI oldClip = GFX->getClipRect();
    S32 y = offset.y;
    for (S32 i = 0; i < mCategories.size(); i++)
    {
       const Category &cat = mCategories[i];
+      const S32 bottom = y + mHeaderHeight + rowsHeight(cat);
+
+      // A sliding category's rows stay where they are and its bottom edge
+      // passes over them.
+      RectI clip(offset.x, y, width, bottom - y);
+      if (!clip.intersect(updateRect))
+      {
+         y = bottom;
+         continue;
+      }
+      GFX->setClipRect(clip);
 
       draw->clearBitmapModulation();
       if (mHeaderBitmap)
@@ -433,7 +484,7 @@ void GuiCommanderTree::onRender(Point2I offset, const RectI &updateRect)
       }
       y += mHeaderHeight;
 
-      if (!cat.open)
+      if (y == bottom)
          continue;
 
       if (cat.kind == Clients)
@@ -486,8 +537,10 @@ void GuiCommanderTree::onRender(Point2I offset, const RectI &updateRect)
                RectI(0, 0, cell, mControlBitmap->getBitmapHeight()));
          }
       }
+      y = bottom;
    }
 
+   GFX->setClipRect(oldClip);
    draw->clearBitmapModulation();
    renderChildControls(offset, updateRect);
 }
@@ -517,7 +570,7 @@ void GuiCommanderTree::onMouseDown(const GuiEvent &event)
 
    if (hit.entry == -1)
    {
-      cat.open = !cat.open;
+      setOpen(cat, !cat.open);
       Con::executef(this, "onCategoryOpen", cat.name, Con::getIntArg(cat.open));
       return;
    }
