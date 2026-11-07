@@ -198,6 +198,10 @@ protected:
    /// Whether the commander map is open on this client, which scopes every
    /// object its team knows of.
    bool        mScopingCommanderMap = false;
+   /// What this client's next order is about: a target, or -1, and a place
+   /// (0x5fa0c0).
+   S32         mServerTarget = -1;
+   Point3F     mServerTargetPos = Point3F(0.0f, 0.0f, 0.0f);
 
    /// @name Flashing
    ////
@@ -275,6 +279,13 @@ public:
    void setSensorGroup(S32 group) { mSensorGroup = group; }
    bool isScopingCommanderMap() const    { return mScopingCommanderMap; }
    void setScopingCommanderMap(bool on) { mScopingCommanderMap = on; }
+   S32  getServerTarget() const           { return mServerTarget; }
+   const Point3F &getServerTargetPos() const { return mServerTargetPos; }
+   void setServerTarget(S32 target, const Point3F &pos)
+   {
+      mServerTarget = target;
+      mServerTargetPos = pos;
+   }
 
    /// @name Control object
    /// @{
