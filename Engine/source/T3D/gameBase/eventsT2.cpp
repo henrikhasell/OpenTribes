@@ -24,4 +24,3 @@
                                "its layout.\n\n@internal" )
 
 IMPLEMENT_EVENT_T2( SimVoiceStreamEvent );
-IMPLEMENT_EVENT_T2( TargetToEvent );
