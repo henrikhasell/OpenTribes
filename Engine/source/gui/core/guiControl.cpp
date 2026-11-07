@@ -248,9 +248,10 @@ void GuiControl::initPersistFields()
 {
    addGroup( "Layout" );
    
-      addField("position",          TypePoint2I,      Offset(mBounds.point, GuiControl),
+      // HH: Modified for Tribes 2 compatibility.
+      addProtectedField("position", TypePoint2I,      Offset(mBounds.point, GuiControl), &_setPosition, &defaultProtectedGetFn,
          "The position relative to the parent control." );
-      addField("extent",            TypePoint2I,      Offset(mBounds.extent, GuiControl),
+      addProtectedField("extent",   TypePoint2I,      Offset(mBounds.extent, GuiControl), &_setExtent, &defaultProtectedGetFn,
          "The width and height of the control." );
       addField("minExtent",         TypePoint2I,      Offset(mMinExtent, GuiControl),
          "The minimum width and height of the control. The control will not be resized smaller than this." );
@@ -905,12 +906,38 @@ void GuiControl::onGroupAdd()
 {
    Parent::onGroupAdd();
 
+   seedLayout();
+}
+
+void GuiControl::seedLayout()
+{
    if (GuiControl *parent = getParent())
    {
       mLayoutBounds = mBounds;
       mLayoutParentExtent = parent->getExtent();
       mLayoutSeeded = true;
    }
+}
+
+// HH: Added for Tribes 2 compatibility.
+// Tribes 2's scripts move and size controls by writing these fields, which
+// lays nothing out, and expect the next layout to start from what they wrote.
+bool GuiControl::_setPosition( void *object, const char *index, const char *data )
+{
+   GuiControl *ctrl = static_cast< GuiControl* >( object );
+   Con::setData( TypePoint2I, &ctrl->mBounds.point, 0, 1, &data );
+
+   ctrl->seedLayout();
+   return false;
+}
+
+bool GuiControl::_setExtent( void *object, const char *index, const char *data )
+{
+   GuiControl *ctrl = static_cast< GuiControl* >( object );
+   Con::setData( TypePoint2I, &ctrl->mBounds.extent, 0, 1, &data );
+
+   ctrl->seedLayout();
+   return false;
 }
 
 void GuiControl::onGroupRemove()

@@ -144,6 +144,9 @@ class GuiControl : public SimGroup
       Point2I                 mLayoutParentExtent; ///< The parent extent mLayoutBounds was authored against
       bool                    mLayoutSeeded; ///< Whether the two above have been set against a real parent yet
 
+      /// Lay out from the current bounds against the parent's current extent.
+      void seedLayout();
+
    protected:
    
       GuiControlProfile* mProfile;         ///< The profile for this gui (data settings that are likely to be shared by multiple guis)
@@ -308,7 +311,10 @@ class GuiControl : public SimGroup
       
       static bool _setVisible( void *object, const char *index, const char *data ) { static_cast<GuiControl*>(object)->setVisible( dAtob( data ) ); return false; };
       static bool _setActive( void *object, const char *index, const char *data ) { static_cast<GuiControl*>(object)->setActive( dAtob( data ) ); return false; };
-            
+      // HH: Added for Tribes 2 compatibility.
+      static bool _setPosition( void *object, const char *index, const char *data );
+      static bool _setExtent( void *object, const char *index, const char *data );
+
       /// @name Editor
       /// These functions are used by the GUI Editor
       /// @{
