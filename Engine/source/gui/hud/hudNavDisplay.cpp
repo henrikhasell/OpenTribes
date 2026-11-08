@@ -1,6 +1,8 @@
 #include "gui/hud/hudNavDisplay.h"
 
+#include "T3D/gameBase/clientTargetT2.h"
 #include "T3D/gameBase/gameConnection.h"
+#include "T3D/gameBase/targetManagerT2.h"
 #include "T3D/gameBase/targetsT2.h"
 #include "T3D/shapeBase.h"
 #include "T3D/staticShape.h"
@@ -449,12 +451,14 @@ void HudNavDisplay::collect(GameConnection *conn, ShapeBase *control,
       if(!(e.flags & Acquirable))
          continue;
 
+      // Only a shape is ever acquirable, so this is always one.
+      ShapeBase *shape = static_cast<ShapeBase*>(e.obj);
       const Point3F d = e.pos - camPos;
       const F32 len = d.len();
       if(len > visDist)
          continue;
 
-      if(e.obj == hit)
+      if(shape == hit)
       {
          acquired = i;
          break;
@@ -465,13 +469,13 @@ void HudNavDisplay::collect(GameConnection *conn, ShapeBase *control,
       {
          // Close up, being on the box counts as being on the shape.
          Point3F start, end;
-         e.obj->getWorldTransform().mulP(camPos, &start);
-         e.obj->getWorldTransform().mulP(camPos + fwd * mAcquireBoxCheckDistance, &end);
-         start.convolveInverse(e.obj->getScale());
-         end.convolveInverse(e.obj->getScale());
+         shape->getWorldTransform().mulP(camPos, &start);
+         shape->getWorldTransform().mulP(camPos + fwd * mAcquireBoxCheckDistance, &end);
+         start.convolveInverse(shape->getScale());
+         end.convolveInverse(shape->getScale());
 
          RayInfo boxRi;
-         if(e.obj->castRay(start, end, &boxRi))
+         if(shape->castRay(start, end, &boxRi))
             angle = 0.0f;
       }
 
@@ -493,6 +497,29 @@ void HudNavDisplay::collect(GameConnection *conn, ShapeBase *control,
       e.flags = Always;
       e.pos = point->getPosition();
       e.obj = point;
+      e.health = 0.0f;
+      e.dist = 0.0f;
+      mEntries.push_back(e);
+   }
+
+   // This client's own targets: the waypoints it has put down and the orders
+   // it has been given (0x00504e3a).  They are not in the world, so nothing
+   // above has seen them.
+   const Vector<ClientTarget*> &own = ClientTarget::typed();
+   for(U32 i = 0; i < own.size(); i++)
+   {
+      Entry e;
+      switch(own[i]->getKind())
+      {
+         case ClientTarget::PotentialTask: e.type = PotentialTask;  break;
+         case ClientTarget::AssignedTask:  e.type = AssignedTask;   break;
+         case ClientTarget::WayPoint:      e.type = ClientWaypoint; break;
+         default:                          continue;
+      }
+
+      e.flags = Always;
+      e.pos = own[i]->getPosition();
+      e.obj = own[i];
       e.health = 0.0f;
       e.dist = 0.0f;
       mEntries.push_back(e);
@@ -648,6 +675,25 @@ void HudNavDisplay::drawMarker(const GuiTSCtrl *ts, const Entry &e, Point2I at,
          distance = distText;
          if(point->mName && point->mName[0])
             name = point->mName;
+         break;
+      }
+
+      // One of this client's own targets (0x00506022): its name under it and
+      // its distance over it, and the colour of whatever it is about where
+      // that is one of the server's targets.
+      case PotentialTask:
+      case AssignedTask:
+      case ClientWaypoint:
+      {
+         ClientTarget *own = static_cast<ClientTarget*>(e.obj);
+         centre = mMarkerImages[e.type];
+         name = own->getText();
+         distance = distText;
+
+         const S32 target = own->getServerTarget();
+         if(target >= 0 && target < TargetManagerT2::MaxTargets)
+            imageColor = T2Targets::groupColor(mSensorGroup,
+                                               T2Targets::sensorGroup(target));
          break;
       }
 

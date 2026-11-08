@@ -530,7 +530,15 @@ public:
    void pack(NetConnection *, BitStream *stream) { stream->writeInt(mGroup, GroupBits); }
    void write(NetConnection *, BitStream *stream) { stream->writeInt(mGroup, GroupBits); }
    void unpack(NetConnection *, BitStream *stream) { mGroup = stream->readInt(GroupBits); }
-   void process(NetConnection *) { sClientSensorGroup = mGroup; }
+   /// 0x5feca0: the connection to the server keeps it too, which is what
+   /// its getSensorGroup answers and how the commander map's scripts tell
+   /// a friend's orders from a foe's.
+   void process(NetConnection *conn)
+   {
+      sClientSensorGroup = mGroup;
+      if (GameConnection *game = dynamic_cast<GameConnection *>(conn))
+         game->setSensorGroup(mGroup);
+   }
 
    DECLARE_CONOBJECT(SetSensorGroupEvent);
 };
