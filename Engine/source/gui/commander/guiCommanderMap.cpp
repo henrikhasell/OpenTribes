@@ -19,6 +19,7 @@
 #include "T3D/missionArea.h"
 #include "T3D/player.h"
 #include "T3D/shapeBase.h"
+#include "core/frameAllocator.h"
 #include "terrain/terrData.h"
 
 IMPLEMENT_CONOBJECT(GuiCommanderMap);
@@ -487,8 +488,10 @@ bool GuiCommanderMap::processCameraQuery(CameraQuery *query)
    return true;
 }
 
-/// The scene as the game would draw it, without fog and as far down as the
-/// ground: retail's map shows the whole mission area at any height.
+/// The ground the mission is fought over, without fog and as far down as it
+/// goes: retail's map shows the whole mission area at any height, and draws
+/// the terrain, the interiors and the water and nothing else (0x0065cf1f
+/// renders with a type mask of 0x1c). Everything that moves is an icon.
 void GuiCommanderMap::renderWorld(const RectI &updateRect)
 {
    SceneManager *scene = gClientSceneGraph;
@@ -498,7 +501,11 @@ void GuiCommanderMap::renderWorld(const RectI &updateRect)
    scene->setFogData(FogData());
    scene->setVisibleDistance(mLastCameraQuery.farPlane);
 
-   GameRenderWorld();
+   FrameAllocator::setWaterMark(0);
+   scene->renderScene(SPT_Diffuse,
+      TerrainObjectType | InteriorObjectType | WaterObjectType);
+   GFX->updateStates();
+   FrameAllocator::setWaterMark(0);
 
    scene->setFogData(fog);
    scene->setVisibleDistance(visible);
