@@ -7,6 +7,7 @@
 #include "platform/platform.h"
 #include "console/console.h"
 #include "console/consoleTypes.h"
+#include "console/engineAPI.h"
 #include "core/stream/bitStream.h"
 #include "gfx/gfxDevice.h"
 #include "gfx/gfxTextureHandle.h"
@@ -23,7 +24,9 @@
 #include "sfx/sfxSystem.h"
 #include "sfx/sfxSource.h"
 #include "sfx/sfxTrack.h"
+#include "T3D/decal/decalData.h"
 #include "T3D/gameBase/dataBlocksT2.h"
+#include "T3D/gameBase/decalsT2.h"
 #include "T3D/gameBase/processList.h"
 #include "T3D/fx/explosion.h"
 #include "T3D/fx/particleEmitter.h"
@@ -72,12 +75,19 @@ public:
    bool   hasWaterLight; ///< and has another colour under water
    ColorF waterLightColor;
 
+      /// The marks it leaves where it goes off.  A projectile's datablock
+      /// carries six of them and retail lays the first (0x0062d9c8); they
+      /// are the only DecalData its body names.
+   Vector<U32> decalIds;
+   DecalData  *decal;
+
    ProjectileDataT2();
 
       /// A bullet is seen as the streak it leaves, which is what retail draws
       /// of one, so the shape its datablock also names is never wanted.
    bool namesGameBaseShape() const { return streakLength <= 0.0f; }
    bool unpackData(BitStream *stream, U32 classId);
+   bool preload(bool server, String &errorStr);
 
    DECLARE_CONOBJECT(ProjectileDataT2);
 };
@@ -116,9 +126,29 @@ ProjectileDataT2::ProjectileDataT2()
      lightRadius(1.0f),
      lightColor(1.0f, 1.0f, 1.0f, 1.0f),
      hasWaterLight(false),
-     waterLightColor(1.0f, 1.0f, 1.0f, 1.0f)
+     waterLightColor(1.0f, 1.0f, 1.0f, 1.0f),
+     decal(NULL)
 {
    flareSize[0] = flareSize[1] = flareSize[2] = 0.0f;
+}
+
+/// The decals are the only DecalData among the datablocks a projectile's
+/// body names; the rest are its explosion, its splash, its emitters and its
+/// sounds.  Retail keeps the six it is given in the order they were sent and
+/// marks the world with the first.
+bool ProjectileDataT2::preload(bool server, String &errorStr)
+{
+   if(!Parent::preload(server, errorStr))
+      return false;
+
+   for(U32 i = 0; !decal && i < decalIds.size(); i++)
+   {
+      DecalData *data;
+      if(Sim::findObject(decalIds[i], data))
+         decal = data;
+   }
+
+   return true;
 }
 
 bool ProjectileDataT2::unpackData(BitStream *stream, U32 classId)
@@ -211,6 +241,8 @@ bool ProjectileDataT2::unpackData(BitStream *stream, U32 classId)
    if(T2Layout::lastDataBlockWord(T2Layout::T2DbProjectileWaterLightColorB, &word))
       waterLightColor.blue = T2Layout::t2Float(word, 7);
 
+   decalIds = T2Layout::lastDataBlockIds();
+
       // Every one of these layouts names its shape first and its two
       // textures after it, which for a bolt are what it is drawn with along
       // its flight and what it is drawn with end on.
@@ -290,6 +322,7 @@ class ProjectileT2 : public GameBase, public ISceneLight
    F32     mCatchUp;
    bool    mFlying;
    bool    mExploded;         ///< it only goes off once
+   bool    mMarks;            ///< what it hit takes a decal
    VectorF mImpactNormal;
    SFXSource *mSound;         ///< what it is heard as on the way
    SimObjectPtr<ParticleEmitter> mEmitter;  ///< the smoke it trails
@@ -369,6 +402,7 @@ ProjectileT2::ProjectileT2()
      mCatchUp(0.0f),
      mFlying(false),
      mExploded(false),
+     mMarks(false),
      mImpactNormal(0.0f, 0.0f, 1.0f),
      mEmitAt(0.0f, 0.0f, 0.0f),
      mEmitMS(0.0f),
@@ -630,6 +664,11 @@ void ProjectileT2::explode()
 
    mExploded = true;
 
+      // The mark it leaves goes down where it went off (0x0062d9dc), facing
+      // out of the surface it hit.
+   if(mMarks && mData && mData->decal && gDecalManagerT2)
+      gDecalManagerT2->addDecal(mPosition, mImpactNormal, mData->decal);
+
    ExplosionData *data = NULL;
    if(!mData || !mData->explosionId ||
       !Sim::findObject(mData->explosionId, data) || !data)
@@ -856,6 +895,12 @@ void ProjectileT2::step(F32 dt)
 
    mPosition = info.point;
    mImpactNormal = info.normal;
+
+      // Only the ground and a building are marked (0x0062e09b, where the
+      // mask is Tribes 2's Terrain and Interior); a shot that hits a player,
+      // a vehicle or a deployable leaves nothing behind.
+   mMarks = info.object &&
+      (info.object->getTypeMask() & (TerrainObjectType | InteriorObjectType)) != 0;
 
    const bool damageable = info.object &&
       (info.object->getTypeMask() & sProjectileDamageableMask) != 0;

@@ -136,6 +136,9 @@ namespace T2Protocol
       { "PlayerData", 144, OpRaw, 32, T2DbGroundImpactShakeDuration },
       { "PlayerData", 145, OpRaw, 32, T2DbGroundImpactShakeFalloff  },
 
+      { "DecalData", 0, OpRaw, 32, T2DbDecalSizeX },
+      { "DecalData", 1, OpRaw, 32, T2DbDecalSizeY },
+
       { "ExplosionData",   7, OpInt,   14, T2DbPlaySpeed          },
       { "ExplosionData",  16, OpInt,   16, T2DbDelayMS            },
       { "ExplosionData",  17, OpInt,   16, T2DbDelayVariance      },

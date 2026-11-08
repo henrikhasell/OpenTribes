@@ -91,6 +91,10 @@ class DecalManager : public SceneObject
       // [rene, 11-Mar-11] This vector is very poorly managed; the logic is spread all over the place
       Vector<DecalInstance *> mDecalInstanceVec;
 
+      // HH: Modified for Tribes 2 compatibility.
+      // $pref::decalsOn, which Tribes 2's own decals answer to as well.
+      static bool smDecalsOn;
+
    protected:
       
       /// The clipper we keep around between decal updates
@@ -133,8 +137,7 @@ class DecalManager : public SceneObject
       /// Whether to render visualizations for debugging in the editor.
       static bool smDebugRender;
 
-      static bool smDecalsOn;
-      static F32 smDecalLifeTimeScale;   
+      static F32 smDecalLifeTimeScale;
       static bool smPoolBuffers;
       static const U32 smMaxVerts;
       static const U32 smMaxIndices;
