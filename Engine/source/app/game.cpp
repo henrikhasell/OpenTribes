@@ -40,6 +40,7 @@
 #include "T2D/oldModel/networking/t2dNetworkClientSceneProcess.h"
 #else
 #include "T3D/gameBase/gameConnection.h"
+#include "T3D/gameBase/clientTargetT2.h"   // HH: Added for Tribes 2 compatibility.
 #include "T3D/gameFunctions.h"
 #include "T3D/gameBase/gameProcess.h"
 #endif
@@ -243,6 +244,11 @@ bool clientProcess(U32 timeDelta)
 #endif
 
    ITickable::advanceTime(timeDelta);
+
+   // HH: Added for Tribes 2 compatibility.
+   // Retail sweeps this client's own targets once a client process
+   // (0x00602430), which is what takes an answered order off the map.
+   ClientTarget::update();
 
 #ifndef TORQUE_TGB_ONLY
    // Determine if we're lagging

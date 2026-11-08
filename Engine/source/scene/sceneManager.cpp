@@ -382,7 +382,11 @@ void SceneManager::_renderScene( SceneRenderState* state, U32 objectMask, SceneZ
    // Note that we are forcing the player object into ALL passes here but such
    // is the power of proliferation of things done wrong.
 
-   GameConnection* connection = GameConnection::getConnectionToServer();
+   // HH: Modified for Tribes 2 compatibility.
+   // A pass that asked not to see players does not want one forced on it:
+   // the commander map draws the ground and nothing that stands on it.
+   GameConnection* connection = ( objectMask & PlayerObjectType )
+                              ? GameConnection::getConnectionToServer() : NULL;
    if( connection )
    {
       Player* player = dynamic_cast< Player* >( connection->getControlObject() );

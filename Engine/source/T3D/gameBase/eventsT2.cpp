@@ -23,6 +23,4 @@
    ConsoleDocClass( className, "@brief A Tribes 2 event the port reads by "  \
                                "its layout.\n\n@internal" )
 
-IMPLEMENT_EVENT_T2( SetServerTargetEvent );
 IMPLEMENT_EVENT_T2( SimVoiceStreamEvent );
-IMPLEMENT_EVENT_T2( TargetToEvent );

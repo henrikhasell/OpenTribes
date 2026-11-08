@@ -22,6 +22,7 @@
 
 #include "platform/platform.h"
 #include "T3D/gameBase/gameConnection.h"
+#include "T3D/gameBase/targetManagerT2.h"   // HH: Added for Tribes 2 compatibility.
 #include "T3D/gameBase/targetsT2.h"      // HH: Added for Tribes 2 compatibility.
 #include "T3D/gameBase/t2Layout.h"      // HH: Added for Tribes 2 compatibility.
 #include "T3D/gameBase/demoT2.h"        // HH: Added for Tribes 2 compatibility.
@@ -1558,8 +1559,31 @@ void GameConnection::play3D(SFXProfile* profile, const MatrixF *transform)
 
 void GameConnection::doneScopingScene()
 {
-   // Could add special post-scene scoping here, such as scoping
-   // objects not visible to the camera, but visible to sensors.
+   // HH: Added for Tribes 2 compatibility.
+   // The commander map draws what the team knows of wherever it is, so while
+   // it is open every object on the team, or always shown to it, is scoped.
+   if (!mScopingCommanderMap)
+      return;
+
+   Vector<SceneObject *> shapes;
+   gServerContainer.findObjectList(ShapeBaseObjectType, &shapes);
+
+   TargetManagerT2 *targets = TargetManagerT2::server();
+   for (S32 i = 0; i < shapes.size(); i++)
+   {
+      GameBase *obj = static_cast<GameBase *>(shapes[i]);
+      if (!obj->isGhostable())
+         continue;
+
+      const S32 target = obj->getT2Target();
+      if (target < TargetManagerT2::TeamTargets ||
+          target >= TargetManagerT2::MaxTargets)
+         continue;
+
+      if (targets->getTarget(target).sensorGroup == mSensorGroup ||
+          targets->isTargetVisible(target, mSensorGroup))
+         objectInScope(obj);
+   }
 }
 
 void GameConnection::preloadDataBlock(SimDataBlock *db)

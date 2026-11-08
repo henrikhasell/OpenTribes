@@ -87,7 +87,9 @@ private:
       MarkerType  type;
       U32         flags;
       Point3F     pos;
-      SceneObject *obj;
+      /// What the marker is on: a shape, a mission waypoint, a beacon, or
+      /// one of this client's own targets, which is no scene object at all.
+      SimObject   *obj;
       F32         health;
       F32         dist;
    };

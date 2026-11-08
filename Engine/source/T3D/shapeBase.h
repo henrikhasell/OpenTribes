@@ -602,6 +602,13 @@ public:
    StringTableEntry  cmdMiniIconName;
    GameBaseData*     cmdIcon;
    S32               cmdIconID;
+   /// How far its sensor reaches and the colour the map rings that in, or
+   /// none where sensorRadius is 0.
+   S32               sensorRadius;
+   ColorI            sensorColor;
+   /// Whether a teammate can take it over, or watch through it, from the map.
+   bool              canControl;
+   bool              canObserve;
 
    /// @name Physical Properties
    /// @{
