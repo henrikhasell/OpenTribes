@@ -665,6 +665,7 @@ protected:
    // HH: Added for Tribes 2 compatibility.
    F32 getCloakAlpha( bool image ) const override;
    void readT2Action( const T2Layout::Body &body );
+   void readT2Arm( const T2Layout::Body &body );
 
    void setPosition(const Point3F& pos,const Point3F& viewRot);
    void setRenderPosition(const Point3F& pos,const Point3F& viewRot,F32 dt=-1);
