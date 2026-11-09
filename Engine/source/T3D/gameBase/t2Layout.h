@@ -98,6 +98,8 @@ namespace T2Layout
       bool    actionFirstPerson;
       bool    hasActionPos;
       F32     actionPos;            ///< how far through the thread, -1..1
+      bool    hasImpactSound;
+      U32     impactSound;          ///< what the player landed on, or 0
       bool    hasInvincible;
       F32     invincibleTime;
       F32     invincibleSpeed;
