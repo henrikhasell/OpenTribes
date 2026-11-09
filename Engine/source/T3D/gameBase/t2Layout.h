@@ -289,6 +289,8 @@ namespace T2Layout
       T2DbFlareSize0,
       T2DbFlareSize1,
       T2DbFlareSize2,
+      T2DbBurnSize,                 ///< metres across a burning flare is seen
+      T2DbUseLensFlare,
       T2DbScaleX,
       T2DbScaleY,
       T2DbScaleZ,

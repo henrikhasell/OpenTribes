@@ -398,6 +398,25 @@ namespace T2Protocol
       { "GrenadeProjectileData", 31, OpRaw, 32, T2DbProjectileLifetime },
 
       { "GrenadeProjectileData", 51, OpDataBlockId, 11, T2DbExplosion   },
+
+   // A flare is a grenade with four nodes more: its size and whether it
+   // wants a lens flare, then its two textures. Its 62-node layout is the
+   // grenade's 58 with those in the middle, so the physics run is at the
+   // same nodes and everything past it has moved by four.
+      { "FlareProjectileData", 24, OpRaw, 32, T2DbArmingDelay        },
+      { "FlareProjectileData", 25, OpRaw, 32, T2DbProjectileVelocity },
+      { "FlareProjectileData", 26, OpRaw, 32, T2DbElasticity         },
+      { "FlareProjectileData", 27, OpRaw, 32, T2DbFriction           },
+      { "FlareProjectileData", 28, OpRaw, 32, T2DbProjectileDrag     },
+      { "FlareProjectileData", 29, OpRaw, 32, T2DbProjectileDensity  },
+      { "FlareProjectileData", 30, OpRaw, 32, T2DbGravityMod         },
+      { "FlareProjectileData", 31, OpRaw, 32, T2DbProjectileLifetime },
+      { "FlareProjectileData", 32, OpRaw, 32, T2DbBurnSize           },
+      { "FlareProjectileData", 33, OpRaw,  8, T2DbUseLensFlare       },
+      { "FlareProjectileData", 52, OpDataBlockId, 11, T2DbProjectileSound },
+      { "FlareProjectileData", 55, OpDataBlockId, 11, T2DbExplosion       },
+      { "FlareProjectileData", 58, OpDataBlockId, 11,
+        T2DbProjectileBaseEmitter },
    // baseEmitter, the first of the run, which ProjectileData::packData
    // writes from 0xe8 (0x631107).
       { "GrenadeProjectileData", 54, OpDataBlockId, 11,

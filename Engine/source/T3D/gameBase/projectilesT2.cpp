@@ -68,6 +68,8 @@ public:
    U32    numFlares;       ///< the petals a plasma bolt is seen as
    F32    flareSize[3];    ///< how far out they start and end
    ColorF flareColor;
+   F32    burnSize;        ///< metres across a burning flare is drawn, and
+                           ///< zero for everything that does not burn
    bool   faceViewer;      ///< its shape is turned to the camera
    bool   hasLight;        ///< it lights what it flies past
    F32    lightRadius;
@@ -121,6 +123,7 @@ ProjectileDataT2::ProjectileDataT2()
      blurColor(1.0f, 1.0f, 1.0f, 1.0f),
      numFlares(0),
      flareColor(1.0f, 1.0f, 1.0f, 1.0f),
+     burnSize(0.0f),
      faceViewer(false),
      hasLight(false),
      lightRadius(1.0f),
@@ -218,6 +221,8 @@ bool ProjectileDataT2::unpackData(BitStream *stream, U32 classId)
       flareSize[1] = value;
    if(T2Layout::lastDataBlockField(T2Layout::T2DbFlareSize2, &value))
       flareSize[2] = value;
+   if(T2Layout::lastDataBlockField(T2Layout::T2DbBurnSize, &value))
+      burnSize = value;
    if(T2Layout::lastDataBlockWord(T2Layout::T2DbFaceViewer, &word))
       faceViewer = word != 0;
       // The light is only on the wire behind hasLight, and its radius goes
@@ -240,6 +245,7 @@ bool ProjectileDataT2::unpackData(BitStream *stream, U32 classId)
       waterLightColor.green = T2Layout::t2Float(word, 7);
    if(T2Layout::lastDataBlockWord(T2Layout::T2DbProjectileWaterLightColorB, &word))
       waterLightColor.blue = T2Layout::t2Float(word, 7);
+
 
    decalIds = T2Layout::lastDataBlockIds();
 
@@ -271,6 +277,7 @@ IMPLEMENT_PROJECTILE_DATA_T2( GrenadeProjectileData );
 IMPLEMENT_PROJECTILE_DATA_T2( LinearFlareProjectileData );
 IMPLEMENT_PROJECTILE_DATA_T2( LinearProjectileData );
 IMPLEMENT_PROJECTILE_DATA_T2( TracerProjectileData );
+IMPLEMENT_PROJECTILE_DATA_T2( FlareProjectileData );
 
 //----------------------------------------------------------------------------
 
@@ -350,6 +357,7 @@ class ProjectileT2 : public GameBase, public ISceneLight
    void drawStreak(const Point3F &eye);
    void drawBolt(const Point3F &eye);
    void drawCross(const Point3F &eye);
+   void drawBurn(const SceneRenderState *state, F32 clear);
    void spawnFlare(Flare &flare);
    void drawFlares(F32 clear);
    void drawGlow(const SceneRenderState *state, F32 clear);
@@ -499,12 +507,20 @@ bool ProjectileT2::onNewDataBlock(GameBaseData *dptr, bool reload)
          spawnFlare(mFlares[i]);
    }
 
+      // A flare is drawn as a shape and as a burning sprite over it, so the
+      // textures are wanted either way round.
+   for(U32 i = 0; i < 2; i++)
+      if(mData->texture[i].isNotEmpty())
+         mTexture[i].set(String("textures/") + mData->texture[i],
+                         &GFXDefaultStaticDiffuseProfile, "ProjectileT2");
+
+
    if(bool(mData->mShape))
    {
       mShapeInstance = new TSShapeInstance(mData->mShape, isClientObject());
       mObjBox = mData->mShape->bounds;
       resetWorldBox();
-      mBoxReach = 0.0f;
+      mBoxReach = mData->burnSize * 0.5f;
 
          // The spin of a disc is in the shape, not in the transform: it
          // carries Ambient, Activate and Maintain, and a projectile that
@@ -517,11 +533,6 @@ bool ProjectileT2::onNewDataBlock(GameBaseData *dptr, bool reload)
    }
    else
    {
-      for(U32 i = 0; i < 2; i++)
-         if(mData->texture[i].isNotEmpty())
-            mTexture[i].set(String("textures/") + mData->texture[i],
-                            &GFXDefaultStaticDiffuseProfile, "ProjectileT2");
-
          // A bolt is drawn five metres long and trails a fifth of a second
          // behind itself, and none of that is inside a box the size of the
          // point it is at -- which would have the scene cull the lot.
@@ -989,7 +1000,7 @@ void ProjectileT2::prepRenderImage(SceneRenderState *state)
       mShapeInstance->setDetailFromPosAndScale(state, at, mData->scale);
       mShapeInstance->animate();
       mShapeInstance->render(rdata);
-      if(mFlares.empty())
+      if(mFlares.empty() && mData->burnSize <= 0.0f)
          return;
    }
    else if(mTexture[0].isNull() && mTrail.empty())
@@ -1077,6 +1088,15 @@ void ProjectileT2::renderBolt(ObjectRenderInst *, SceneRenderState *state,
    const F32 clear = 1.0f - fogBetween(state->getSceneManager()->getFogData(),
                                        eye, getRenderPosition());
    drawFlares(clear);
+
+      // A flare burns whether or not its shape is drawn, and is the only
+      // projectile that is both.
+   if(mData->burnSize > 0.0f)
+   {
+      drawBurn(state, clear);
+      return;
+   }
+
    if(mShapeInstance)
       return;
 
@@ -1288,6 +1308,49 @@ void ProjectileT2::drawCross(const Point3F &eye)
    PrimBuild::end();
 }
 
+/// A burning flare is one square of its texture, held square to the view and
+/// as many metres across as the datablock's size, added into the scene the
+/// way the bolt quads are. Everything else a flare does -- the bounce, the
+/// sparks, the burning sound -- is a grenade's, and already here.
+void ProjectileT2::drawBurn(const SceneRenderState *state, F32 clear)
+{
+   if(mTexture[0].isNull() || clear <= 0.0f)
+      return;
+
+   const Point3F at = getRenderTransform().getPosition();
+
+   VectorF toEye = state->getCameraPosition() - at;
+   if(toEye.isZero())
+      return;
+   toEye.normalize();
+
+   VectorF right = mCross(toEye, Point3F(0.0f, 0.0f, 1.0f));
+   if(right.len() < 0.001f)
+      right = mCross(toEye, Point3F(1.0f, 0.0f, 0.0f));
+   right.normalize();
+   const VectorF up = mCross(right, toEye);
+
+   const F32 half = mData->burnSize * 0.5f;
+   const Point3F r = right * half;
+   const Point3F u = up * half;
+
+   GFX->setStateBlock(boltStateBlock());
+   GFX->setupGenericShaders(GFXDevice::GSModColorTexture);
+   GFX->setTexture(0, mTexture[0]);
+
+   PrimBuild::color4f(clear, clear, clear, 1.0f);
+   PrimBuild::begin(GFXTriangleFan, 4);
+   PrimBuild::texCoord2f(0.0f, 0.0f);
+   PrimBuild::vertex3fv(at - r + u);
+   PrimBuild::texCoord2f(0.0f, 1.0f);
+   PrimBuild::vertex3fv(at - r - u);
+   PrimBuild::texCoord2f(1.0f, 1.0f);
+   PrimBuild::vertex3fv(at + r - u);
+   PrimBuild::texCoord2f(1.0f, 0.0f);
+   PrimBuild::vertex3fv(at + r + u);
+   PrimBuild::end();
+}
+
 /// A fresh flare, from the ranges retail's advance draws one from
 /// (0x0063dfe3): it starts out reaching size[1] and a little more, ends
 /// reaching size[2] and up to a metre more, peaks inside the first 0.4 of a
@@ -1463,6 +1526,7 @@ IMPLEMENT_PROJECTILE_T2( GrenadeProjectile, false );
 IMPLEMENT_PROJECTILE_T2( LinearFlareProjectile, false );
 IMPLEMENT_PROJECTILE_T2( LinearProjectile, false );
 IMPLEMENT_PROJECTILE_T2( TracerProjectile, false );
+IMPLEMENT_PROJECTILE_T2( FlareProjectile, false );
 
 //----------------------------------------------------------------------------
 
