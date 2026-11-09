@@ -553,6 +553,15 @@ namespace T2Protocol
       { "RepairProjectileData", 31, OpRaw, 32, T2DbRepairCutoffAngle  },
       { "RepairProjectileData", 50, OpDataBlockId, 11, T2DbProjectileSound },
 
+   // ELFProjectileData's run, read off the wire and checked against BasicELF:
+   // 38, 0.1, 9, 0.25, 0.1, 0.15.
+      { "ELFProjectileData", 24, OpRaw, 32, T2DbBeamRange         },
+      { "ELFProjectileData", 25, OpRaw, 32, T2DbElfBeamWidth      },
+      { "ELFProjectileData", 26, OpRaw, 32, T2DbElfBeamSpeed      },
+      { "ELFProjectileData", 27, OpRaw, 32, T2DbElfBeamRepeat     },
+      { "ELFProjectileData", 28, OpRaw, 32, T2DbElfLightningWidth },
+      { "ELFProjectileData", 29, OpRaw, 32, T2DbElfLightningDist  },
+
       { "SniperProjectileData", 24, OpRaw,   32, T2DbBeamRange              },
       { "SniperProjectileData", 26, OpColor, 32, T2DbBeamColor              },
       { "SniperProjectileData", 27, OpRaw,   32, T2DbBeamFadeTime           },
