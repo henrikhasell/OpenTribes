@@ -32,6 +32,8 @@ namespace T2Protocol
       T2FieldExplodeWords,
       T2FieldImpactWords,
       T2FieldCurrTick,
+      T2FieldBeamTarget,            ///< readInt(bits), the ghost index of
+                                    ///  the object a beam has hold of
       T2FieldSourceObject,
       T2FieldSourceSlot,
       T2FieldVehicleObject,
@@ -322,6 +324,15 @@ namespace T2Protocol
       { cls, 12, OpInt,    11, T2FieldSourceObject  },                 \
       { cls, 13, OpSelect,  3, T2FieldSourceSlot    },                 \
       { cls, 14, OpFlag,    1, T2FieldBeamFollow    },
+
+   // RepairProjectile's eleven nodes: GameBase's datablock at 10, its target
+   // at 9, then the source and the slot the beam leaves by. Node 7 carries
+   // the object being held, but only for a slot other than zero, and the
+   // repair gun is in zero -- so nothing here can say what it is.
+      { "RepairProjectile",  9, OpReadBr,  9, T2FieldTarget       },
+      { "RepairProjectile",  5, OpInt,    11, T2FieldSourceObject },
+      { "RepairProjectile",  6, OpSelect,  3, T2FieldSourceSlot   },
+      { "RepairProjectile",  7, OpInt,    11, T2FieldBeamTarget   },
 
       T2_BEAM_PROJECTILE_FIELDS( "SniperProjectile" )
       T2_BEAM_PROJECTILE_FIELDS( "TargetProjectile" )

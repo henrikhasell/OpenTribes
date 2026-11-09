@@ -33,6 +33,7 @@
 #include "T3D/fx/splash.h"
 #include "T3D/gameBase/t2Layout.h"
 #include "T3D/objectTypes.h"
+#include "T3D/gameBase/gameConnection.h"
 #include "T3D/gameBase/gravityT2.h"
 #include "T3D/shapeBase.h"
 #include "environment/waterBlock.h"
@@ -2055,3 +2056,630 @@ void BeamProjectileT2::renderBeam(ObjectRenderInst *, SceneRenderState *state,
 // beam's 0.15 seconds.
 IMPLEMENT_BEAM_T2( SniperProjectile, true,  0.32f );
 IMPLEMENT_BEAM_T2( TargetProjectile, false, 0.15f );
+
+//----------------------------------------------------------------------------
+
+/// What a repair beam's datablock says about how it is drawn. It shares only
+/// its range with the sniper's beam, so it is its own class rather than more
+/// fields on that one: a width, the segments it is built from, how fast the
+/// texture runs along it, how often that texture repeats, how often it leaves
+/// a fading copy of itself behind and how long one of those lives, and the
+/// angle off the muzzle it will still be drawn at.
+class RepairProjectileDataT2 : public DataBlockT2
+{
+   typedef DataBlockT2 Parent;
+
+public:
+   F32    range;
+   F32    width;
+   U32    segments;
+   F32    speed;
+   F32    texRepeat;
+   F32    blurFreq;
+   F32    blurLifetime;
+   F32    cutoffAngle;      ///< degrees
+   U32    soundId;
+   String textureName[2];
+   GFXTexHandle texture[2];
+
+   RepairProjectileDataT2();
+   bool unpackData(BitStream *stream, U32 classId);
+   bool preload(bool server, String &errorStr);
+
+   DECLARE_CONOBJECT(RepairProjectileDataT2);
+};
+
+IMPLEMENT_CONOBJECT(RepairProjectileDataT2);
+
+ConsoleDocClass( RepairProjectileDataT2,
+   "@brief What a Tribes 2 repair beam's datablock says about how it is "
+   "drawn.\n\n@internal" );
+
+RepairProjectileDataT2::RepairProjectileDataT2()
+   : range(10.0f),
+     width(0.15f),
+     segments(20),
+     speed(1.0f),
+     texRepeat(0.2f),
+     blurFreq(10.0f),
+     blurLifetime(1.0f),
+     cutoffAngle(25.0f),
+     soundId(0)
+{
+}
+
+bool RepairProjectileDataT2::unpackData(BitStream *stream, U32 classId)
+{
+   if(!Parent::unpackData(stream, classId))
+      return false;
+
+   F32 value;
+   U32 word;
+   if(T2Layout::lastDataBlockField(T2Layout::T2DbBeamRange, &value))
+      range = value;
+   if(T2Layout::lastDataBlockField(T2Layout::T2DbRepairWidth, &value))
+      width = value;
+   if(T2Layout::lastDataBlockWord(T2Layout::T2DbRepairSegments, &word))
+      segments = word ? word : 1;
+   if(T2Layout::lastDataBlockField(T2Layout::T2DbRepairSpeed, &value))
+      speed = value;
+   if(T2Layout::lastDataBlockField(T2Layout::T2DbRepairTexRepeat, &value))
+      texRepeat = value;
+   if(T2Layout::lastDataBlockField(T2Layout::T2DbRepairBlurFreq, &value))
+      blurFreq = value;
+   if(T2Layout::lastDataBlockField(T2Layout::T2DbRepairBlurLifetime, &value))
+      blurLifetime = value;
+   if(T2Layout::lastDataBlockField(T2Layout::T2DbRepairCutoffAngle, &value))
+      cutoffAngle = value;
+   if(T2Layout::lastDataBlockWord(T2Layout::T2DbProjectileSound, &word))
+      soundId = word;
+
+      // The shape name comes first, as it does for every projectile; the
+      // beam's two textures are the strings after it.
+   const Vector<String> &strings = T2Layout::lastStrings();
+   for(U32 i = 0; i < 2 && i + 1 < strings.size(); i++)
+      textureName[i] = strings[i + 1];
+
+   return true;
+}
+
+bool RepairProjectileDataT2::preload(bool server, String &errorStr)
+{
+   if(!Parent::preload(server, errorStr))
+      return false;
+
+   if(!server)
+      for(U32 i = 0; i < 2; i++)
+         if(textureName[i].isNotEmpty())
+            texture[i].set(String("textures/") + textureName[i],
+                           &GFXDefaultStaticDiffuseProfile,
+                           "RepairProjectileT2");
+
+   return true;
+}
+
+/// Tribes 2 does not draw a beam as a straight line. It fits a quadratic to
+/// three points -- the muzzle, a control point one beam-length along the gun's
+/// barrel, and the far end -- and walks that. The weighting is its own:
+/// P(t) = (p2 - p1)t^2 + (p1 - p0)t + p0, which passes through p0 and p2 and
+/// leaves p0 along p1, so the beam exits down the barrel and bends to whatever
+/// it has hold of.
+struct T2BeamCurve
+{
+   Point3F quad;
+   Point3F lin;
+   Point3F con;
+
+   void set(const Point3F &p0, const Point3F &p1, const Point3F &p2)
+   {
+      quad = p2 - p1;
+      lin  = p1 - p0;
+      con  = p0;
+   }
+
+   Point3F at(F32 t) const { return quad * (t * t) + lin * t + con; }
+};
+
+/// A strip of quads along a curve, each turned flat into the view, with the
+/// texture running along it. The texture repeats over the straight distance
+/// between the curve's ends times the datablock's repeat -- a multiplier, not
+/// a divisor -- and slides along by the scroll it is given.
+///
+/// Tribes 2 has two of these: one for a beam, which leaves the colour to its
+/// caller (0x0044da90), and one for a fading copy of a beam, which carries a
+/// colour and draws the first pair of corners at no alpha at all so that the
+/// copy comes out of the muzzle rather than starting there (0x0044de00).
+static void drawT2BeamRibbon(const T2BeamCurve &curve, U32 segments,
+                             F32 halfWidth, F32 scroll, F32 repeats,
+                             const Point3F &eye, const ColorF *color = NULL)
+{
+   if(segments < 2)
+      return;
+
+   const F32 span = (curve.at(1.0f) - curve.at(0.0f)).len() * repeats;
+   const F32 step = 1.0f / F32(segments);
+
+   PrimBuild::begin(GFXTriangleStrip, segments * 2);
+   for(U32 i = 0; i < segments; i++)
+   {
+      const F32 t = F32(i) / F32(segments - 1);
+      const Point3F p = curve.at(t);
+
+         // The last point has nothing after it to look towards, so it takes
+         // the direction it arrived from instead.
+      VectorF along = i + 1 == segments
+                         ? p - curve.at(F32(segments - 1) / F32(segments))
+                         : curve.at(t + step) - p;
+      if(along.isZero())
+         continue;
+      along.normalize();
+
+         // Tribes 2 drops a point only when the step along the curve is
+         // degenerate, never when the corner offset is (0x0044dfb2). Dropping
+         // one pair out of a strip welds the strip across the gap, which puts
+         // a triangle the width of the beam across the view.
+      VectorF across = mCross(along, p - eye);
+      if(across.isZero())
+         across.set(0.0f, 0.0f, 0.0f);
+      else
+      {
+         across.normalize();
+         across *= halfWidth;
+      }
+
+      if(color)
+         PrimBuild::color4f(color->red, color->green, color->blue,
+                            i == 0 ? 0.0f : color->alpha);
+
+      const F32 u = span * t + scroll;
+      PrimBuild::texCoord2f(u, 0.0f); PrimBuild::vertex3fv(p + across);
+      PrimBuild::texCoord2f(u, 1.0f); PrimBuild::vertex3fv(p - across);
+   }
+   PrimBuild::end();
+}
+
+/// A beam runs from its source's muzzle to whatever it has hold of, and stays
+/// there while the trigger is down: the server sends it once with the two
+/// objects and the client keeps both ends on them.
+class RepairProjectileT2 : public GameBase
+{
+   typedef GameBase Parent;
+
+protected:
+      /// What a repair beam leaves behind it: a copy of the curve it was
+      /// drawn along, which fades and widens where it stands until it has
+      /// outlived the datablock's blurLifetime. Tribes 2 keeps room for five
+      /// (0x00645c40 walks this+0x360 five times in steps of 0x58).
+   enum { NumBlurs = 5 };
+
+   struct Blur
+   {
+      F32 age;
+      F32 life;
+      F32 alpha;
+      T2BeamCurve curve;
+   };
+
+   RepairProjectileDataT2 *mData;
+   SimObjectId mSourceObject;
+   U32         mSourceSlot;
+   SimObjectId mTargetObject;
+   F32         mElapsed;
+   F32         mBlurTime;
+   Point3F     mStart;
+   VectorF     mAim;
+   Point3F     mHit;
+   Point3F     mEnd;
+   bool        mEndPlaced;
+   T2BeamCurve mCurve;
+   bool        mHaveEnds;
+   Blur        mBlur[NumBlurs];
+   GFXStateBlockRef mBeamSB;
+   GFXStateBlockRef mFlareSB;
+
+   ShapeBase *resolve(SimObjectId id) const;
+   void ageBlur(F32 dt);
+   bool flareVisible(const Point3F &eye);
+   void drawFlare(const Point3F &eye) const;
+   void drawBlur(const Point3F &eye) const;
+   virtual void renderBeam(ObjectRenderInst *ri, SceneRenderState *state,
+                           BaseMatInstance *overrideMat);
+
+public:
+   RepairProjectileT2();
+
+   bool onAdd();
+   void onRemove();
+   bool onNewDataBlock(GameBaseData *dptr, bool reload);
+   void onT2BodyRead(const T2Layout::Body &body);
+   virtual void advanceTime(F32 dt);
+   void prepRenderImage(SceneRenderState *state);
+
+   DECLARE_CONOBJECT(RepairProjectileT2);
+};
+
+IMPLEMENT_CONOBJECT(RepairProjectileT2);
+
+ConsoleDocClass( RepairProjectileT2,
+   "@brief A Tribes 2 repair beam.\n\n@internal" );
+
+RepairProjectileT2::RepairProjectileT2()
+   : mData(NULL),
+     mSourceObject(0),
+     mSourceSlot(0),
+     mTargetObject(0),
+     mElapsed(0.0f),
+     mBlurTime(0.0f),
+     mStart(0.0f, 0.0f, 0.0f),
+     mAim(0.0f, 1.0f, 0.0f),
+     mHit(0.0f, 0.0f, 0.0f),
+     mEnd(0.0f, 0.0f, 0.0f),
+     mEndPlaced(false),
+     mHaveEnds(false)
+{
+   mTypeMask |= ProjectileObjectType;
+
+   for(U32 i = 0; i < NumBlurs; i++)
+   {
+      mBlur[i].age   = 0.0f;
+      mBlur[i].life  = 0.0f;
+      mBlur[i].alpha = 0.0f;
+   }
+}
+
+bool RepairProjectileT2::onAdd()
+{
+   if(!Parent::onAdd())
+      return false;
+
+      // Both ends move with the objects they are on, so the beam is given
+      // the same global box the other beams have rather than one that would
+      // have to be chased every tick.
+   setGlobalBounds();
+   resetWorldBox();
+   addToScene();
+   return true;
+}
+
+void RepairProjectileT2::onRemove()
+{
+   removeFromScene();
+   Parent::onRemove();
+}
+
+bool RepairProjectileT2::onNewDataBlock(GameBaseData *dptr, bool reload)
+{
+   mData = dynamic_cast<RepairProjectileDataT2 *>(dptr);
+   if(!mData || !Parent::onNewDataBlock(dptr, reload))
+      return false;
+
+   return true;
+}
+
+ShapeBase *RepairProjectileT2::resolve(SimObjectId id) const
+{
+   ShapeBase *obj = NULL;
+   if(id)
+      Sim::findObject(id, obj);
+   return obj;
+}
+
+void RepairProjectileT2::onT2BodyRead(const T2Layout::Body &body)
+{
+   Parent::onT2BodyRead(body);
+
+   NetConnection *conn = NetConnection::getConnectionToServer();
+
+   if(body.hasSourceObject)
+   {
+      NetObject *obj = conn ? conn->resolveGhost(S32(body.sourceObject))
+                            : NULL;
+      mSourceObject = obj ? obj->getId() : 0;
+      mSourceSlot = getMin(body.sourceSlot,
+                           U32(ShapeBase::MaxMountedImages - 1));
+   }
+
+   if(body.hasBeamTarget)
+   {
+      NetObject *obj = conn ? conn->resolveGhost(S32(body.beamTarget))
+                            : NULL;
+      mTargetObject = obj ? obj->getId() : 0;
+   }
+}
+
+/// RepairProjectile::advanceTime (0x006457d0). Both of a beam's ends are
+/// objects, so it is placed from scratch every frame rather than flown.
+void RepairProjectileT2::advanceTime(F32 dt)
+{
+   Parent::advanceTime(dt);
+
+   if(!mData || dt <= 0.0f)
+      return;
+
+      // Nothing is drawn at all without both ends: Tribes 2 leaves from here
+      // before it has a muzzle to run from (0x006457ee).
+   ShapeBase *src = resolve(mSourceObject);
+   ShapeBase *dst = resolve(mTargetObject);
+   mHaveEnds = src != NULL && dst != NULL;
+   if(!mHaveEnds)
+      return;
+
+   mElapsed += dt;
+   mBlurTime += dt;
+
+   src->getRenderMuzzlePoint(mSourceSlot, &mStart);
+
+      // Not the muzzle node's own forward. Tribes 2's getRenderMuzzleVector
+      // bends it onto whatever is straight ahead of the firer's eye, and it
+      // does so for a ghost as well as for the player this machine drives --
+      // the connection it asks is the one the ghost came down, which every
+      // client has. weapon_elf.dts's Muzzlepoint node faces up, so without
+      // the bend the beam leaves the gun into the sky.
+   MatrixF muzzle;
+   src->getRenderMuzzleTransform(mSourceSlot, &muzzle);
+   if(!src->getCorrectedAim(muzzle, &mAim))
+      muzzle.getColumn(1, &mAim);
+
+      // The far end is where the aim meets the thing being repaired, not that
+      // thing's middle: the beam lands on the part of the shape being aimed
+      // at. The cast is made with the target's own type mask (0x00645905), so
+      // only something of its kind can be hit, and an answer that is not the
+      // target is thrown away and the last point held.
+   RayInfo info;
+   if(getContainer()->castRay(mStart, mStart + mAim * mData->range,
+                              dst->getTypeMask(), &info)
+      && info.object == dst)
+   {
+      mHit = info.point;
+      if(!mEndPlaced)
+      {
+            // The first one is taken as it stands, or the beam would reel in
+            // from wherever the end happened to be.
+         mEndPlaced = true;
+         mEnd = mHit;
+      }
+   }
+
+      // After that the drawn end chases the aimed-at point instead of jumping
+      // to it, which is what slides the beam over a shape as the gun turns.
+   mEnd += (mHit - mEnd) * dt * 2.0f;
+
+   mCurve.set(mStart, mStart + mAim * (mEnd - mStart).len(), mEnd);
+
+   ageBlur(dt);
+}
+
+/// RepairProjectile::updateBlur (0x00645c40), which only a ghost runs: age
+/// every copy of the beam, and once a blurFreq of a second has gone by leave
+/// another behind in the first slot that has expired.
+void RepairProjectileT2::ageBlur(F32 dt)
+{
+   if(!isGhost())
+      return;
+
+   for(U32 i = 0; i < NumBlurs; i++)
+      mBlur[i].age += dt;
+
+   const F32 interval = 1.0f / mData->blurFreq;
+   if(mBlurTime <= interval)
+      return;
+   mBlurTime -= interval;
+
+   for(U32 i = 0; i < NumBlurs; i++)
+      if(mBlur[i].age >= mBlur[i].life)
+      {
+         mBlur[i].age   = 0.0f;
+         mBlur[i].life  = mData->blurLifetime;
+         mBlur[i].alpha = 0.5f;
+         mBlur[i].curve.set(mStart,
+                            mStart + mAim * (mStart - mEnd).len(), mEnd);
+         return;
+      }
+}
+
+void RepairProjectileT2::prepRenderImage(SceneRenderState *state)
+{
+   if(!mData || !mHaveEnds || mData->texture[0].isNull())
+      return;
+
+   ObjectRenderInst *ri = state->getRenderPass()->allocInst<ObjectRenderInst>();
+   ri->renderDelegate.bind(this, &RepairProjectileT2::renderBeam);
+   ri->type = RenderPassManager::RIT_Foliage;
+   state->getRenderPass()->addInst(ri);
+}
+
+/// Whether the flare where the beam lands can be seen from the camera
+/// (0x006465a0): not if the beam is coming back at the camera, and not if
+/// anything but the two ends stands between the two.
+bool RepairProjectileT2::flareVisible(const Point3F &eye)
+{
+   ShapeBase *src = resolve(mSourceObject);
+   ShapeBase *dst = resolve(mTargetObject);
+   if(!src || !dst)
+      return false;
+
+   VectorF along = mEnd - mStart;
+   VectorF toEnd = mEnd - eye;
+   if(along.isZero() || toEnd.isZero())
+      return false;
+   along.normalize();
+   toEnd.normalize();
+
+      // Looking into the beam rather than along it, within about forty
+      // degrees of head on, and there is no flare (0x00646952).
+   if(mDot(along, toEnd) < -0.75f)
+      return false;
+
+      // The firer is stepped over as well as the target unless some client is
+      // watching it from outside its own head, which is the one case where
+      // its body is between the camera and the beam (0x00646602).
+   const GameConnection *conn = src->getControllingClient();
+   const bool skipSource = conn == NULL || conn->isFirstPerson();
+
+   dst->disableCollision();
+   if(skipSource)
+      src->disableCollision();
+
+   RayInfo info;
+   const bool blocked = getContainer()->castRay(eye + toEnd * 0.5f, mEnd,
+                                                0xFFFFFFFF, &info);
+
+   if(skipSource)
+      src->enableCollision();
+   dst->enableCollision();
+
+   return !blocked;
+}
+
+/// RepairProjectile::renderFlare (0x00646a20): three billboards of the
+/// beam's second texture where it lands, each its own size and turning at its
+/// own rate, drawn through anything in front of them.
+void RepairProjectileT2::drawFlare(const Point3F &eye) const
+{
+   static const F32 sSize[3] = { 2.00f, 1.70f, 1.82f };
+   static const F32 sSpin[3] = { 0.15f, -0.10f, 0.05f };
+
+   VectorF toEye = eye - mEnd;
+   if(toEye.isZero())
+      return;
+   toEye.normalize();
+
+   VectorF right = mCross(toEye, VectorF(0.0f, 0.0f, 1.0f));
+   if(right.isZero())
+      right = mCross(toEye, VectorF(0.0f, 1.0f, 0.0f));
+   right.normalize();
+   const VectorF up = mCross(right, toEye);
+
+   GFX->setStateBlock(mFlareSB);
+   GFX->setupGenericShaders(GFXDevice::GSModColorTexture);
+   GFX->setTexture(0, mData->texture[1]);
+
+      // A third of white, and the alpha the beam was drawn with left where it
+      // was: the flare is put down with glColor3f (0x00646a96).
+   PrimBuild::color4f(1.0f / 3.0f, 1.0f / 3.0f, 1.0f / 3.0f, 1.0f);
+   for(U32 i = 0; i < 3; i++)
+   {
+         // Six tenths is what the renderer asks for, halved because the
+         // billboard is drawn a size across rather than a size out.
+      const F32 half = sSize[i] * 0.6f * 0.5f;
+      const F32 a = mElapsed * sSpin[i] * F32(M_2PI);
+      const VectorF x = (right * mCos(a) + up * mSin(a)) * half;
+      const VectorF y = (up * mCos(a) - right * mSin(a)) * half;
+
+      PrimBuild::begin(GFXTriangleStrip, 4);
+      PrimBuild::texCoord2f(0.0f, 0.0f); PrimBuild::vertex3fv(mEnd - x + y);
+      PrimBuild::texCoord2f(0.0f, 1.0f); PrimBuild::vertex3fv(mEnd - x - y);
+      PrimBuild::texCoord2f(1.0f, 0.0f); PrimBuild::vertex3fv(mEnd + x + y);
+      PrimBuild::texCoord2f(1.0f, 1.0f); PrimBuild::vertex3fv(mEnd + x - y);
+      PrimBuild::end();
+   }
+}
+
+/// Every copy of the beam that has not yet outlived its lifetime, drawn in
+/// the red of the beam's own texture, widening from three tenths of a metre
+/// to eight and fading out over the first half of its life (0x006464b7,
+/// 0x006464a3).
+void RepairProjectileT2::drawBlur(const Point3F &eye) const
+{
+   for(U32 i = 0; i < NumBlurs; i++)
+   {
+      if(mBlur[i].age >= mBlur[i].life)
+         continue;
+
+      const F32 t = mBlur[i].age / mBlur[i].life;
+
+         // Past half its life the alpha Tribes 2 works out goes negative, and
+         // glColor4f clamps it to nothing: the second half of a copy's life is
+         // spent invisible. Our own colour is packed into a byte, where a
+         // negative alpha comes back out near opaque, so the copy has to be
+         // dropped here instead.
+      const F32 alpha = (mBlur[i].alpha - t) * mBlur[i].alpha;
+      if(alpha <= 0.0f)
+         continue;
+
+      const F32 width = t * 0.5f + 0.3f;
+      const ColorF color(1.0f, 0.0f, 0.0f, alpha);
+
+      drawT2BeamRibbon(mBlur[i].curve, mData->segments, width * 0.5f,
+                       -mElapsed * mData->speed, mData->texRepeat, eye,
+                       &color);
+   }
+}
+
+/// RepairProjectile::renderObject (0x00645fc0): the flare where the beam
+/// lands, the beam itself, and the copies it has left behind it.
+void RepairProjectileT2::renderBeam(ObjectRenderInst *, SceneRenderState *state,
+                                    BaseMatInstance *overrideMat)
+{
+   if(overrideMat || !mHaveEnds)
+      return;
+
+   VectorF along = mEnd - mStart;
+   if(along.isZero())
+      return;
+   along.normalize();
+
+      // The beam is not drawn at all once the gun has swung too far off what
+      // it has hold of. Tribes 2 measures that in ninetieths rather than
+      // taking an arc cosine, and compares the answer against the cutoffAngle
+      // its datablock carries (0x00646114).
+   if(90.0f * (1.0f - mDot(along, mAim)) > mData->cutoffAngle)
+      return;
+
+   if(mBeamSB.isNull())
+   {
+      GFXStateBlockDesc desc;
+      desc.setBlend(true, GFXBlendSrcAlpha, GFXBlendOne);
+      desc.setCullMode(GFXCullNone);
+      desc.zWriteEnable = false;
+      desc.samplersDefined = true;
+      desc.samplers[0] = GFXSamplerStateDesc::getWrapLinear();
+      mBeamSB = GFX->createStateBlock(desc);
+
+         // The flare is drawn through whatever is in front of it
+         // (0x00646a41).
+      desc.zEnable = false;
+      mFlareSB = GFX->createStateBlock(desc);
+   }
+
+   const Point3F eye = state->getCameraPosition();
+
+   GFX->setupGenericShaders(GFXDevice::GSModColorTexture);
+
+   if(mData->texture[1].isValid() && flareVisible(eye))
+      drawFlare(eye);
+
+   GFX->setStateBlock(mBeamSB);
+   GFX->setTexture(0, mData->texture[0]);
+
+      // Twenty segments, a tenth of a metre either side and three quarters
+      // alpha: Tribes 2 fixes all three in the renderer rather than reading
+      // the numSegments and beamWidth its datablock carries.
+   PrimBuild::color4f(1.0f, 1.0f, 1.0f, 0.75f);
+   drawT2BeamRibbon(mCurve, 20, 0.1f, -mElapsed * mData->speed,
+                    mData->texRepeat, eye);
+
+   drawBlur(eye);
+}
+
+#define IMPLEMENT_REPAIR_T2( objectName, dataName )                          \
+   class dataName : public RepairProjectileDataT2                            \
+   {                                                                         \
+      typedef RepairProjectileDataT2 Parent;                                 \
+   public:                                                                   \
+      DECLARE_CONOBJECT(dataName);                                           \
+   };                                                                        \
+   IMPLEMENT_CO_DATABLOCK_V1(dataName);                                      \
+   ConsoleDocClass( dataName, "@brief A Tribes 2 repair beam's datablock."    \
+                              "\n\n@internal" );                             \
+   class objectName : public RepairProjectileT2                              \
+   {                                                                         \
+      typedef RepairProjectileT2 Parent;                                     \
+   public:                                                                   \
+      DECLARE_CONOBJECT(objectName);                                         \
+   };                                                                        \
+   IMPLEMENT_CO_NETOBJECT_V1(objectName);                                    \
+   ConsoleDocClass( objectName, "@brief A Tribes 2 repair beam."             \
+                                "\n\n@internal" )
+
+IMPLEMENT_REPAIR_T2( RepairProjectile, RepairProjectileData );
