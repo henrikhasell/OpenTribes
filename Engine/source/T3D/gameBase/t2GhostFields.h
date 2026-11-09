@@ -47,6 +47,8 @@ namespace T2Protocol
                                     ///< person too
       T2FieldActionPosHere,         ///< the flag a thread position follows
       T2FieldActionPos,             ///< readSignedFloat(bits) of the thread
+      T2FieldImpactSoundHere,       ///< the flag an impact sound follows
+      T2FieldImpactSound,           ///< readInt(bits), what the player hit
       T2FieldFieldState,
       T2FieldFieldFade,
       T2FieldZonePoints,
@@ -129,6 +131,11 @@ namespace T2Protocol
       { "Player", 19, OpRaw,   7,  T2FieldYaw          },
 
       { "Player", 26, OpFlag,  1,  T2FieldJetting      },
+
+   // The impact sound the action thread is read after: the flag, then the
+   // three bits of PlayerData::ImpactBits the server wrote it at.
+      { "Player", 44, OpFlag,  1,  T2FieldImpactSoundHere   },
+      { "Player", 43, OpRaw,   3,  T2FieldImpactSound       },
 
    // The action thread Player::unpackUpdate reads after the impact sound:
    // the action, then hold, atEnd and firstPerson, then the thread's

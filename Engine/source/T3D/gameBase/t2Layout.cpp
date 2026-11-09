@@ -1779,6 +1779,9 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
                      case T2FieldActionPosHere:
                         sBody.hasActionPos = set;
                         break;
+                     case T2FieldImpactSoundHere:
+                        sBody.hasImpactSound = set;
+                        break;
                      case T2FieldZoneActive:
                         sBody.hasZoneActive = true;
                         sBody.zoneActive = set;
@@ -2362,6 +2365,9 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
                      break;
                   case T2FieldActionPos:
                      sBody.actionPos = t2SignedFloat(word, n.bits);
+                     break;
+                  case T2FieldImpactSound:
+                     sBody.impactSound = word;
                      break;
                   case T2FieldFieldFade:
                      sBody.fieldFade = word;
@@ -3510,6 +3516,8 @@ static bool runGhost(BitStream *stream, const char *className,
    sBody.actionFirstPerson = false;
    sBody.hasActionPos = false;
    sBody.actionPos = 0.0f;
+   sBody.hasImpactSound = false;
+   sBody.impactSound = 0;
    sBody.hasInvincible = false;
    sBody.invincibleTime = 0.0f;
    sBody.invincibleSpeed = 0.0f;

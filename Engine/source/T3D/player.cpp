@@ -5214,6 +5214,12 @@ void Player::onT2BodyRead(const T2Layout::Body &body)
    if (body.hasAction && mDataBlock)
       readT2Action(body);
 
+   // HH: Added for Tribes 2 compatibility.
+   // What a landing is heard as: the server works out that the player hit
+   // the ground hard enough and sends it, and advanceTime plays it once.
+   if (body.hasImpactSound)
+      mImpactSound = S32(body.impactSound);
+
    if (!body.hasPosition)
       return;
 
@@ -6468,6 +6474,13 @@ void Player::playFootstepSound( bool triggeredLeft, S32 sound )
    }
 }
 
+// HH: Modified for Tribes 2 compatibility.
+// A landing is heard on the same surfaces a footstep is, and asked the same
+// way: the ray wants terrain, interiors and vehicles, the sound is the
+// terrain's property map entry's, a vehicle is metal, and a floor or a
+// deployable -- which has no entry of its own -- is hard. A Torque 3D
+// Material is no use here: no Tribes 2 surface carries one, so the sound
+// this asked for was never found and nothing played.
 void Player:: playImpactSound()
 {
    if( mWaterCoverage == 0.0f )
@@ -6479,47 +6492,29 @@ void Player:: playImpactSound()
 
       if( gClientContainer.castRay( Point3F( pos.x, pos.y, pos.z + 0.01f ),
                                     Point3F( pos.x, pos.y, pos.z - 2.0f ),
-                                    STATIC_COLLISION_TYPEMASK | VehicleObjectType,
-                                    &rInfo ) )
+                                    TerrainObjectType | InteriorObjectType |
+                                    VehicleObjectType, &rInfo ) )
       {
-         Material* material = ( rInfo.material ? dynamic_cast< Material* >( rInfo.material->getMaterial() ) : 0 );
-
-         if( material && material->mImpactSoundCustom )
-            SFX->playOnce( material->mImpactSoundCustom, &getTransform() );
-         else
+         S32 sound = -1;
+         if( rInfo.object->getTypeMask() & TerrainObjectType )
          {
-            S32 sound = -1;
-            if( material && material->mImpactSoundId )
-               sound = material->mImpactSoundId;
-            else if( rInfo.object->getTypeMask() & VehicleObjectType )
-               sound = 2; // Play metal;
-
-            switch( sound )
-            {
-            case 0:
-               //Soft
-               SFX->playOnce( mDataBlock->sound[ PlayerData::ImpactSoft ], &getTransform() );
-               break;
-            case 1:
-               //Hard
-               SFX->playOnce( mDataBlock->sound[ PlayerData::ImpactHard ], &getTransform() );
-               break;
-            case 2:
-               //Metal
-               SFX->playOnce( mDataBlock->sound[ PlayerData::ImpactMetal ], &getTransform() );
-               break;
-            case 3:
-               //Snow
-               SFX->playOnce( mDataBlock->sound[ PlayerData::ImpactSnow ], &getTransform() );
-               break;
-               /*
-            default:
-               //Hard
-               alxPlay(mDataBlock->sound[PlayerData::ImpactHard], &getTransform());
-               break;
-               */
-            }
+            if( const MaterialPropertyMap::Entry *e =
+                   groundDustProperties( rInfo.object ) )
+               sound = e->sound;
          }
+         else if( rInfo.object->getTypeMask() & VehicleObjectType )
+            sound = 2;
+
+         U32 which;
+         switch( sound )
+         {
+         case 0:  which = PlayerData::ImpactSoft;  break;
+         case 2:  which = PlayerData::ImpactMetal; break;
+         case 3:  which = PlayerData::ImpactSnow;  break;
+         default: which = PlayerData::ImpactHard;  break;
+         }
+
+         SFX->playOnce( mDataBlock->sound[ which ], &getTransform() );
       }
    }
 
