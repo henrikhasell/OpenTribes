@@ -18,6 +18,8 @@ GAME_PORT = 28000
 
 
 def local_ip() -> str:
+    if address := os.environ.get("TRIBES2_LOCAL_IP"):
+        return address
     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
         s.connect(("1.1.1.1", 80))
         return s.getsockname()[0]
@@ -87,6 +89,22 @@ def launch(
     exec(*argv)
 
 
+def restart_clients():
+    subprocess.run("pkill -9 -x Tribes2.exe", shell=True)
+    subprocess.run("pkill -9 -x OpenTribes", shell=True)
+    time.sleep(4)
+    for cmd in ('just retail 2327', 'just opentribes release 2326'):
+        subprocess.Popen(f'cd {REPO} && {cmd} > {LOG}/{cmd.split()[1]}.log 2>&1',
+                         shell=True, start_new_session=True)
+        time.sleep(2)
+    for _ in range(100):
+        out = subprocess.run("ss -ltn", shell=True, capture_output=True, text=True).stdout
+        if ":2326" in out and ":2327" in out:
+            break
+        time.sleep(3)
+    time.sleep(10)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Launch Tribes 2 from the GameData directory.")
     parser.add_argument("mode", choices=["opentribes", "retail"])
@@ -94,7 +112,8 @@ def main() -> None:
     parser.add_argument("--telnet-port", type=int)
     parser.add_argument(
         "--connect", nargs="?", const="local", metavar="HOST[:PORT]",
-        help=f"join a server on start; with no address, the dedicated server on this machine (port {GAME_PORT} by default)",
+        help=f"join a server on start; with no address, the dedicated server on this machine "
+             f"at $TRIBES2_LOCAL_IP, or the address that routes to the internet (port {GAME_PORT} by default)",
     )
     args = parser.parse_args()
 
