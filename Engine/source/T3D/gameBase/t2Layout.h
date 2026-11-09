@@ -55,6 +55,11 @@ namespace T2Layout
       Point3F direction;
       bool    hasImpactNormal;
       Point3F impactNormal;
+      bool    zapHit;               ///< the lance reached something; a dry
+                                    ///  fire sends its ends with this clear
+      bool    hasZap;               ///< a shock lance's two ends followed
+      Point3F zapStart;             ///< world space, the muzzle end
+      Point3F zapEnd;               ///< world space, what it reached
       bool    hasDamage;
       F32     damage;               ///< share of the object's maxDamage
       bool    hasDamageState;
@@ -673,6 +678,23 @@ namespace T2Layout
       T2DbElfBeamRepeat,
       T2DbElfLightningWidth,
       T2DbElfLightningDist,
+
+      // A shock lance's zap: seven of its own, then four a bolt at a time.
+      T2DbZapDuration,
+      T2DbBoltLength,
+      T2DbBoltParts,
+      T2DbShockLightningFreq,
+      T2DbShockLightningDensity,
+      T2DbShockLightningAmp,
+      T2DbShockLightningWidth,
+      T2DbBoltStartWidth0,
+      T2DbBoltEndWidth0,
+      T2DbBoltSpeed0,
+      T2DbBoltTexWrap0,
+      T2DbBoltStartWidth1,
+      T2DbBoltEndWidth1,
+      T2DbBoltSpeed1,
+      T2DbBoltTexWrap1,
 
       // TurretData's run after StaticShapeData's, and TurretImageData's after
       // ShapeBaseImageData's. thetaMin and thetaMax share the emitter's.

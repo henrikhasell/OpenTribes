@@ -57,6 +57,8 @@ static S32 sPointAt = -1;
 static S32 sVelocityAt = -1;
 static S32 sExplodeAt = -1;
 static S32 sImpactAt = -1;
+static S32 sZapStartAt = -1;
+static S32 sZapEndAt = -1;
 static S32 sForceAt = -1;
 static bool sQuatNegative = false;
 static bool sAxisNegative = false;
@@ -1806,6 +1808,9 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
                      case T2FieldBeamHit:
                         sBody.beamHit = set;
                         break;
+                     case T2FieldZapHit:
+                        sBody.zapHit = set;
+                        break;
                      case T2FieldBeamWet:
                         sBody.beamWet = set;
                         break;
@@ -2279,6 +2284,8 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
                   case T2FieldVelocityWords: sVelocityAt  = sWords.size(); break;
                   case T2FieldExplodeWords:  sExplodeAt   = sWords.size(); break;
                   case T2FieldImpactWords:   sImpactAt    = sWords.size(); break;
+                  case T2FieldZapStart:      sZapStartAt  = sWords.size(); break;
+                  case T2FieldZapEnd:        sZapEndAt    = sWords.size(); break;
                   case T2FieldAppliedForce:  sForceAt     = sWords.size(); break;
                   default:                                                 break;
                }
@@ -3467,6 +3474,16 @@ static void assembleBody()
                              wordFloat(sForceAt + 2));
       sBody.hasAppliedForce = true;
    }
+
+   if(sZapStartAt >= 0 && sZapEndAt >= 0 &&
+      sWords.size() >= U32(sZapEndAt) + 3)
+   {
+      sBody.zapStart.set(wordFloat(sZapStartAt), wordFloat(sZapStartAt + 1),
+                         wordFloat(sZapStartAt + 2));
+      sBody.zapEnd.set(wordFloat(sZapEndAt), wordFloat(sZapEndAt + 1),
+                       wordFloat(sZapEndAt + 2));
+      sBody.hasZap = true;
+   }
 }
 
 static bool runGhost(BitStream *stream, const char *className,
@@ -3490,6 +3507,8 @@ static bool runGhost(BitStream *stream, const char *className,
    sBody.hasDirection = false;
    sBody.hasImpactNormal = false;
    sBody.hasBeamTarget = false;
+   sBody.hasZap = false;
+   sBody.zapHit = false;
    sBody.hasDamage = false;
    sBody.hasDamageState = false;
    sBody.blowApart = false;
@@ -3613,6 +3632,8 @@ static bool runGhost(BitStream *stream, const char *className,
    sVelocityAt = -1;
    sExplodeAt = -1;
    sImpactAt = -1;
+   sZapStartAt = -1;
+   sZapEndAt = -1;
    sForceAt = -1;
    sQuatNegative = false;
    sAxisNegative = false;
