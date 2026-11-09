@@ -342,6 +342,12 @@ namespace T2Protocol
       { "RepairProjectile",  6, OpSelect,  3, T2FieldSourceSlot   },
       { "RepairProjectile",  7, OpInt,    11, T2FieldBeamTarget   },
 
+   // ELFProjectile's body is the same eleven nodes.
+      { "ELFProjectile",  9, OpReadBr,  9, T2FieldTarget       },
+      { "ELFProjectile",  5, OpInt,    11, T2FieldSourceObject },
+      { "ELFProjectile",  6, OpSelect,  3, T2FieldSourceSlot   },
+      { "ELFProjectile",  7, OpInt,    11, T2FieldBeamTarget   },
+
       T2_BEAM_PROJECTILE_FIELDS( "SniperProjectile" )
       T2_BEAM_PROJECTILE_FIELDS( "TargetProjectile" )
 

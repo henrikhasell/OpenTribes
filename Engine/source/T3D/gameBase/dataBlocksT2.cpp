@@ -99,7 +99,6 @@ IMPLEMENT_DATABLOCK_T2( SensorData );
 IMPLEMENT_DATABLOCK_T2( AudioEnvironment );
 IMPLEMENT_DATABLOCK_T2( AudioSampleEnvironment );
 IMPLEMENT_DATABLOCK_T2( BombProjectileData );
-IMPLEMENT_DATABLOCK_T2( ELFProjectileData );
 IMPLEMENT_DATABLOCK_T2( EffectProfile );
 IMPLEMENT_DATABLOCK_T2( FireballAtmosphereData );
 IMPLEMENT_DATABLOCK_T2( FlareProjectileData );

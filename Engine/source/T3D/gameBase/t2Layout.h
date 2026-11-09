@@ -667,6 +667,13 @@ namespace T2Layout
       T2DbRepairBlurLifetime,
       T2DbRepairCutoffAngle,
 
+      // An ELF beam's own run.
+      T2DbElfBeamWidth,
+      T2DbElfBeamSpeed,
+      T2DbElfBeamRepeat,
+      T2DbElfLightningWidth,
+      T2DbElfLightningDist,
+
       // TurretData's run after StaticShapeData's, and TurretImageData's after
       // ShapeBaseImageData's. thetaMin and thetaMax share the emitter's.
       T2DbThetaNull,

@@ -2085,8 +2085,8 @@ public:
    F32    blurLifetime;
    F32    cutoffAngle;      ///< degrees
    U32    soundId;
-   String textureName[2];
-   GFXTexHandle texture[2];
+   String textureName[3];
+   GFXTexHandle texture[3];
 
    RepairProjectileDataT2();
    bool unpackData(BitStream *stream, U32 classId);
@@ -2141,9 +2141,10 @@ bool RepairProjectileDataT2::unpackData(BitStream *stream, U32 classId)
       soundId = word;
 
       // The shape name comes first, as it does for every projectile; the
-      // beam's two textures are the strings after it.
+      // beam's textures are the strings after it -- two for a repair beam,
+      // three for an ELF.
    const Vector<String> &strings = T2Layout::lastStrings();
-   for(U32 i = 0; i < 2 && i + 1 < strings.size(); i++)
+   for(U32 i = 0; i < 3 && i + 1 < strings.size(); i++)
       textureName[i] = strings[i + 1];
 
    return true;
@@ -2155,7 +2156,7 @@ bool RepairProjectileDataT2::preload(bool server, String &errorStr)
       return false;
 
    if(!server)
-      for(U32 i = 0; i < 2; i++)
+      for(U32 i = 0; i < 3; i++)
          if(textureName[i].isNotEmpty())
             texture[i].set(String("textures/") + textureName[i],
                            &GFXDefaultStaticDiffuseProfile,
@@ -2668,24 +2669,377 @@ void RepairProjectileT2::renderBeam(ObjectRenderInst *, SceneRenderState *state,
    drawBlur(eye);
 }
 
-#define IMPLEMENT_REPAIR_T2( objectName, dataName )                          \
-   class dataName : public RepairProjectileDataT2                            \
+/// What an ELF beam's datablock says about how it is drawn: the beam's own
+/// four words, two for the lightning that runs along it, and three textures.
+class ELFProjectileDataT2 : public RepairProjectileDataT2
+{
+   typedef RepairProjectileDataT2 Parent;
+
+public:
+   F32 lightningWidth;
+   F32 lightningDist;
+
+   /// The cosine of the half-angle the gun will hold a target within.
+   /// Tribes 2 calls the angle beamHitWidth, keeps it in degrees, clamps it
+   /// to ninety and takes the cosine once in preload (0x0064aa14). It is not
+   /// on the wire and no script sets it, so every beam uses the thirty
+   /// degrees the constructor puts there.
+   F32 hitAngleCos;
+
+   ELFProjectileDataT2();
+   bool unpackData(BitStream *stream, U32 classId);
+
+   DECLARE_CONOBJECT(ELFProjectileDataT2);
+};
+
+IMPLEMENT_CONOBJECT(ELFProjectileDataT2);
+
+ConsoleDocClass( ELFProjectileDataT2,
+   "@brief What a Tribes 2 ELF beam's datablock says about how it is drawn."
+   "\n\n@internal" );
+
+ELFProjectileDataT2::ELFProjectileDataT2()
+   : lightningWidth(0.1f),
+     lightningDist(0.15f),
+     hitAngleCos(mCos(mDegToRad(30.0f)))
+{
+   width = 0.1f;
+   speed = 9.0f;
+   texRepeat = 0.25f;
+   range = 38.0f;
+}
+
+bool ELFProjectileDataT2::unpackData(BitStream *stream, U32 classId)
+{
+   if(!Parent::unpackData(stream, classId))
+      return false;
+
+   F32 value;
+   if(T2Layout::lastDataBlockField(T2Layout::T2DbElfBeamWidth, &value))
+      width = value;
+   if(T2Layout::lastDataBlockField(T2Layout::T2DbElfBeamSpeed, &value))
+      speed = value;
+   if(T2Layout::lastDataBlockField(T2Layout::T2DbElfBeamRepeat, &value))
+      texRepeat = value;
+   if(T2Layout::lastDataBlockField(T2Layout::T2DbElfLightningWidth, &value))
+      lightningWidth = value;
+   if(T2Layout::lastDataBlockField(T2Layout::T2DbElfLightningDist, &value))
+      lightningDist = value;
+
+   return true;
+}
+
+/// An ELF beam is the same curve with three ropes of lightning threaded along
+/// it and a flash where it lands.
+///
+/// The lightning is not simulated. Each rope is sixteen points; every point
+/// but the two ends carries one random direction of length lightningDist,
+/// drawn once and then redrawn thirty times a second, and the rope is just
+/// the curve sampled at those sixteen places with the offsets added. Each
+/// span of the rope wears one whole copy of the lightning texture, laid down
+/// alternately forwards and backwards, which is what makes it read as a chain
+/// of separate arcs rather than one stretched streak.
+class ELFProjectileT2 : public RepairProjectileT2
+{
+   typedef RepairProjectileT2 Parent;
+
+   enum {
+      NumBolts  = 3,
+      NumPoints = 16
+   };
+
+   /// Tribes 2 rolls the lightning again every tick.
+   static const F32 sRollPeriod;
+
+   ELFProjectileDataT2 *mElf;
+   Point3F mOffset[NumBolts][NumPoints];
+   F32     mSinceRoll;
+   bool    mRoll;
+   bool    mBlocked;
+   GFXStateBlockRef mBoltSB;
+
+   void clipToTarget();
+   void rollLightning();
+   void drawLightning(U32 bolt, const Point3F &eye) const;
+   void drawFlash(const Point3F &eye) const;
+
+public:
+   ELFProjectileT2();
+
+   bool onNewDataBlock(GameBaseData *dptr, bool reload);
+   void advanceTime(F32 dt);
+   void renderBeam(ObjectRenderInst *ri, SceneRenderState *state,
+                   BaseMatInstance *overrideMat);
+
+   DECLARE_CONOBJECT(ELFProjectileT2);
+};
+
+IMPLEMENT_CONOBJECT(ELFProjectileT2);
+
+ConsoleDocClass( ELFProjectileT2,
+   "@brief A Tribes 2 ELF beam.\n\n@internal" );
+
+const F32 ELFProjectileT2::sRollPeriod = 1.0f / 30.0f;
+
+ELFProjectileT2::ELFProjectileT2()
+   : mElf(NULL),
+     mSinceRoll(0.0f),
+     mRoll(true),
+     mBlocked(false)
+{
+   for(U32 b = 0; b < NumBolts; b++)
+      for(U32 i = 0; i < NumPoints; i++)
+         mOffset[b][i].set(0.0f, 0.0f, 0.0f);
+}
+
+bool ELFProjectileT2::onNewDataBlock(GameBaseData *dptr, bool reload)
+{
+   if(!Parent::onNewDataBlock(dptr, reload))
+      return false;
+
+   mElf = dynamic_cast<ELFProjectileDataT2 *>(dptr);
+   return mElf != NULL;
+}
+
+void ELFProjectileT2::rollLightning()
+{
+   for(U32 b = 0; b < NumBolts; b++)
+      for(U32 i = 0; i < NumPoints; i++)
+      {
+            // The ends are pinned to the beam; everything between gets one
+            // direction, at the distance the datablock allows.
+         if(i == 0 || i + 1 == NumPoints)
+         {
+            mOffset[b][i].set(0.0f, 0.0f, 0.0f);
+            continue;
+         }
+
+         VectorF v(gRandGen.randF(-1.0f, 1.0f),
+                   gRandGen.randF(-1.0f, 1.0f),
+                   gRandGen.randF(-1.0f, 1.0f));
+         const F32 len = v.len();
+         if(len > 0.01f)
+            v /= len;
+         mOffset[b][i] = v * mElf->lightningDist;
+      }
+}
+
+/// Walk the curve in sixteen steps looking for the first thing in the way. If
+/// that is what the beam has hold of, the far end moves onto it; if it is
+/// anything else the link is broken and nothing is drawn until it clears.
+/// Tribes 2 does this in its render, once a frame, at 0x0064c650.
+void ELFProjectileT2::clipToTarget()
+{
+   ShapeBase *src = resolve(mSourceObject);
+   if(src == NULL)
+      return;
+
+   const SceneObject *target = resolve(mTargetObject);
+
+      // A target that has walked out of range, or out of the cone the gun
+      // holds one in, breaks the link as surely as one that has stepped
+      // behind a wall. Tribes 2 makes both tests while it works out what the
+      // gun is holding -- the range against beamRange (0x0064bee7) and the
+      // angle as a dot product against the cosine it prepared (0x0064bfc6) --
+      // and it makes them only on the server. The server leaves the beam
+      // object alone afterwards, so a client that does not make the same
+      // tests keeps drawing to a target it can no longer reach.
+   VectorF toTarget = mEnd - mStart;
+   const F32 reach = toTarget.len();
+   if(reach > mData->range)
+   {
+      mBlocked = true;
+      return;
+   }
+
+   if(reach > 0.0f)
+   {
+      toTarget /= reach;
+      if(mDot(toTarget, mAim) < mElf->hitAngleCos)
+      {
+         mBlocked = true;
+         return;
+      }
+   }
+
+   src->disableCollision();
+
+   Point3F from = mCurve.at(0.0f);
+   RayInfo info;
+   bool hit = false;
+   for(U32 i = 0; i < 16 && !hit; i++)
+   {
+      const Point3F to = mCurve.at(F32(i + 1) / 16.0f);
+      hit = getContainer()->castRay(from, to, sProjectileCollisionMask, &info);
+      from = to;
+   }
+
+   src->enableCollision();
+
+   mBlocked = hit && info.object != target;
+   if(hit && !mBlocked)
+   {
+      mEnd = info.point;
+      mCurve.set(mStart, mStart + mAim * (mEnd - mStart).len(), mEnd);
+   }
+}
+
+void ELFProjectileT2::advanceTime(F32 dt)
+{
+   Parent::advanceTime(dt);
+
+   if(!mElf || dt <= 0.0f)
+      return;
+
+   if(mHaveEnds)
+      clipToTarget();
+
+   mSinceRoll += dt;
+   while(mSinceRoll >= sRollPeriod)
+   {
+      mSinceRoll -= sRollPeriod;
+      mRoll = true;
+   }
+}
+
+void ELFProjectileT2::drawLightning(U32 bolt, const Point3F &eye) const
+{
+   Point3F pt[NumPoints];
+   for(U32 i = 0; i < NumPoints; i++)
+      pt[i] = mCurve.at(F32(i) / F32(NumPoints - 1)) + mOffset[bolt][i];
+
+   PrimBuild::begin(GFXTriangleStrip, NumPoints * 2);
+   for(U32 i = 0; i < NumPoints; i++)
+   {
+      VectorF along = i + 1 == NumPoints ? pt[i] - pt[i - 1]
+                                         : pt[i + 1] - pt[i];
+      if(along.isZero())
+         continue;
+      along.normalize();
+
+      VectorF across = mCross(along, pt[i] - eye);
+      if(across.isZero())
+         continue;
+      across.normalize();
+      across *= mElf->lightningWidth * 0.5f;
+
+      const F32 u = F32(i & 1);
+      PrimBuild::texCoord2f(u, 1.0f); PrimBuild::vertex3fv(pt[i] - across);
+      PrimBuild::texCoord2f(u, 0.0f); PrimBuild::vertex3fv(pt[i] + across);
+   }
+   PrimBuild::end();
+}
+
+/// Where the beam lands: three sprites of the same texture over one another,
+/// each a different size and each turning at its own rate, two one way and
+/// one the other.
+void ELFProjectileT2::drawFlash(const Point3F &eye) const
+{
+   static const F32 sSize[3] = { 2.00f, 1.70f, 1.82f };
+   static const F32 sSpin[3] = { 0.30f, -0.20f, 0.10f };
+
+   VectorF toEye = eye - mEnd;
+   if(toEye.isZero())
+      return;
+   toEye.normalize();
+
+   VectorF right = mCross(toEye, VectorF(0.0f, 0.0f, 1.0f));
+   if(right.isZero())
+      right = mCross(toEye, VectorF(0.0f, 1.0f, 0.0f));
+   right.normalize();
+   const VectorF up = mCross(right, toEye);
+
+   PrimBuild::color4f(1.0f, 1.0f, 1.0f, 1.0f / 3.0f);
+   for(U32 i = 0; i < 3; i++)
+   {
+      const F32 half = sSize[i] * 0.5f * 0.5f;
+      const F32 a = mElapsed * sSpin[i] * F32(M_2PI);
+      const VectorF x = (right * mCos(a) + up * mSin(a)) * half;
+      const VectorF y = (up * mCos(a) - right * mSin(a)) * half;
+
+      PrimBuild::begin(GFXTriangleStrip, 4);
+      PrimBuild::texCoord2f(0.0f, 0.0f); PrimBuild::vertex3fv(mEnd - x + y);
+      PrimBuild::texCoord2f(0.0f, 1.0f); PrimBuild::vertex3fv(mEnd - x - y);
+      PrimBuild::texCoord2f(1.0f, 0.0f); PrimBuild::vertex3fv(mEnd + x + y);
+      PrimBuild::texCoord2f(1.0f, 1.0f); PrimBuild::vertex3fv(mEnd + x - y);
+      PrimBuild::end();
+   }
+}
+
+void ELFProjectileT2::renderBeam(ObjectRenderInst *, SceneRenderState *state,
+                                 BaseMatInstance *overrideMat)
+{
+   if(overrideMat || !mHaveEnds || !mElf || mBlocked)
+      return;
+
+   if((mEnd - mStart).isZero())
+      return;
+
+   if(mBoltSB.isNull())
+   {
+      GFXStateBlockDesc desc;
+      desc.setBlend(true, GFXBlendSrcAlpha, GFXBlendOne);
+      desc.setCullMode(GFXCullNone);
+      desc.zWriteEnable = false;
+      desc.samplersDefined = true;
+      desc.samplers[0] = GFXSamplerStateDesc::getWrapLinear();
+      mBoltSB = GFX->createStateBlock(desc);
+   }
+
+   const Point3F eye = state->getCameraPosition();
+
+   GFX->setStateBlock(mBoltSB);
+   GFX->setupGenericShaders(GFXDevice::GSModColorTexture);
+
+   if(mElf->texture[0].isValid())
+   {
+      GFX->setTexture(0, mElf->texture[0]);
+      PrimBuild::color4f(1.0f, 1.0f, 1.0f, 1.0f);
+      drawT2BeamRibbon(mCurve, 16, mElf->width, -mElapsed * mElf->speed,
+                       mElf->texRepeat, eye);
+   }
+
+   if(mElf->texture[1].isValid())
+   {
+      if(mRoll)
+      {
+         const_cast<ELFProjectileT2 *>(this)->rollLightning();
+         const_cast<ELFProjectileT2 *>(this)->mRoll = false;
+      }
+
+      GFX->setTexture(0, mElf->texture[1]);
+      PrimBuild::color4f(1.0f, 1.0f, 1.0f, 1.0f);
+      for(U32 b = 0; b < NumBolts; b++)
+         drawLightning(b, eye);
+   }
+
+   if(mElf->texture[2].isValid())
+   {
+      GFX->setTexture(0, mElf->texture[2]);
+      drawFlash(eye);
+   }
+}
+
+#define IMPLEMENT_BEAM_PAIR_T2( objectName, dataName, dataBase, objectBase ) \
+   class dataName : public dataBase                                          \
    {                                                                         \
-      typedef RepairProjectileDataT2 Parent;                                 \
+      typedef dataBase Parent;                                               \
    public:                                                                   \
       DECLARE_CONOBJECT(dataName);                                           \
    };                                                                        \
    IMPLEMENT_CO_DATABLOCK_V1(dataName);                                      \
-   ConsoleDocClass( dataName, "@brief A Tribes 2 repair beam's datablock."    \
+   ConsoleDocClass( dataName, "@brief A Tribes 2 beam's datablock."          \
                               "\n\n@internal" );                             \
-   class objectName : public RepairProjectileT2                              \
+   class objectName : public objectBase                                      \
    {                                                                         \
-      typedef RepairProjectileT2 Parent;                                     \
+      typedef objectBase Parent;                                             \
    public:                                                                   \
       DECLARE_CONOBJECT(objectName);                                         \
    };                                                                        \
    IMPLEMENT_CO_NETOBJECT_V1(objectName);                                    \
-   ConsoleDocClass( objectName, "@brief A Tribes 2 repair beam."             \
-                                "\n\n@internal" )
+   ConsoleDocClass( objectName, "@brief A Tribes 2 beam.\n\n@internal" )
 
-IMPLEMENT_REPAIR_T2( RepairProjectile, RepairProjectileData );
+IMPLEMENT_BEAM_PAIR_T2( RepairProjectile, RepairProjectileData,
+                        RepairProjectileDataT2, RepairProjectileT2 );
+IMPLEMENT_BEAM_PAIR_T2( ELFProjectile, ELFProjectileData,
+                        ELFProjectileDataT2, ELFProjectileT2 );
