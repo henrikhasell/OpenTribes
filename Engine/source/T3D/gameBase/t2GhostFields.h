@@ -34,6 +34,12 @@ namespace T2Protocol
       T2FieldCurrTick,
       T2FieldBeamTarget,            ///< readInt(bits), the ghost index of
                                     ///  the object a beam has hold of
+      T2FieldZapStart,              ///< first of three raw words, the end
+                                    ///  of a shock lance's zap at the muzzle
+      T2FieldZapEnd,                ///< first of three raw words, the end
+                                    ///  the zap reached
+      T2FieldZapHit,                ///< the bit after them: whether the zap
+                                    ///  reached anything at all
       T2FieldSourceObject,
       T2FieldSourceSlot,
       T2FieldVehicleObject,
@@ -341,6 +347,19 @@ namespace T2Protocol
       { "RepairProjectile",  5, OpInt,    11, T2FieldSourceObject },
       { "RepairProjectile",  6, OpSelect,  3, T2FieldSourceSlot   },
       { "RepairProjectile",  7, OpInt,    11, T2FieldBeamTarget   },
+
+   // ELFProjectile's body is the same eleven nodes.
+      { "ShockLanceProjectile", 17, OpReadBr,  9, T2FieldTarget       },
+      { "ShockLanceProjectile", 13, OpInt,    11, T2FieldSourceObject },
+      { "ShockLanceProjectile", 14, OpSelect,  3, T2FieldSourceSlot   },
+      { "ShockLanceProjectile",  5, OpRaw,    32, T2FieldZapStart     },
+      { "ShockLanceProjectile",  8, OpRaw,    32, T2FieldZapEnd       },
+      { "ShockLanceProjectile", 11, OpFlag,    1, T2FieldZapHit       },
+
+      { "ELFProjectile",  9, OpReadBr,  9, T2FieldTarget       },
+      { "ELFProjectile",  5, OpInt,    11, T2FieldSourceObject },
+      { "ELFProjectile",  6, OpSelect,  3, T2FieldSourceSlot   },
+      { "ELFProjectile",  7, OpInt,    11, T2FieldBeamTarget   },
 
       T2_BEAM_PROJECTILE_FIELDS( "SniperProjectile" )
       T2_BEAM_PROJECTILE_FIELDS( "TargetProjectile" )
