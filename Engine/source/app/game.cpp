@@ -258,6 +258,12 @@ bool clientProcess(U32 timeDelta)
       connection->detectLag();
 
       // HH: Added for Tribes 2 compatibility.
+      // Retail turns the missile lock's four tones on and off once a client
+      // process, beside the target sweep above (0x005bbb6e).
+      connection->updateTargetTones();
+      connection->updateWarningTones();
+
+      // HH: Added for Tribes 2 compatibility.
       // Retail reports the playback clock once per client process (0x005c48e4),
       // and the playback dialog reads its progress from it.
       if(connection->isPlayingBack())
