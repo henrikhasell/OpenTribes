@@ -83,6 +83,20 @@ namespace T2Layout
       U32     vehicleObject;
       bool    hasStationObject;     ///< a station effect named its station
       U32     stationObject;        ///< the station's ghost index
+
+      /// What a seeking missile's body says about what it is chasing and how
+      /// fast it was already going when it left the muzzle.
+      bool    hasInheritedVel;
+      Point3F inheritedVel;         ///< the share of its source's velocity it
+                                    ///< carries, which its motor works on top
+      bool    hasSeekInfo;          ///< the body named what it is chasing,
+                                    ///< and nothing named is nothing chased
+      bool    hasSeekObject;        ///< it is chasing a ghost
+      U32     seekObject;           ///< that object's ghost index
+      bool    hasSeekPoint;         ///< it is flying at a point instead
+      Point3F seekPoint;
+      bool    seekCoasting;         ///< its motor has not lit yet
+
       bool    hasTarget;            ///< the body changed the target
       S32     target;               ///< the target manager's id, or -1
       bool    quickSplash;
@@ -695,6 +709,27 @@ namespace T2Layout
       T2DbBoltEndWidth1,
       T2DbBoltSpeed1,
       T2DbBoltTexWrap1,
+
+      // SeekerProjectileData's own run. turningSpeed and
+      // terrainAvoidanceSpeed are degrees a second; proximityRadius has no
+      // addField, so it is always the ten metres the constructor leaves.
+      T2DbSeekerMuzzleVelocity,
+      T2DbSeekerTurningSpeed,
+      T2DbSeekerProximityRadius,
+      T2DbSeekerAvoidanceSpeed,
+      T2DbSeekerScanAhead,
+      T2DbSeekerHeightFail,
+      T2DbSeekerAvoidanceRadius,
+      T2DbSeekerFlareDistance,
+      T2DbSeekerFlareAngle,
+      T2DbSeekerUseFlechette,
+      T2DbSeekerMaxVelocity,
+      T2DbSeekerAcceleration,
+      T2DbSeekerFlechetteDelay,
+      T2DbSeekerExhaustTime,
+      T2DbSeekerPuffEmitter,
+      T2DbSeekerExhaustEmitter,
+      T2DbSeekerCasingDebris,
 
       // TurretData's run after StaticShapeData's, and TurretImageData's after
       // ShapeBaseImageData's. thetaMin and thetaMax share the emitter's.

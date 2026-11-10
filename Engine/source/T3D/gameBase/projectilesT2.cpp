@@ -275,6 +275,34 @@ IMPLEMENT_PROJECTILE_DATA_T2( TracerProjectileData );
 
 //----------------------------------------------------------------------------
 
+/// A shape flies nose first along its own +Y, with the world's up for its
+/// roll: the trail of a disc runs down its -Y, and a roll taken from any
+/// perpendicular at all turns the disc over at random. Tribes 2 builds it
+/// with one routine (0x00553d00), and straight up or down, where the world's
+/// up gives no roll, that routine takes the world's +X for the right. A disc
+/// fired straight up then faces along -Y.
+static void headingMatrixT2(MatrixF *mat, const VectorF &along)
+{
+   VectorF forward = along;
+   if(forward.isZero())
+      return;
+   forward.normalize();
+
+      // Each part on its own, not the length: within about 0.6 degrees of
+      // vertical, where a length test would still take a roll. A cross with
+      // the world's up has no z.
+   VectorF right = mCross(forward, Point3F(0.0f, 0.0f, 1.0f));
+   if(mFabs(right.x) < 0.01f && mFabs(right.y) < 0.01f)
+      right.set(1.0f, 0.0f, 0.0f);
+   right.normalize();
+
+   const VectorF up = mCross(right, forward);
+
+   mat->setColumn(0, right);
+   mat->setColumn(1, forward);
+   mat->setColumn(2, up);
+}
+
 class ProjectileT2 : public GameBase, public ISceneLight
 {
    typedef GameBase Parent;
@@ -340,10 +368,8 @@ class ProjectileT2 : public GameBase, public ISceneLight
    GFXStateBlockRef boltStateBlock();
    TSThread *startThread(const char *name);
    ParticleEmitter *createEmitter(U32 dataId);
-   bool isInWater(const Point3F &point);
    void step(F32 dt);
    void explode();
-   void headingMatrix(MatrixF *mat);
    void ageTrail(F32 dt);
    void renderBolt(ObjectRenderInst *ri, SceneRenderState *state,
                    BaseMatInstance *overrideMat);
@@ -567,12 +593,12 @@ ParticleEmitter *ProjectileT2::createEmitter(U32 dataId)
 
 /// Water is any liquid but lava, which is the test retail makes of the
 /// water blocks a point is in (0x00632cd0).
-bool ProjectileT2::isInWater(const Point3F &point)
+static bool isInWaterT2(SceneContainer *container, const Point3F &point)
 {
    Vector<SceneObject *> found;
    const Point3F reach(0.01f, 0.01f, 0.01f);
-   getContainer()->findObjectList(Box3F(point - reach, point + reach),
-                                  WaterObjectType, &found);
+   container->findObjectList(Box3F(point - reach, point + reach),
+                             WaterObjectType, &found);
 
    for(U32 i = 0; i < found.size(); i++)
    {
@@ -764,7 +790,7 @@ void ProjectileT2::advanceTime(F32 dt)
       const U32 ms = U32(mEmitMS);
       if(ms)
       {
-         const bool inWater = isInWater(mPosition);
+         const bool inWater = isInWaterT2(getContainer(), mPosition);
          ParticleEmitter *emitter = inWater ? mBubbleEmitter : mEmitter;
 
          VectorF axis = -mVelocity;
@@ -796,7 +822,7 @@ void ProjectileT2::advanceTime(F32 dt)
    }
 
    MatrixF mat(true);
-   headingMatrix(&mat);
+   headingMatrixT2(&mat, mVelocity);
    mat.setPosition(mPosition);
    setTransform(mat);
 
@@ -935,34 +961,6 @@ void ProjectileT2::step(F32 dt)
    mPosition = info.point + info.normal * 0.05f;
 }
 
-/// A shape flies nose first along its own +Y, with the world's up for its
-/// roll: the trail of a disc runs down its -Y, and a roll taken from any
-/// perpendicular at all turns the disc over at random. Tribes 2 builds it
-/// with one routine (0x00553d00), and straight up or down, where the world's
-/// up gives no roll, that routine takes the world's +X for the right. A disc
-/// fired straight up then faces along -Y.
-void ProjectileT2::headingMatrix(MatrixF *mat)
-{
-   VectorF forward = mVelocity;
-   if(forward.isZero())
-      return;
-   forward.normalize();
-
-      // Each part on its own, not the length: within about 0.6 degrees of
-      // vertical, where a length test would still take a roll. A cross with
-      // the world's up has no z.
-   VectorF right = mCross(forward, Point3F(0.0f, 0.0f, 1.0f));
-   if(mFabs(right.x) < 0.01f && mFabs(right.y) < 0.01f)
-      right.set(1.0f, 0.0f, 0.0f);
-   right.normalize();
-
-   const VectorF up = mCross(right, forward);
-
-   mat->setColumn(0, right);
-   mat->setColumn(1, forward);
-   mat->setColumn(2, up);
-}
-
 void ProjectileT2::prepRenderImage(SceneRenderState *state)
 {
    if(mShapeInstance)
@@ -1025,7 +1023,7 @@ void ProjectileT2::submitLights(LightManager *lm, bool staticLighting)
    mLight->setPosition(getRenderPosition());
    mLight->setRange(mData->lightRadius);
    const bool underwater = mData->hasWaterLight && mBounces &&
-                           isInWater(mPosition);
+                           isInWaterT2(getContainer(), mPosition);
    mLight->setColor(underwater ? mData->waterLightColor : mData->lightColor);
 
    lm->registerGlobalLight(mLight, this);
@@ -3527,3 +3525,831 @@ IMPLEMENT_BEAM_PAIR_T2( ELFProjectile, ELFProjectileData,
                         ELFProjectileDataT2, ELFProjectileT2 );
 IMPLEMENT_BEAM_PAIR_T2( ShockLanceProjectile, ShockLanceProjectileData,
                         ShockLanceProjectileDataT2, ShockLanceProjectileT2 );
+
+//----------------------------------------------------------------------------
+
+/// What a seeking missile's datablock says about its flight, on top of the run
+/// every projectile shares. turningSpeed and terrainAvoidanceSpeed are degrees
+/// a second; proximityRadius has no addField, so the ten metres
+/// SeekerProjectileData's constructor leaves is the only value the wire ever
+/// carries (0x00636fdd).
+class SeekerProjectileDataT2 : public ProjectileDataT2
+{
+   typedef ProjectileDataT2 Parent;
+
+public:
+   F32  muzzleVelocity;    ///< how fast it leaves, before its motor lights
+   F32  turningSpeed;      ///< degrees a second it can turn its nose
+   F32  proximityRadius;   ///< how near the target it goes off once past it
+   F32  avoidanceSpeed;    ///< degrees a second it can pull up by
+   F32  scanAhead;         ///< how far ahead it looks for ground
+   F32  heightFail;        ///< how far below itself that look reaches
+   F32  avoidanceRadius;   ///< inside this it only pulls up for ground that
+                           ///< stands between it and its target
+   F32  flareDistance;     ///< how far off a flare can take it
+   F32  flareAngle;
+   bool useFlechette;      ///< it drops a casing when its motor lights
+   F32  maxVelocity;       ///< what the motor takes it to
+   F32  acceleration;      ///< metres a second a second
+   U32  flechetteDelayMS;  ///< how long the motor takes to light
+   U32  exhaustTimeMS;
+   U32  puffEmitterId;     ///< the puff the casing comes off in
+   U32  exhaustEmitterId;
+   U32  casingDebrisId;
+
+   SeekerProjectileDataT2();
+
+   bool unpackData(BitStream *stream, U32 classId);
+
+   DECLARE_CONOBJECT(SeekerProjectileDataT2);
+};
+
+IMPLEMENT_CONOBJECT(SeekerProjectileDataT2);
+
+ConsoleDocClass( SeekerProjectileDataT2,
+   "@brief What a Tribes 2 seeking missile's datablock says about its "
+   "flight.\n\n@internal" );
+
+SeekerProjectileDataT2::SeekerProjectileDataT2()
+   : muzzleVelocity(100.0f),
+     turningSpeed(180.0f),
+     proximityRadius(10.0f),
+     avoidanceSpeed(0.0f),
+     scanAhead(0.0f),
+     heightFail(0.0f),
+     avoidanceRadius(0.0f),
+     flareDistance(0.0f),
+     flareAngle(0.0f),
+     useFlechette(false),
+     maxVelocity(65.0f),
+     acceleration(10.0f),
+     flechetteDelayMS(500),
+     exhaustTimeMS(0),
+     puffEmitterId(0),
+     exhaustEmitterId(0),
+     casingDebrisId(0)
+{
+}
+
+bool SeekerProjectileDataT2::unpackData(BitStream *stream, U32 classId)
+{
+   if(!Parent::unpackData(stream, classId))
+      return false;
+
+   F32 value;
+   U32 word;
+   if(T2Layout::lastDataBlockField(T2Layout::T2DbSeekerMuzzleVelocity, &value))
+      muzzleVelocity = value;
+   if(T2Layout::lastDataBlockField(T2Layout::T2DbSeekerTurningSpeed, &value))
+      turningSpeed = value;
+   if(T2Layout::lastDataBlockField(T2Layout::T2DbSeekerProximityRadius, &value))
+      proximityRadius = value;
+   if(T2Layout::lastDataBlockField(T2Layout::T2DbSeekerAvoidanceSpeed, &value))
+      avoidanceSpeed = value;
+   if(T2Layout::lastDataBlockField(T2Layout::T2DbSeekerScanAhead, &value))
+      scanAhead = value;
+   if(T2Layout::lastDataBlockField(T2Layout::T2DbSeekerHeightFail, &value))
+      heightFail = value;
+   if(T2Layout::lastDataBlockField(T2Layout::T2DbSeekerAvoidanceRadius, &value))
+      avoidanceRadius = value;
+   if(T2Layout::lastDataBlockField(T2Layout::T2DbSeekerFlareDistance, &value))
+      flareDistance = value;
+   if(T2Layout::lastDataBlockField(T2Layout::T2DbSeekerFlareAngle, &value))
+      flareAngle = value;
+   if(T2Layout::lastDataBlockWord(T2Layout::T2DbSeekerUseFlechette, &word))
+      useFlechette = word != 0;
+   if(T2Layout::lastDataBlockField(T2Layout::T2DbSeekerMaxVelocity, &value))
+      maxVelocity = value;
+   if(T2Layout::lastDataBlockField(T2Layout::T2DbSeekerAcceleration, &value))
+      acceleration = value;
+   if(T2Layout::lastDataBlockWord(T2Layout::T2DbSeekerFlechetteDelay, &word))
+      flechetteDelayMS = word;
+   if(T2Layout::lastDataBlockWord(T2Layout::T2DbSeekerExhaustTime, &word))
+      exhaustTimeMS = word;
+   if(T2Layout::lastDataBlockWord(T2Layout::T2DbSeekerPuffEmitter, &word))
+      puffEmitterId = word;
+   if(T2Layout::lastDataBlockWord(T2Layout::T2DbSeekerExhaustEmitter, &word))
+      exhaustEmitterId = word;
+   if(T2Layout::lastDataBlockWord(T2Layout::T2DbSeekerCasingDebris, &word))
+      casingDebrisId = word;
+
+   return true;
+}
+
+//----------------------------------------------------------------------------
+
+/// The seconds a tick is worth to a missile. The engine's general physics
+/// constant is a thirty-second (0x0079c140), but projSeeker.cc carries its own
+/// 0.032 (0x007adf30) and uses it for every step and every push of the motor
+/// -- so a missile is 2.4% quicker than the rest of the engine would make it.
+/// Measured against the retail server: a shoulder missile holds 93.2 metres a
+/// second where a thirty-second tick holds 91.2.
+static const F32 sSeekerTickSec = 0.032f;
+
+/// Turn `way` towards `want` by at most `limit` radians, and answer whether
+/// `want` lies ahead of it at all -- which is what tells a missile it has gone
+/// past what it was chasing (0x006399cc). Retail builds the same turn out of
+/// an axis and an angle it hands to AngAxisF; here it is the rotation in the
+/// plane the two ways span, which needs no axis and so cannot take its sign
+/// the wrong way round.
+static bool turnTowards(VectorF *way, const VectorF &want, F32 limit)
+{
+   const F32 speed = way->len();
+   if(speed < 1e-4f || want.isZero())
+      return true;
+
+   VectorF from = *way / speed;
+   VectorF to = want;
+   to.normalize();
+
+   const F32 dot = mClampF(mDot(to, from), -1.0f, 1.0f);
+
+      // Within a hundredth of a degree it is already pointing there, which is
+      // the cosine retail compares against (0x00639a0c).
+   if(dot >= 0.99985f)
+      return true;
+
+   const F32 turn = getMin(mAcos(dot), limit);
+   if(turn <= 0.0f)
+      return dot >= 0.0f;
+
+   VectorF across = to - from * dot;
+   if(across.isZero())
+      return dot >= 0.0f;
+   across.normalize();
+
+   *way = (from * mCos(turn) + across * mSin(turn)) * speed;
+   return dot >= 0.0f;
+}
+
+/// A Tribes 2 seeking missile. The server flies it and sends where it has got
+/// to and what it is chasing; between those bodies the client flies the same
+/// simulation, which is what gives the flight its curve rather than a line
+/// from one body to the next (SeekerProjectile::processTick 0x0063a430, the
+/// ghost half from 0x0063ae37).
+class SeekerProjectileT2 : public GameBase, public ISceneLight
+{
+   typedef GameBase Parent;
+
+   /// What it is chasing, which the body names on any update: a ghost, a
+   /// point in the world, or nothing at all (0x00638eb0).
+   enum Chasing
+   {
+      ChasingNothing,
+      ChasingPoint,
+      ChasingObject
+   };
+
+   SeekerProjectileDataT2 *mData;
+   TSShapeInstance *mShapeInstance;
+
+   Point3F mPosition;
+   VectorF mVelocity;
+   VectorF mInherit;          ///< the share of its source's velocity it left
+                              ///< with, which the motor works on top of
+   VectorF mLaunchDir;        ///< the way it is drawn along until its motor
+                              ///< lights, which is the way it was fired
+
+   U32         mChasing;
+   SimObjectId mTargetId;
+   Point3F     mTargetPoint;  ///< where the target was, which is what a lost
+                              ///< lock leaves behind (0x00638ed7)
+
+   bool mCoasting;            ///< its motor has not lit yet
+   bool mPuffed;              ///< and the puff it lights in has been laid
+   F32  mAge;                 ///< seconds since this ghost arrived
+   F32  mThrustTime;          ///< flight the motor has not yet been given
+   bool mFlying;
+   bool mExploded;
+   VectorF mImpactNormal;
+
+   SFXSource *mSound;
+   SimObjectPtr<ParticleEmitter> mEmitter;
+   SimObjectPtr<ParticleEmitter> mBubbleEmitter;
+   SimObjectPtr<ParticleEmitter> mPuffEmitter;
+   Point3F mEmitAt;
+   F32     mEmitMS;
+
+   SimObjectId mSourceObject;
+   F32         mNoSourceHit;
+
+   LightInfo *mLight;
+
+   ParticleEmitter *createEmitter(U32 dataId);
+   bool motorLit() const;
+   bool targetPosition(Point3F *out);
+   void seek(F32 dt);
+   void avoidTerrain(const Point3F &target, F32 dt);
+   void step(F32 dt);
+   void explode(const Point3F &at, const VectorF &normal);
+
+public:
+   SeekerProjectileT2();
+   ~SeekerProjectileT2();
+
+   bool onAdd();
+   void onRemove();
+   bool onNewDataBlock(GameBaseData *dptr, bool reload);
+   void onT2BodyRead(const T2Layout::Body &body);
+   void advanceTime(F32 dt);
+   void prepRenderImage(SceneRenderState *state);
+
+   void submitLights(LightManager *lm, bool staticLighting);
+   LightInfo *getLight() { return mLight; }
+
+   DECLARE_CONOBJECT(SeekerProjectileT2);
+};
+
+IMPLEMENT_CONOBJECT(SeekerProjectileT2);
+
+ConsoleDocClass( SeekerProjectileT2,
+   "@brief A Tribes 2 seeking missile.\n\n@internal" );
+
+SeekerProjectileT2::SeekerProjectileT2()
+   : mData(NULL),
+     mShapeInstance(NULL),
+     mPosition(0.0f, 0.0f, 0.0f),
+     mVelocity(0.0f, 0.0f, 0.0f),
+     mInherit(0.0f, 0.0f, 0.0f),
+     mLaunchDir(0.0f, 1.0f, 0.0f),
+     mChasing(ChasingNothing),
+     mTargetId(0),
+     mTargetPoint(0.0f, 0.0f, 0.0f),
+     mCoasting(false),
+     mPuffed(false),
+     mAge(0.0f),
+     mThrustTime(0.0f),
+     mFlying(false),
+     mExploded(false),
+     mImpactNormal(0.0f, 0.0f, 1.0f),
+     mSound(NULL),
+     mEmitAt(0.0f, 0.0f, 0.0f),
+     mEmitMS(0.0f),
+     mSourceObject(0),
+     mNoSourceHit(0.0f),
+     mLight(NULL)
+{
+   mTypeMask |= ProjectileObjectType;
+}
+
+SeekerProjectileT2::~SeekerProjectileT2()
+{
+   delete mShapeInstance;
+   SAFE_DELETE(mLight);
+}
+
+bool SeekerProjectileT2::onAdd()
+{
+   if(!Parent::onAdd())
+      return false;
+
+      // A quarter of a metre either way, which is the box retail gives one
+      // (0x00638c09).
+   mObjBox.minExtents.set(-0.25f, -0.25f, -0.25f);
+   mObjBox.maxExtents.set( 0.25f,  0.25f,  0.25f);
+   resetWorldBox();
+   addToScene();
+
+   return true;
+}
+
+void SeekerProjectileT2::onRemove()
+{
+   SFX_DELETE(mSound);
+
+   if(bool(mEmitter))
+      mEmitter->deleteWhenEmpty();
+   mEmitter = NULL;
+   if(bool(mBubbleEmitter))
+      mBubbleEmitter->deleteWhenEmpty();
+   mBubbleEmitter = NULL;
+   if(bool(mPuffEmitter))
+      mPuffEmitter->deleteWhenEmpty();
+   mPuffEmitter = NULL;
+
+   removeFromScene();
+   Parent::onRemove();
+}
+
+ParticleEmitter *SeekerProjectileT2::createEmitter(U32 dataId)
+{
+   ParticleEmitterData *data = NULL;
+   if(!isClientObject() || !dataId || !Sim::findObject(dataId, data))
+      return NULL;
+
+   ParticleEmitter *emitter = new ParticleEmitter;
+   emitter->onNewDataBlock(data, false);
+   if(emitter->registerObject())
+      return emitter;
+
+   delete emitter;
+   return NULL;
+}
+
+bool SeekerProjectileT2::onNewDataBlock(GameBaseData *dptr, bool reload)
+{
+   mData = dynamic_cast<SeekerProjectileDataT2 *>(dptr);
+   if(!mData || !Parent::onNewDataBlock(dptr, reload))
+      return false;
+
+   SFX_DELETE(mSound);
+   if(isClientObject() && mData->soundId)
+   {
+      SFXTrack *track = NULL;
+      if(Sim::findObject(mData->soundId, track))
+         mSound = SFX->createSource(track, &getTransform());
+   }
+
+   if(bool(mEmitter))
+      mEmitter->deleteWhenEmpty();
+   if(bool(mBubbleEmitter))
+      mBubbleEmitter->deleteWhenEmpty();
+   if(bool(mPuffEmitter))
+      mPuffEmitter->deleteWhenEmpty();
+
+   mEmitter = createEmitter(mData->baseEmitterId);
+   mBubbleEmitter = createEmitter(mData->bubbleEmitterId);
+   mPuffEmitter = createEmitter(mData->puffEmitterId);
+
+   if(mData->hasLight)
+      mTypeMask |= LightObjectType;
+   else
+      mTypeMask &= ~LightObjectType;
+
+   delete mShapeInstance;
+   mShapeInstance = NULL;
+   if(bool(mData->mShape))
+      mShapeInstance = new TSShapeInstance(mData->mShape, isClientObject());
+
+   return true;
+}
+
+/// The motor lights a flechetteDelayMs after the launch, and the casing comes
+/// off halfway through that -- which is also where the missile stops being
+/// drawn along the way it was fired and starts being drawn along its flight
+/// (0x0063b945, 0x0063c8c6). A missile the client picks up already under way
+/// says so in its first body, and skips both.
+bool SeekerProjectileT2::motorLit() const
+{
+   return !mCoasting || mAge * 1000.0f >= F32(mData->flechetteDelayMS);
+}
+
+bool SeekerProjectileT2::targetPosition(Point3F *out)
+{
+   if(mChasing == ChasingNothing)
+      return false;
+
+   if(mChasing == ChasingObject)
+   {
+      SceneObject *obj = NULL;
+      if(mTargetId && Sim::findObject(mTargetId, obj))
+      {
+            // The middle of its world box, which is what retail aims at
+            // rather than its origin (0x0063c38a).
+         const Box3F &box = obj->getWorldBox();
+         mTargetPoint = (box.minExtents + box.maxExtents) * 0.5f;
+      }
+      else
+      {
+            // The lock is gone; what is left is where it last was.
+         mChasing = ChasingPoint;
+      }
+   }
+
+   *out = mTargetPoint;
+   return true;
+}
+
+/// Turn the flight towards what it is chasing, and once it is already pointing
+/// there, away from ground that stands in the way (0x006397a0).
+void SeekerProjectileT2::seek(F32 dt)
+{
+   Point3F target;
+   if(!targetPosition(&target))
+      return;
+
+      // Retail multiplies turningSpeed by the target's heat and compares the
+      // product, in degrees, against an angle in radians (0x00639b29): the
+      // only heat that holds the turn back at all is none.
+   if(mChasing == ChasingObject)
+   {
+      ShapeBase *shape = NULL;
+      if(Sim::findObject(mTargetId, shape) && shape->getHeat() <= 0.0f)
+         return;
+   }
+
+   const VectorF toTarget = target - mPosition;
+   const F32 turn = mDegToRad(mData->turningSpeed) * dt;
+   const bool ahead = turnTowards(&mVelocity, toTarget, turn);
+
+   if(!ahead)
+   {
+         // It has gone past: inside the proximity radius that is a hit, and
+         // outside it the lock is dropped (0x0063a700, 0x0063b3b7).
+      if(toTarget.len() < mData->proximityRadius)
+      {
+         VectorF normal = -mVelocity;
+         if(!normal.isZero())
+            normal.normalize();
+         mFlying = false;
+         explode(mPosition, normal);
+         return;
+      }
+
+      mChasing = ChasingNothing;
+      return;
+   }
+
+      // Only once it is lined up: a missile still turning onto its target
+      // never looks at the ground (0x00639ce2).
+   VectorF way = mVelocity;
+   if(way.isZero() || toTarget.isZero())
+      return;
+   way.normalize();
+   VectorF to = toTarget;
+   to.normalize();
+   if(mDot(to, way) >= 0.99985f)
+      avoidTerrain(target, dt);
+}
+
+void SeekerProjectileT2::avoidTerrain(const Point3F &target, F32 dt)
+{
+   if(mData->scanAhead <= 0.0f)
+      return;
+
+      // Near the target it only pulls up for ground that stands between the
+      // two: the mask is the target's own next to the terrain's, so a ray
+      // that stops on the target means the way is clear (0x00639e11).
+   if((mPosition - target).len() < mData->avoidanceRadius)
+   {
+      U32 mask = TerrainObjectType;
+      SceneObject *obj = NULL;
+      if(mChasing == ChasingObject && mTargetId &&
+         Sim::findObject(mTargetId, obj))
+         mask |= obj->getTypeMask();
+
+      RayInfo los;
+      disableCollision();
+      const bool blocked = getContainer()->castRay(mPosition, target, mask,
+                                                   &los) &&
+                           los.object &&
+                           (los.object->getTypeMask() & TerrainObjectType);
+      enableCollision();
+
+      if(!blocked)
+         return;
+   }
+
+      // A look along the flight, scanAhead out and heightFail down: ground
+      // inside that wedge is ground it would fly into (0x00639eeb).
+   VectorF ahead = mVelocity;
+   if(ahead.isZero())
+      return;
+   ahead.normalize();
+   ahead *= mData->scanAhead;
+
+   const Point3F probe(mPosition.x + ahead.x, mPosition.y + ahead.y,
+                       mPosition.z - mData->heightFail + ahead.z);
+
+   RayInfo info;
+   disableCollision();
+   const bool ground = getContainer()->castRay(mPosition, probe,
+                                               TerrainObjectType, &info);
+   enableCollision();
+
+   if(ground)
+      turnTowards(&mVelocity, Point3F(0.0f, 0.0f, 1.0f),
+                  mDegToRad(mData->avoidanceSpeed) * dt);
+}
+
+void SeekerProjectileT2::step(F32 dt)
+{
+      // The motor accelerates the way the missile is already thrusting, which
+      // is its flight less what it inherited from whoever fired it -- so a
+      // missile fired from a moving vehicle keeps that speed and adds to it
+      // along its own nose (0x0063afaf).
+      //
+      // A tick's worth at a time, not a frame's: retail stops the moment the
+      // speed has passed maxVelocity, so what it settles at is the first
+      // whole tick of thrust past it -- 93.2 metres a second for a shoulder
+      // missile, not the 90 its datablock asks for. A frame's worth at a time
+      // settles on the 90 instead, which is the wrong answer by 3%.
+   if(motorLit())
+   {
+      mThrustTime += dt;
+      while(mThrustTime >= sSeekerTickSec)
+      {
+         mThrustTime -= sSeekerTickSec;
+         if(mVelocity.len() >= mData->maxVelocity)
+            continue;
+
+         VectorF thrust = mVelocity - mInherit;
+         if(thrust.isZero())
+            continue;
+         thrust.normalize();
+         mVelocity += thrust * mData->acceleration * sSeekerTickSec;
+      }
+   }
+
+   seek(dt);
+   if(!mFlying)
+      return;
+
+   const Point3F from = mPosition;
+   const Point3F to = from + mVelocity * dt;
+
+      // A ghost only stops on the static world: what a missile does to a
+      // player is the server's to decide, and its body says so (0x0063b57c
+      // passes no damageable mask).
+   SceneObject *source = NULL;
+   if(mNoSourceHit > 0.0f)
+   {
+      mNoSourceHit -= dt;
+      if(mSourceObject && Sim::findObject(mSourceObject, source))
+         source->disableCollision();
+   }
+
+   RayInfo info;
+   disableCollision();
+   const bool hit = getContainer()->castRay(from, to, sProjectileStaticMask,
+                                            &info);
+   enableCollision();
+
+   if(source)
+      source->enableCollision();
+
+   if(!hit)
+   {
+      mPosition = to;
+      return;
+   }
+
+      // Before the motor lights it is still a casing coming out of the
+      // launcher, and what it touches does not set it off (0x0063b5f2).
+   mPosition = info.point;
+   mFlying = false;
+   if(motorLit())
+      explode(info.point, info.normal);
+}
+
+/// The explosion goes a centimetre back along the way it came, facing out of
+/// whatever stopped it (0x00639414).
+void SeekerProjectileT2::explode(const Point3F &at, const VectorF &normal)
+{
+   if(mExploded)
+      return;
+
+   mExploded = true;
+   mImpactNormal = normal;
+   mPosition = at;
+
+   ExplosionData *data = NULL;
+   if(!mData || !mData->explosionId ||
+      !Sim::findObject(mData->explosionId, data) || !data)
+      return;
+
+   const Point3F blastAt = at + normal * 0.01f;
+
+   Explosion *blast = new Explosion;
+   blast->onNewDataBlock(data, false);
+
+   MatrixF mat(true);
+   mat.setPosition(blastAt);
+   blast->setTransform(mat);
+   blast->setInitialState(blastAt, normal);
+
+   if(!blast->registerObject())
+   {
+      Con::warnf("SeekerProjectileT2: %s could not register its explosion.",
+                 mData->getName());
+      delete blast;
+   }
+}
+
+void SeekerProjectileT2::onT2BodyRead(const T2Layout::Body &body)
+{
+   Parent::onT2BodyRead(body);
+
+   if(body.hasSourceObject)
+   {
+      NetConnection *conn = NetConnection::getConnectionToServer();
+      NetObject *obj = conn ? conn->resolveGhost(S32(body.sourceObject))
+                            : NULL;
+      mSourceObject = obj ? obj->getId() : 0;
+      mNoSourceHit = 7.0f * TickSec;
+   }
+
+      // The inherited velocity and whether the motor has lit come only on the
+      // first body, and the first body is also the launch.
+   if(body.hasInheritedVel)
+      mInherit = body.inheritedVel;
+   if(body.hasPosition && body.hasVelocity && !mFlying)
+   {
+      mCoasting = body.seekCoasting;
+      mAge = 0.0f;
+      mLaunchDir = body.velocity - mInherit;
+      if(mLaunchDir.isZero())
+         mLaunchDir = body.velocity;
+      if(mLaunchDir.isZero())
+         mLaunchDir.set(0.0f, 1.0f, 0.0f);
+      mLaunchDir.normalize();
+   }
+
+   if(body.hasSeekInfo)
+   {
+      if(body.hasSeekObject)
+      {
+         NetConnection *conn = NetConnection::getConnectionToServer();
+         NetObject *obj = conn ? conn->resolveGhost(S32(body.seekObject))
+                               : NULL;
+         SceneObject *scene = dynamic_cast<SceneObject *>(obj);
+         if(scene)
+         {
+            mTargetId = scene->getId();
+            mChasing = ChasingObject;
+            const Box3F &box = scene->getWorldBox();
+            mTargetPoint = (box.minExtents + box.maxExtents) * 0.5f;
+         }
+         else
+            mChasing = ChasingNothing;
+      }
+      else if(body.hasSeekPoint)
+      {
+         mTargetPoint = body.seekPoint;
+         mChasing = ChasingPoint;
+      }
+      else
+         mChasing = ChasingNothing;
+   }
+
+      // A body with both ends is the detonation; one with a position and a
+      // velocity is the flight, and the server's is the one that counts.
+   if(body.hasExplodePoint)
+   {
+      mFlying = false;
+      explode(body.explodePoint,
+              body.hasImpactNormal ? body.impactNormal : mImpactNormal);
+      return;
+   }
+
+   if(body.hasPosition && body.hasVelocity)
+   {
+      if(!mFlying)
+         mEmitAt = body.position;
+
+      mPosition = body.position;
+      mVelocity = body.velocity;
+      mFlying = true;
+
+      MatrixF mat(true);
+      mat.setPosition(mPosition);
+      setTransform(mat);
+   }
+}
+
+void SeekerProjectileT2::advanceTime(F32 dt)
+{
+   Parent::advanceTime(dt);
+
+   if(dt <= 0.0f)
+      return;
+
+   if(mSound)
+   {
+      if(!mFlying || mExploded)
+         mSound->stop();
+      else
+      {
+         if(!mSound->isPlaying())
+            mSound->play();
+
+         mSound->setVelocity(mVelocity);
+         mSound->setTransform(getRenderTransform());
+      }
+   }
+
+   if(!mFlying)
+      return;
+
+   const bool wasLit = motorLit();
+   mAge += dt;
+
+      // A missile that lost its last body keeps flying on its own; retail's
+      // server ends it at its lifetime and sends the body that says so, and
+      // without that body there is nothing to draw past it (0x00638974).
+   if(mData->lifetimeMS && mAge * 1000.0f > F32(mData->lifetimeMS))
+   {
+      mFlying = false;
+      return;
+   }
+
+   step(dt);
+
+      // The casing comes off in a puff where the motor lights (0x0063c93d).
+   if(!wasLit && motorLit() && !mPuffed)
+   {
+      mPuffed = true;
+      if(bool(mPuffEmitter))
+         mPuffEmitter->emitParticles(mPosition, mPosition,
+                                     Point3F(0.0f, 0.0f, 1.0f), mVelocity,
+                                     1000);
+   }
+
+      // The smoke runs from where the last of it was laid to where the flight
+      // has got, backwards along it, and under water the bubbles rise
+      // instead -- Projectile::emitParticles (0x00632530), a frame at a time
+      // here with the milliseconds a frame leaves over kept for the next.
+   if(bool(mEmitter) || bool(mBubbleEmitter))
+   {
+      mEmitMS += dt * 1000.0f;
+      const U32 ms = U32(mEmitMS);
+      if(ms)
+      {
+         const bool inWater = isInWaterT2(getContainer(), mPosition);
+         ParticleEmitter *emitter = inWater ? mBubbleEmitter : mEmitter;
+
+         VectorF axis = -mVelocity;
+         if(inWater || axis.isZero())
+            axis.set(0.0f, 0.0f, 1.0f);
+         else
+            axis.normalize();
+
+         if(emitter)
+            emitter->emitParticles(mEmitAt, mPosition, axis, mVelocity, ms);
+         mEmitAt = mPosition;
+         mEmitMS -= F32(ms);
+      }
+   }
+
+      // Until the casing is off, the missile is still pointing the way it was
+      // fired; after it, along its flight (0x0063b98e).
+   MatrixF mat(true);
+   headingMatrixT2(&mat, motorLit() ? mVelocity : mLaunchDir);
+   mat.setPosition(mPosition);
+   setTransform(mat);
+
+   if(mShapeInstance)
+      mShapeInstance->advanceTime(dt);
+}
+
+void SeekerProjectileT2::prepRenderImage(SceneRenderState *state)
+{
+   if(!mShapeInstance || !mFlying)
+      return;
+
+   GFXTransformSaver saver;
+
+   TSRenderState rdata;
+   rdata.setSceneState(state);
+
+   LightQuery query;
+   query.init(getWorldSphere());
+   rdata.setLightQuery(&query);
+
+   MatrixF mat = getRenderTransform();
+   mat.scale(mData->scale);
+   GFX->setWorldMatrix(mat);
+
+   mShapeInstance->setDetailFromPosAndScale(state, mat.getPosition(),
+                                            mData->scale);
+   mShapeInstance->animate();
+   mShapeInstance->render(rdata);
+}
+
+void SeekerProjectileT2::submitLights(LightManager *lm, bool staticLighting)
+{
+   if(staticLighting || !mData || !mData->hasLight || !mFlying)
+      return;
+
+   if(!mLight)
+      mLight = LightManager::createLightInfo();
+
+   mLight->setType(LightInfo::Point);
+   mLight->setPosition(getRenderPosition());
+   mLight->setRange(mData->lightRadius);
+   mLight->setColor(mData->lightColor);
+
+   lm->registerGlobalLight(mLight, this);
+}
+
+#define IMPLEMENT_SEEKER_T2( objectName, dataName )                          \
+   class dataName : public SeekerProjectileDataT2                            \
+   {                                                                         \
+      typedef SeekerProjectileDataT2 Parent;                                 \
+   public:                                                                   \
+      DECLARE_CONOBJECT(dataName);                                           \
+   };                                                                        \
+   IMPLEMENT_CO_DATABLOCK_V1(dataName);                                      \
+   ConsoleDocClass( dataName, "@brief A Tribes 2 seeking missile's "          \
+                              "datablock.\n\n@internal" );                   \
+   class objectName : public SeekerProjectileT2                              \
+   {                                                                         \
+      typedef SeekerProjectileT2 Parent;                                     \
+   public:                                                                   \
+      DECLARE_CONOBJECT(objectName);                                         \
+   };                                                                        \
+   IMPLEMENT_CO_NETOBJECT_V1(objectName);                                    \
+   ConsoleDocClass( objectName, "@brief A Tribes 2 seeking missile."          \
+                                "\n\n@internal" )
+
+IMPLEMENT_SEEKER_T2( SeekerProjectile, SeekerProjectileData );
