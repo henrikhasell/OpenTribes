@@ -826,6 +826,11 @@ static const U32 sProjectileDamageableMask =
    StaticShapeObjectType | PlayerObjectType | VehicleObjectType |
    ItemObjectType;
 
+/// Terrain and interiors carry StaticShapeObjectType here as well as their
+/// own, so the world has to be taken back out of the damageable half.
+static const U32 sProjectileWorldMask =
+   TerrainObjectType | InteriorObjectType;
+
 static const U32 sProjectileCollisionMask =
    sProjectileStaticMask | sProjectileDamageableMask;
 
@@ -896,14 +901,15 @@ void ProjectileT2::step(F32 dt)
    mPosition = info.point;
    mImpactNormal = info.normal;
 
+   const U32 hitMask = info.object ? info.object->getTypeMask() : 0;
+
       // Only the ground and a building are marked (0x0062e09b, where the
       // mask is Tribes 2's Terrain and Interior); a shot that hits a player,
       // a vehicle or a deployable leaves nothing behind.
-   mMarks = info.object &&
-      (info.object->getTypeMask() & (TerrainObjectType | InteriorObjectType)) != 0;
+   mMarks = (hitMask & sProjectileWorldMask) != 0;
 
-   const bool damageable = info.object &&
-      (info.object->getTypeMask() & sProjectileDamageableMask) != 0;
+   const bool damageable = (hitMask & sProjectileDamageableMask) != 0 &&
+                           (hitMask & sProjectileWorldMask) == 0;
 
       // A disc goes off on the first thing it touches; a grenade bounces
       // until its arming delay has run and goes off on the first thing after
