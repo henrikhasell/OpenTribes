@@ -118,7 +118,18 @@ private:
    StringTableEntry mMissileTargetRing;
    StringTableEntry mMissileMarkerHilite;
 
+   /// The art behind the six names above, in the same order (0x005039d0).
+   /// Only the first four are drawn: nothing in retail reads the ring, and
+   /// the hilite belongs to the bomb sight.
+   enum { NumMissileImages = 6 };
+   GFXTexHandle     mMissileImages[NumMissileImages];
+
    S32     mImageOffset;
+
+   /// How long the two flashes over a held lock take to swap, in
+   /// milliseconds.  Retail leaves it at 200 and gives it no field.
+   S32     mMissileFlashMS;
+
    Point2I mInfoOffset;
    Point2I mDamageRectSize;
 
@@ -153,6 +164,13 @@ private:
 
    void drawMarker(const GuiTSCtrl *ts, const Entry &e, Point2I at,
                    bool onEdge, const Point2I &offset);
+
+   /// The marker over whatever this client's missile launcher is working
+   /// on, at the point it projected to.
+   void drawMissileMarker(Point2I at, bool locked);
+
+   /// Pick that point out of what the connection was told, and mark it.
+   void drawMissileLock(const GuiTSCtrl *ts, GameConnection *conn);
    void drawTargetInfo(const Entry &e, const Point2I &offset);
 
 public:
