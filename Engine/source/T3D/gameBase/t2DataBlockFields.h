@@ -404,6 +404,44 @@ namespace T2Protocol
       { "EnergyProjectileData",      66, OpRaw, 32, T2DbScaleZ             },
       { "EnergyProjectileData",      60, OpDataBlockId, 11, T2DbExplosion   },
 
+   // SeekerProjectileData::packData (0x00637b10) writes its own run after
+   // ProjectileData's: the lifetime, the speed it leaves the muzzle at, how
+   // fast it turns, the radius it goes off inside, the four terrain-avoidance
+   // fields, how far and how wide it looks for a flare, whether it drops a
+   // casing, the speed its motor takes it to and how hard, how long the
+   // casing takes, how long the launcher's exhaust lasts, two shape names and
+   // three datablock ids.
+      { "SeekerProjectileData", 24, OpRaw, 32, T2DbProjectileLifetime     },
+      { "SeekerProjectileData", 25, OpRaw, 32, T2DbSeekerMuzzleVelocity   },
+      { "SeekerProjectileData", 26, OpRaw, 32, T2DbSeekerTurningSpeed     },
+      { "SeekerProjectileData", 27, OpRaw, 32, T2DbSeekerProximityRadius  },
+      { "SeekerProjectileData", 28, OpRaw, 32, T2DbSeekerAvoidanceSpeed   },
+      { "SeekerProjectileData", 29, OpRaw, 32, T2DbSeekerScanAhead        },
+      { "SeekerProjectileData", 30, OpRaw, 32, T2DbSeekerHeightFail       },
+      { "SeekerProjectileData", 31, OpRaw, 32, T2DbSeekerAvoidanceRadius  },
+      { "SeekerProjectileData", 32, OpRaw, 32, T2DbSeekerFlareDistance    },
+      { "SeekerProjectileData", 33, OpRaw, 32, T2DbSeekerFlareAngle       },
+      { "SeekerProjectileData", 34, OpRaw,  8, T2DbSeekerUseFlechette     },
+      { "SeekerProjectileData", 35, OpRaw, 32, T2DbSeekerMaxVelocity      },
+      { "SeekerProjectileData", 36, OpRaw, 32, T2DbSeekerAcceleration     },
+      { "SeekerProjectileData", 37, OpRaw, 32, T2DbSeekerFlechetteDelay   },
+      { "SeekerProjectileData", 38, OpRaw, 32, T2DbSeekerExhaustTime      },
+      { "SeekerProjectileData", 47, OpDataBlockId, 11, T2DbSeekerCasingDebris  },
+      { "SeekerProjectileData", 46, OpDataBlockId, 11, T2DbSeekerPuffEmitter   },
+      { "SeekerProjectileData", 45, OpDataBlockId, 11, T2DbSeekerExhaustEmitter },
+   // and ProjectileData's own run around it, at the nodes every projectile
+   // layout puts them: the scale three past the top of the id chain, the
+   // explosion three before the sound, baseEmitter six past it.
+      { "SeekerProjectileData",  3, OpFlag,  1, T2DbFaceViewer },
+      { "SeekerProjectileData", 70, OpRaw,  32, T2DbScaleX     },
+      { "SeekerProjectileData", 71, OpRaw,  32, T2DbScaleY     },
+      { "SeekerProjectileData", 72, OpRaw,  32, T2DbScaleZ     },
+      { "SeekerProjectileData", 69, OpDataBlockId, 11,
+        T2DbProjectileBaseEmitter },
+      { "SeekerProjectileData", 67, OpDataBlockId, 11,
+        T2DbProjectileBubbleEmitter },
+      { "SeekerProjectileData", 66, OpDataBlockId, 11, T2DbExplosion },
+
       { "GrenadeProjectileData", 24, OpRaw, 32, T2DbArmingDelay        },
       { "GrenadeProjectileData", 25, OpRaw, 32, T2DbProjectileVelocity },
       { "GrenadeProjectileData", 26, OpRaw, 32, T2DbElasticity         },
@@ -438,6 +476,7 @@ namespace T2Protocol
       T2_PROJECTILE_LIGHT_ROWS( "GrenadeProjectileData",     36 ),
       T2_PROJECTILE_LIGHT_ROWS( "LinearFlareProjectileData", 45 ),
       T2_PROJECTILE_LIGHT_ROWS( "LinearProjectileData",      38 ),
+      T2_PROJECTILE_LIGHT_ROWS( "SeekerProjectileData",      51 ),
       T2_PROJECTILE_LIGHT_ROWS( "TracerProjectileData",      48 ),
 #undef T2_PROJECTILE_LIGHT_ROWS
 
