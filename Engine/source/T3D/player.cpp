@@ -5157,6 +5157,26 @@ bool Player::displaceObject(const Point3F& displacement)
 
 //----------------------------------------------------------------------------
 
+// HH: Added for Tribes 2 compatibility.
+// Player::unpackUpdate reads the arm sequence a byte at a time and hands it
+// straight to setArmThread (0x005db627). A ghost that has not been added
+// yet has no shape to set it on, so it is kept for onNewDataBlock, which
+// already puts the arm back the way onAdd leaves it.
+void Player::readT2Arm(const T2Layout::Body &body)
+{
+   const U32 action = mDataBlock->actionFromT2(body.arm);
+   if (action == PlayerData::NullAnimation)
+      return;
+
+   if (!isProperlyAdded())
+   {
+      mArmAnimation.action = action;
+      return;
+   }
+
+   setArmThread(action);
+}
+
 void Player::readT2Action(const T2Layout::Body &body)
 {
    const U32 action = mDataBlock->actionFromT2(body.action);
@@ -5213,6 +5233,13 @@ void Player::onT2BodyRead(const T2Layout::Body &body)
 
    if (body.hasAction && mDataBlock)
       readT2Action(body);
+
+   // HH: Added for Tribes 2 compatibility.
+   // How the arms hold what is in them: WeaponImage::onMount hands the
+   // image's armThread to Player::setArmThread on the server, and the sniper
+   // rifle and the missile launcher are the two that name one.
+   if (body.hasArm && mDataBlock)
+      readT2Arm(body);
 
    if (!body.hasPosition)
       return;

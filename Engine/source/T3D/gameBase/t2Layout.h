@@ -98,6 +98,8 @@ namespace T2Layout
       bool    actionFirstPerson;
       bool    hasActionPos;
       F32     actionPos;            ///< how far through the thread, -1..1
+      bool    hasArm;
+      U32     arm;                  ///< the sequence the arms hold a weapon in
       bool    hasInvincible;
       F32     invincibleTime;
       F32     invincibleSpeed;

@@ -47,6 +47,9 @@ namespace T2Protocol
                                     ///< person too
       T2FieldActionPosHere,         ///< the flag a thread position follows
       T2FieldActionPos,             ///< readSignedFloat(bits) of the thread
+      T2FieldArmHere,               ///< the flag an arm thread follows
+      T2FieldArm,                   ///< readInt(bits), the sequence the arms
+                                    ///< hold the weapon in
       T2FieldFieldState,
       T2FieldFieldFade,
       T2FieldZonePoints,
@@ -141,6 +144,11 @@ namespace T2Protocol
       { "Player", 35, OpFlag,  1,  T2FieldActionFirstPerson },
       { "Player", 37, OpFlag,  1,  T2FieldActionPosHere     },
       { "Player", 36, OpRaw,   6,  T2FieldActionPos         },
+
+   // The arm thread, which the action thread is read after: a flag and the
+   // eight bits Player::packUpdate writes the action at (0x005daff9).
+      { "Player", 34, OpFlag,  1,  T2FieldArmHere           },
+      { "Player", 33, OpRaw,   8,  T2FieldArm               },
 
    // ShapeBase's cloak block (CloakMask, 0x40), inside the group flag at 64:
    // flag 63 for the block, then whether it is cloaked (0x005ef937), then the
