@@ -292,9 +292,17 @@ struct PlayerData: public ShapeBaseData {
    ActionAnimation actionList[NumActionAnims];
    U32 actionCount;
 
-   // HH: Added for Tribes 2 compatibility. A Tribes 2 sender names an
-   // action by the shape's own sequence number, eight bits wide.
-   enum { T2ActionAnimBits = 8, NumT2Actions = 1 << T2ActionAnimBits };
+   // HH: Added for Tribes 2 compatibility. A Tribes 2 sender names an action
+   // by its own index into its own action list, eight bits wide. That list is
+   // built from a table of eight sequence names, where this engine's holds
+   // twenty-three, so the two numberings do not agree.
+   enum
+   {
+      T2ActionAnimBits = 8,
+      NumT2Actions = 1 << T2ActionAnimBits,
+      NumT2TableActionAnims = 8
+   };
+   static const char* T2ActionAnimationList[NumT2TableActionAnims];
    U16 t2ActionMap[NumT2Actions];
    U32 actionFromT2(U32 t2Action) const;
 
