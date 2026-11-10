@@ -3141,7 +3141,8 @@ bool ShockLanceProjectileDataT2::preload(bool server, String &errorStr)
 
 /// A shock lance's zap. Unlike the repair and ELF beams this one carries both
 /// of its ends on the wire, so there is nothing to cast for: it is drawn
-/// where the server put it and goes away after zapDuration.
+/// where the server put it and goes away after zapDuration. A dry fire is the
+/// exception -- see placeDryFire.
 class ShockLanceProjectileT2 : public GameBase
 {
    typedef GameBase Parent;
@@ -3149,6 +3150,8 @@ class ShockLanceProjectileT2 : public GameBase
    enum { MaxFilaments = 8 };
 
    ShockLanceProjectileDataT2 *mData;
+   SimObjectId mSourceObject;
+   U32     mSourceSlot;
    Point3F mStart;
    Point3F mEnd;
    F32     mElapsed;
@@ -3158,6 +3161,8 @@ class ShockLanceProjectileT2 : public GameBase
    Vector<Point2F> mJitter;      ///< a filament's lateral offsets, part by part
    GFXStateBlockRef mBoltSB;
 
+   ShapeBase *resolve(SimObjectId id) const;
+   void placeDryFire();
    void rollLightning();
    void drawBolt(U32 bolt, F32 widthScale, const Point3F &eye) const;
    void drawFilaments(const Point3F &eye) const;
@@ -3184,6 +3189,8 @@ ConsoleDocClass( ShockLanceProjectileT2,
 
 ShockLanceProjectileT2::ShockLanceProjectileT2()
    : mData(NULL),
+     mSourceObject(0),
+     mSourceSlot(0),
      mStart(0.0f, 0.0f, 0.0f),
      mEnd(0.0f, 0.0f, 0.0f),
      mElapsed(0.0f),
@@ -3232,6 +3239,44 @@ void ShockLanceProjectileT2::onT2BodyRead(const T2Layout::Body &body)
       mHaveEnds = true;
       mHit = body.zapHit;
    }
+
+   if(body.hasSourceObject)
+   {
+      NetConnection *conn = NetConnection::getConnectionToServer();
+      NetObject *obj = conn ? conn->resolveGhost(S32(body.sourceObject)) : NULL;
+      mSourceObject = obj ? obj->getId() : 0;
+      mSourceSlot = getMin(body.sourceSlot,
+                           U32(ShapeBase::MaxMountedImages - 1));
+   }
+}
+
+ShapeBase *ShockLanceProjectileT2::resolve(SimObjectId id) const
+{
+   ShapeBase *obj = NULL;
+   if(id)
+      Sim::findObject(id, obj);
+   return obj;
+}
+
+/// A lance that reached nothing throws its two wire ends away and is drawn as a
+/// stub off the muzzle instead, remade every frame so it tracks the aim
+/// (0x0064f960, called from renderObject before anything is drawn). The 0.2 is
+/// retail's literal, not its boltLength.
+void ShockLanceProjectileT2::placeDryFire()
+{
+   ShapeBase *src = resolve(mSourceObject);
+   if(!src)
+      return;
+
+   src->getRenderMuzzlePoint(mSourceSlot, &mStart);
+
+   VectorF aim;
+   MatrixF muzzle;
+   src->getRenderMuzzleTransform(mSourceSlot, &muzzle);
+   if(!src->getCorrectedAim(muzzle, &aim))
+      muzzle.getColumn(1, &aim);
+
+   mEnd = mStart + aim * 0.2f;
 }
 
 /// Every filament gets a fresh set of lateral offsets, lightningFreq times a
@@ -3405,6 +3450,9 @@ void ShockLanceProjectileT2::renderZap(ObjectRenderInst *, SceneRenderState *sta
    if(overrideMat || !mHaveEnds || !mData)
       return;
 
+   if(!mHit)
+      placeDryFire();
+
    if((mEnd - mStart).isZero())
       return;
 
@@ -3425,9 +3473,8 @@ void ShockLanceProjectileT2::renderZap(ObjectRenderInst *, SceneRenderState *sta
    GFX->setupGenericShaders(GFXDevice::GSModColorTexture);
    PrimBuild::color4f(1.0f, 1.0f, 1.0f, 1.0f);
 
-      // A lance that reached nothing still sends its two ends, and Tribes 2
-      // still puts the arcs between them -- but it draws no bolt at all, so
-      // a dry fire leaves a flicker rather than a zap.
+      // A dry fire draws no bolt at all (0x0064fd90), only the arcs, and by
+      // here those run over the stub placeDryFire put at the muzzle.
    if(mHit)
    {
          // The last texture is the glowing line at the centre, so it is
