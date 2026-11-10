@@ -189,6 +189,22 @@ PlayerData::ActionAnimationDef PlayerData::ActionAnimationList[NumTableActionAni
    { "jet" },        // JetAnim
 };
 
+// HH: Added for Tribes 2 compatibility.
+// Tribes 2's own table, in its own order (0x0079b44c). It is the order the
+// first eight entries of its action list arrive in, which is what an action
+// number off the wire counts from.
+const char* PlayerData::T2ActionAnimationList[NumT2TableActionAnims] =
+{
+   "root",
+   "run",
+   "back",
+   "side",
+   "fall",
+   "jet",
+   "jump",
+   "land",
+};
+
 
 //----------------------------------------------------------------------------
 //----------------------------------------------------------------------------
@@ -674,13 +690,43 @@ bool PlayerData::preload(bool server, String &errorStr)
       AssertFatal(actionCount <= NumActionAnims, "Too many action animations!");
       delete si;
 
+      // HH: Added for Tribes 2 compatibility.
+      // Fill its action list the way it does (0x005ce04b) -- its eight table
+      // sequences, then every other sequence in the shape's order -- and
+      // record which action of ours each of its numbers names. The sequence
+      // is the only thing the two engines agree on.
+      U16 actionFromSequence[NumT2Actions];
       for (U32 i = 0; i < NumT2Actions; i++)
+      {
          t2ActionMap[i] = NullAnimation;
+         actionFromSequence[i] = NullAnimation;
+      }
       for (U32 c = actionCount; c-- > 0; )
       {
          const S32 seq = actionList[c].sequence;
          if (seq >= 0 && seq < NumT2Actions)
-            t2ActionMap[seq] = c;
+            actionFromSequence[seq] = c;
+      }
+
+      S32 t2TableSequence[NumT2TableActionAnims];
+      U32 t2Action = 0;
+      for (U32 i = 0; i < NumT2TableActionAnims; i++, t2Action++)
+      {
+         const S32 seq = mShape->findSequence(T2ActionAnimationList[i]);
+         t2TableSequence[i] = seq;
+         if (seq >= 0 && seq < NumT2Actions)
+            t2ActionMap[t2Action] = actionFromSequence[seq];
+      }
+      for (S32 b = 0; b < mShape->sequences.size() && b < NumT2Actions &&
+                      t2Action < NumT2Actions; b++)
+      {
+         bool inTable = false;
+         for (U32 i = 0; i < NumT2TableActionAnims; i++)
+            inTable |= t2TableSequence[i] == b;
+         if (inTable)
+            continue;
+
+         t2ActionMap[t2Action++] = actionFromSequence[b];
       }
 
       // Resolve lookAction index
@@ -5158,7 +5204,7 @@ bool Player::displaceObject(const Point3F& displacement)
 //----------------------------------------------------------------------------
 
 // HH: Added for Tribes 2 compatibility.
-// Player::unpackUpdate reads the arm sequence a byte at a time and hands it
+// Player::unpackUpdate reads the arm action a byte at a time and hands it
 // straight to setArmThread (0x005db627). A ghost that has not been added
 // yet has no shape to set it on, so it is kept for onNewDataBlock, which
 // already puts the arm back the way onAdd leaves it.

@@ -42,7 +42,7 @@ namespace T2Protocol
                                     ///< id for the object
       T2FieldQuickSplash,
       T2FieldActionHere,            ///< the flag an action thread follows
-      T2FieldAction,                ///< readInt(bits), a sequence number
+      T2FieldAction,                ///< readInt(bits), an action number
       T2FieldActionHold,            ///< the flag that holds it at its end
       T2FieldActionAtEnd,           ///< the flag that says it has finished
       T2FieldActionFirstPerson,     ///< the flag that plays it in first
@@ -50,7 +50,7 @@ namespace T2Protocol
       T2FieldActionPosHere,         ///< the flag a thread position follows
       T2FieldActionPos,             ///< readSignedFloat(bits) of the thread
       T2FieldArmHere,               ///< the flag an arm thread follows
-      T2FieldArm,                   ///< readInt(bits), the sequence the arms
+      T2FieldArm,                   ///< readInt(bits), the action the arms
                                     ///< hold the weapon in
       T2FieldFieldState,
       T2FieldFieldFade,

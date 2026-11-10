@@ -94,14 +94,14 @@ namespace T2Layout
       bool    warp;                 ///< interpolate to the position rather
                                     ///< than snap to it
       bool    hasAction;
-      U32     action;               ///< the shape's sequence number
+      U32     action;               ///< a Tribes 2 action number
       bool    actionHold;
       bool    actionAtEnd;
       bool    actionFirstPerson;
       bool    hasActionPos;
       F32     actionPos;            ///< how far through the thread, -1..1
       bool    hasArm;
-      U32     arm;                  ///< the sequence the arms hold a weapon in
+      U32     arm;                  ///< the action the arms hold a weapon in
       bool    hasInvincible;
       F32     invincibleTime;
       F32     invincibleSpeed;
