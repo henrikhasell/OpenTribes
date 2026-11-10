@@ -228,6 +228,7 @@ GameConnection::GameConnection()
    mObserverMode = 0;
    mObserverPos.set(0.0f, 0.0f, 0.0f);
    mObserverRot.set(0.0f, 0.0f, 0.0f);
+   mObserverObject = NULL;
 
    mMissionCRC = 0xffffffff;
 
@@ -1180,6 +1181,12 @@ void GameConnection::readPacket(BitStream *bstream)
       else
          mIndicator[0] = mIndicator[1] = false;
 
+      // The object the block names is its own member in retail (0x005fbe85),
+      // read by one HUD routine (0x00508ba0) and by nothing that builds the
+      // view: a missile lock puts its target here while the player is alive
+      // and controlling themselves.  Torque's camera object is a different
+      // thing -- getCameraObject prefers it to the control object out of
+      // first person -- so the two must not share a slot.
       if(bstream->readFlag())
       {
          if(bstream->readFlag())
@@ -1195,7 +1202,7 @@ void GameConnection::readPacket(BitStream *bstream)
             GameBase *obj = NULL;
             if(bstream->readFlag())
                obj = dynamic_cast<GameBase*>(resolveGhost(bstream->readInt(NetConnection::GhostIdBitSize)));
-            setCameraObject(obj);
+            mObserverObject = obj;
          }
          else if(mObserverMode == ObserverFacesDirection)
          {
@@ -1204,7 +1211,12 @@ void GameConnection::readPacket(BitStream *bstream)
             bstream->read(&mObserverRot.z);
          }
          else
-            setCameraObject(0);
+            mObserverObject = NULL;
+      }
+      else
+      {
+         mObserverMode = 0;
+         mObserverObject = NULL;
       }
 
       if(mSensorPing != bstream->readFlag())
