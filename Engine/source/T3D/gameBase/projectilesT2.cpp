@@ -3147,7 +3147,7 @@ class ShockLanceProjectileT2 : public GameBase
 {
    typedef GameBase Parent;
 
-   enum { MaxFilaments = 8 };
+   enum { NumRopes = 2, MaxRopePoints = 50 };
 
    ShockLanceProjectileDataT2 *mData;
    SimObjectId mSourceObject;
@@ -3158,7 +3158,10 @@ class ShockLanceProjectileT2 : public GameBase
    F32     mSinceRoll;
    bool    mHaveEnds;
    bool    mHit;
-   Vector<Point2F> mJitter;      ///< a filament's lateral offsets, part by part
+      /// In the zap's own frame, not the world: a rope is rolled once every
+      /// lightningFreq and has to ride the muzzle until the next one.
+   Point3F mRope[NumRopes][MaxRopePoints];
+   U32     mRopePoints;
    GFXStateBlockRef mBoltSB;
 
    ShapeBase *resolve(SimObjectId id) const;
@@ -3196,7 +3199,8 @@ ShockLanceProjectileT2::ShockLanceProjectileT2()
      mElapsed(0.0f),
      mSinceRoll(0.0f),
      mHaveEnds(false),
-     mHit(false)
+     mHit(false),
+     mRopePoints(0)
 {
    mTypeMask |= ProjectileObjectType;
 }
@@ -3279,32 +3283,44 @@ void ShockLanceProjectileT2::placeDryFire()
    mEnd = mStart + aim * 0.2f;
 }
 
-/// Every filament gets a fresh set of lateral offsets, lightningFreq times a
-/// second. The two ends are pinned, so the offsets run from the first part
-/// after the muzzle to the last before the far end.
+/// Both ropes are rolled afresh lightningFreq times a second (0x00650c20).
+/// lightningDensity is points per metre, not a count, so a short zap gets a
+/// short rope -- and a dry fire is given twenty a metre at an amplitude of
+/// 0.1 whatever the datablock says (0x0064f8f3).
 void ShockLanceProjectileT2::rollLightning()
 {
-   const U32 filaments = getMin(getMax(U32(mData->lightningDensity), U32(1)),
-                                U32(MaxFilaments));
-   const U32 parts = mData->parts;
-   if(mJitter.size() != S32(filaments * parts))
-      mJitter.setSize(filaments * parts);
-
-      // An angle, not a point in a disc: a filament keeps the distance from
-      // the axis the datablock gives it and only whips round it. The angle
-      // winds along the beam rather than being drawn afresh at every part,
-      // or the thread reads as a tangle instead of an arc.
-   for(U32 f = 0; f < filaments; f++)
+   F32 density = mData->lightningDensity;
+   F32 amp = mData->lightningAmp;
+   if(!mHit)
    {
-      const F32 phase = gRandGen.randF(0.0f, F32(M_2PI));
-      const F32 twist = gRandGen.randF(-1.0f, 1.0f) * F32(M_2PI);
-      for(U32 j = 0; j < parts; j++)
-      {
-         const F32 t = F32(j) / F32(parts - 1);
-         const F32 a = phase + twist * t + gRandGen.randF(-0.3f, 0.3f);
-         mJitter[f * parts + j].set(mCos(a), mSin(a));
-      }
+      density = 20.0f;
+      amp = 0.1f;
    }
+
+   const F32 len = (mEnd - mStart).len();
+   const S32 points = S32(density * len);
+   mRopePoints = U32(getMax(getMin(points, S32(MaxRopePoints)), 0));
+   if(!mRopePoints)
+      return;
+
+   const F32 step = len / F32(mRopePoints);
+
+      // The offset is a whole direction, so a point wanders along the zap as
+      // well as across it; the ends are not pinned.
+   for(U32 r = 0; r < NumRopes; r++)
+      for(U32 i = 0; i < mRopePoints; i++)
+      {
+         VectorF off(gRandGen.randF(-1.0f, 1.0f),
+                     gRandGen.randF(-1.0f, 1.0f),
+                     gRandGen.randF(-1.0f, 1.0f));
+         if(off.lenSquared() > 0.0001f)
+            off.normalize();
+         else
+            off.set(0.0f, 0.0f, 0.0f);
+
+         mRope[r][i].set(off.x * amp, F32(i) * step + off.y * amp,
+                         off.z * amp);
+      }
 }
 
 void ShockLanceProjectileT2::advanceTime(F32 dt)
@@ -3320,7 +3336,9 @@ void ShockLanceProjectileT2::advanceTime(F32 dt)
                          ? 1.0f / mData->lightningFreq : 1.0f;
    if((mSinceRoll += dt) >= period)
    {
-      mSinceRoll = 0.0f;
+      mSinceRoll -= period;
+      if(!mHit)
+         placeDryFire();
       rollLightning();
    }
 }
@@ -3380,13 +3398,13 @@ void ShockLanceProjectileT2::drawBolt(U32 bolt, F32 widthScale,
    PrimBuild::end();
 }
 
-/// The thin arcs that whip around the bolts. Each is a thread of quads through
-/// the jitter rolled for it, so they are jagged rather than curved, and they
-/// pinch back to the axis at both ends.
+/// The two ropes, each a strip of width lightningWidth through the points
+/// rolled for it. Every span wears one whole copy of the texture, laid
+/// alternately forwards and backwards (0x006512cd) -- that is what makes the
+/// painted bolt read as a chain of arcs instead of one stretched streak.
 void ShockLanceProjectileT2::drawFilaments(const Point3F &eye) const
 {
-   const U32 parts = mData->parts;
-   if(parts < 2 || mJitter.size() < S32(parts))
+   if(mRopePoints < 2)
       return;
 
    VectorF along = mEnd - mStart;
@@ -3400,37 +3418,28 @@ void ShockLanceProjectileT2::drawFilaments(const Point3F &eye) const
    right.normalize();
    const VectorF up = mCross(right, along);
 
-   const U32 filaments = mJitter.size() / parts;
-   for(U32 f = 0; f < filaments; f++)
+   const F32 half = mData->lightningWidth * 0.5f;
+
+   for(U32 r = 0; r < NumRopes; r++)
    {
-      PrimBuild::begin(GFXTriangleList, (parts - 1) * 6);
-      for(U32 i = 0; i + 1 < parts; i++)
+      PrimBuild::begin(GFXTriangleList, (mRopePoints - 1) * 6);
+      for(U32 i = 0; i + 1 < mRopePoints; i++)
       {
          Point3F pt[2];
          for(U32 k = 0; k < 2; k++)
          {
-            const U32 j = i + k;
-            const F32 t = F32(j) / F32(parts - 1);
-               // Pinned at both ends and loosest in the middle, and measured
-               // from the bolt's edge rather than its axis: an arc that only
-               // reached lightningAmp would be inside the bolt it arcs over.
-            const F32 edge = mLerp(mData->startWidth[0],
-                                   mData->endWidth[0], t) * 0.5f;
-            const F32 reach = mSin(t * F32(M_PI))
-                            * (edge + mData->lightningAmp);
-            const Point2F &off = mJitter[f * parts + j];
-            pt[k] = mStart + (mEnd - mStart) * t
-                  + (right * off.x + up * off.y) * reach;
+            const Point3F &p = mRope[r][i + k];
+            pt[k] = mStart + right * p.x + along * p.y + up * p.z;
          }
 
          VectorF across = mCross(pt[1] - pt[0], pt[0] - eye);
          if(across.isZero())
             continue;
          across.normalize();
-         across *= mData->lightningWidth * 0.5f;
+         across *= half;
 
-         const F32 u0 = F32(i) / F32(parts - 1);
-         const F32 u1 = F32(i + 1) / F32(parts - 1);
+         const F32 u0 = F32(i & 1);
+         const F32 u1 = F32((i + 1) & 1);
 
          PrimBuild::texCoord2f(u0, 0.0f); PrimBuild::vertex3fv(pt[0] + across);
          PrimBuild::texCoord2f(u0, 1.0f); PrimBuild::vertex3fv(pt[0] - across);
@@ -3471,33 +3480,26 @@ void ShockLanceProjectileT2::renderZap(ObjectRenderInst *, SceneRenderState *sta
 
    GFX->setStateBlock(mBoltSB);
    GFX->setupGenericShaders(GFXDevice::GSModColorTexture);
-   PrimBuild::color4f(1.0f, 1.0f, 1.0f, 1.0f);
 
-      // A dry fire draws no bolt at all (0x0064fd90), only the arcs, and by
+      // The whole zap fades out over its life (0x0064fe44, 0x00650478).
+   const F32 fade = mData->zapDuration > 0.0f
+                       ? 1.0f - mElapsed / mData->zapDuration : 1.0f;
+   PrimBuild::color4f(1.0f, 1.0f, 1.0f, getMax(fade, 0.0f));
+
+      // Bolts and ropes alike are drawn with the fourth texture and only the
+      // fourth -- special/ELFBeam, not one of the three shockLightning
+      // bitmaps, which are loaded and never bound (0x0064e596 puts the
+      // handles at +0x194, and both render paths read +0x1a0). The jag is in
+      // the rope, not the artwork.
+   GFX->setTexture(0, mData->texture[3]);
+
+      // A dry fire draws no bolt at all (0x0064fd90), only the ropes, and by
       // here those run over the stub placeDryFire put at the muzzle.
    if(mHit)
-   {
-         // The last texture is the glowing line at the centre, so it is
-         // drawn first and narrow; the two bolts churn over it at full width.
-      if(mData->texture[3].isValid())
-      {
-         GFX->setTexture(0, mData->texture[3]);
-         drawBolt(0, 0.5f, eye);
-      }
-
       for(U32 i = 0; i < ShockLanceProjectileDataT2::NumBolts; i++)
-         if(mData->texture[i].isValid())
-         {
-            GFX->setTexture(0, mData->texture[i]);
-            drawBolt(i, 1.0f, eye);
-         }
-   }
+         drawBolt(i, 1.0f, eye);
 
-   if(mData->texture[2].isValid())
-   {
-      GFX->setTexture(0, mData->texture[2]);
-      drawFilaments(eye);
-   }
+   drawFilaments(eye);
 }
 
 #define IMPLEMENT_BEAM_PAIR_T2( objectName, dataName, dataBase, objectBase ) \
