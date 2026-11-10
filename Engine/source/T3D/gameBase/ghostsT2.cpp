@@ -28,7 +28,6 @@ IMPLEMENT_GHOST_T2( ELFProjectile );
 IMPLEMENT_GHOST_T2( FireballAtmosphere );
 IMPLEMENT_GHOST_T2( FlareProjectile );
 IMPLEMENT_GHOST_T2( ParticleEmissionDummy );
-IMPLEMENT_GHOST_T2( RepairProjectile );
 IMPLEMENT_GHOST_T2( SeekerProjectile );
 IMPLEMENT_GHOST_T2( ShockLanceProjectile );
 IMPLEMENT_GHOST_T2( Shockwave );

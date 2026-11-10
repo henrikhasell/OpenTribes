@@ -541,6 +541,18 @@ namespace T2Protocol
    // (0x006476e0), after ProjectileData's run; the textures are strings.
       { "SniperProjectileData", 69, OpDataBlockId, 11, T2DbExplosion        },
       { "SniperProjectileData", 67, OpDataBlockId, 11, T2DbProjectileSplash },
+   // RepairProjectileData's own run, read off the wire and checked against
+   // DefaultRepairBeam: 10, 0.15, 20, 1, 0.2, 10, 1, 25.
+      { "RepairProjectileData", 24, OpRaw, 32, T2DbBeamRange          },
+      { "RepairProjectileData", 25, OpRaw, 32, T2DbRepairWidth        },
+      { "RepairProjectileData", 26, OpRaw, 32, T2DbRepairSegments     },
+      { "RepairProjectileData", 27, OpRaw, 32, T2DbRepairSpeed        },
+      { "RepairProjectileData", 28, OpRaw, 32, T2DbRepairTexRepeat    },
+      { "RepairProjectileData", 29, OpRaw, 32, T2DbRepairBlurFreq     },
+      { "RepairProjectileData", 30, OpRaw, 32, T2DbRepairBlurLifetime },
+      { "RepairProjectileData", 31, OpRaw, 32, T2DbRepairCutoffAngle  },
+      { "RepairProjectileData", 50, OpDataBlockId, 11, T2DbProjectileSound },
+
       { "SniperProjectileData", 24, OpRaw,   32, T2DbBeamRange              },
       { "SniperProjectileData", 26, OpColor, 32, T2DbBeamColor              },
       { "SniperProjectileData", 27, OpRaw,   32, T2DbBeamFadeTime           },

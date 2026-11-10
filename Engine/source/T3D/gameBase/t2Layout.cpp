@@ -2287,6 +2287,12 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
 
             if(!write)
             {
+               if(row && row->field == T2FieldBeamTarget)
+               {
+                  sBody.hasBeamTarget = true;
+                  sBody.beamTarget = word;
+               }
+
                U32 state, part;
                if(stateAt(layout, at, &state, &part))
                {
@@ -3483,6 +3489,7 @@ static bool runGhost(BitStream *stream, const char *className,
    sBody.hasVelocity = false;
    sBody.hasDirection = false;
    sBody.hasImpactNormal = false;
+   sBody.hasBeamTarget = false;
    sBody.hasDamage = false;
    sBody.hasDamageState = false;
    sBody.blowApart = false;

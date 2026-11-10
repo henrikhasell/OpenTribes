@@ -72,6 +72,8 @@ namespace T2Layout
       bool    hasSourceObject;
       U32     sourceObject;
       U32     sourceSlot;
+      bool    hasBeamTarget;        ///< a beam named what it has hold of
+      U32     beamTarget;           ///< that object's ghost index
       bool    hasVehicleObject;
       U32     vehicleObject;
       bool    hasStationObject;     ///< a station effect named its station
@@ -655,6 +657,15 @@ namespace T2Layout
       T2DbBeamMaxFlareSize,
       T2DbBeamPulseSpeed,
       T2DbBeamPulseLength,
+
+      // A repair beam's own run, which shares only its range with those.
+      T2DbRepairWidth,
+      T2DbRepairSegments,
+      T2DbRepairSpeed,
+      T2DbRepairTexRepeat,
+      T2DbRepairBlurFreq,
+      T2DbRepairBlurLifetime,
+      T2DbRepairCutoffAngle,
 
       // TurretData's run after StaticShapeData's, and TurretImageData's after
       // ShapeBaseImageData's. thetaMin and thetaMax share the emitter's.

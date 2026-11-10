@@ -105,7 +105,6 @@ IMPLEMENT_DATABLOCK_T2( FireballAtmosphereData );
 IMPLEMENT_DATABLOCK_T2( FlareProjectileData );
 IMPLEMENT_DATABLOCK_T2( JetEffectData );
 IMPLEMENT_DATABLOCK_T2( ParticleEmissionDummyData );
-IMPLEMENT_DATABLOCK_T2( RepairProjectileData );
 IMPLEMENT_DATABLOCK_T2( RunningLightData );
 IMPLEMENT_DATABLOCK_T2( SeekerProjectileData );
 IMPLEMENT_DATABLOCK_T2( ShockLanceProjectileData );
