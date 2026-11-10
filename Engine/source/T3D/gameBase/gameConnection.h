@@ -220,6 +220,7 @@ protected:
    U32      mObserverMode;
    Point3F  mObserverPos;
    Point3F  mObserverRot;
+   SimObjectPtr<GameBase> mObserverObject;
 
    F32   mBlackOut;
    S32   mBlackOutTimeMS;
