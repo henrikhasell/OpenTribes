@@ -2460,6 +2460,17 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
             const U32 word = xferInt(stream, n.bits, write, at, n.op);
             const T2GhostFieldRow *row = write ? NULL : fieldAt(layout, at);
 
+            // HH: Added for Tribes 2 compatibility. A datablock field named
+            // against one of these was read off the wire and then dropped,
+            // which cost ParticleData its gravityCoefficient: every particle
+            // in a mission fell at whatever the class defaults to.
+            if(!write)
+            {
+               const T2DataBlockFieldRow *dbRow = dbFieldAt(layout, at);
+               if(dbRow)
+                  noteDbField(dbRow, word);
+            }
+
             if(row && (row->field == T2FieldNormalPhi ||
                        row->field == T2FieldImpactPhi))
                sPhi = signedFloatOf(word, n.bits) * M_PI_F;
