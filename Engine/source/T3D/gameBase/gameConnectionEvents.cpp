@@ -167,86 +167,6 @@ void SimDataBlockEvent::pack(NetConnection *conn, BitStream *bstream)
    }
 }
 
-static void readT2ImageStates( ShapeBaseImageData *image )
-{
-   const Vector< T2Layout::ImageState > &states = T2Layout::lastImageStates();
-
-   U32 count = states.size();
-   if( count > ShapeBaseImageData::MaxStates )
-   {
-      Con::warnf( "T2 image: a datablock carries %d states and this engine "
-                  "has room for %d; the rest are being dropped.", count,
-                  ShapeBaseImageData::MaxStates );
-      count = ShapeBaseImageData::MaxStates;
-   }
-
-   for( U32 i = 0; i < count; i++ )
-   {
-      const T2Layout::ImageState &state = states[i];
-      if( state.name.isEmpty() )
-         continue;
-
-      image->stateName[i] = StringTable->insert( state.name.c_str() );
-
-            // The server resolved these against the shape and sent what it
-            // resolved; preload installs them, because the layout they come
-            // from is only the one just read for as long as this unpack lasts.
-      image->t2HasStateSequences = true;
-      image->t2StateSequence[i] = state.hasSequence ? state.sequence : -1;
-      image->t2StateSequenceVis[i] =
-         state.hasSequenceVis ? state.sequenceVis : -1;
-      image->stateTimeoutValue[i] = state.hasTimeout ? state.timeout : 0.0f;
-      image->stateWaitForTimeout[i] = state.waitForTimeout;
-      image->stateFire[i] = state.fire;
-
-            // The repair gun's Deactivate is the only state in the game that clears
-            // this.
-      image->stateDirection[i] = state.direction;
-
-            // The chaingun's Fire is the only state in the game that sets this, and
-            // retail has it ejecting a shell and carrying a flash sequence alike.
-      image->stateEjectShell[i] = state.ejectShell;
-      image->stateSequenceRandomFlash[i] = state.ejectShell;
-      if( state.sound >= 0 )
-         *reinterpret_cast< U32 * >( &image->stateSound[i] ) =
-            ( ( U32( state.sound ) + DataBlockObjectIdFirst ) << 1 ) | 0x1;
-
-      image->stateLoaded[i] =
-         ( ShapeBaseImageData::StateData::LoadedState ) state.loaded;
-      image->stateSpin[i] =
-         ( ShapeBaseImageData::StateData::SpinState ) state.spin;
-      image->stateRecoil[i] =
-         ( ShapeBaseImageData::StateData::RecoilState ) state.recoil;
-   }
-
-   // The ways out are states by number on the wire and states by name here,
-   // so they wait until every state this image has is named.
-   for( U32 i = 0; i < count; i++ )
-   {
-      const T2Layout::ImageState &state = states[i];
-
-      const char *to[ T2Layout::ImageState::TransitionCount ];
-      for( U32 t = 0; t < T2Layout::ImageState::TransitionCount; t++ )
-      {
-         const S32 which = state.transition[t];
-         to[t] = which >= 0 && U32(which) < count ? image->stateName[which]
-                                                  : NULL;
-      }
-
-      typedef T2Layout::ImageState S;
-      image->stateTransitionNotLoaded[i]   = to[ S::NotLoaded ];
-      image->stateTransitionLoaded[i]      = to[ S::Loaded ];
-      image->stateTransitionNoAmmo[i]      = to[ S::NoAmmo ];
-      image->stateTransitionAmmo[i]        = to[ S::Ammo ];
-      image->stateTransitionNoTarget[i]    = to[ S::NoTarget ];
-      image->stateTransitionTarget[i]      = to[ S::Target ];
-      image->stateTransitionNotWet[i]      = to[ S::NotWet ];
-      image->stateTransitionWet[i]         = to[ S::Wet ];
-      image->stateTransitionTriggerUp[i]   = to[ S::TriggerUp ];
-      image->stateTransitionTriggerDown[i] = to[ S::TriggerDown ];
-      image->stateTransitionTimeout[i]     = to[ S::Timeout ];
-   }
-}
 
 
 // HH: Added for Tribes 2 compatibility.
@@ -564,11 +484,6 @@ void SimDataBlockEvent::unpack(NetConnection *cptr, BitStream *bstream)
             if( T2Layout::lastDataBlockWord( T2Layout::T2DbImageCasing, &casing ) )
                si->casingID = casing + DataBlockObjectIdFirst;
          }
-
-               // HH: Added for Tribes 2 compatibility.
-               // The body carries an image's states and nothing was reading them.
-         if( ShapeBaseImageData *si = dynamic_cast< ShapeBaseImageData * >( mObj ) )
-            readT2ImageStates( si );
 
          // HH: Added for Tribes 2 compatibility.
          if( ParticleEmitterData *pe = dynamic_cast< ParticleEmitterData * >( mObj ) )

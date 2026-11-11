@@ -411,6 +411,217 @@ bool ShapeBaseImageData::onAdd()
    return true;
 }
 
+// HH: Added for Tribes 2 compatibility. The states the layout just read, put
+// where this class keeps them. This reads where every other class reads --
+// under unpackData -- so a body written and read back carries them too.
+bool ShapeBaseImageData::unpackData( BitStream *stream, U32 classId )
+{
+   if( !Parent::unpackData( stream, classId ) )
+      return false;
+
+   readT2States();
+   return true;
+}
+
+
+void ShapeBaseImageData::readT2States()
+{
+   const Vector< T2Layout::ImageState > &states = T2Layout::lastImageStates();
+
+   U32 count = states.size();
+   if( count > MaxStates )
+   {
+      Con::warnf( "T2 image: a datablock carries %d states and this engine "
+                  "has room for %d; the rest are being dropped.", count,
+                  MaxStates );
+      count = MaxStates;
+   }
+
+   for( U32 i = 0; i < count; i++ )
+   {
+      const T2Layout::ImageState &state = states[i];
+      if( state.name.isEmpty() )
+         continue;
+
+      this->stateName[i] = StringTable->insert( state.name.c_str() );
+
+            // The server resolved these against the shape and sent what it
+            // resolved; preload installs them, because the layout they come
+            // from is only the one just read for as long as this unpack lasts.
+      this->t2HasStateSequences = true;
+      this->t2StateSequence[i] = state.hasSequence ? state.sequence : -1;
+      this->t2StateSequenceVis[i] =
+         state.hasSequenceVis ? state.sequenceVis : -1;
+      this->stateTimeoutValue[i] = state.hasTimeout ? state.timeout : 0.0f;
+      this->stateWaitForTimeout[i] = state.waitForTimeout;
+      this->stateFire[i] = state.fire;
+
+            // The repair gun's Deactivate is the only state in the game that clears
+            // this.
+      this->stateDirection[i] = state.direction;
+
+            // The chaingun's Fire is the only state in the game that sets this, and
+            // retail has it ejecting a shell and carrying a flash sequence alike.
+      this->stateEjectShell[i] = state.ejectShell;
+      this->stateSequenceRandomFlash[i] = state.ejectShell;
+      if( state.sound >= 0 )
+         *reinterpret_cast< U32 * >( &this->stateSound[i] ) =
+            ( ( U32( state.sound ) + DataBlockObjectIdFirst ) << 1 ) | 0x1;
+
+      this->stateLoaded[i] =
+         ( StateData::LoadedState ) state.loaded;
+      this->stateSpin[i] =
+         ( StateData::SpinState ) state.spin;
+      this->stateRecoil[i] =
+         ( StateData::RecoilState ) state.recoil;
+   }
+
+   // The ways out are states by number on the wire and states by name here,
+   // so they wait until every state this image has is named.
+   for( U32 i = 0; i < count; i++ )
+   {
+      const T2Layout::ImageState &state = states[i];
+
+      const char *to[ T2Layout::ImageState::TransitionCount ];
+      for( U32 t = 0; t < T2Layout::ImageState::TransitionCount; t++ )
+      {
+         const S32 which = state.transition[t];
+         to[t] = which >= 0 && U32(which) < count ? this->stateName[which]
+                                                  : NULL;
+      }
+
+      typedef T2Layout::ImageState S;
+      this->stateTransitionNotLoaded[i]   = to[ S::NotLoaded ];
+      this->stateTransitionLoaded[i]      = to[ S::Loaded ];
+      this->stateTransitionNoAmmo[i]      = to[ S::NoAmmo ];
+      this->stateTransitionAmmo[i]        = to[ S::Ammo ];
+      this->stateTransitionNoTarget[i]    = to[ S::NoTarget ];
+      this->stateTransitionTarget[i]      = to[ S::Target ];
+      this->stateTransitionNotWet[i]      = to[ S::NotWet ];
+      this->stateTransitionWet[i]         = to[ S::Wet ];
+      this->stateTransitionTriggerUp[i]   = to[ S::TriggerUp ];
+      this->stateTransitionTriggerDown[i] = to[ S::TriggerDown ];
+      this->stateTransitionTimeout[i]     = to[ S::Timeout ];
+   }
+}
+
+
+// HH: Added for Tribes 2 compatibility. What a Tribes 2 body carries for an
+// image: its shape, its mount and offsets, the shell it ejects, and its state
+// machine. The states go out in order and the layout takes the first n of its
+// own state blocks for them; readT2ImageStates is the other half of this.
+//
+// The scripts the states name stay here: a body carries no script, because the
+// server runs the state machine and the client only animates it.
+void ShapeBaseImageData::publishT2Data()
+{
+   Parent::publishT2Data();
+
+   T2Layout::publishDataBlockString( T2Layout::T2DbImageShapeFile,
+                                     shapeName ? shapeName : "" );
+   T2Layout::publishDataBlockWord( T2Layout::T2DbImageMountPoint, mountPoint );
+
+   // The eye offset, six of a transform's words in the order the body reads
+   // them, and the flag that says the fourth column's w is negative.
+   const F32 *offset = eyeOffset;
+   for( U32 i = 0; i < 6; i++ )
+      T2Layout::publishDataBlockWhole( T2Layout::T2DbImageOffset + i, offset[i] );
+
+   T2Layout::publishDataBlockFlag( T2Layout::T2DbImageCloakable, cloakable );
+   T2Layout::publishDataBlockFlag( T2Layout::T2DbImageEmap, emap );
+
+   T2Layout::publishDataBlockWhole( T2Layout::T2DbImageShellExitDir + 0, shellExitDir.x );
+   T2Layout::publishDataBlockWhole( T2Layout::T2DbImageShellExitDir + 1, shellExitDir.y );
+   T2Layout::publishDataBlockWhole( T2Layout::T2DbImageShellExitDir + 2, shellExitDir.z );
+   T2Layout::publishDataBlockWhole( T2Layout::T2DbImageShellExitVariance, shellExitVariance );
+   T2Layout::publishDataBlockWhole( T2Layout::T2DbImageShellVelocity, shellVelocity );
+
+   if( casing )
+      T2Layout::publishDataBlockWord( T2Layout::T2DbImageCasing,
+                                      casing->getId() - DataBlockObjectIdFirst );
+   else if( casingID > 0 )
+      T2Layout::publishDataBlockWord( T2Layout::T2DbImageCasing,
+                                      U32( casingID ) - DataBlockObjectIdFirst );
+
+   // The states, which stop at the first one with no name.
+   U32 count = 0;
+   while( count < MaxStates && stateName[ count ] && stateName[ count ][ 0 ] )
+      count++;
+
+   Vector< T2Layout::ImageState > states;
+   states.setSize( count );
+   for( U32 i = 0; i < count; i++ )
+   {
+      T2Layout::ImageState &state = states[ i ];
+      typedef T2Layout::ImageState S;
+
+      state.name = stateName[ i ];
+
+      // A way out is a state by name here and a state by number there.
+      const char *to[ S::TransitionCount ];
+      to[ S::NotLoaded ]   = stateTransitionNotLoaded[ i ];
+      to[ S::Loaded ]      = stateTransitionLoaded[ i ];
+      to[ S::NoAmmo ]      = stateTransitionNoAmmo[ i ];
+      to[ S::Ammo ]        = stateTransitionAmmo[ i ];
+      to[ S::NoTarget ]    = stateTransitionNoTarget[ i ];
+      to[ S::Target ]      = stateTransitionTarget[ i ];
+      to[ S::NotWet ]      = stateTransitionNotWet[ i ];
+      to[ S::Wet ]         = stateTransitionWet[ i ];
+      to[ S::TriggerUp ]   = stateTransitionTriggerUp[ i ];
+      to[ S::TriggerDown ] = stateTransitionTriggerDown[ i ];
+      to[ S::Timeout ]     = stateTransitionTimeout[ i ];
+
+      for( U32 whence = 0; whence < S::TransitionCount; whence++ )
+      {
+         state.transition[ whence ] = -1;
+         if( !to[ whence ] || !to[ whence ][ 0 ] )
+            continue;
+         for( U32 which = 0; which < count; which++ )
+            if( !dStricmp( to[ whence ], stateName[ which ] ) )
+            {
+               state.transition[ whence ] = S32( which );
+               break;
+            }
+      }
+
+      state.hasTimeout = stateTimeoutValue[ i ] != 0.0f;
+      state.timeout = stateTimeoutValue[ i ];
+      state.waitForTimeout = stateWaitForTimeout[ i ];
+      state.fire = stateFire[ i ];
+      state.ejectShell = stateEjectShell[ i ];
+      state.direction = stateDirection[ i ];
+      state.loaded = U32( stateLoaded[ i ] );
+      state.spin = U32( stateSpin[ i ] );
+      state.recoil = U32( stateRecoil[ i ] );
+
+      state.sound = -1;
+      if( stateSound[ i ] )
+      {
+         const uintptr_t parked = uintptr_t( stateSound[ i ] );
+         const U32 id = ( parked & 0x1 ) ? U32( parked >> 1 )
+                                         : stateSound[ i ]->getId();
+         state.sound = S32( id - DataBlockObjectIdFirst );
+      }
+
+      // The sequences resolved against the shape, which is what retail's
+      // server sends rather than the names its scripts gave: a server looks
+      // them up in preload, a client was handed them and kept them.
+      const S32 sequence = t2HasStateSequences ? t2StateSequence[ i ]
+                                               : this->state[ i ].sequence[ 0 ];
+      const S32 sequenceVis = t2HasStateSequences ? t2StateSequenceVis[ i ]
+                                                  : this->state[ i ].sequenceVis[ 0 ];
+
+      state.hasSequence = sequence >= 0;
+      state.sequence = state.hasSequence ? sequence : 0;
+      state.hasSequenceVis = sequenceVis >= 0;
+      state.sequenceVis = state.hasSequenceVis ? sequenceVis : 0;
+      state.sequenceNegative = state.sequence < 0;
+      state.sequenceVisNegative = state.sequenceVis < 0;
+   }
+
+   T2Layout::publishImageStates( states );
+}
+
 bool ShapeBaseImageData::preload(bool server, String &errorStr)
 {
    if (!Parent::preload(server, errorStr))

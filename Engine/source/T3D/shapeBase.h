@@ -514,6 +514,13 @@ struct ShapeBaseImageData: public GameBaseData {
    ~ShapeBaseImageData();
    bool onAdd();
    bool preload(bool server, String &errorStr);
+
+      // HH: Added for Tribes 2 compatibility.
+   bool unpackData(BitStream *stream, U32 classId) override;
+   void publishT2Data() override;
+   /// Take the states the last body read into this image.
+   void readT2States();
+
    S32 lookupState(const char* name);  ///< Get a state by name.
    static void initPersistFields();
    
