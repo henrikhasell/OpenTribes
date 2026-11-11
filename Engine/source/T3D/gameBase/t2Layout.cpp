@@ -11,6 +11,9 @@
 
 namespace T2Layout
 {
+
+#define ELEMENTS( a ) ( sizeof( a ) / sizeof( ( a )[ 0 ] ) )
+
 #include "T3D/gameBase/t2DataBlockTables.h"
 #include "T3D/gameBase/t2GhostTablesRecovered.h"
 #include "T3D/gameBase/t2EventTables.h"
@@ -262,8 +265,26 @@ static void noteDbField(const T2DataBlockFieldRow *row, U32 word)
 /// a body repeats goes out in the order it was published.
 static U32 sDbTaken[T2DbFieldCount] = { 0 };
 
+/// The image states a datablock published, in the order its body carries them,
+/// with each name's place among the body's strings.
+static Vector<ImageState> sWriteStates(__FILE__, __LINE__);
+static Vector<U32>        sWriteStateName(__FILE__, __LINE__);
+
+void publishImageStates(const Vector<ImageState> &states)
+{
+   sWriteStates = states;
+   sWriteStateName.setSize(states.size());
+   for(U32 i = 0; i < states.size(); i++)
+   {
+      sWriteStateName[i] = U32(sStrings.size());
+      sStrings.push_back(states[i].name);
+   }
+}
+
 void beginDataBlock()
 {
+   sWriteStates.clear();
+   sWriteStateName.clear();
    for(U32 i = 0; i < T2DbFieldCount; i++)
    {
       sDbHas[i] = false;
@@ -1498,6 +1519,9 @@ struct T2StateMap
    U32                      states;
    Vector<S16>              part;   ///< node -> state * T2StateParts + part,
                                     ///< or -1
+   /// HH: the flag that reaches each state -> that state's number, or -1.
+   /// A writer takes the first n of them and leaves the rest clear.
+   Vector<S16>              head;
 };
 
 static Vector<T2StateMap *> sStateMaps(__FILE__, __LINE__);
@@ -1669,8 +1693,12 @@ static const T2StateMap *resolveStates(const T2DataBlockLayout *layout)
    map->layout = layout;
    map->states = 0;
    map->part.setSize(layout->count);
+   map->head.setSize(layout->count);
    for(U32 i = 0; i < layout->count; i++)
+   {
       map->part[i] = -1;
+      map->head[i] = -1;
+   }
 
    Vector<S16> parts(__FILE__, __LINE__);
    parts.setSize(layout->count * T2StateParts);
@@ -1708,6 +1736,7 @@ static const T2StateMap *resolveStates(const T2DataBlockLayout *layout)
           at = layout->nodes[at].a, state++)
       {
          const S32 block = layout->nodes[at].b;
+         map->head[at] = S16(state);
          for(U32 p = 0; p < T2StateParts; p++)
             map->part[parts[block * T2StateParts + p]] =
                S16(state * T2StateParts + p);
@@ -1739,6 +1768,22 @@ static bool stateAt(const T2DataBlockLayout *layout, S32 at, U32 *state,
 
    *state = U32(what) / T2StateParts;
    *part = U32(what) % T2StateParts;
+   return true;
+}
+
+// HH: Added for Tribes 2 compatibility.
+/// Which state the flag at \a at reaches, where it reaches one.
+static bool headAt(const T2DataBlockLayout *layout, S32 at, U32 *state)
+{
+   if(!sStates || sStates->layout != layout || at < 0 ||
+      U32(at) >= sStates->head.size())
+      return false;
+
+   const S16 what = sStates->head[at];
+   if(what < 0)
+      return false;
+
+   *state = U32(what);
    return true;
 }
 
@@ -1787,38 +1832,95 @@ namespace Plan
              (sPublished[field >> 5] & (1u << (field & 31))) != 0;
    }
 
-   /// Whether anything the flag at `at` gates was published. What it gates is
-   /// everything reachable from its set arm before the clear arm's node, which
-   /// is where the two come back together -- a single value for a flag over
-   /// one field, and a whole block for one of ShapeBaseData's hud images,
-   /// which has flags and strings of its own inside it.
+   /// Everything reachable from \a from, up to a bound, which is how the
+   /// two arms of a flag are told apart: what they share is not what either
+   /// of them gates.
+   static U32 reachable(const T2DataBlockLayout *layout, S32 from, S32 *out,
+                        U32 room)
+   {
+      S32 stack[128];
+      U32 depth = 0, count = 0;
+      stack[depth++] = from;
+
+      while(depth)
+      {
+         const S32 at = stack[--depth];
+         if(at < 0 || U32(at) >= layout->count)
+            continue;
+
+         U32 i = 0;
+         for(; i < count; i++)
+            if(out[i] == at)
+               break;
+         if(i < count)
+            continue;
+         if(count >= room)
+            return count;
+         out[count++] = at;
+
+         const T2DataNode &n = layout->nodes[at];
+         if(n.op == OpEnd || n.op == OpEndBody)
+            continue;
+
+         if(n.op == OpSelect || n.op == OpReadBr)
+         {
+            if(!layout->select)
+               continue;
+            const U32 arms = n.op == OpReadBr ? 2u : 1u << n.bits;
+            for(U32 arm = 0; arm < arms && depth < ELEMENTS(stack); arm++)
+               stack[depth++] = layout->select[n.a + arm];
+            continue;
+         }
+
+         if(depth < ELEMENTS(stack))
+            stack[depth++] = n.a;
+         if((n.op == OpFlag || n.op == OpLoop) && depth < ELEMENTS(stack))
+            stack[depth++] = n.b;
+      }
+
+      return count;
+   }
+
+   /// Whether anything the flag at \a at gates was published. What it gates is
+   /// what its set arm reaches and its clear arm does not -- the two come back
+   /// together somewhere, and everything from there on belongs to neither.
+   /// A flag over one value and one over a whole block, as ShapeBaseData's hud
+   /// images are, are both this.
    static bool gatesWanted(const T2DataBlockLayout *layout, S32 at)
    {
       const T2DataNode &flag = layout->nodes[at];
-      const S32 join = flag.a;
 
-      S32 stack[64];
+      S32 shared[192];
+      const U32 sharedCount = reachable(layout, flag.a, shared,
+                                        ELEMENTS(shared));
+
+      S32 stack[128];
       U32 depth = 0;
       stack[depth++] = flag.b;
 
-      S32 seen[64];
+      S32 seen[192];
       U32 seenCount = 0;
 
       while(depth)
       {
          const S32 walk = stack[--depth];
-         if(walk < 0 || U32(walk) >= layout->count || walk == join)
+         if(walk < 0 || U32(walk) >= layout->count)
             continue;
 
-         // A region this big is not a gate over a field, and walking further
-         // costs more than the default write it falls back to.
+         // Shared with the clear arm, so past where the two rejoin.
          U32 i = 0;
-         for(; i < seenCount; i++)
+         for(; i < sharedCount; i++)
+            if(shared[i] == walk)
+               break;
+         if(i < sharedCount)
+            continue;
+
+         for(i = 0; i < seenCount; i++)
             if(seen[i] == walk)
                break;
          if(i < seenCount)
             continue;
-         if(seenCount >= sizeof(seen) / sizeof(seen[0]))
+         if(seenCount >= ELEMENTS(seen))
             return false;
          seen[seenCount++] = walk;
 
@@ -1830,7 +1932,6 @@ namespace Plan
          if(n.op == OpEnd || n.op == OpEndBody)
             continue;
 
-         // Every way on from here, which for a select is its whole table.
          if(n.op == OpSelect || n.op == OpReadBr)
          {
             if(!layout->select)
@@ -1838,14 +1939,14 @@ namespace Plan
             const U32 arms = n.op == OpReadBr ? 2u : 1u << n.bits;
             for(U32 arm = 0; arm < arms; arm++)
             {
-               if(depth >= sizeof(stack) / sizeof(stack[0]))
+               if(depth >= ELEMENTS(stack))
                   return false;
                stack[depth++] = layout->select[n.a + arm];
             }
             continue;
          }
 
-         if(depth + 2 > sizeof(stack) / sizeof(stack[0]))
+         if(depth + 2 > ELEMENTS(stack))
             return false;
          stack[depth++] = n.a;
          if(n.op == OpFlag || n.op == OpLoop)
@@ -1897,10 +1998,117 @@ namespace Plan
    }
 }
 
+// HH: Added for Tribes 2 compatibility.
+/// The state and part a node belongs to, for the class whose layout is loaded.
+static bool writeStateAt(S32 at, U32 *state, U32 *part)
+{
+   if(!sStates || sWriteStates.empty())
+      return false;
+   if(!stateAt(sStates->layout, at, state, part))
+      return false;
+   return *state < sWriteStates.size();
+}
+
+/// What a node of a published image state sends.
+static bool writeStateWord(S32 at, U32 *word)
+{
+   U32 index, part;
+   if(!writeStateAt(at, &index, &part))
+      return false;
+
+   const ImageState &state = sWriteStates[index];
+   if(part == T2StateName)
+   {
+      *word = index < sWriteStateName.size() ? sWriteStateName[index] : 0;
+      return true;
+   }
+   if(part >= T2StateTransition &&
+      part < T2StateTransition + ImageState::TransitionCount)
+   {
+      // Nothing is zero; a way out is the state behind it.
+      *word = U32(state.transition[part - T2StateTransition] + 1);
+      return true;
+   }
+
+   switch(part)
+   {
+      case T2StateTimeout:        *word = t2WholeWord(state.timeout); return true;
+      case T2StateLoaded:         *word = state.loaded;               return true;
+      case T2StateSpin:           *word = state.spin;                 return true;
+      case T2StateRecoil:         *word = state.recoil;               return true;
+      case T2StateSound:
+         *word = state.sound >= 0 ? U32(state.sound) : 0;
+         return true;
+      case T2StateSequence:
+         *word = U32(state.sequence < 0 ? -state.sequence : state.sequence);
+         return true;
+      case T2StateSequenceVis:
+         *word = U32(state.sequenceVis < 0 ? -state.sequenceVis
+                                           : state.sequenceVis);
+         return true;
+      default:
+         break;
+   }
+
+   return false;
+}
+
+/// Whether a flag of a published image state goes out set.
+static bool writeStateFlag(S32 at, bool *set)
+{
+   U32 index, part;
+   if(writeStateAt(at, &index, &part))
+   {
+      const ImageState &state = sWriteStates[index];
+      switch(part)
+      {
+         case T2StateHasTimeout:    *set = state.hasTimeout;      return true;
+         case T2StateWaitForTimeout:*set = state.waitForTimeout;  return true;
+         case T2StateFire:          *set = state.fire;            return true;
+         case T2StateEjectShell:    *set = state.ejectShell;      return true;
+         case T2StateDirection:     *set = state.direction;       return true;
+         case T2StateSequenceSign:  *set = state.sequence < 0;    return true;
+         case T2StateSequenceVisSign:
+            *set = state.sequenceVis < 0;
+            return true;
+         default:
+            break;
+      }
+   }
+
+   if(!sStates || at < 0 || U32(at) >= sStates->layout->count)
+      return false;
+
+   // The flag that reaches a state: the first n of them are the states this
+   // datablock has, and the rest are left clear.
+   U32 reaches;
+   if(headAt(sStates->layout, at, &reaches))
+   {
+      *set = reaches < sWriteStates.size();
+      return true;
+   }
+
+   // A flag over one of a state's own optional values -- a sequence index,
+   // which the state keeps a sign and a magnitude for.
+   const T2DataNode &n = sStates->layout->nodes[at];
+   if(n.b >= 0 && writeStateAt(n.b, &index, &part))
+   {
+      const ImageState &state = sWriteStates[index];
+      if(part == T2StateSequenceSign)    { *set = state.hasSequence;    return true; }
+      if(part == T2StateSequenceVisSign) { *set = state.hasSequenceVis; return true; }
+   }
+
+   return false;
+}
+
 /// Whether a flag goes out set: the value the body keeps there if it keeps
 /// one, or whether the run behind it holds anything published.
 static bool planTakesSet(S32 at)
 {
+   bool set;
+   if(writeStateFlag(at, &set))
+      return set;
+
    const S16 field = Plan::fieldAt(at);
    if(field >= 0)
       return sDbHas[field] && writeWord(at) != 0;
@@ -1908,10 +2116,18 @@ static bool planTakesSet(S32 at)
    return Plan::takeSet(at);
 }
 
+/// The text a string node sends: an image state's name, a published string
+/// field, or nothing.
+static const char *writeText(S32 at);
+
 /// The word a node sends: the next of what its field published, or the default
 /// a class with no encoder yet writes.
 static U32 writeWord(S32 at)
 {
+   U32 word;
+   if(writeStateWord(at, &word))
+      return word;
+
    const S16 field = Plan::fieldAt(at);
    if(field < 0 || !sDbHas[field])
       return 0;
@@ -1921,6 +2137,20 @@ static U32 writeWord(S32 at)
       return list[sDbTaken[field]++];
 
    return sDbWords[field];
+}
+
+static const char *writeText(S32 at)
+{
+   U32 index;
+   if(writeStateWord(at, &index))
+      return index < U32(sStrings.size()) ? sStrings[index].c_str() : "";
+
+   const S16 field = Plan::fieldAt(at);
+   if(field < 0 || !sDbHas[field])
+      return "";
+
+   index = writeWord(at);
+   return index < U32(sStrings.size()) ? sStrings[index].c_str() : "";
 }
 
 static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
@@ -2804,15 +3034,9 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
 
          case OpString:
             if(write)
-            {
                // HH: Modified for Tribes 2 compatibility. A string field keeps
                // where it sits among the body's strings, both ways round.
-               const S16 field = Plan::fieldAt(at);
-               const U32 index = writeWord(at);
-               stream->writeString(field >= 0 && sDbHas[field] &&
-                                   index < U32(sStrings.size())
-                                   ? sStrings[index].c_str() : "");
-            }
+               stream->writeString(writeText(at));
             else
             {
                stream->readString(buf);
@@ -2896,8 +3120,6 @@ static bool runNamed(BitStream *stream, const char *name,
    U32 slots[8] = { 0, 0, 0, 0, 0, 0, 0, 0 };
    return runGraph(stream, layout, layout->root, slots, 0, isInitial, write);
 }
-
-#define ELEMENTS( a ) ( sizeof( a ) / sizeof( ( a )[ 0 ] ) )
 
 static Vector<StringTableEntry> sUnimplemented(__FILE__, __LINE__);
 
