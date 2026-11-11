@@ -471,6 +471,47 @@ bool ParticleEmitterData::onAdd()
    return true;
 }
 
+// HH: Added for Tribes 2 compatibility. unpackData's fields the other way
+// round, and the particle list a read takes off every id in the body.
+void ParticleEmitterData::publishT2Data()
+{
+   Parent::publishT2Data();
+
+   T2Layout::publishDataBlockWord(T2Layout::T2DbEjectionPeriodMS, U32(ejectionPeriodMS));
+   T2Layout::publishDataBlockWord(T2Layout::T2DbPeriodVarianceMS, U32(periodVarianceMS));
+
+   T2Layout::publishDataBlockWord(T2Layout::T2DbThetaMin,        U32(thetaMin));
+   T2Layout::publishDataBlockWord(T2Layout::T2DbThetaMax,        U32(thetaMax));
+   T2Layout::publishDataBlockWord(T2Layout::T2DbPhiReferenceVel, U32(phiReferenceVel));
+   T2Layout::publishDataBlockWord(T2Layout::T2DbPhiVariance,     U32(phiVariance));
+
+   T2Layout::publishDataBlockWord(T2Layout::T2DbEjectionVelocity,
+                                  U32(ejectionVelocity * 100.0f + 0.5f));
+   T2Layout::publishDataBlockWord(T2Layout::T2DbVelocityVariance,
+                                  U32(velocityVariance * 100.0f + 0.5f));
+   T2Layout::publishDataBlockWord(T2Layout::T2DbEjectionOffset,
+                                  U32(ejectionOffset * 100.0f + 0.5f));
+
+   T2Layout::publishDataBlockWord(T2Layout::T2DbEmitterLifetimeMS, lifetimeMS >> 5);
+   T2Layout::publishDataBlockWord(T2Layout::T2DbEmitterLifetimeVarianceMS,
+                                  lifetimeVarianceMS >> 5);
+
+   T2Layout::publishDataBlockFlag(T2Layout::T2DbOverrideAdvance,  overrideAdvance);
+   T2Layout::publishDataBlockFlag(T2Layout::T2DbOrientParticles,  orientParticles);
+   T2Layout::publishDataBlockFlag(T2Layout::T2DbOrientOnVelocity, orientOnVelocity);
+   T2Layout::publishDataBlockFlag(T2Layout::T2DbUseEmitterSizes,  useEmitterSizes);
+   T2Layout::publishDataBlockFlag(T2Layout::T2DbUseEmitterColors, useEmitterColors);
+
+   // The particles this throws, which onAdd resolved out of the particles
+   // field into ids. An emitter that names none leaves the count clear and
+   // the body ends there, as the layout does without them.
+   T2Layout::publishDataBlockWord(T2Layout::T2DbEmitterParticleCount,
+                                  dataBlockIds.size());
+   for(U32 i = 0; i < dataBlockIds.size(); i++)
+      T2Layout::publishDataBlockWord(T2Layout::T2DbEmitterParticle,
+                                     dataBlockIds[i] - DataBlockObjectIdFirst);
+}
+
 //-----------------------------------------------------------------------------
 // preload
 //-----------------------------------------------------------------------------

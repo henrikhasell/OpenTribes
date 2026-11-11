@@ -408,6 +408,62 @@ bool ParticleData::unpackData(BitStream *stream, U32 classId)
    return true;
 }
 
+// HH: Added for Tribes 2 compatibility. unpackData's fields the other way
+// round, at the same widths and through the same conversions.
+void ParticleData::publishT2Data()
+{
+   Parent::publishT2Data();
+
+   T2Layout::publishDataBlockWhole(T2Layout::T2DbWindCoefficient,      windCoefficient);
+   T2Layout::publishDataBlockWhole(T2Layout::T2DbConstantAcceleration, constantAcceleration);
+   T2Layout::publishDataBlockWhole(T2Layout::T2DbSpinSpeed,            spinSpeed);
+
+   T2Layout::publishDataBlockFloat(T2Layout::T2DbDragCoefficient,
+                                   dragCoefficient / 5.0f, 10);
+   T2Layout::publishDataBlockSignedFloat(T2Layout::T2DbGravityCoefficient,
+                                         gravityCoefficient / 10.0f, 12);
+   T2Layout::publishDataBlockFloat(T2Layout::T2DbInheritedVelFactor,
+                                   inheritedVelFactor, 9);
+
+   T2Layout::publishDataBlockWord(T2Layout::T2DbParticleLifetimeMS,
+                                  U32(lifetimeMS) >> 5);
+   T2Layout::publishDataBlockWord(T2Layout::T2DbParticleLifetimeVarianceMS,
+                                  U32(lifetimeVarianceMS) >> 5);
+
+   T2Layout::publishDataBlockWord(T2Layout::T2DbSpinRandomMin,
+                                  U32(S32(spinRandomMin) + 1000));
+   T2Layout::publishDataBlockWord(T2Layout::T2DbSpinRandomMax,
+                                  U32(S32(spinRandomMax) + 1000));
+
+   T2Layout::publishDataBlockFlag(T2Layout::T2DbUseInvAlpha, useInvAlpha);
+
+   // The keys go out in the order the body carries them, which is the order a
+   // read takes them in, and the select ahead of them says how many follow.
+   T2Layout::publishDataBlockWord(T2Layout::T2DbParticleKeysLast,
+                                  PDC_NUM_KEYS - 1);
+   for(U32 i = 0; i < PDC_NUM_KEYS; i++)
+   {
+      T2Layout::publishDataBlockFloat(T2Layout::T2DbParticleColorR, colors[i].red,   7);
+      T2Layout::publishDataBlockFloat(T2Layout::T2DbParticleColorG, colors[i].green, 7);
+      T2Layout::publishDataBlockFloat(T2Layout::T2DbParticleColorB, colors[i].blue,  7);
+      T2Layout::publishDataBlockFloat(T2Layout::T2DbParticleColorA, colors[i].alpha, 7);
+      T2Layout::publishDataBlockFloat(T2Layout::T2DbParticleSize, sizes[i] / 50.0f, 14);
+      T2Layout::publishDataBlockFloat(T2Layout::T2DbParticleTime, times[i], 8);
+   }
+
+   // The texture, which a read puts back under textures/ and so comes off
+   // again here.
+   const char *texture = textureName;
+   if(texture && texture[0])
+   {
+      const char *leaf = dStrstr(texture, "textures/");
+      T2Layout::publishDataBlockWord(T2Layout::T2DbParticleTextures, 1);
+      T2Layout::publishDataBlockString(T2Layout::T2DbParticleTextureName,
+                                       leaf ? leaf + dStrlen("textures/")
+                                            : texture);
+   }
+}
+
 //-----------------------------------------------------------------------------
 // preload
 //-----------------------------------------------------------------------------
