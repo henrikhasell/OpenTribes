@@ -810,6 +810,25 @@ namespace T2Layout
       T2DbSplashRingTime,
       T2DbSplashRingEmitter,
 
+      // PrecipitationData, settled against demo000's rain, snow and sand.
+      T2DbPrecipSound,
+      T2DbPrecipType,
+      T2DbPrecipMaxSize,
+      T2DbPrecipMaterialList,
+      T2DbPrecipSizeX,
+      T2DbPrecipSizeY,
+      T2DbPrecipMovingBoxPer,
+      T2DbPrecipDivHeightVal,
+      T2DbPrecipSizeBigBox,
+      T2DbPrecipTopBoxSpeed,
+      T2DbPrecipFrontBoxSpeed,
+      T2DbPrecipTopBoxDrawPer,
+      T2DbPrecipBottomDrawHeight,
+      T2DbPrecipSkipIfPer,
+      T2DbPrecipBottomSpeedPer,
+      T2DbPrecipFrontSpeedPer,
+      T2DbPrecipFrontRadiusPer,
+
       // ShockwaveData, every node of it settled against a recorded server.
       T2DbShockwaveOne,
       T2DbShockwaveOneLast = T2DbShockwaveOne + 2,

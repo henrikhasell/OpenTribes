@@ -549,6 +549,29 @@ namespace T2Protocol
       { "ItemData",  52, OpRaw,   32, T2DbItemLightRadius     },
       { "ItemData",  53, OpFlag,   1, T2DbItemLightOnlyStatic },
 
+   // PrecipitationData, settled against demo000's three bodies: Rain's
+   // distinct 0.2, 0.45, 0.35, 1.5, 20, 30, 40 and -0.3 pin the run in its
+   // script's own order, Sand's maxSize of 2 pins node 2, and the sound is
+   // the only thing behind the body's one flag -- Rain names one and Snow
+   // does not.
+      { "PrecipitationData", 18, OpDataBlockId, 11, T2DbPrecipSound            },
+      { "PrecipitationData",  1, OpRaw,         32, T2DbPrecipType             },
+      { "PrecipitationData",  2, OpRaw,         32, T2DbPrecipMaxSize          },
+      { "PrecipitationData",  3, OpString,       0, T2DbPrecipMaterialList     },
+      { "PrecipitationData",  4, OpRaw,         32, T2DbPrecipSizeX            },
+      { "PrecipitationData",  5, OpRaw,         32, T2DbPrecipSizeY            },
+      { "PrecipitationData",  6, OpRaw,         32, T2DbPrecipMovingBoxPer     },
+      { "PrecipitationData",  7, OpRaw,         32, T2DbPrecipDivHeightVal     },
+      { "PrecipitationData",  8, OpRaw,         32, T2DbPrecipSizeBigBox       },
+      { "PrecipitationData",  9, OpRaw,         32, T2DbPrecipTopBoxSpeed      },
+      { "PrecipitationData", 10, OpRaw,         32, T2DbPrecipFrontBoxSpeed    },
+      { "PrecipitationData", 11, OpRaw,         32, T2DbPrecipTopBoxDrawPer    },
+      { "PrecipitationData", 12, OpRaw,         32, T2DbPrecipBottomDrawHeight },
+      { "PrecipitationData", 13, OpRaw,         32, T2DbPrecipSkipIfPer        },
+      { "PrecipitationData", 14, OpRaw,         32, T2DbPrecipBottomSpeedPer   },
+      { "PrecipitationData", 15, OpRaw,         32, T2DbPrecipFrontSpeedPer    },
+      { "PrecipitationData", 16, OpRaw,         32, T2DbPrecipFrontRadiusPer   },
+
    // ShockwaveData, every node settled against demo004's fourteen bodies:
    // node 7 is 6.0 for the mortar's width and 4.0 for the grenade's, node 10
    // holds each one's velocity, and the five eight-bit flags are told apart by
