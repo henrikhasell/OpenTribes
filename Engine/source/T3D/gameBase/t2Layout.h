@@ -555,6 +555,7 @@ namespace T2Layout
       T2DbItemLightRadius,
       T2DbItemLightOnlyStatic,
 
+      T2DbNoFrictionOnSki,
       T2DbMinLookAngle,
       T2DbMaxLookAngle,
       T2DbMaxFreelookAngle,

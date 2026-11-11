@@ -306,6 +306,7 @@ PlayerData::PlayerData()
 
    maxStepHeight = 1.0f;
    runSurfaceAngle = 80.0f;
+   noFrictionOnSki = false;
 
    fallingSpeedThreshold = -10.0f;
 
@@ -455,6 +456,11 @@ bool PlayerData::unpackData(BitStream *stream, U32 classId)
 {
    if (!Parent::unpackData(stream, classId))
       return false;
+
+   // The one flag a body opens with, ahead of every float.
+   U32 flag;
+   if (T2Layout::lastDataBlockWord(T2Layout::T2DbNoFrictionOnSki, &flag))
+      noFrictionOnSki = flag != 0;
 
    static const struct { U32 field; F32 PlayerData::*member; } sFields[] =
    {
@@ -972,6 +978,10 @@ void PlayerData::initPersistFields()
 
       addField( "runSurfaceAngle", TypeF32, Offset(runSurfaceAngle, PlayerData),
          "@brief Maximum angle from vertical (in degrees) the player can run up.\n\n" );
+
+      addField( "noFrictionOnSki", TypeBool, Offset(noFrictionOnSki, PlayerData),
+         "@brief Let the player ski: while the jump trigger is held the run "
+         "force never slows him along the way he is heading.\n\n" );
 
       addField( "minImpactSpeed", TypeF32, Offset(minImpactSpeed, PlayerData),
          "@brief Minimum impact speed to apply falling damage.\n\n"
@@ -2680,7 +2690,32 @@ void Player::updateMove(const Move* move)
       // Convert to acceleration
       if ( pvl )
          pv *= moveSpeed / pvl;
-      VectorF runAcc = pv - (mVelocity + acc);
+
+      // HH: Modified for Tribes 2 compatibility.
+      // Skiing (0x005d38c0): with the jump trigger held the run force may only
+      // accelerate the player along the way he is heading, never slow him, and
+      // a player asking for no move at all keeps the whole of his velocity.
+      VectorF runAcc;
+      if (mDataBlock->noFrictionOnSki && mState != RecoverState &&
+          move->trigger[sJumpTrigger])
+      {
+         const F32 skiLen = pv.len();
+         if (skiLen)
+         {
+            const VectorF skiDir = pv * (1.0f / skiLen);
+            const VectorF vel = mVelocity + acc;
+            const F32 speed = mDot(skiDir, vel);
+
+            if (speed > skiLen)
+               pv = skiDir * speed;
+            runAcc = pv - vel;
+         }
+         else
+            runAcc.set(0.0f, 0.0f, 0.0f);
+      }
+      else
+         runAcc = pv - (mVelocity + acc);
+
       F32 runSpeed = runAcc.len();
 
       // Clamp acceleration, player also accelerates faster when

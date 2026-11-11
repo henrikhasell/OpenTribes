@@ -14,6 +14,10 @@ namespace T2Protocol
 
    static const T2DataBlockFieldRow sT2DataBlockFields[] =
    {
+   // PlayerData::packData (0x005cf227) opens with this one flag, ahead of the
+   // five floats below.
+      { "PlayerData", 39, OpFlag,  1, T2DbNoFrictionOnSki  },
+
       { "PlayerData", 40, OpRaw, 32, T2DbMinLookAngle     },
       { "PlayerData", 41, OpRaw, 32, T2DbMaxLookAngle     },
       { "PlayerData", 42, OpRaw, 32, T2DbMaxFreelookAngle },

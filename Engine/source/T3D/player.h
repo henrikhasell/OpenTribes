@@ -87,6 +87,11 @@ struct PlayerData: public ShapeBaseData {
    F32 maxStepHeight;         ///< Maximum height the player can step up
    F32 runSurfaceAngle;       ///< Maximum angle from vertical in degrees the player can run up
 
+   // HH: Added for Tribes 2 compatibility.
+   /// Skiing: holding the jump trigger stops the run force braking the player
+   /// along the way he is heading.
+   bool noFrictionOnSki;
+
    F32 horizMaxSpeed;         ///< Max speed attainable in the horizontal
    F32 horizResistSpeed;      ///< Speed at which resistance will take place
    F32 horizResistFactor;     ///< Factor of resistance once horizResistSpeed has been reached
