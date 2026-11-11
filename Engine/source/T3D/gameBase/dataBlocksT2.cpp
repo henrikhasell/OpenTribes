@@ -102,7 +102,27 @@ IMPLEMENT_DATABLOCK_T2( BombProjectileData );
 IMPLEMENT_DATABLOCK_T2( EffectProfile );
 IMPLEMENT_DATABLOCK_T2( FireballAtmosphereData );
 IMPLEMENT_DATABLOCK_T2( FlareProjectileData );
-IMPLEMENT_DATABLOCK_T2( JetEffectData );
+// HH: The jet flame, settled against a recorded retail server: two colours,
+// then seven whole floats, then the texture behind a flag. Body 1 of demo004
+// is HumanArmorJetEffect, whose 0.05, 0.75, -15 and 2.0 pin four of the seven
+// outright, and body 2 is the medium armour, whose yOffset of 0.4 pins the
+// last. activateTime and width are 0.2 in every jet effect the game has, so
+// nothing on the wire can tell those two apart; the order is the script's.
+static const StubT2::Field sT2JetEffectDataFields[] =
+{
+   { "coolColor",      T2Layout::T2DbJetCoolColor,      StubT2::Colour },
+   { "hotColor",       T2Layout::T2DbJetHotColor,       StubT2::Colour },
+   { "activateTime",   T2Layout::T2DbJetActivateTime,   StubT2::Whole  },
+   { "deactivateTime", T2Layout::T2DbJetDeactivateTime, StubT2::Whole  },
+   { "length",         T2Layout::T2DbJetLength,         StubT2::Whole  },
+   { "width",          T2Layout::T2DbJetWidth,          StubT2::Whole  },
+   { "speed",          T2Layout::T2DbJetSpeed,          StubT2::Whole  },
+   { "stretch",        T2Layout::T2DbJetStretch,        StubT2::Whole  },
+   { "yOffset",        T2Layout::T2DbJetYOffset,        StubT2::Whole  },
+   { "texture",        T2Layout::T2DbJetTexture,        StubT2::Text   },
+};
+
+IMPLEMENT_DATABLOCK_T2_WRITES( JetEffectData );
 IMPLEMENT_DATABLOCK_T2( ParticleEmissionDummyData );
 IMPLEMENT_DATABLOCK_T2( RunningLightData );
 IMPLEMENT_DATABLOCK_T2( ShockwaveData );
