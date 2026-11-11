@@ -727,6 +727,8 @@ namespace T2Layout
       T2DbSeekerAcceleration,
       T2DbSeekerFlechetteDelay,
       T2DbSeekerExhaustTime,
+      T2DbSeekerExhaustNode,
+      T2DbSeekerCasingShape,
       T2DbSeekerPuffEmitter,
       T2DbSeekerExhaustEmitter,
       T2DbSeekerCasingDebris,

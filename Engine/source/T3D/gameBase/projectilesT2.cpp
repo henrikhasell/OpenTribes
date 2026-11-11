@@ -8,6 +8,7 @@
 #include "console/console.h"
 #include "console/consoleTypes.h"
 #include "console/engineAPI.h"
+#include "core/resourceManager.h"
 #include "core/stream/bitStream.h"
 #include "gfx/gfxDevice.h"
 #include "gfx/gfxTextureHandle.h"
@@ -24,6 +25,7 @@
 #include "sfx/sfxSystem.h"
 #include "sfx/sfxSource.h"
 #include "sfx/sfxTrack.h"
+#include "T3D/debris.h"
 #include "T3D/decal/decalData.h"
 #include "T3D/gameBase/dataBlocksT2.h"
 #include "T3D/gameBase/decalsT2.h"
@@ -3552,7 +3554,10 @@ public:
    F32  maxVelocity;       ///< what the motor takes it to
    F32  acceleration;      ///< metres a second a second
    U32  flechetteDelayMS;  ///< how long the motor takes to light
-   U32  exhaustTimeMS;
+   U32  exhaustTimeMS;     ///< how long the launcher blows back for
+   StringTableEntry exhaustNodeName;  ///< the launcher's node it comes out of
+   StringTableEntry casingShapeName;  ///< the missile with its casing still on
+   Resource<TSShape> mCasingShape;
    U32  puffEmitterId;     ///< the puff the casing comes off in
    U32  exhaustEmitterId;
    U32  casingDebrisId;
@@ -3560,6 +3565,7 @@ public:
    SeekerProjectileDataT2();
 
    bool unpackData(BitStream *stream, U32 classId);
+   bool preload(bool server, String &errorStr);
 
    DECLARE_CONOBJECT(SeekerProjectileDataT2);
 };
@@ -3585,10 +3591,26 @@ SeekerProjectileDataT2::SeekerProjectileDataT2()
      acceleration(10.0f),
      flechetteDelayMS(500),
      exhaustTimeMS(0),
+     exhaustNodeName(StringTable->EmptyString()),
+     casingShapeName(StringTable->EmptyString()),
      puffEmitterId(0),
      exhaustEmitterId(0),
      casingDebrisId(0)
 {
+}
+
+// The casing's shape is loaded beside the projectile's, and the missile is
+// drawn with it until the casing comes off (0x006379de, 0x0063cf9d).
+bool SeekerProjectileDataT2::preload(bool server, String &errorStr)
+{
+   if(!Parent::preload(server, errorStr))
+      return false;
+
+   if(casingShapeName && casingShapeName[0])
+      mCasingShape = ResourceManager::get().load(
+         T2Layout::resourcePath(casingShapeName, "shapes/"));
+
+   return true;
 }
 
 bool SeekerProjectileDataT2::unpackData(BitStream *stream, U32 classId)
@@ -3626,6 +3648,10 @@ bool SeekerProjectileDataT2::unpackData(BitStream *stream, U32 classId)
       flechetteDelayMS = word;
    if(T2Layout::lastDataBlockWord(T2Layout::T2DbSeekerExhaustTime, &word))
       exhaustTimeMS = word;
+   if(const char *name = T2Layout::lastDataBlockString(T2Layout::T2DbSeekerExhaustNode))
+      exhaustNodeName = StringTable->insert(name);
+   if(const char *name = T2Layout::lastDataBlockString(T2Layout::T2DbSeekerCasingShape))
+      casingShapeName = StringTable->insert(name);
    if(T2Layout::lastDataBlockWord(T2Layout::T2DbSeekerPuffEmitter, &word))
       puffEmitterId = word;
    if(T2Layout::lastDataBlockWord(T2Layout::T2DbSeekerExhaustEmitter, &word))
@@ -3702,6 +3728,8 @@ class SeekerProjectileT2 : public GameBase, public ISceneLight
 
    SeekerProjectileDataT2 *mData;
    TSShapeInstance *mShapeInstance;
+   TSShapeInstance *mCasingInstance;   ///< drawn in its place until the
+                                       ///< casing comes off
 
    Point3F mPosition;
    VectorF mVelocity;
@@ -3727,16 +3755,29 @@ class SeekerProjectileT2 : public GameBase, public ISceneLight
    SimObjectPtr<ParticleEmitter> mEmitter;
    SimObjectPtr<ParticleEmitter> mBubbleEmitter;
    SimObjectPtr<ParticleEmitter> mPuffEmitter;
+   SimObjectPtr<ParticleEmitter> mExhaustEmitter;
    Point3F mEmitAt;
    F32     mEmitMS;
+   F32     mExhaustMS;        ///< the launcher's blow-back a frame has left
+                              ///< over, kept the way the smoke's is
 
    SimObjectId mSourceObject;
+   U32         mSourceSlot;   ///< the image slot it was fired from, which is
+                              ///< where the blow-back comes out
    F32         mNoSourceHit;
 
    LightInfo *mLight;
 
    ParticleEmitter *createEmitter(U32 dataId);
    bool motorLit() const;
+   bool casingDropped() const;
+
+   /// Throw the casing's four pieces off at `at`.
+   void dropCasing(const Point3F &at);
+
+   /// Blow the launcher's exhaust out of its muzzle for `dt`.
+   void blowExhaust(F32 dt);
+
    bool targetPosition(Point3F *out);
    void seek(F32 dt);
    void avoidTerrain(const Point3F &target, F32 dt);
@@ -3768,6 +3809,7 @@ ConsoleDocClass( SeekerProjectileT2,
 SeekerProjectileT2::SeekerProjectileT2()
    : mData(NULL),
      mShapeInstance(NULL),
+     mCasingInstance(NULL),
      mPosition(0.0f, 0.0f, 0.0f),
      mVelocity(0.0f, 0.0f, 0.0f),
      mInherit(0.0f, 0.0f, 0.0f),
@@ -3785,7 +3827,9 @@ SeekerProjectileT2::SeekerProjectileT2()
      mSound(NULL),
      mEmitAt(0.0f, 0.0f, 0.0f),
      mEmitMS(0.0f),
+     mExhaustMS(0.0f),
      mSourceObject(0),
+     mSourceSlot(0),
      mNoSourceHit(0.0f),
      mLight(NULL)
 {
@@ -3795,6 +3839,7 @@ SeekerProjectileT2::SeekerProjectileT2()
 SeekerProjectileT2::~SeekerProjectileT2()
 {
    delete mShapeInstance;
+   delete mCasingInstance;
    SAFE_DELETE(mLight);
 }
 
@@ -3826,6 +3871,9 @@ void SeekerProjectileT2::onRemove()
    if(bool(mPuffEmitter))
       mPuffEmitter->deleteWhenEmpty();
    mPuffEmitter = NULL;
+   if(bool(mExhaustEmitter))
+      mExhaustEmitter->deleteWhenEmpty();
+   mExhaustEmitter = NULL;
 
    removeFromScene();
    Parent::onRemove();
@@ -3866,10 +3914,13 @@ bool SeekerProjectileT2::onNewDataBlock(GameBaseData *dptr, bool reload)
       mBubbleEmitter->deleteWhenEmpty();
    if(bool(mPuffEmitter))
       mPuffEmitter->deleteWhenEmpty();
+   if(bool(mExhaustEmitter))
+      mExhaustEmitter->deleteWhenEmpty();
 
    mEmitter = createEmitter(mData->baseEmitterId);
    mBubbleEmitter = createEmitter(mData->bubbleEmitterId);
    mPuffEmitter = createEmitter(mData->puffEmitterId);
+   mExhaustEmitter = createEmitter(mData->exhaustEmitterId);
 
    if(mData->hasLight)
       mTypeMask |= LightObjectType;
@@ -3881,17 +3932,138 @@ bool SeekerProjectileT2::onNewDataBlock(GameBaseData *dptr, bool reload)
    if(bool(mData->mShape))
       mShapeInstance = new TSShapeInstance(mData->mShape, isClientObject());
 
+   delete mCasingInstance;
+   mCasingInstance = NULL;
+   if(bool(mData->mCasingShape))
+      mCasingInstance = new TSShapeInstance(mData->mCasingShape,
+                                            isClientObject());
+
    return true;
 }
 
-/// The motor lights a flechetteDelayMs after the launch, and the casing comes
-/// off halfway through that -- which is also where the missile stops being
-/// drawn along the way it was fired and starts being drawn along its flight
-/// (0x0063b945, 0x0063c8c6). A missile the client picks up already under way
-/// says so in its first body, and skips both.
+/// The motor lights a flechetteDelayMs after the launch. A missile the
+/// client picks up already under way says so in its first body, and skips
+/// the wait.
 bool SeekerProjectileT2::motorLit() const
 {
    return !mCoasting || mAge * 1000.0f >= F32(mData->flechetteDelayMS);
+}
+
+/// The casing comes off **halfway** through that delay, counted in whole
+/// ticks (0x0063c8c6), and that is also where the missile stops being drawn
+/// along the way it was fired and starts being drawn along its flight
+/// (0x0063b945).  Half a second of coasting is therefore two things, not
+/// one: a quarter of a second of cased missile pointing where the launcher
+/// did, then a quarter of an uncased one already following its own nose
+/// before the motor pushes it.
+bool SeekerProjectileT2::casingDropped() const
+{
+   return !mCoasting ||
+          mAge >= F32(S32(mData->flechetteDelayMS) / 64) * sSeekerTickSec;
+}
+
+/// The four pieces the casing breaks into, in the missile's own frame: one
+/// to each corner of its nose, five parts forward to one or two out, which
+/// is what sends them ahead of it in a widening cross (0x0063ca5e).  Each
+/// piece spins a full turn and a quarter a second about two axes, which the
+/// debris datablock's own spin speeds would not give it.
+struct CasingPiece
+{
+   F32 x, z;       ///< the sign each random part goes on
+   F32 spinX, spinZ;
+};
+
+static const CasingPiece sCasingPieces[] =
+{
+   { -1.0f, -1.0f,  450.0f, -450.0f },
+   {  1.0f, -1.0f,  450.0f,  450.0f },
+   {  1.0f,  1.0f, -450.0f,  450.0f },
+   { -1.0f,  1.0f, -450.0f, -450.0f },
+};
+
+// HH: Added for Tribes 2 compatibility.
+// Four of the casing datablock, thrown from the point the motor lit at,
+// each along the missile's own axes and at eight metres a second
+// (0x0063c9d6).  They are the missile's own debris, not the server's, so
+// nothing about them is sent.
+void SeekerProjectileT2::dropCasing(const Point3F &at)
+{
+   if(!mData->useFlechette || !mData->casingDebrisId)
+      return;
+
+   DebrisData *data = NULL;
+   if(!Sim::findObject(mData->casingDebrisId, data))
+      return;
+
+   MatrixF mat = getTransform();
+   mat.setPosition(at);
+
+   for(U32 i = 0; i < sizeof(sCasingPieces) / sizeof(sCasingPieces[0]); i++)
+   {
+      const CasingPiece &piece = sCasingPieces[i];
+
+         // One and two, so no piece goes straight up the nose.
+      const F32 a = gRandGen.randF() + 1.0f;
+      const F32 b = gRandGen.randF() + 1.0f;
+
+      VectorF velocity(piece.x * b, 5.0f, piece.z * a);
+      velocity.normalize();
+      velocity *= 8.0f;
+      mat.mulV(velocity);
+
+      Debris *casing = new Debris;
+      casing->onNewDataBlock(data, false);
+      casing->setTransform(mat);
+      if(!casing->registerObject())
+      {
+         delete casing;
+         continue;
+      }
+
+      casing->init(at, velocity);
+      casing->setRotAngles(Point3F(piece.spinX, 0.0f, piece.spinZ));
+   }
+}
+
+// HH: Added for Tribes 2 compatibility.
+// The launcher's own exhaust, out of the node its datablock names on the
+// image the missile was fired from, for as long as exhaustTimeMs says
+// (0x0063b447).  It comes out of the launcher rather than off the missile,
+// so it needs the shooter rather than this: a missile whose source has gone
+// blows nothing.
+void SeekerProjectileT2::blowExhaust(F32 dt)
+{
+   if(!bool(mExhaustEmitter) || !mData->exhaustNodeName ||
+      !mData->exhaustNodeName[0])
+      return;
+
+      // Retail counts whole ticks, so 300ms of exhaust is nine of them.
+   if(mAge > F32(S32(mData->exhaustTimeMS) / S32(TickMs)) * TickSec)
+      return;
+
+   ShapeBase *source = NULL;
+   if(!mSourceObject || !Sim::findObject(mSourceObject, source))
+      return;
+
+   mExhaustMS += dt * 1000.0f;
+   const U32 ms = U32(mExhaustMS);
+   if(!ms)
+      return;
+   mExhaustMS -= F32(ms);
+
+   MatrixF node(true);
+   source->getImageTransform(mSourceSlot, mData->exhaustNodeName, &node);
+
+   const Point3F at = node.getPosition();
+   Point3F along;
+   node.getColumn(1, &along);
+
+      // Against the shooter's own velocity, so the cloud it leaves stands
+      // still rather than being dragged along with them.
+   Point3F against = source->getVelocity();
+   against.neg();
+
+   mExhaustEmitter->emitParticles(at, at, along, against, ms);
 }
 
 bool SeekerProjectileT2::targetPosition(Point3F *out)
@@ -4084,11 +4256,12 @@ void SeekerProjectileT2::step(F32 dt)
       return;
    }
 
-      // Before the motor lights it is still a casing coming out of the
-      // launcher, and what it touches does not set it off (0x0063b5f2).
+      // While the casing is still on it is a casing coming out of the
+      // launcher, and what it touches does not set it off -- the same half
+      // delay the casing comes off at, not the whole one (0x0063b5f2).
    mPosition = info.point;
    mFlying = false;
-   if(motorLit())
+   if(casingDropped())
       explode(info.point, info.normal);
 }
 
@@ -4136,6 +4309,8 @@ void SeekerProjectileT2::onT2BodyRead(const T2Layout::Body &body)
       NetObject *obj = conn ? conn->resolveGhost(S32(body.sourceObject))
                             : NULL;
       mSourceObject = obj ? obj->getId() : 0;
+      mSourceSlot = getMin(body.sourceSlot,
+                           U32(ShapeBase::MaxMountedImages - 1));
       mNoSourceHit = 7.0f * TickSec;
    }
 
@@ -4231,7 +4406,7 @@ void SeekerProjectileT2::advanceTime(F32 dt)
    if(!mFlying)
       return;
 
-   const bool wasLit = motorLit();
+   const bool hadCasing = !casingDropped();
    mAge += dt;
 
       // A missile that lost its last body keeps flying on its own; retail's
@@ -4245,15 +4420,21 @@ void SeekerProjectileT2::advanceTime(F32 dt)
 
    step(dt);
 
-      // The casing comes off in a puff where the motor lights (0x0063c93d).
-   if(!wasLit && motorLit() && !mPuffed)
+      // The casing comes off in a puff where the motor lights, and breaks
+      // into four as it goes (0x0063c93d).  The puff is laid still: its
+      // particles carry no velocity of the missile's, so the cloud stays
+      // where the casing left rather than chasing the missile.
+   if(hadCasing && casingDropped() && !mPuffed)
    {
       mPuffed = true;
       if(bool(mPuffEmitter))
          mPuffEmitter->emitParticles(mPosition, mPosition,
-                                     Point3F(0.0f, 0.0f, 1.0f), mVelocity,
-                                     1000);
+                                     Point3F(0.0f, 0.0f, 1.0f),
+                                     Point3F(0.0f, 0.0f, 0.0f), 1000);
+      dropCasing(mPosition);
    }
+
+   blowExhaust(dt);
 
       // The smoke runs from where the last of it was laid to where the flight
       // has got, backwards along it, and under water the bubbles rise
@@ -4284,17 +4465,25 @@ void SeekerProjectileT2::advanceTime(F32 dt)
       // Until the casing is off, the missile is still pointing the way it was
       // fired; after it, along its flight (0x0063b98e).
    MatrixF mat(true);
-   headingMatrixT2(&mat, motorLit() ? mVelocity : mLaunchDir);
+   headingMatrixT2(&mat, casingDropped() ? mVelocity : mLaunchDir);
    mat.setPosition(mPosition);
    setTransform(mat);
 
    if(mShapeInstance)
       mShapeInstance->advanceTime(dt);
+   if(mCasingInstance)
+      mCasingInstance->advanceTime(dt);
 }
 
 void SeekerProjectileT2::prepRenderImage(SceneRenderState *state)
 {
-   if(!mShapeInstance || !mFlying)
+   // A missile that drops a casing is the casing until it does, and the
+   // missile under it afterwards (0x0063cf97).
+   TSShapeInstance *instance = mShapeInstance;
+   if(mData->useFlechette && !casingDropped() && mCasingInstance)
+      instance = mCasingInstance;
+
+   if(!instance || !mFlying)
       return;
 
    GFXTransformSaver saver;
@@ -4310,10 +4499,9 @@ void SeekerProjectileT2::prepRenderImage(SceneRenderState *state)
    mat.scale(mData->scale);
    GFX->setWorldMatrix(mat);
 
-   mShapeInstance->setDetailFromPosAndScale(state, mat.getPosition(),
-                                            mData->scale);
-   mShapeInstance->animate();
-   mShapeInstance->render(rdata);
+   instance->setDetailFromPosAndScale(state, mat.getPosition(), mData->scale);
+   instance->animate();
+   instance->render(rdata);
 }
 
 void SeekerProjectileT2::submitLights(LightManager *lm, bool staticLighting)

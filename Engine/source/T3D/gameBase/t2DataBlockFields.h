@@ -409,8 +409,8 @@ namespace T2Protocol
    // fast it turns, the radius it goes off inside, the four terrain-avoidance
    // fields, how far and how wide it looks for a flare, whether it drops a
    // casing, the speed its motor takes it to and how hard, how long the
-   // casing takes, how long the launcher's exhaust lasts, two shape names and
-   // three datablock ids.
+   // casing takes, how long the launcher's exhaust lasts, the node that
+   // exhaust comes out of, the shape the casing is, and three datablock ids.
       { "SeekerProjectileData", 24, OpRaw, 32, T2DbProjectileLifetime     },
       { "SeekerProjectileData", 25, OpRaw, 32, T2DbSeekerMuzzleVelocity   },
       { "SeekerProjectileData", 26, OpRaw, 32, T2DbSeekerTurningSpeed     },
@@ -426,6 +426,8 @@ namespace T2Protocol
       { "SeekerProjectileData", 36, OpRaw, 32, T2DbSeekerAcceleration     },
       { "SeekerProjectileData", 37, OpRaw, 32, T2DbSeekerFlechetteDelay   },
       { "SeekerProjectileData", 38, OpRaw, 32, T2DbSeekerExhaustTime      },
+      { "SeekerProjectileData", 39, OpString, 0, T2DbSeekerExhaustNode    },
+      { "SeekerProjectileData", 40, OpString, 0, T2DbSeekerCasingShape    },
       { "SeekerProjectileData", 47, OpDataBlockId, 11, T2DbSeekerCasingDebris  },
       { "SeekerProjectileData", 46, OpDataBlockId, 11, T2DbSeekerPuffEmitter   },
       { "SeekerProjectileData", 45, OpDataBlockId, 11, T2DbSeekerExhaustEmitter },
