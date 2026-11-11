@@ -398,6 +398,9 @@ struct PlayerData: public ShapeBaseData {
    PlayerData();
    bool preload(bool server, String &errorStr);
    bool unpackData(BitStream *stream, U32 classId) override;
+
+      // HH: Added for Tribes 2 compatibility.
+   void publishT2Data() override;
    void getGroundInfo(TSShapeInstance*,TSThread*,ActionAnimation*);
    bool isTableSequence(S32 seq);
    bool isJumpAction(U32 action);
