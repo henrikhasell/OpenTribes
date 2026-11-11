@@ -810,6 +810,19 @@ namespace T2Layout
       T2DbSplashRingTime,
       T2DbSplashRingEmitter,
 
+      // JetEffectData, which is two colours, seven whole floats and a
+      // texture, in the order its body carries them.
+      T2DbJetCoolColor,
+      T2DbJetHotColor,
+      T2DbJetActivateTime,
+      T2DbJetDeactivateTime,
+      T2DbJetLength,
+      T2DbJetWidth,
+      T2DbJetSpeed,
+      T2DbJetStretch,
+      T2DbJetYOffset,
+      T2DbJetTexture,
+
       // ParticleEmitterData's particle list: a count and then an id apiece.
       T2DbEmitterParticleCount,
       T2DbEmitterParticle,
