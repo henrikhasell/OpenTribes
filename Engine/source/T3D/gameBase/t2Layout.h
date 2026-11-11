@@ -818,6 +818,38 @@ namespace T2Layout
       return t2Float(word, bits) * 2.0f - 1.0f;
    }
 
+   // HH: Added for Tribes 2 compatibility.
+   /// t2Float's inverse, for the side that sends. A value outside the scale
+   /// the width carries is held at its end rather than wrapped, since a
+   /// wrapped one reads back as its opposite.
+   inline U32 t2FloatWord(F32 value, U32 bits)
+   {
+      const U32 mask = bits >= 32 ? 0xffffffffu : (1u << bits) - 1;
+      if(!mask)
+         return 0;
+
+      const F32 scaled = value * F32(mask);
+      if(scaled <= 0.0f)
+         return 0;
+      if(scaled >= F32(mask))
+         return mask;
+      return U32(scaled + 0.5f);
+   }
+
+   inline U32 t2SignedFloatWord(F32 value, U32 bits)
+   {
+      return t2FloatWord((value + 1.0f) * 0.5f, bits);
+   }
+
+   /// The word a whole float goes out as, where Tribes 2 sends all 32 bits of
+   /// one rather than a fraction of a scale.
+   inline U32 t2WholeWord(F32 value)
+   {
+      U32 word;
+      dMemcpy(&word, &value, sizeof(word));
+      return word;
+   }
+
    /// How many states a Tribes 2 image datablock can carry, which is what a
    /// way out of one is wide enough to name.
    enum { MaxImageStates = 32 };
@@ -877,6 +909,25 @@ namespace T2Layout
 
    /// A field the last datablock sent as a string, or NULL where it sent none.
    const char *lastDataBlockString(U32 field);
+
+   // HH: Added for Tribes 2 compatibility.
+   /// What a datablock hands the write walk, in the same field slots the read
+   /// walk fills off the wire. A class publishes its fields and the walk
+   /// writes each one at its own node, taking the branches that lead there
+   /// and leaving everything it was told nothing about at the default an
+   /// unported class writes.
+   ///
+   /// Publish in the order the body carries a field it repeats: the walk
+   /// takes one value per node it reaches.
+   void beginDataBlock();
+   void publishDataBlockWord(U32 field, U32 value);
+   void publishDataBlockFlag(U32 field, bool value);
+   /// A float Tribes 2 sends as a fraction of its width's scale.
+   void publishDataBlockFloat(U32 field, F32 value, U32 bits);
+   void publishDataBlockSignedFloat(U32 field, F32 value, U32 bits);
+   /// A float Tribes 2 sends whole.
+   void publishDataBlockWhole(U32 field, F32 value);
+   void publishDataBlockString(U32 field, const char *value);
 
    /// What a body leaves out because retail reads it off the object and the
    /// connection rather than the stream. A walk without one takes the object
