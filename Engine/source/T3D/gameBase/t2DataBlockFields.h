@@ -287,7 +287,10 @@ namespace T2Protocol
 
    // ShapeBaseImageData::packData writes the mount point as a whole word, which
    // is the layout's node 2.
-      { "ShapeBaseImageData", 2, OpRaw, 32, T2DbImageMountPoint },
+   // The shape the image is, which a read picks out of the body by its .dts
+   // ending and a write has to put at its own node.
+      { "ShapeBaseImageData", 1, OpString,  0, T2DbImageShapeFile  },
+      { "ShapeBaseImageData", 2, OpRaw,    32, T2DbImageMountPoint },
    // then, unless it is the identity, the offset as writeAffineTransform
    // writes it: a position, a quaternion's x, y and z, and the sign of its w.
       { "ShapeBaseImageData",  4, OpRaw, 32, T2DataBlockField(T2DbImageOffset + 0) },
@@ -321,6 +324,22 @@ namespace T2Protocol
       { "TurretImageData",     7, OpRaw, 32, T2DataBlockField(T2DbImageOffset + 3) },
       { "TurretImageData",     8, OpRaw, 32, T2DataBlockField(T2DbImageOffset + 4) },
       { "TurretImageData",     9, OpRaw, 32, T2DataBlockField(T2DbImageOffset + 5) },
+   // The same opening run as ShapeBaseImageData's, node for node: its shape,
+   // its mount, the eye offset and the shell it throws.
+      { "TurretImageData",     1, OpString,  0, T2DbImageShapeFile  },
+      { "TurretImageData",     4, OpRaw,    32, T2DataBlockField(T2DbImageOffset + 0) },
+      { "TurretImageData",     5, OpRaw,    32, T2DataBlockField(T2DbImageOffset + 1) },
+      { "TurretImageData",     6, OpRaw,    32, T2DataBlockField(T2DbImageOffset + 2) },
+      { "TurretImageData",     7, OpRaw,    32, T2DataBlockField(T2DbImageOffset + 3) },
+      { "TurretImageData",     8, OpRaw,    32, T2DataBlockField(T2DbImageOffset + 4) },
+      { "TurretImageData",     9, OpRaw,    32, T2DataBlockField(T2DbImageOffset + 5) },
+      { "TurretImageData",    21, OpRaw,    32, T2DataBlockField(T2DbImageShellExitDir + 0) },
+      { "TurretImageData",    22, OpRaw,    32, T2DataBlockField(T2DbImageShellExitDir + 1) },
+      { "TurretImageData",    23, OpRaw,    32, T2DataBlockField(T2DbImageShellExitDir + 2) },
+      { "TurretImageData",    24, OpRaw,    32, T2DbImageShellExitVariance },
+      { "TurretImageData",    25, OpRaw,    32, T2DbImageShellVelocity },
+      { "TurretImageData",  1276, OpDataBlockId, 11, T2DbImageCasing },
+
       { "TurretImageData",    10, OpFlag, 1, T2DbImageOffsetWNegative             },
       { "TurretImageData",    19, OpFlag, 1, T2DbImageCloakable },
       { "TurretImageData",    27, OpFlag, 1, T2DbImageEmap },
