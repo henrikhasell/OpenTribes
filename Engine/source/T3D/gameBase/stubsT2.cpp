@@ -19,6 +19,14 @@ void publish(SimObject *object, const Field *fields, U32 count)
    for(U32 i = 0; i < count; i++)
    {
       const Field &field = fields[i];
+      // A constant is not a field of the object at all: its literal is what
+      // every body retail writes carries there.
+      if(field.kind == Constant)
+      {
+         T2Layout::publishDataBlockWhole(field.slot, dAtof(field.name));
+         continue;
+      }
+
       const char *value = object->getDataField(
          StringTable->insert(field.name), NULL);
       if(!value || !value[0])

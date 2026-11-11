@@ -99,7 +99,15 @@ IMPLEMENT_DATABLOCK_T2( SensorData );
 IMPLEMENT_DATABLOCK_T2( AudioEnvironment );
 IMPLEMENT_DATABLOCK_T2( AudioSampleEnvironment );
 IMPLEMENT_DATABLOCK_T2( BombProjectileData );
-IMPLEMENT_DATABLOCK_T2( EffectProfile );
+static const StubT2::Field sT2EffectProfileFields[] =
+{
+   { "minDistance", T2Layout::T2DbEffectMinDistance, StubT2::Whole    },
+   { "maxDistance", T2Layout::T2DbEffectMaxDistance, StubT2::Whole    },
+   { "0.125",       T2Layout::T2DbEffectThird,       StubT2::Constant },
+   { "effectname",  T2Layout::T2DbEffectName,        StubT2::Text     },
+};
+
+IMPLEMENT_DATABLOCK_T2_WRITES( EffectProfile );
 static const StubT2::Field sT2FireballAtmosphereDataFields[] =
 {
    { "fireball", T2Layout::T2DbFireballDebris, StubT2::DataBlock },

@@ -23,6 +23,7 @@ namespace StubT2
       Text,      ///< a string
       DataBlock, ///< the name of another datablock, sent as its id
       Vector3,   ///< three floats in one script field, over three slots
+      Constant,  ///< a float no script sets, whose literal `name` holds
    };
 
    struct Field
