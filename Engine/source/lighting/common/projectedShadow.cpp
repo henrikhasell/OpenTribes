@@ -233,6 +233,13 @@ bool ProjectedShadow::_castsShadow()
    if ( mShapeBase->isHidden() )
       return false;
 
+   // HH: Added for Tribes 2 compatibility.
+   // Only a player, a flying vehicle and a wheeled vehicle turn their
+   // shadow on (0x005ed9cb tests it); an item, a hover vehicle or a static
+   // shape casts none whatever its datablock's shadow levels.
+   if ( !mShapeBase->generatesShadowT2() )
+      return false;
+
    const ShapeBaseData *data = static_cast<ShapeBaseData*>( mShapeBase->getDataBlock() );
    if ( !data || smGlobalShadowDetail < data->noShadowLevel )
       return false;

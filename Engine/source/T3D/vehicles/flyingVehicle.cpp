@@ -310,6 +310,10 @@ ConsoleDocClass( FlyingVehicle,
 
 FlyingVehicle::FlyingVehicle()
 {
+   // HH: Added for Tribes 2 compatibility.
+   // A flying vehicle casts a shadow (0x0060fee9).
+   mGenerateShadowT2 = true;
+
    mSteering.set(0,0);
    mThrottle = 0;
    mJetting = false;
