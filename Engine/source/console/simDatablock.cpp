@@ -23,6 +23,7 @@
 #include "platform/platform.h"
 #include "console/simDatablock.h"
 #include "console/simFieldDictionary.h"
+#include "sfx/sfxTypes.h"
 
 #include "console/console.h"
 #include "console/consoleInternal.h"
@@ -280,6 +281,15 @@ DefineConsoleFunction( t2RoundTrip, const char *, (SimDataBlock *block), (NULL),
           field.type == AbstractClassRep::EndGroupFieldType ||
           field.type == AbstractClassRep::StartArrayFieldType ||
           field.type == AbstractClassRep::EndArrayFieldType )
+         continue;
+
+      // A field holding another datablock answers with that datablock's name,
+      // and the one just read is holding ids its preload has not resolved into
+      // objects yet -- asking for the name of one would follow it. The id
+      // itself still shows up in the layout's own slots.
+      if( field.type == TypeSFXTrackName ||
+          field.type == TypeSFXDescriptionName ||
+          field.type == TypeSimObjectName )
          continue;
 
       for( U32 e = 0; e < field.elementCount; e++ )
