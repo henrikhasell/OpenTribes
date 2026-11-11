@@ -153,6 +153,9 @@ namespace T2Protocol
       { "ExplosionData", 106, OpInt,   16, T2DbExplosionScaleY    },
       { "ExplosionData", 107, OpInt,   16, T2DbExplosionScaleZ    },
 
+   // How many of the time and size keys follow, which the run after it is
+   // one of eight variants of.
+      { "ExplosionData",  43, OpSelect, 3, T2DbExplosionKeys      },
       { "ExplosionData",  45, OpFloat,  8, T2DbExplosionTime      },
       { "ExplosionData",  49, OpFloat,  8, T2DbExplosionTime      },
       { "ExplosionData",  50, OpFloat,  8, T2DbExplosionTime      },
@@ -248,7 +251,10 @@ namespace T2Protocol
 
    // DebrisData::packData, field for field; nodes 6 and 12 to 13 are render2D
    // and a second pair of spin speeds, which nothing here draws with.
-      { "DebrisData",  0, OpRaw, 32, T2DbDebrisElasticity         },
+         // Its texture, then the shape, which a read puts back under shapes/.
+      { "DebrisData", 22, OpString, 0, T2DbDebrisTexture },
+      { "DebrisData", 23, OpString, 0, T2DbDebrisShape   },
+{ "DebrisData",  0, OpRaw, 32, T2DbDebrisElasticity         },
       { "DebrisData",  1, OpRaw, 32, T2DbDebrisFriction           },
       { "DebrisData",  2, OpRaw, 32, T2DbDebrisNumBounces         },
       { "DebrisData",  3, OpRaw, 32, T2DbDebrisBounceVariance     },

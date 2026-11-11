@@ -95,6 +95,10 @@ struct DebrisData : public GameBaseData
 
    bool        onAdd();
    bool        preload( bool server, String &errorStr );
+
+      // HH: Added for Tribes 2 compatibility.
+   void        publishT2Data() override;
+
    static void initPersistFields();
 
    DECLARE_CONOBJECT(DebrisData);

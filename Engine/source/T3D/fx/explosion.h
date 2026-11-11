@@ -127,6 +127,12 @@ class ExplosionData : public GameBaseData {
    ExplosionData();
    DECLARE_CONOBJECT(ExplosionData);
    bool onAdd();
+   // HH: Added for Tribes 2 compatibility.
+   bool unpackData( BitStream *stream, U32 classId ) override;
+   void publishT2Data() override;
+   /// Take what the last body read into this explosion.
+   void readT2Fields();
+
    bool preload(bool server, String &errorStr);
    static void  initPersistFields();
 };
