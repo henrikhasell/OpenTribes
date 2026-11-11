@@ -146,7 +146,10 @@ IMPLEMENT_CALLBACK( GameConnection, setLagIcon, void, (bool state), (state),
    "allow the game GUI to display some indicator to the player.\n\n"
    "@param state Set to true if the lag icon should be displayed.\n\n");
 
-IMPLEMENT_CALLBACK( GameConnection, onDataBlocksDone, void, (U32 sequence), (sequence),
+// HH: Modified for Tribes 2 compatibility. Tribes 2 names this callback
+// dataBlocksDone -- the name the exe carries and the one server.cs defines,
+// where nothing else calls it. Under Torque's name a join stops after phase 1.
+IMPLEMENT_CALLBACK( GameConnection, dataBlocksDone, void, (U32 sequence), (sequence),
    "@brief Called on the server when all datablocks has been sent to the client.\n\n"
    "During phase 1 of the mission download, all datablocks are sent from the server "
    "to the client.  Once all datablocks have been sent, this callback is called and "
@@ -1850,7 +1853,7 @@ void GameConnection::handleConnectionMessage(U32 message, U32 sequence, U32 ghos
       {
          if(getDataBlockSequence() == sequence)
          {
-            onDataBlocksDone_callback( getDataBlockSequence() );
+            dataBlocksDone_callback( getDataBlockSequence() );
          }
       }
    }

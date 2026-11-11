@@ -427,7 +427,7 @@ protected:
    DECLARE_CALLBACK( void, sensorJammed, (bool state) );
    DECLARE_CALLBACK( void, onControlObjectChange, () );
    DECLARE_CALLBACK( void, setLagIcon, (bool state) );
-   DECLARE_CALLBACK( void, onDataBlocksDone, (U32 sequence) );
+   DECLARE_CALLBACK( void, dataBlocksDone, (U32 sequence) );
    DECLARE_CALLBACK( void, onFlash, (bool state) );
 
    // HH: Added for Tribes 2 compatibility.
