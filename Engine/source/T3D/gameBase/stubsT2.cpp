@@ -30,6 +30,8 @@ void publish(SimObject *object, const Field *fields, U32 count)
       const char *value = object->getDataField(
          StringTable->insert(field.name), NULL);
       if(!value || !value[0])
+         value = field.fallback;
+      if(!value || !value[0])
          continue;
 
       switch(field.kind)
@@ -44,11 +46,14 @@ void publish(SimObject *object, const Field *fields, U32 count)
             F32 rgba[4] = { 0.0f, 0.0f, 0.0f, 1.0f };
             dSscanf(value, "%g %g %g %g", &rgba[0], &rgba[1], &rgba[2], &rgba[3]);
 
+            // A colour's bytes are rounded, where a float scaled into a
+            // bit field is truncated: retail sends 128 for an alpha of 0.5,
+            // and ScoutChaingunHit's second colour is the body that says so.
             U32 word = 0;
             for(U32 c = 0; c < 4; c++)
             {
                const F32 part = mClampF(rgba[c], 0.0f, 1.0f);
-               word |= U32(part * 255.0f) << (c * 8);
+               word |= U32(part * 255.0f + 0.5f) << (c * 8);
             }
             T2Layout::publishDataBlockWord(field.slot, word);
             break;
@@ -65,6 +70,10 @@ void publish(SimObject *object, const Field *fields, U32 count)
 
          case Word:
             T2Layout::publishDataBlockWord(field.slot, U32(dAtoi(value)));
+            break;
+
+         case Word32:
+            T2Layout::publishDataBlockWord(field.slot, U32(dAtoui(value, 0)));
             break;
 
          case Flag:

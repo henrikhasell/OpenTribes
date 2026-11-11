@@ -101,16 +101,16 @@ IMPLEMENT_DATABLOCK_T2( AudioSampleEnvironment );
 IMPLEMENT_DATABLOCK_T2( BombProjectileData );
 static const StubT2::Field sT2EffectProfileFields[] =
 {
-   { "minDistance", T2Layout::T2DbEffectMinDistance, StubT2::Whole    },
-   { "maxDistance", T2Layout::T2DbEffectMaxDistance, StubT2::Whole    },
-   { "0.125",       T2Layout::T2DbEffectThird,       StubT2::Constant },
-   { "effectname",  T2Layout::T2DbEffectName,        StubT2::Text     },
+   { "minDistance", T2Layout::T2DbEffectMinDistance, StubT2::Whole, NULL    },
+   { "maxDistance", T2Layout::T2DbEffectMaxDistance, StubT2::Whole, NULL    },
+   { "0.125",       T2Layout::T2DbEffectThird,       StubT2::Constant, NULL },
+   { "effectname",  T2Layout::T2DbEffectName,        StubT2::Text, NULL     },
 };
 
 IMPLEMENT_DATABLOCK_T2_WRITES( EffectProfile );
 static const StubT2::Field sT2FireballAtmosphereDataFields[] =
 {
-   { "fireball", T2Layout::T2DbFireballDebris, StubT2::DataBlock },
+   { "fireball", T2Layout::T2DbFireballDebris, StubT2::DataBlock, NULL },
 };
 
 IMPLEMENT_DATABLOCK_T2_WRITES( FireballAtmosphereData );
@@ -123,22 +123,22 @@ IMPLEMENT_DATABLOCK_T2( FlareProjectileData );
 // nothing on the wire can tell those two apart; the order is the script's.
 static const StubT2::Field sT2JetEffectDataFields[] =
 {
-   { "coolColor",      T2Layout::T2DbJetCoolColor,      StubT2::Colour },
-   { "hotColor",       T2Layout::T2DbJetHotColor,       StubT2::Colour },
-   { "activateTime",   T2Layout::T2DbJetActivateTime,   StubT2::Whole  },
-   { "deactivateTime", T2Layout::T2DbJetDeactivateTime, StubT2::Whole  },
-   { "length",         T2Layout::T2DbJetLength,         StubT2::Whole  },
-   { "width",          T2Layout::T2DbJetWidth,          StubT2::Whole  },
-   { "speed",          T2Layout::T2DbJetSpeed,          StubT2::Whole  },
-   { "stretch",        T2Layout::T2DbJetStretch,        StubT2::Whole  },
-   { "yOffset",        T2Layout::T2DbJetYOffset,        StubT2::Whole  },
-   { "texture",        T2Layout::T2DbJetTexture,        StubT2::Text   },
+   { "coolColor",      T2Layout::T2DbJetCoolColor,      StubT2::Colour, NULL },
+   { "hotColor",       T2Layout::T2DbJetHotColor,       StubT2::Colour, NULL },
+   { "activateTime",   T2Layout::T2DbJetActivateTime,   StubT2::Whole, NULL  },
+   { "deactivateTime", T2Layout::T2DbJetDeactivateTime, StubT2::Whole, NULL  },
+   { "length",         T2Layout::T2DbJetLength,         StubT2::Whole, NULL  },
+   { "width",          T2Layout::T2DbJetWidth,          StubT2::Whole, NULL  },
+   { "speed",          T2Layout::T2DbJetSpeed,          StubT2::Whole, NULL  },
+   { "stretch",        T2Layout::T2DbJetStretch,        StubT2::Whole, NULL  },
+   { "yOffset",        T2Layout::T2DbJetYOffset,        StubT2::Whole, NULL  },
+   { "texture",        T2Layout::T2DbJetTexture,        StubT2::Text, NULL   },
 };
 
 IMPLEMENT_DATABLOCK_T2_WRITES( JetEffectData );
 static const StubT2::Field sT2ParticleEmissionDummyDataFields[] =
 {
-   { "timeMultiple", T2Layout::T2DbEmissionDummyTimeMultiple, StubT2::Whole },
+   { "timeMultiple", T2Layout::T2DbEmissionDummyTimeMultiple, StubT2::Whole, NULL },
 };
 
 IMPLEMENT_DATABLOCK_T2_WRITES( ParticleEmissionDummyData );
@@ -146,18 +146,52 @@ IMPLEMENT_DATABLOCK_T2_WRITES( ParticleEmissionDummyData );
 // only the set it means, so both namings are listed against the same slots.
 static const StubT2::Field sT2RunningLightDataFields[] =
 {
-   { "radius",        T2Layout::T2DbLightRadius,    StubT2::Whole   },
-   { "pointSize",     T2Layout::T2DbLightRadius,    StubT2::Whole   },
-   { "color",         T2Layout::T2DbLightColor,     StubT2::Colour  },
-   { "pointColor",    T2Layout::T2DbLightColor,     StubT2::Colour  },
-   { "type",          T2Layout::T2DbLightType,      StubT2::Word    },
-   { "length",        T2Layout::T2DbLightLength,    StubT2::Whole   },
-   { "nodeName",      T2Layout::T2DbLightNodeName,  StubT2::Text    },
-   { "pointNodeName", T2Layout::T2DbLightNodeName,  StubT2::Text    },
-   { "direction",     T2Layout::T2DbLightDirection, StubT2::Vector3 },
-   { "offset",        T2Layout::T2DbLightOffset,    StubT2::Vector3 },
-   { "texture",       T2Layout::T2DbLightTexture,   StubT2::Text    },
+   { "radius",        T2Layout::T2DbLightRadius,    StubT2::Whole, NULL   },
+   { "pointSize",     T2Layout::T2DbLightRadius,    StubT2::Whole, NULL   },
+   { "color",         T2Layout::T2DbLightColor,     StubT2::Colour, NULL  },
+   { "pointColor",    T2Layout::T2DbLightColor,     StubT2::Colour, NULL  },
+   { "type",          T2Layout::T2DbLightType,      StubT2::Word, NULL    },
+   { "length",        T2Layout::T2DbLightLength,    StubT2::Whole, NULL   },
+   { "nodeName",      T2Layout::T2DbLightNodeName,  StubT2::Text, NULL    },
+   { "pointNodeName", T2Layout::T2DbLightNodeName,  StubT2::Text, NULL    },
+   { "direction",     T2Layout::T2DbLightDirection, StubT2::Vector3, NULL },
+   { "offset",        T2Layout::T2DbLightOffset,    StubT2::Vector3, NULL },
+   { "texture",       T2Layout::T2DbLightTexture,   StubT2::Text, NULL    },
 };
 
 IMPLEMENT_DATABLOCK_T2_WRITES( RunningLightData );
-IMPLEMENT_DATABLOCK_T2( ShockwaveData );
+// The fourth colour and the fourth time are the values retail sends where a
+// script names only three, and the three ones at the front are in every body
+// it writes.
+static const StubT2::Field sT2ShockwaveDataFields[] =
+{
+   { "1.0",            T2Layout::T2DbShockwaveOne + 0,      StubT2::Constant, NULL },
+   { "1.0",            T2Layout::T2DbShockwaveOne + 1,      StubT2::Constant, NULL },
+   { "1.0",            T2Layout::T2DbShockwaveOne + 2,      StubT2::Constant, NULL },
+   { "lifetimeMS",     T2Layout::T2DbShockwaveLifetime,     StubT2::Word,     NULL },
+   { "width",          T2Layout::T2DbShockwaveWidth,        StubT2::Whole,    NULL },
+   { "numSegments",    T2Layout::T2DbShockwaveSegments,     StubT2::Word,     NULL },
+   { "numVertSegments",T2Layout::T2DbShockwaveVertSegments, StubT2::Word,     NULL },
+   { "velocity",       T2Layout::T2DbShockwaveVelocity,     StubT2::Whole,    NULL },
+   { "height",         T2Layout::T2DbShockwaveHeight,       StubT2::Whole,    NULL },
+   { "verticalCurve",  T2Layout::T2DbShockwaveVerticalCurve,StubT2::Whole,    NULL },
+   { "acceleration",   T2Layout::T2DbShockwaveAcceleration, StubT2::Whole,    NULL },
+   { "texWrap",        T2Layout::T2DbShockwaveTexWrap,      StubT2::Whole,    NULL },
+   { "is2D",           T2Layout::T2DbShockwaveIs2D,         StubT2::Word,     "0"  },
+   { "orientToNormal", T2Layout::T2DbShockwaveOrientToNormal, StubT2::Word,   "0"  },
+   { "mapToTerrain",   T2Layout::T2DbShockwaveMapToTerrain, StubT2::Word,     "0"  },
+   { "renderBottom",   T2Layout::T2DbShockwaveRenderBottom, StubT2::Word,     "0"  },
+   { "renderSquare",   T2Layout::T2DbShockwaveRenderSquare, StubT2::Word,     "0"  },
+   { "colors0",        T2Layout::T2DbShockwaveColor + 0,    StubT2::Colour,   NULL },
+   { "colors1",        T2Layout::T2DbShockwaveColor + 1,    StubT2::Colour,   NULL },
+   { "colors2",        T2Layout::T2DbShockwaveColor + 2,    StubT2::Colour,   NULL },
+   { "colors3",        T2Layout::T2DbShockwaveColor + 3,    StubT2::Colour,   "1 1 1 1" },
+   { "times0",         T2Layout::T2DbShockwaveTime + 0,     StubT2::Whole,    NULL },
+   { "times1",         T2Layout::T2DbShockwaveTime + 1,     StubT2::Whole,    NULL },
+   { "times2",         T2Layout::T2DbShockwaveTime + 2,     StubT2::Whole,    NULL },
+   { "times3",         T2Layout::T2DbShockwaveTime + 3,     StubT2::Whole,    "1.0" },
+   { "texture0",       T2Layout::T2DbShockwaveTexture + 0,  StubT2::Text,     NULL },
+   { "texture1",       T2Layout::T2DbShockwaveTexture + 1,  StubT2::Text,     NULL },
+};
+
+IMPLEMENT_DATABLOCK_T2_WRITES( ShockwaveData );

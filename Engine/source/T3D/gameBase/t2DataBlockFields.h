@@ -549,6 +549,42 @@ namespace T2Protocol
       { "ItemData",  52, OpRaw,   32, T2DbItemLightRadius     },
       { "ItemData",  53, OpFlag,   1, T2DbItemLightOnlyStatic },
 
+   // ShockwaveData, every node settled against demo004's fourteen bodies:
+   // node 7 is 6.0 for the mortar's width and 4.0 for the grenade's, node 10
+   // holds each one's velocity, and the five eight-bit flags are told apart by
+   // the one body that sets each -- is2D by the concussion grenade,
+   // orientToNormal by the chaingun, mapToTerrain by the mortar, renderBottom
+   // by the turret and renderSquare by the muzzle flashes. Nodes 0 to 2 are
+   // 1.0 and nodes 3, 4 and 6 nought in every one of them, and the three
+   // flagged ids are never sent.
+      { "ShockwaveData",  0, OpRaw,   32, T2DataBlockField(T2DbShockwaveOne + 0) },
+      { "ShockwaveData",  1, OpRaw,   32, T2DataBlockField(T2DbShockwaveOne + 1) },
+      { "ShockwaveData",  2, OpRaw,   32, T2DataBlockField(T2DbShockwaveOne + 2) },
+      { "ShockwaveData",  5, OpRaw,   32, T2DbShockwaveLifetime       },
+      { "ShockwaveData",  7, OpRaw,   32, T2DbShockwaveWidth          },
+      { "ShockwaveData",  8, OpRaw,   32, T2DbShockwaveSegments       },
+      { "ShockwaveData",  9, OpRaw,   32, T2DbShockwaveVertSegments   },
+      { "ShockwaveData", 10, OpRaw,   32, T2DbShockwaveVelocity       },
+      { "ShockwaveData", 11, OpRaw,   32, T2DbShockwaveHeight         },
+      { "ShockwaveData", 12, OpRaw,   32, T2DbShockwaveVerticalCurve  },
+      { "ShockwaveData", 13, OpRaw,   32, T2DbShockwaveAcceleration   },
+      { "ShockwaveData", 14, OpRaw,   32, T2DbShockwaveTexWrap        },
+      { "ShockwaveData", 15, OpRaw,    8, T2DbShockwaveIs2D           },
+      { "ShockwaveData", 16, OpRaw,    8, T2DbShockwaveOrientToNormal },
+      { "ShockwaveData", 17, OpRaw,    8, T2DbShockwaveMapToTerrain   },
+      { "ShockwaveData", 18, OpRaw,    8, T2DbShockwaveRenderBottom   },
+      { "ShockwaveData", 19, OpRaw,    8, T2DbShockwaveRenderSquare   },
+      { "ShockwaveData", 23, OpColor, 32, T2DataBlockField(T2DbShockwaveColor + 0) },
+      { "ShockwaveData", 24, OpColor, 32, T2DataBlockField(T2DbShockwaveColor + 1) },
+      { "ShockwaveData", 25, OpColor, 32, T2DataBlockField(T2DbShockwaveColor + 2) },
+      { "ShockwaveData", 26, OpColor, 32, T2DataBlockField(T2DbShockwaveColor + 3) },
+      { "ShockwaveData", 27, OpRaw,   32, T2DataBlockField(T2DbShockwaveTime + 0) },
+      { "ShockwaveData", 28, OpRaw,   32, T2DataBlockField(T2DbShockwaveTime + 1) },
+      { "ShockwaveData", 29, OpRaw,   32, T2DataBlockField(T2DbShockwaveTime + 2) },
+      { "ShockwaveData", 30, OpRaw,   32, T2DataBlockField(T2DbShockwaveTime + 3) },
+      { "ShockwaveData", 31, OpString, 0, T2DataBlockField(T2DbShockwaveTexture + 0) },
+      { "ShockwaveData", 32, OpString, 0, T2DataBlockField(T2DbShockwaveTexture + 1) },
+
    // EffectProfile, settled against a recorded retail server: node 0 is the
    // minDistance and node 1 the maxDistance of ArmorJetEffect's 5 and 10, and
    // node 4 is the effect it names. Node 2 is 0.125 and node 3 is nought in

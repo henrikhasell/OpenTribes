@@ -24,13 +24,18 @@ namespace StubT2
       DataBlock, ///< the name of another datablock, sent as its id
       Vector3,   ///< three floats in one script field, over three slots
       Constant,  ///< a float no script sets, whose literal `name` holds
+      Word32,    ///< all 32 bits of a whole number, as a colour is packed
    };
 
    struct Field
    {
-      const char *name;   ///< what the script calls it
-      U32         slot;   ///< the T2Layout field it travels in
+      const char *name;     ///< what the script calls it
+      U32         slot;     ///< the T2Layout field it travels in
       Kind        kind;
+      /// What retail sends where the script sets nothing, for a field whose
+      /// default a stub has nowhere to keep. NULL sends nothing at all, which
+      /// leaves the layout's own default in the body.
+      const char *fallback;
    };
 
    void publish(SimObject *object, const Field *fields, U32 count);

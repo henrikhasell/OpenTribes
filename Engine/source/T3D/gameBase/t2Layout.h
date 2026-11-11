@@ -810,6 +810,30 @@ namespace T2Layout
       T2DbSplashRingTime,
       T2DbSplashRingEmitter,
 
+      // ShockwaveData, every node of it settled against a recorded server.
+      T2DbShockwaveOne,
+      T2DbShockwaveOneLast = T2DbShockwaveOne + 2,
+      T2DbShockwaveLifetime,
+      T2DbShockwaveWidth,
+      T2DbShockwaveSegments,
+      T2DbShockwaveVertSegments,
+      T2DbShockwaveVelocity,
+      T2DbShockwaveHeight,
+      T2DbShockwaveVerticalCurve,
+      T2DbShockwaveAcceleration,
+      T2DbShockwaveTexWrap,
+      T2DbShockwaveIs2D,
+      T2DbShockwaveOrientToNormal,
+      T2DbShockwaveMapToTerrain,
+      T2DbShockwaveRenderBottom,
+      T2DbShockwaveRenderSquare,
+      T2DbShockwaveColor,
+      T2DbShockwaveColorLast = T2DbShockwaveColor + 3,
+      T2DbShockwaveTime,
+      T2DbShockwaveTimeLast = T2DbShockwaveTime + 3,
+      T2DbShockwaveTexture,
+      T2DbShockwaveTextureLast = T2DbShockwaveTexture + 1,
+
       // EffectProfile: the two distances a script sets, a third value no
       // script sets, and the effect it names.
       T2DbEffectMinDistance,
