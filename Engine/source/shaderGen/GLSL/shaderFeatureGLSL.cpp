@@ -1808,7 +1808,10 @@ void RTLightingFeatGLSL::processPix(   Vector<ShaderComponent*> &componentList,
    }
 
    // Apply the lighting to the diffuse color.
-   LangElement *lighting = new GenOp( "vec4( @.rgb + ambient.rgb, 1 )", rtShading );
+   // HH: Modified for Tribes 2 compatibility.
+   // OpenGL clamped a vertex's lit colour, ambient and every light, at one
+   // before the texture took it.
+   LangElement *lighting = new GenOp( "vec4( clamp( @.rgb + ambient.rgb, 0.0, 1.0 ), 1 )", rtShading );
    meta->addStatement( new GenOp( "   @;\r\n", assignColor( lighting, Material::Mul ) ) );
    output = meta;  
 }

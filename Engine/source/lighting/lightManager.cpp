@@ -373,8 +373,14 @@ void LightManager::_update4LightConsts(   const SceneData &sgData,
          lightColors[i] = Point4F(light->getColor()) * light->getBrightness();
 
          // We need 1 over range^2 here.
+         // HH: Modified for Tribes 2 compatibility.
+         // A light with a direction and no place goes over as no range at
+         // all, which the shader reads as no falloff.
          range = light->getRange().x;
-         lightInvRadiusSq[i] = 1.0f / ( range * range );
+         if ( light->getType() == LightInfo::Vector || light->getType() == LightInfo::Ambient )
+            lightInvRadiusSq[i] = 0.0f;
+         else
+            lightInvRadiusSq[i] = 1.0f / ( range * range );
       }
 
       shaderConsts->setSafe( lightPositionSC, lightPositions );   
