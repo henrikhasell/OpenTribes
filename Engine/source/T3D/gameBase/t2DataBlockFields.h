@@ -549,6 +549,30 @@ namespace T2Protocol
       { "ItemData",  52, OpRaw,   32, T2DbItemLightRadius     },
       { "ItemData",  53, OpFlag,   1, T2DbItemLightOnlyStatic },
 
+   // RunningLightData, settled against a recorded retail server for its
+   // radius, colour, type, length, node name and texture. Its two vectors are
+   // the only fields left and go out in the script's own order, direction
+   // before offset: no body in the recording tells those two apart, because
+   // the one it carries holds values the shipped scripts do not.
+      { "RunningLightData",  0, OpRaw,   32, T2DbLightRadius   },
+      { "RunningLightData",  1, OpColor, 32, T2DbLightColor    },
+      { "RunningLightData",  2, OpRaw,   32, T2DbLightType     },
+      { "RunningLightData",  3, OpRaw,   32, T2DbLightLength   },
+      { "RunningLightData",  4, OpString, 0, T2DbLightNodeName },
+      { "RunningLightData",  5, OpRaw,   32, T2DataBlockField(T2DbLightDirection + 0) },
+      { "RunningLightData",  6, OpRaw,   32, T2DataBlockField(T2DbLightDirection + 1) },
+      { "RunningLightData",  7, OpRaw,   32, T2DataBlockField(T2DbLightDirection + 2) },
+      { "RunningLightData",  8, OpRaw,   32, T2DataBlockField(T2DbLightOffset + 0) },
+      { "RunningLightData",  9, OpRaw,   32, T2DataBlockField(T2DbLightOffset + 1) },
+      { "RunningLightData", 10, OpRaw,   32, T2DataBlockField(T2DbLightOffset + 2) },
+      { "RunningLightData", 13, OpString, 0, T2DbLightTexture  },
+
+   // One node, one field a script sets: ParticleEmissionDummyData carries
+   // nothing but its timeMultiple, and FireballAtmosphereData nothing but the
+   // debris it throws, behind the flag that says it has any.
+      { "ParticleEmissionDummyData", 0, OpRaw,         32, T2DbEmissionDummyTimeMultiple },
+      { "FireballAtmosphereData",    2, OpDataBlockId, 11, T2DbFireballDebris            },
+
       { "JetEffectData",  0, OpColor,  32, T2DbJetCoolColor      },
       { "JetEffectData",  1, OpColor,  32, T2DbJetHotColor       },
       { "JetEffectData",  2, OpRaw,    32, T2DbJetActivateTime   },
