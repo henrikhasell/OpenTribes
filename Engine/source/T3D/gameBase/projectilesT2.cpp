@@ -25,6 +25,7 @@
 #include "sfx/sfxSystem.h"
 #include "sfx/sfxSource.h"
 #include "sfx/sfxTrack.h"
+#include "sfx/sfxTypes.h"
 #include "T3D/debris.h"
 #include "T3D/decal/decalData.h"
 #include "T3D/gameBase/dataBlocksT2.h"
@@ -64,6 +65,14 @@ public:
    U32    baseEmitterId;   ///< the ParticleEmitterData it trails in flight
    U32    bubbleEmitterId; ///< and the one it trails under water instead
    U32    soundId;         ///< the AudioProfile it flies to
+
+      /// HH: What a server's scripts name for those four. A client is handed
+      /// the ids above instead and resolves them in preload, so a datablock
+      /// holds one or the other and sends whichever it has.
+   ExplosionData       *explosion;
+   ParticleEmitterData *baseEmitter;
+   ParticleEmitterData *bubbleEmitter;
+   SFXTrack            *sound;
    F32    blurLifetime;    ///< seconds a length of the trail lasts
    F32    blurWidth;
    ColorF blurColor;
@@ -90,6 +99,10 @@ public:
       /// of one, so the shape its datablock also names is never wanted.
    bool namesGameBaseShape() const { return streakLength <= 0.0f; }
    bool unpackData(BitStream *stream, U32 classId);
+
+      // HH: Added for Tribes 2 compatibility.
+   void publishT2Data() override;
+   static void initPersistFields();
    bool preload(bool server, String &errorStr);
 
    DECLARE_CONOBJECT(ProjectileDataT2);
@@ -119,6 +132,10 @@ ProjectileDataT2::ProjectileDataT2()
      baseEmitterId(0),
      bubbleEmitterId(0),
      soundId(0),
+     explosion(NULL),
+     baseEmitter(NULL),
+     bubbleEmitter(NULL),
+     sound(NULL),
      blurLifetime(0.0f),
      blurWidth(0.0f),
      blurColor(1.0f, 1.0f, 1.0f, 1.0f),
@@ -153,6 +170,172 @@ bool ProjectileDataT2::preload(bool server, String &errorStr)
 
    return true;
 }
+
+// HH: Added for Tribes 2 compatibility.
+// The fields the game's own scripts set on a projectile datablock, under the
+// names they use -- every one of them a name the retail exe carries too, so
+// these are fields retail's engine reads rather than values its scripts keep
+// to themselves. Without them a server held none of this: the values landed
+// in dynamic fields and the members they belong to stayed at nought, so a
+// body went out empty however well it was written.
+//
+// `dryVelocity` and `wetVelocity` are not here: a linear projectile carries
+// two speeds where this holds one, and which node the second travels on is
+// not settled yet.
+void ProjectileDataT2::initPersistFields()
+{
+   Parent::initPersistFields();
+
+   addField("muzzleVelocity",   TYPEID< F32 >(),     Offset(velocity, ProjectileDataT2),
+      "Metres a second along the way it was fired.");
+   addField("lifetimeMS",       TYPEID< S32 >(),     Offset(lifetimeMS, ProjectileDataT2),
+      "How long it lives for.");
+   addField("tracerLength",     TYPEID< F32 >(),     Offset(streakLength, ProjectileDataT2),
+      "The streak a bullet is seen as, where it is seen as one.");
+   addField("tracerWidth",      TYPEID< F32 >(),     Offset(streakWidth, ProjectileDataT2),
+      "How wide that streak is.");
+   addField("crossSize",        TYPEID< F32 >(),     Offset(crossSize, ProjectileDataT2),
+      "The quad a bolt is seen as end on.");
+   addField("crossViewAng",     TYPEID< F32 >(),     Offset(crossViewAng, ProjectileDataT2),
+      "How square to the view that has to be.");
+   addField("scale",            TYPEID< Point3F >(), Offset(scale, ProjectileDataT2),
+      "A bolt's width, and its length in widths.");
+   addField("grenadeElasticity",TYPEID< F32 >(),     Offset(elasticity, ProjectileDataT2),
+      "What a bounce keeps of its speed.");
+   addField("grenadeFriction",  TYPEID< F32 >(),     Offset(friction, ProjectileDataT2),
+      "What a bounce takes off along the surface.");
+   addField("gravityMod",       TYPEID< F32 >(),     Offset(gravityMod, ProjectileDataT2),
+      "A share of gravity, and nought for a bolt.");
+   addField("drag",             TYPEID< F32 >(),     Offset(drag, ProjectileDataT2),
+      "Drag through the air.");
+   addField("density",          TYPEID< F32 >(),     Offset(density, ProjectileDataT2),
+      "Density, which is what it floats or sinks by.");
+   addField("armingDelayMS",    TYPEID< S32 >(),     Offset(armingDelayMS, ProjectileDataT2),
+      "It bounces until this and goes off after it.");
+   addField("blurLifetime",     TYPEID< F32 >(),     Offset(blurLifetime, ProjectileDataT2),
+      "Seconds a length of the trail lasts.");
+   addField("blurWidth",        TYPEID< F32 >(),     Offset(blurWidth, ProjectileDataT2),
+      "How wide the trail is.");
+   addField("blurColor",        TYPEID< ColorF >(),  Offset(blurColor, ProjectileDataT2),
+      "What colour the trail is.");
+   addField("numFlares",        TYPEID< S32 >(),     Offset(numFlares, ProjectileDataT2),
+      "The petals a plasma bolt is seen as.");
+   addField("flareColor",       TYPEID< ColorF >(),  Offset(flareColor, ProjectileDataT2),
+      "What colour those petals are.");
+   addField("flareSize",        TYPEID< F32 >(),     Offset(flareSize, ProjectileDataT2), 3,
+      "How far out they start and end.");
+   addField("faceViewer",       TYPEID< bool >(),    Offset(faceViewer, ProjectileDataT2),
+      "Its shape is turned to the camera.");
+   addField("hasLight",         TYPEID< bool >(),    Offset(hasLight, ProjectileDataT2),
+      "It lights what it flies past.");
+   addField("lightRadius",      TYPEID< F32 >(),     Offset(lightRadius, ProjectileDataT2),
+      "How far that light reaches.");
+   addField("lightColor",       TYPEID< ColorF >(),  Offset(lightColor, ProjectileDataT2),
+      "What colour it is.");
+   addField("hasWaterLight",    TYPEID< bool >(),    Offset(hasWaterLight, ProjectileDataT2),
+      "It lights differently under water.");
+
+   addField("explosion",    TYPEID< ExplosionData >(),       Offset(explosion, ProjectileDataT2),
+      "The explosion it ends as.");
+   addField("baseEmitter",  TYPEID< ParticleEmitterData >(), Offset(baseEmitter, ProjectileDataT2),
+      "The emitter it trails in flight.");
+   addField("bubbleEmitter",TYPEID< ParticleEmitterData >(), Offset(bubbleEmitter, ProjectileDataT2),
+      "The one it trails under water instead.");
+   addField("sound",        TypeSFXTrackName,                Offset(sound, ProjectileDataT2),
+      "The sound it flies to.");
+   addField("waterLightColor",  TYPEID< ColorF >(),  Offset(waterLightColor, ProjectileDataT2),
+      "What colour it is there.");
+}
+
+
+// HH: Added for Tribes 2 compatibility. unpackData's fields the other way
+// round, which every projectile datablock in the game shares. Its shape and
+// its two textures are strings the layout does not name yet, and so are the
+// decals it leaves, and those still go out as defaults.
+void ProjectileDataT2::publishT2Data()
+{
+   Parent::publishT2Data();
+
+   T2Layout::publishDataBlockWhole(T2Layout::T2DbProjectileVelocity, velocity);
+   T2Layout::publishDataBlockWord(T2Layout::T2DbProjectileLifetime, lifetimeMS);
+   T2Layout::publishDataBlockWhole(T2Layout::T2DbTracerLength, streakLength);
+   T2Layout::publishDataBlockWhole(T2Layout::T2DbTracerWidth, streakWidth);
+   T2Layout::publishDataBlockWhole(T2Layout::T2DbCrossSize, crossSize);
+   T2Layout::publishDataBlockWhole(T2Layout::T2DbCrossViewAng, crossViewAng);
+   T2Layout::publishDataBlockWord(T2Layout::T2DbArmingDelay, armingDelayMS);
+
+   // Each is an id the body only carries where there is one, named here by a
+   // server's scripts and handed to a client as a number.
+   const SimObject *named[] = { explosion, baseEmitter, bubbleEmitter, sound };
+   static const U32 sIdFields[] =
+   {
+      T2Layout::T2DbExplosion,
+      T2Layout::T2DbProjectileBaseEmitter,
+      T2Layout::T2DbProjectileBubbleEmitter,
+      T2Layout::T2DbProjectileSound,
+   };
+   const U32 sIdWords[] =
+      { explosionId, baseEmitterId, bubbleEmitterId, soundId };
+
+   for(U32 i = 0; i < sizeof(sIdFields) / sizeof(sIdFields[0]); i++)
+   {
+      const U32 id = named[i] ? named[i]->getId() - DataBlockObjectIdFirst
+                              : sIdWords[i];
+      if(id)
+         T2Layout::publishDataBlockWord(sIdFields[i], id);
+   }
+
+   T2Layout::publishDataBlockWhole(T2Layout::T2DbBlurLifetime, blurLifetime);
+   T2Layout::publishDataBlockWhole(T2Layout::T2DbBlurWidth, blurWidth);
+   T2Layout::publishDataBlockWhole(T2Layout::T2DbBlurColorR, blurColor.red);
+   T2Layout::publishDataBlockWhole(T2Layout::T2DbBlurColorG, blurColor.green);
+   T2Layout::publishDataBlockWhole(T2Layout::T2DbBlurColorB, blurColor.blue);
+
+   T2Layout::publishDataBlockWhole(T2Layout::T2DbScaleX, scale.x);
+   T2Layout::publishDataBlockWhole(T2Layout::T2DbScaleY, scale.y);
+   T2Layout::publishDataBlockWhole(T2Layout::T2DbScaleZ, scale.z);
+
+   T2Layout::publishDataBlockWhole(T2Layout::T2DbElasticity, elasticity);
+   T2Layout::publishDataBlockWhole(T2Layout::T2DbFriction, friction);
+   T2Layout::publishDataBlockWhole(T2Layout::T2DbGravityMod, gravityMod);
+   T2Layout::publishDataBlockWhole(T2Layout::T2DbProjectileDrag, drag);
+   T2Layout::publishDataBlockWhole(T2Layout::T2DbProjectileDensity, density);
+
+   T2Layout::publishDataBlockWord(T2Layout::T2DbNumFlares, numFlares);
+   T2Layout::publishDataBlockWord(T2Layout::T2DbFlareColor,
+      U32(flareColor.red * 255.0f) |
+      (U32(flareColor.green * 255.0f) << 8) |
+      (U32(flareColor.blue * 255.0f) << 16));
+   T2Layout::publishDataBlockWhole(T2Layout::T2DbFlareSize0, flareSize[0]);
+   T2Layout::publishDataBlockWhole(T2Layout::T2DbFlareSize1, flareSize[1]);
+   T2Layout::publishDataBlockWhole(T2Layout::T2DbFlareSize2, flareSize[2]);
+
+   T2Layout::publishDataBlockFlag(T2Layout::T2DbFaceViewer, faceViewer);
+
+   // The light goes over as a share of twenty, and only behind its flag.
+   if(hasLight)
+   {
+      T2Layout::publishDataBlockFloat(T2Layout::T2DbProjectileLightRadius,
+                                      lightRadius / 20.0f, 8);
+      T2Layout::publishDataBlockFloat(T2Layout::T2DbProjectileLightColorR,
+                                      lightColor.red, 7);
+      T2Layout::publishDataBlockFloat(T2Layout::T2DbProjectileLightColorG,
+                                      lightColor.green, 7);
+      T2Layout::publishDataBlockFloat(T2Layout::T2DbProjectileLightColorB,
+                                      lightColor.blue, 7);
+   }
+
+   if(hasWaterLight)
+   {
+      T2Layout::publishDataBlockFloat(T2Layout::T2DbProjectileWaterLightColorR,
+                                      waterLightColor.red, 7);
+      T2Layout::publishDataBlockFloat(T2Layout::T2DbProjectileWaterLightColorG,
+                                      waterLightColor.green, 7);
+      T2Layout::publishDataBlockFloat(T2Layout::T2DbProjectileWaterLightColorB,
+                                      waterLightColor.blue, 7);
+   }
+}
+
 
 bool ProjectileDataT2::unpackData(BitStream *stream, U32 classId)
 {
