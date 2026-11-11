@@ -283,13 +283,30 @@ DefineConsoleFunction( t2RoundTrip, const char *, (SimDataBlock *block), (NULL),
           field.type == AbstractClassRep::EndArrayFieldType )
          continue;
 
-      // A field holding another datablock answers with that datablock's name,
-      // and the one just read is holding ids its preload has not resolved into
-      // objects yet -- asking for the name of one would follow it. The id
-      // itself still shows up in the layout's own slots.
-      if( field.type == TypeSFXTrackName ||
-          field.type == TypeSFXDescriptionName ||
-          field.type == TypeSimObjectName )
+      // Only fields that hold a value of their own are compared. A field that
+      // holds another datablock answers with that datablock's name, and the
+      // one just read is holding ids its preload has not resolved into
+      // objects yet, so asking would follow a pointer that is an id. What the
+      // body carried for those is an id, and the layout's own slots have it.
+      static const U32 sValueTypes[] =
+      {
+         TypeF32, TypeS32, TypeS8, TypeBool, TypeFlag,
+         TypePoint2I, TypePoint2F, TypePoint3F, TypePoint4F,
+         TypeColorF, TypeColorI,
+         TypeString, TypeCaseString, TypeRealString, TypeFilename,
+         TypeStringFilename, TypeImageFilename, TypeShapeFilename,
+         TypeMatrixPosition, TypeMatrixRotation,
+      };
+
+      bool holdsAValue = false;
+      for( U32 v = 0; v < sizeof( sValueTypes ) / sizeof( sValueTypes[ 0 ] ); v++ )
+         if( field.type == sValueTypes[ v ] )
+         {
+            holdsAValue = true;
+            break;
+         }
+
+      if( !holdsAValue )
          continue;
 
       for( U32 e = 0; e < field.elementCount; e++ )

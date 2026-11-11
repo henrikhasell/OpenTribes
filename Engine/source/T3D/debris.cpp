@@ -22,6 +22,7 @@
 
 #include "platform/platform.h"
 #include "T3D/debris.h"
+#include "T3D/gameBase/t2Layout.h"
 
 #include "core/stream/bitStream.h"
 #include "math/mathUtils.h"
@@ -191,6 +192,71 @@ bool DebrisData::onAdd()
 
    return true;
 }
+
+// HH: Added for Tribes 2 compatibility. readT2Debris the other way round, at
+// the same scales, with the texture and the shape at their own nodes and each
+// id taken from whatever the datablock holds.
+void DebrisData::publishT2Data()
+{
+   Parent::publishT2Data();
+
+   T2Layout::publishDataBlockWhole( T2Layout::T2DbDebrisElasticity, elasticity );
+   T2Layout::publishDataBlockWhole( T2Layout::T2DbDebrisFriction, friction );
+   T2Layout::publishDataBlockWord( T2Layout::T2DbDebrisNumBounces, U32( numBounces ) );
+   T2Layout::publishDataBlockWord( T2Layout::T2DbDebrisBounceVariance,
+                                   U32( bounceVariance ) );
+   T2Layout::publishDataBlockWhole( T2Layout::T2DbDebrisMinSpinSpeed, minSpinSpeed );
+   T2Layout::publishDataBlockWhole( T2Layout::T2DbDebrisMaxSpinSpeed, maxSpinSpeed );
+   T2Layout::publishDataBlockWord( T2Layout::T2DbDebrisExplodeOnMaxBounce,
+                                   explodeOnMaxBounce ? 1 : 0 );
+   T2Layout::publishDataBlockWord( T2Layout::T2DbDebrisStaticOnMaxBounce,
+                                   staticOnMaxBounce ? 1 : 0 );
+   T2Layout::publishDataBlockWord( T2Layout::T2DbDebrisSnapOnMaxBounce,
+                                   snapOnMaxBounce ? 1 : 0 );
+   T2Layout::publishDataBlockWhole( T2Layout::T2DbDebrisLifetime, lifetime );
+   T2Layout::publishDataBlockWhole( T2Layout::T2DbDebrisLifetimeVariance,
+                                    lifetimeVariance );
+   T2Layout::publishDataBlockWhole( T2Layout::T2DbDebrisVelocity, velocity );
+   T2Layout::publishDataBlockWhole( T2Layout::T2DbDebrisVelocityVariance,
+                                    velocityVariance );
+   T2Layout::publishDataBlockWord( T2Layout::T2DbDebrisFade, fade ? 1 : 0 );
+   T2Layout::publishDataBlockWord( T2Layout::T2DbDebrisUseRadiusMass,
+                                   useRadiusMass ? 1 : 0 );
+   T2Layout::publishDataBlockWhole( T2Layout::T2DbDebrisBaseRadius, baseRadius );
+   T2Layout::publishDataBlockWhole( T2Layout::T2DbDebrisGravModifier, gravModifier );
+   T2Layout::publishDataBlockWhole( T2Layout::T2DbDebrisTerminalVelocity,
+                                    terminalVelocity );
+   T2Layout::publishDataBlockWord( T2Layout::T2DbDebrisIgnoreWater,
+                                   ignoreWater ? 1 : 0 );
+
+   T2Layout::publishDataBlockString( T2Layout::T2DbDebrisTexture,
+                                     textureName ? textureName : "" );
+
+   // The shape comes back under shapes/, so it goes out from under it.
+   const char *shape = shapeName;
+   if( shape )
+   {
+      const char *leaf = dStrstr( shape, "shapes/" );
+      if( leaf )
+         shape = leaf + dStrlen( "shapes/" );
+   }
+   T2Layout::publishDataBlockString( T2Layout::T2DbDebrisShape,
+                                     shape ? shape : "" );
+
+   if( explosion || explosionId > 0 )
+      T2Layout::publishDataBlockWord( T2Layout::T2DbDebrisExplosion,
+         ( explosion ? explosion->getId() : U32( explosionId ) )
+            - DataBlockObjectIdFirst );
+
+   static const U32 sEmitters[] =
+      { T2Layout::T2DbDebrisEmitter0, T2Layout::T2DbDebrisEmitter1 };
+   for( U32 i = 0; i < 2 && i < DDC_NUM_EMITTERS; i++ )
+      if( emitterList[i] || emitterIDList[i] > 0 )
+         T2Layout::publishDataBlockWord( sEmitters[i],
+            ( emitterList[i] ? emitterList[i]->getId()
+                             : U32( emitterIDList[i] ) ) - DataBlockObjectIdFirst );
+}
+
 
 bool DebrisData::preload(bool server, String &errorStr)
 {

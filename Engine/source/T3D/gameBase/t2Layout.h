@@ -339,6 +339,7 @@ namespace T2Layout
       T2DbExplosionLifetime,
       T2DbLifetimeVariance,
       T2DbExplosionOffset,
+      T2DbExplosionKeys,
       T2DbExplosionTime,
       T2DbExplosionSize,
       T2DbExplosionSound,
@@ -374,6 +375,8 @@ namespace T2Layout
       T2DbSubExplosion3,
       T2DbSubExplosion4,
 
+      T2DbDebrisTexture,
+      T2DbDebrisShape,
       T2DbDebrisElasticity,
       T2DbDebrisFriction,
       T2DbDebrisNumBounces,
