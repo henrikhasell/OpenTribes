@@ -302,10 +302,11 @@ void ProjectileDataT2::publishT2Data()
    T2Layout::publishDataBlockWhole(T2Layout::T2DbProjectileDensity, density);
 
    T2Layout::publishDataBlockWord(T2Layout::T2DbNumFlares, numFlares);
+   // Rounded, as a colour's bytes are.
    T2Layout::publishDataBlockWord(T2Layout::T2DbFlareColor,
-      U32(flareColor.red * 255.0f) |
-      (U32(flareColor.green * 255.0f) << 8) |
-      (U32(flareColor.blue * 255.0f) << 16));
+      U32(flareColor.red * 255.0f + 0.5f) |
+      (U32(flareColor.green * 255.0f + 0.5f) << 8) |
+      (U32(flareColor.blue * 255.0f + 0.5f) << 16));
    T2Layout::publishDataBlockWhole(T2Layout::T2DbFlareSize0, flareSize[0]);
    T2Layout::publishDataBlockWhole(T2Layout::T2DbFlareSize1, flareSize[1]);
    T2Layout::publishDataBlockWhole(T2Layout::T2DbFlareSize2, flareSize[2]);
