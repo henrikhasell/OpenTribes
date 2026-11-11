@@ -452,6 +452,10 @@ enum T2ThreadPart
    T2ThreadParts
 };
 
+/// Which part of a thread slot each node is, for every node that is one.
+/// Not which slot: a recovered graph can reach the same block by more than
+/// one path, and the paths do not agree about which slot it is. The reader
+/// counts the slots off instead, in the order the body puts them.
 struct T2ThreadMap
 {
    const T2DataBlockLayout *layout;
@@ -462,11 +466,43 @@ struct T2ThreadMap
 static Vector<T2ThreadMap *> sThreadMaps(__FILE__, __LINE__);
 static const T2ThreadMap *sThreads = NULL;
 
+/// A value of the given width, however the recovery wrote it: a plain read,
+/// or the select a read whose value the walk went on to branch on became.
 static bool isValue(const T2DataNode *n, U32 bits)
 {
    return n && n->bits == bits &&
           (n->op == OpInt || n->op == OpRaw || n->op == OpFloat ||
-           n->op == OpSignedFloat);
+           n->op == OpSignedFloat || n->op == OpSelect);
+}
+
+/// Where the walk goes on from a value node. A select has one successor per
+/// value; the one nearly all of them share is the path that does not depend
+/// on what was read, which is the rest of the block.
+static S32 valueNext(const T2DataBlockLayout *layout, S32 at)
+{
+   const T2DataNode *n = nodeAt(layout, at);
+   if(!n)
+      return -1;
+   if(n->op != OpSelect || !layout->select)
+      return n->a;
+
+   const U32 count = 1U << n->bits;
+   S32 best = -1;
+   U32 bestSeen = 0;
+   for(U32 i = 0; i < count; i++)
+   {
+      U32 seen = 0;
+      for(U32 j = 0; j < count; j++)
+         if(layout->select[n->a + j] == layout->select[n->a + i])
+            seen++;
+      if(seen > bestSeen)
+      {
+         bestSeen = seen;
+         best = layout->select[n->a + i];
+      }
+   }
+
+   return best;
 }
 
 static bool matchThreadSlot(const T2DataBlockLayout *layout, S32 top,
@@ -476,28 +512,28 @@ static bool matchThreadSlot(const T2DataBlockLayout *layout, S32 top,
    if(!mask || mask->op != OpFlag || mask->bits != 1 || mask->a == mask->b)
       return false;
 
-   const S32 after = mask->a;
-
    const T2DataNode *sequence = nodeAt(layout, mask->b);
    if(!isValue(sequence, 5))
       return false;
 
-   const T2DataNode *state = nodeAt(layout, sequence->a);
+   const S32 stateAt = valueNext(layout, mask->b);
+   const T2DataNode *state = nodeAt(layout, stateAt);
    if(!isValue(state, 2))
       return false;
 
-   const T2DataNode *forward = nodeAt(layout, state->a);
+   const S32 forwardAt = valueNext(layout, stateAt);
+   const T2DataNode *forward = nodeAt(layout, forwardAt);
    if(!isBareFlag(forward))
       return false;
 
    const T2DataNode *atEnd = nodeAt(layout, forward->a);
-   if(!isBareFlag(atEnd) || atEnd->a != after)
+   if(!isBareFlag(atEnd))
       return false;
 
    parts[T2ThreadMask]     = S16(top);
    parts[T2ThreadSequence] = S16(mask->b);
-   parts[T2ThreadState]    = S16(sequence->a);
-   parts[T2ThreadForward]  = S16(state->a);
+   parts[T2ThreadState]    = S16(stateAt);
+   parts[T2ThreadForward]  = S16(forwardAt);
    parts[T2ThreadAtEnd]    = S16(forward->a);
    return true;
 }
@@ -528,20 +564,16 @@ static const T2ThreadMap *resolveThreads(const T2DataBlockLayout *layout)
       if(!isSlot[i])
          continue;
 
-      bool head = true;
-      for(U32 j = 0; j < layout->count && head; j++)
-         if(isSlot[j] && layout->nodes[j].a == S32(i))
-            head = false;
-      if(!head)
-         continue;
+      for(U32 p = 0; p < T2ThreadParts; p++)
+         map->part[parts[i * T2ThreadParts + p]] = S16(p);
 
+      // How many slots the block holds, for the message below: a chain of
+      // them, each reached from the one before it by its clear arm.
       U32 slot = 0;
       for(S32 at = S32(i);
           slot < MaxThreads && at >= 0 && U32(at) < layout->count && isSlot[at];
           at = layout->nodes[at].a, slot++)
-         for(U32 p = 0; p < T2ThreadParts; p++)
-            map->part[parts[at * T2ThreadParts + p]] =
-               S16(slot * T2ThreadParts + p);
+         ;
 
       if(slot > map->slots)
          map->slots = slot;
@@ -1382,8 +1414,12 @@ static bool vehicleAt(const T2DataBlockLayout *layout, S32 at, U32 *part)
    return true;
 }
 
-static bool threadAt(const T2DataBlockLayout *layout, S32 at, U32 *slot,
-                     U32 *part)
+/// Which slot a body is on: the reader counts a slot off every time it
+/// reaches one's mask, so a block the graph can arrive at by more than one
+/// path still numbers its slots the way the body wrote them.
+static S32 sThreadSlot = -1;
+
+static bool threadAt(const T2DataBlockLayout *layout, S32 at, U32 *part)
 {
    if(!sThreads || sThreads->layout != layout || at < 0 ||
       U32(at) >= sThreads->part.size())
@@ -1393,9 +1429,18 @@ static bool threadAt(const T2DataBlockLayout *layout, S32 at, U32 *slot,
    if(what < 0)
       return false;
 
-   *slot = U32(what) / T2ThreadParts;
-   *part = U32(what) % T2ThreadParts;
+   *part = U32(what);
    return true;
+}
+
+/// The slot the part at this node belongs to, counting the mask as the start
+/// of the next one. -1 once a body has more slots than there is room for.
+static S32 threadSlotFor(U32 part)
+{
+   if(part == T2ThreadMask)
+      sThreadSlot++;
+
+   return sThreadSlot < S32(MaxThreads) ? sThreadSlot : -1;
 }
 
 /// The nodes of one image state, in the order the walk reaches them.
@@ -1841,15 +1886,19 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
                   }
 
                U32 slotOf, partOf;
-               if(threadAt(layout, at, &slotOf, &partOf))
+               if(threadAt(layout, at, &partOf))
                {
-                  Body::Thread &thread = sBody.threads[slotOf];
-                  switch(partOf)
+                  const S32 slot = threadSlotFor(partOf);
+                  if(slot >= 0)
                   {
-                     case T2ThreadMask:    thread.present = set; break;
-                     case T2ThreadForward: thread.forward = set; break;
-                     case T2ThreadAtEnd:   thread.atEnd   = set; break;
-                     default:                                    break;
+                     Body::Thread &thread = sBody.threads[slot];
+                     switch(partOf)
+                     {
+                        case T2ThreadMask:    thread.present = set; break;
+                        case T2ThreadForward: thread.forward = set; break;
+                        case T2ThreadAtEnd:   thread.atEnd   = set; break;
+                        default:                                    break;
+                     }
                   }
                }
 
@@ -2071,6 +2120,18 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
                }
                if(row && row->field == T2FieldSourceSlot)
                   sBody.sourceSlot = v;
+
+               // A thread's sequence and state are a select here when the
+               // walk went on to branch on what they said.
+               U32 threadPart;
+               if(threadAt(layout, at, &threadPart))
+               {
+                  const S32 which = threadSlotFor(threadPart);
+                  if(which >= 0 && threadPart == T2ThreadSequence)
+                     sBody.threads[which].sequence = v;
+                  else if(which >= 0 && threadPart == T2ThreadState)
+                     sBody.threads[which].state = v;
+               }
             }
             if(!layout->select || v >= (1U << n.bits))
             {
@@ -2432,12 +2493,13 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
                      sBody.images[slot].fireCount = word;
                }
 
-               if(threadAt(layout, at, &slot, &part))
+               if(threadAt(layout, at, &part))
                {
-                  if(part == T2ThreadSequence)
-                     sBody.threads[slot].sequence = word;
-                  else if(part == T2ThreadState)
-                     sBody.threads[slot].state = word;
+                  const S32 which = threadSlotFor(part);
+                  if(which >= 0 && part == T2ThreadSequence)
+                     sBody.threads[which].sequence = word;
+                  else if(which >= 0 && part == T2ThreadState)
+                     sBody.threads[which].state = word;
                }
 
                if(damageAt(layout, at, &part))
@@ -3490,6 +3552,7 @@ static bool runGhost(BitStream *stream, const char *className,
                      bool isInitial, bool write, const Subject *subject)
 {
    sSubject = subject ? *subject : Subject();
+   sThreadSlot = -1;
    sBody.hasDataBlock = false;
    sBody.dataBlockId = 0;
    sOwnDataBlockId = 0;
