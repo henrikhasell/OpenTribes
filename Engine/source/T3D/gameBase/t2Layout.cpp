@@ -181,6 +181,8 @@ static void traced(S32 at, U32 op, U32 bits, U32 value)
 /// it at the same width. Every branch below therefore asks for its value
 /// through one of these two and then treats it the same way, so the writer
 /// cannot drift away from the reader's idea of how wide a node is.
+static U32 writeWord(S32 at);
+
 static U32 xferInt(BitStream *stream, U32 bits, bool write, S32 at = -1,
                    U32 op = 0)
 {
@@ -189,8 +191,11 @@ static U32 xferInt(BitStream *stream, U32 bits, bool write, S32 at = -1,
 
    if(write)
    {
-      stream->writeInt(0, bits);
-      return 0;
+      // HH: Modified for Tribes 2 compatibility. What the datablock published
+      // for this node, or the default an unported class still writes.
+      const U32 value = writeWord(at);
+      stream->writeInt(value, bits);
+      return value;
    }
 
    const U32 value = stream->readInt(bits);
@@ -213,12 +218,18 @@ static Point3F normalVector(U32 word, U32 bits)
                   mSin(theta));
 }
 
+static bool planTakesSet(S32 at);
+
 static bool xferFlag(BitStream *stream, bool write, S32 at = -1)
 {
    if(write)
    {
-      stream->writeFlag(false);
-      return false;
+      // HH: Modified for Tribes 2 compatibility. A flag the body keeps the
+      // value of sends that value; one that gates a run sends whether the run
+      // follows.
+      const bool set = planTakesSet(at);
+      stream->writeFlag(set);
+      return set;
    }
 
    const bool set = stream->readFlag();
@@ -244,6 +255,63 @@ static void noteDbField(const T2DataBlockFieldRow *row, U32 word)
    sDbWords[row->field] = word;
    sDbHas[row->field] = true;
    sDbList[row->field].push_back(word);
+}
+
+// HH: Added for Tribes 2 compatibility.
+/// How many of a published field's values the write walk has sent, so a field
+/// a body repeats goes out in the order it was published.
+static U32 sDbTaken[T2DbFieldCount] = { 0 };
+
+void beginDataBlock()
+{
+   for(U32 i = 0; i < T2DbFieldCount; i++)
+   {
+      sDbHas[i] = false;
+      sDbWords[i] = 0;
+      sDbValues[i] = 0.0f;
+      sDbList[i].clear();
+      sDbTaken[i] = 0;
+   }
+   sStrings.clear();
+}
+
+void publishDataBlockWord(U32 field, U32 value)
+{
+   if(field >= T2DbFieldCount)
+      return;
+
+   dMemcpy(&sDbValues[field], &value, sizeof(F32));
+   sDbWords[field] = value;
+   sDbHas[field] = true;
+   sDbList[field].push_back(value);
+}
+
+void publishDataBlockFlag(U32 field, bool value)
+{
+   publishDataBlockWord(field, value ? 1 : 0);
+}
+
+void publishDataBlockFloat(U32 field, F32 value, U32 bits)
+{
+   publishDataBlockWord(field, t2FloatWord(value, bits));
+}
+
+void publishDataBlockSignedFloat(U32 field, F32 value, U32 bits)
+{
+   publishDataBlockWord(field, t2SignedFloatWord(value, bits));
+}
+
+void publishDataBlockWhole(U32 field, F32 value)
+{
+   publishDataBlockWord(field, t2WholeWord(value));
+}
+
+void publishDataBlockString(U32 field, const char *value)
+{
+   // A string field keeps where it sits among the body's strings, which is
+   // what the read side records for one too.
+   sStrings.push_back(String(value ? value : ""));
+   publishDataBlockWord(field, U32(sStrings.size() - 1));
 }
 
 static const T2DataBlockFieldRow *dbFieldAt(const T2DataBlockLayout *layout,
@@ -1691,6 +1759,170 @@ static bool imageAt(const T2DataBlockLayout *layout, S32 at, U32 *slot,
    return true;
 }
 
+// HH: Added for Tribes 2 compatibility.
+//
+// Writing a body is reading one backwards: the same graph, with the values a
+// datablock published put where the read walk would have taken them from. The
+// only thing the graph does not say is which way to go at a flag the body does
+// not keep the value of, because such a flag is there to say whether what is
+// behind it follows at all. Those flags gate a run of value nodes that rejoins
+// the clear arm -- ParticleData's node 1 is a flag over windCoefficient alone,
+// node 8 a flag over the two spin bounds -- so the way to go is "set, if
+// anything in the run is a field this datablock published".
+//
+// A flag over something that is not a plain run keeps its clear arm, which is
+// what an unported class writes anyway. Nothing is silently dropped on that
+// account: the walk is run once without a stream first, and a field that was
+// published and does not come up says so.
+namespace Plan
+{
+   static const T2DataBlockLayout *sFor = NULL;
+   static U32    sPublished[(T2DbFieldCount + 31) / 32] = { 0 };
+   static Vector<S16> sField(__FILE__, __LINE__);  ///< node -> field, or -1
+   static Vector<U8>  sTakeSet(__FILE__, __LINE__);///< node -> take the set arm
+
+   static bool published(U32 field)
+   {
+      return field < T2DbFieldCount &&
+             (sPublished[field >> 5] & (1u << (field & 31))) != 0;
+   }
+
+   /// Whether anything the flag at `at` gates was published. What it gates is
+   /// everything reachable from its set arm before the clear arm's node, which
+   /// is where the two come back together -- a single value for a flag over
+   /// one field, and a whole block for one of ShapeBaseData's hud images,
+   /// which has flags and strings of its own inside it.
+   static bool gatesWanted(const T2DataBlockLayout *layout, S32 at)
+   {
+      const T2DataNode &flag = layout->nodes[at];
+      const S32 join = flag.a;
+
+      S32 stack[64];
+      U32 depth = 0;
+      stack[depth++] = flag.b;
+
+      S32 seen[64];
+      U32 seenCount = 0;
+
+      while(depth)
+      {
+         const S32 walk = stack[--depth];
+         if(walk < 0 || U32(walk) >= layout->count || walk == join)
+            continue;
+
+         // A region this big is not a gate over a field, and walking further
+         // costs more than the default write it falls back to.
+         U32 i = 0;
+         for(; i < seenCount; i++)
+            if(seen[i] == walk)
+               break;
+         if(i < seenCount)
+            continue;
+         if(seenCount >= sizeof(seen) / sizeof(seen[0]))
+            return false;
+         seen[seenCount++] = walk;
+
+         if(U32(walk) < sField.size() && sField[walk] >= 0 &&
+            published(U32(sField[walk])))
+            return true;
+
+         const T2DataNode &n = layout->nodes[walk];
+         if(n.op == OpEnd || n.op == OpEndBody)
+            continue;
+
+         // Every way on from here, which for a select is its whole table.
+         if(n.op == OpSelect || n.op == OpReadBr)
+         {
+            if(!layout->select)
+               return false;
+            const U32 arms = n.op == OpReadBr ? 2u : 1u << n.bits;
+            for(U32 arm = 0; arm < arms; arm++)
+            {
+               if(depth >= sizeof(stack) / sizeof(stack[0]))
+                  return false;
+               stack[depth++] = layout->select[n.a + arm];
+            }
+            continue;
+         }
+
+         if(depth + 2 > sizeof(stack) / sizeof(stack[0]))
+            return false;
+         stack[depth++] = n.a;
+         if(n.op == OpFlag || n.op == OpLoop)
+            stack[depth++] = n.b;
+      }
+
+      return false;
+   }
+
+   /// Worked out once per class and set of published fields, since every
+   /// instance of a class publishes the same ones.
+   static void resolve(const T2DataBlockLayout *layout)
+   {
+      U32 now[(T2DbFieldCount + 31) / 32] = { 0 };
+      for(U32 i = 0; i < T2DbFieldCount; i++)
+         if(sDbHas[i])
+            now[i >> 5] |= 1u << (i & 31);
+
+      if(sFor == layout && !dMemcmp(now, sPublished, sizeof(now)))
+         return;
+
+      sFor = layout;
+      dMemcpy(sPublished, now, sizeof(sPublished));
+
+      sField.setSize(layout->count);
+      for(U32 i = 0; i < layout->count; i++)
+         sField[i] = -1;
+      for(U32 i = 0; i < sDbRowCount; i++)
+         if(sDbRows[i]->node >= 0 && U32(sDbRows[i]->node) < layout->count)
+            sField[sDbRows[i]->node] = S16(sDbRows[i]->field);
+
+      sTakeSet.setSize(layout->count);
+      for(U32 i = 0; i < layout->count; i++)
+      {
+         const T2DataNode &n = layout->nodes[i];
+         sTakeSet[i] = n.op == OpFlag && isBranch(&n) &&
+                       sField[i] < 0 && gatesWanted(layout, S32(i));
+      }
+   }
+
+   static S16 fieldAt(S32 at)
+   {
+      return at >= 0 && U32(at) < sField.size() ? sField[at] : -1;
+   }
+
+   static bool takeSet(S32 at)
+   {
+      return at >= 0 && U32(at) < sTakeSet.size() && sTakeSet[at];
+   }
+}
+
+/// Whether a flag goes out set: the value the body keeps there if it keeps
+/// one, or whether the run behind it holds anything published.
+static bool planTakesSet(S32 at)
+{
+   const S16 field = Plan::fieldAt(at);
+   if(field >= 0)
+      return sDbHas[field] && writeWord(at) != 0;
+
+   return Plan::takeSet(at);
+}
+
+/// The word a node sends: the next of what its field published, or the default
+/// a class with no encoder yet writes.
+static U32 writeWord(S32 at)
+{
+   const S16 field = Plan::fieldAt(at);
+   if(field < 0 || !sDbHas[field])
+      return 0;
+
+   const Vector<U32> &list = sDbList[field];
+   if(sDbTaken[field] < U32(list.size()))
+      return list[sDbTaken[field]++];
+
+   return sDbWords[field];
+}
+
 static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
                      S32 at, U32 *slots, U32 depth, bool isInitial,
                      bool write)
@@ -2561,7 +2793,15 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
 
          case OpString:
             if(write)
-               stream->writeString("");
+            {
+               // HH: Modified for Tribes 2 compatibility. A string field keeps
+               // where it sits among the body's strings, both ways round.
+               const S16 field = Plan::fieldAt(at);
+               const U32 index = writeWord(at);
+               stream->writeString(field >= 0 && sDbHas[field] &&
+                                   index < U32(sStrings.size())
+                                   ? sStrings[index].c_str() : "");
+            }
             else
             {
                stream->readString(buf);
@@ -2649,6 +2889,27 @@ static bool runNamed(BitStream *stream, const char *name,
 #define ELEMENTS( a ) ( sizeof( a ) / sizeof( ( a )[ 0 ] ) )
 
 static Vector<StringTableEntry> sUnimplemented(__FILE__, __LINE__);
+
+// HH: Added for Tribes 2 compatibility.
+static Vector<StringTableEntry> sUnwritten(__FILE__, __LINE__);
+
+/// A field the class published and the walk did not reach, which means either
+/// a field named against the wrong node or a gate this does not model.
+static void warnUnwritten(const char *name, U32 field, U32 taken, U32 had)
+{
+   char keyed[160];
+   dSprintf(keyed, sizeof(keyed), "%s field %u", name, field);
+
+   StringTableEntry key = StringTable->insert(keyed);
+   for(U32 i = 0; i < sUnwritten.size(); i++)
+      if(sUnwritten[i] == key)
+         return;
+   sUnwritten.push_back(key);
+
+   Con::errorf("T2 datablock write: %s published %u value(s) of field %u and "
+               "the body carried %u of them -- the other end sees the rest as "
+               "defaults.", name, had, field, taken);
+}
 
 static void warnUnimplemented(const char *kind, const char *name, bool write)
 {
@@ -3165,9 +3426,15 @@ static bool runDataBlock(BitStream *stream, U32 classId, bool write)
    AssertFatal(ELEMENTS(sT2DataBlocks) == NetClassTable::DataBlockCount,
       "The datablock layouts are not one per net class id!");
 
-   sShapeName[0] = 0;
-   sDataBlockIds.clear();
-   sStrings.clear();
+   // HH: Modified for Tribes 2 compatibility. These are what a read leaves
+   // behind for its class to pick up; a write arrives with them already
+   // holding what the class published.
+   if(!write)
+   {
+      sShapeName[0] = 0;
+      sDataBlockIds.clear();
+      sStrings.clear();
+   }
    if(classId >= ELEMENTS(sT2DataBlocks))
    {
       char id[32];
@@ -3178,10 +3445,19 @@ static bool runDataBlock(BitStream *stream, U32 classId, bool write)
 
    const T2DataBlockLayout *layout = &sT2DataBlocks[classId];
    resolveDataBlockFields(classId, layout);
-   for(U32 i = 0; i < T2DbFieldCount; i++)
+   // HH: Modified for Tribes 2 compatibility. A read starts from nothing
+   // known; a write starts from what the class published.
+   if(!write)
+      for(U32 i = 0; i < T2DbFieldCount; i++)
+      {
+         sDbHas[i] = false;
+         sDbList[i].clear();
+      }
+   else
    {
-      sDbHas[i] = false;
-      sDbList[i].clear();
+      Plan::resolve(layout);
+      for(U32 i = 0; i < T2DbFieldCount; i++)
+         sDbTaken[i] = 0;
    }
 
    // HH: Added for Tribes 2 compatibility.
@@ -3222,6 +3498,15 @@ static bool runDataBlock(BitStream *stream, U32 classId, bool write)
    const bool ok = runGraph(stream, layout, layout->root, slots, 0, false,
                             write);
    sTrace = false;
+
+   // HH: Added for Tribes 2 compatibility. A field the class published that
+   // the walk never came to is a field the other end will not see, which is
+   // worth hearing about once rather than hunting for in the body.
+   if(write && ok)
+      for(U32 i = 0; i < T2DbFieldCount; i++)
+         if(sDbHas[i] && sDbTaken[i] < U32(sDbList[i].size()))
+            warnUnwritten(layout->name, i, sDbTaken[i], sDbList[i].size());
+
    return ok;
 }
 
