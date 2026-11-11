@@ -71,6 +71,14 @@ class ParticleData : public SimDataBlock
    F32    sizes[ PDC_NUM_KEYS ];
    F32    times[ PDC_NUM_KEYS ];
 
+      /// HH: Added for Tribes 2 compatibility.
+      /// Tribes 2 animates a particle over a list of texture names rather than
+      /// over tiles of one, and its body carries up to this many of them.
+   enum { T2MaxFrames = 63 };
+   StringTableEntry  t2FrameName[ T2MaxFrames ];
+   U32               t2FrameCount;
+   Vector<GFXTexHandle> t2FrameHandle;
+
    Point2F*          animTexUVs;
    Point2F           texCoords[4];   // default: {{0.0,0.0}, {0.0,1.0}, {1.0,1.0}, {1.0,0.0}} 
    Point2I           animTexTiling;

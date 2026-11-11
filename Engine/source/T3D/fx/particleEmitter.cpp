@@ -141,7 +141,11 @@ ParticleEmitterData::ParticleEmitterData()
    lifetimeMS           = 0;
    lifetimeVarianceMS   = 0;
 
-   overrideAdvance  = true;
+   // HH: Modified for Tribes 2 compatibility. Tribes 2's default is false:
+   // the exe names only `overrideAdvance`, the scripts almost always write
+   // `overrideAdvances`, which retail therefore ignores, and a recorded retail
+   // server sends 0 for every one of those -- so false is what it was holding.
+   overrideAdvance  = false;
    orientParticles  = false;
    orientOnVelocity = true;
    useEmitterSizes  = false;
