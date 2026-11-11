@@ -448,6 +448,142 @@ bool ShapeBaseData::unpackData(BitStream *stream, U32 classId)
    return true;
 }
 
+// HH: Added for Tribes 2 compatibility. unpackData's fields the other way
+// round. Every shape datablock opens with these, whatever its class adds, so
+// this is what puts a shape, a mass and a hud image on all of them.
+//
+// A value goes out whenever this datablock holds one rather than only when it
+// differs from the prototype, which is what retail elides against: the end
+// state of the reader is the same either way, and sending it does not rest on
+// the other end's prototype matching ours. What is still conditional is what
+// a clear flag means something by -- an id retail keeps as -1 for "none", and
+// a hud block with no image, where sending an empty one would claim there is
+// one.
+void ShapeBaseData::publishT2Data()
+{
+   Parent::publishT2Data();
+
+   T2Layout::publishDataBlockFlag(T2Layout::T2DbComputeCRC, computeCRC);
+   if (computeCRC)
+      T2Layout::publishDataBlockWord(T2Layout::T2DbShapeCRC, mCRC);
+
+   static const struct { U32 field; StringTableEntry ShapeBaseData::*member; }
+      sStrings[] =
+   {
+      { T2Layout::T2DbShapeFile,       &ShapeBaseData::shapeName       },
+      { T2Layout::T2DbDebrisShapeName, &ShapeBaseData::debrisShapeName },
+      { T2Layout::T2DbCmdCategory,     &ShapeBaseData::cmdCategory     },
+      { T2Layout::T2DbCmdMiniIconName, &ShapeBaseData::cmdMiniIconName },
+   };
+
+   for (U32 i = 0; i < sizeof(sStrings) / sizeof(sStrings[0]); i++)
+   {
+      const StringTableEntry str = this->*sStrings[i].member;
+      T2Layout::publishDataBlockString(sStrings[i].field, str ? str : "");
+   }
+
+   static const struct { U32 field; F32 ShapeBaseData::*member; } sFields[] =
+   {
+      { T2Layout::T2DbMass,             &ShapeBaseData::mass             },
+      { T2Layout::T2DbDrag,             &ShapeBaseData::drag             },
+      { T2Layout::T2DbDensity,          &ShapeBaseData::density          },
+      { T2Layout::T2DbMaxEnergy,        &ShapeBaseData::maxEnergy        },
+      { T2Layout::T2DbCameraMaxDist,    &ShapeBaseData::cameraMaxDist    },
+      { T2Layout::T2DbCameraMinDist,    &ShapeBaseData::cameraMinDist    },
+      { T2Layout::T2DbCameraDefaultFov, &ShapeBaseData::cameraDefaultFov },
+      { T2Layout::T2DbCameraMinFov,     &ShapeBaseData::cameraMinFov     },
+      { T2Layout::T2DbCameraMaxFov,     &ShapeBaseData::cameraMaxFov     },
+   };
+
+   for (U32 i = 0; i < sizeof(sFields) / sizeof(sFields[0]); i++)
+      T2Layout::publishDataBlockWhole(sFields[i].field,
+                                      this->*sFields[i].member);
+
+   // An id of -1 is none, and none is the flag left clear.
+   static const struct { U32 field; S32 ShapeBaseData::*member; } sIds[] =
+   {
+      { T2Layout::T2DbCmdIcon,                  &ShapeBaseData::cmdIconID    },
+      { T2Layout::T2DbShapeExplosion,           &ShapeBaseData::explosionID  },
+      { T2Layout::T2DbShapeUnderwaterExplosion,
+                                      &ShapeBaseData::underwaterExplosionID },
+      { T2Layout::T2DbShapeDebris,              &ShapeBaseData::debrisID     },
+   };
+
+   for (U32 i = 0; i < sizeof(sIds) / sizeof(sIds[0]); i++)
+   {
+      const S32 id = this->*sIds[i].member;
+      if (id != -1)
+         T2Layout::publishDataBlockWord(sIds[i].field,
+                                        U32(id) - DataBlockObjectIdFirst);
+   }
+
+   static const struct { U32 field; bool ShapeBaseData::*member; } sFlags[] =
+   {
+      { T2Layout::T2DbObserveThroughObject,
+                                       &ShapeBaseData::observeThroughObject   },
+      { T2Layout::T2DbEmap,                 &ShapeBaseData::emap                },
+      { T2Layout::T2DbIsInvincible,         &ShapeBaseData::isInvincible        },
+      { T2Layout::T2DbRenderWhenDestroyed,  &ShapeBaseData::renderWhenDestroyed },
+      { T2Layout::T2DbInheritEnergyFromMount,
+                                       &ShapeBaseData::inheritEnergyFromMount },
+      { T2Layout::T2DbFirstPersonOnly,      &ShapeBaseData::firstPersonOnly     },
+      { T2Layout::T2DbUseEyePoint,          &ShapeBaseData::useEyePoint         },
+      { T2Layout::T2DbCanControl,           &ShapeBaseData::canControl          },
+      { T2Layout::T2DbCanObserve,           &ShapeBaseData::canObserve          },
+   };
+
+   for (U32 i = 0; i < sizeof(sFlags) / sizeof(sFlags[0]); i++)
+      T2Layout::publishDataBlockFlag(sFlags[i].field, this->*sFlags[i].member);
+
+   // The colour comes with the radius or not at all.
+   if (sensorRadius)
+   {
+      T2Layout::publishDataBlockWord(T2Layout::T2DbSensorRadius,
+                                     U32(sensorRadius));
+      const U8 rgba[] = { sensorColor.red, sensorColor.green,
+                          sensorColor.blue, sensorColor.alpha };
+      for (U32 i = 0; i < 4; i++)
+         T2Layout::publishDataBlockWord(T2Layout::T2DbSensorColorR + i, rgba[i]);
+   }
+
+   T2Layout::publishDataBlockWord(T2Layout::T2DbShieldEffectLifetimeMS,
+                                  U32(shieldEffectLifetimeMS));
+   T2Layout::publishDataBlockWhole(T2Layout::T2DbShieldEffectScaleX,
+                                   shieldEffectScale.x);
+   T2Layout::publishDataBlockWhole(T2Layout::T2DbShieldEffectScaleY,
+                                   shieldEffectScale.y);
+   T2Layout::publishDataBlockWhole(T2Layout::T2DbShieldEffectScaleZ,
+                                   shieldEffectScale.z);
+
+   for (U32 i = 0; i < NumHudRenderImages; i++)
+   {
+      const StringTableEntry friendly = hudImageNameFriendly[i];
+      if (!friendly || !friendly[0])
+         continue;
+
+      T2Layout::publishDataBlockString(T2Layout::T2DbHudImageFriendly + i,
+                                       friendly);
+      const StringTableEntry enemy = hudImageNameEnemy[i];
+      if (enemy && enemy[0])
+         T2Layout::publishDataBlockString(T2Layout::T2DbHudImageEnemy + i,
+                                          enemy);
+
+      static const struct { U32 field; bool (ShapeBaseData::*member)[NumHudRenderImages]; }
+         sHudFlags[] =
+      {
+         { T2Layout::T2DbHudRenderCenter,    &ShapeBaseData::hudRenderCenter    },
+         { T2Layout::T2DbHudRenderModulated, &ShapeBaseData::hudRenderModulated },
+         { T2Layout::T2DbHudRenderAlways,    &ShapeBaseData::hudRenderAlways    },
+         { T2Layout::T2DbHudRenderDistance,  &ShapeBaseData::hudRenderDistance  },
+         { T2Layout::T2DbHudRenderName,      &ShapeBaseData::hudRenderName      },
+      };
+
+      for (U32 f = 0; f < sizeof(sHudFlags) / sizeof(sHudFlags[0]); f++)
+         T2Layout::publishDataBlockFlag(sHudFlags[f].field + i,
+                                        (this->*sHudFlags[f].member)[i]);
+   }
+}
+
 bool ShapeBaseData::preload(bool server, String &errorStr)
 {
    if (!Parent::preload(server, errorStr))
