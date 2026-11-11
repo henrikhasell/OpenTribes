@@ -833,6 +833,10 @@ namespace T2Layout
    /// t2Float's inverse, for the side that sends. A value outside the scale
    /// the width carries is held at its end rather than wrapped, since a
    /// wrapped one reads back as its opposite.
+   ///
+   /// The scaled value is truncated, not rounded, which is what retail's own
+   /// words come back as: a drag of 1.5 over ten bits is 306 and not 307, and
+   /// a size of 1 over fourteen is 327 and not 328.
    inline U32 t2FloatWord(F32 value, U32 bits)
    {
       const U32 mask = bits >= 32 ? 0xffffffffu : (1u << bits) - 1;
@@ -844,7 +848,7 @@ namespace T2Layout
          return 0;
       if(scaled >= F32(mask))
          return mask;
-      return U32(scaled + 0.5f);
+      return U32(scaled);
    }
 
    inline U32 t2SignedFloatWord(F32 value, U32 bits)
