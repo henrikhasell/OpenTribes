@@ -810,6 +810,13 @@ namespace T2Layout
       T2DbSplashRingTime,
       T2DbSplashRingEmitter,
 
+      // EffectProfile: the two distances a script sets, a third value no
+      // script sets, and the effect it names.
+      T2DbEffectMinDistance,
+      T2DbEffectMaxDistance,
+      T2DbEffectThird,
+      T2DbEffectName,
+
       // RunningLightData. One set of nodes under two namings, which its type
       // picks between: a cone light calls them radius, color and nodeName,
       // and a point light pointSize, pointColor and pointNodeName.
