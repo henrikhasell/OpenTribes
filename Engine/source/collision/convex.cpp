@@ -131,11 +131,13 @@ bool ConvexFeature::collide(ConvexFeature& cf,CollisionList* cList, F32 tol)
    return true;
 }
 
+// HH: Modified for Tribes 2 compatibility.
+// Retail's (0x417f06) counts a point on the edge as inside.
 inline bool isInside(const Point3F& p, const Point3F& a, const Point3F& b, const VectorF& n)
 {
    VectorF v;
    mCross(n,b - a,&v);
-   return mDot(v,p - a) < 0.0f;
+   return mDot(v,p - a) <= 0.0f;
 }
 
 void ConvexFeature::testVertex(const Point3F& v,CollisionList* cList,bool flip, F32 tol)
@@ -152,8 +154,11 @@ void ConvexFeature::testVertex(const Point3F& v,CollisionList* cList,bool flip, 
       const Point3F& p2 = mVertexList[face->vertex[2]];
 
       // Point near the plane?
-      F32 distance = mDot(face->normal,v - p0);
-      if (distance > tol || distance < -tol)
+      // HH: Modified for Tribes 2 compatibility.
+      // Retail's (0x417ede) distance is unsigned: a vertex through the
+      // face is as near as one short of it.
+      F32 distance = mFabs(mDot(face->normal,v - p0));
+      if (distance > tol)
          continue;
 
       // Make sure it's within the bounding edges
@@ -173,9 +178,14 @@ void ConvexFeature::testVertex(const Point3F& v,CollisionList* cList,bool flip, 
    }
 }
 
+// HH: Modified for Tribes 2 compatibility.
+// Retail's (0x418190) passes over parallel edges, and takes the distance
+// unsigned and the normal from the closest points alone: straight up when
+// they all but meet.
 void ConvexFeature::testEdge(ConvexFeature* cf,const Point3F& s1, const Point3F& e1, CollisionList* cList, F32 tol)
 {
    F32 tolSquared = tol*tol;
+   const VectorF d1 = e1 - s1;
 
    // Test edges against edges
    const Edge* edge = mEdgeList.begin();
@@ -187,6 +197,11 @@ void ConvexFeature::testEdge(ConvexFeature* cf,const Point3F& s1, const Point3F&
       const Point3F& s2 = mVertexList[edge->vertex[0]];
       const Point3F& e2 = mVertexList[edge->vertex[1]];
 
+      VectorF c;
+      mCross(d1, e2 - s2, &c);
+      if (c.lenSquared() < 1.0e-9f)
+         continue;
+
       // Get the distance and closest points
       Point3F i1,i2;
       F32 distance = sqrDistanceEdges(s1, e1, s2, e2, &i1, &i2);
@@ -194,18 +209,13 @@ void ConvexFeature::testEdge(ConvexFeature* cf,const Point3F& s1, const Point3F&
          continue;
       distance = mSqrt(distance);
 
-      // Need to figure out how to orient the collision normal.
-      // The current test involves checking to see whether the collision
-      // points are contained within the convex volumes, which is slow.
-      if (inVolume(i1) || cf->inVolume(i2))
-         distance = -distance;
-
       // Contact normal
       VectorF normal = i1 - i2;
-      if ( mIsZero( distance ) )
-         normal.zero();
+      if (normal.x * normal.x <= 1.0e-4f && normal.y * normal.y <= 1.0e-4f &&
+            normal.z * normal.z <= 1.0e-4f)
+         normal.set(0.0f, 0.0f, 1.0f);
       else
-         normal *= 1 / distance;
+         normal.normalize();
 
       // Return a collision
       Collision& info = cList->increment();
