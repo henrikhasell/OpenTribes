@@ -66,6 +66,9 @@ public:
    /// Take what the last datablock body read into this description.
    void readT2Fields();
 
+   bool unpackData( BitStream *stream, U32 classId ) override;
+   void publishT2Data() override;
+
    DECLARE_CONOBJECT( AudioDescription );
 };
 
@@ -83,6 +86,9 @@ public:
 
    /// Take what the last datablock body read into this profile.
    void readT2Fields();
+
+   bool unpackData( BitStream *stream, U32 classId ) override;
+   void publishT2Data() override;
 
    DECLARE_CONOBJECT( AudioProfile );
 };

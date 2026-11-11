@@ -489,11 +489,6 @@ void SimDataBlockEvent::unpack(NetConnection *cptr, BitStream *bstream)
          else if( DebrisData *db = dynamic_cast< DebrisData * >( mObj ) )
             readT2Debris( db );
 
-         if( AudioProfile *ap = dynamic_cast< AudioProfile * >( mObj ) )
-            ap->readT2Fields();
-         else if( AudioDescription *ad = dynamic_cast< AudioDescription * >( mObj ) )
-            ad->readT2Fields();
-
             // HH: Added for Tribes 2 compatibility.
             // A weapon wants mount node 0 and a pack node 1.
          U32 mountPoint;

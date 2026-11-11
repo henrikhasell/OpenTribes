@@ -397,6 +397,8 @@ namespace T2Layout
       T2DbDebrisExplosion,
 
       T2DbAudioDescription,
+      T2DbAudioEffect,
+      T2DbAudioFile,
       T2DbAudioVolume,
       T2DbAudioLooping,
       T2DbAudio3D,
