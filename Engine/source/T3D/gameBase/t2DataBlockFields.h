@@ -381,6 +381,11 @@ namespace T2Protocol
       { "TracerProjectileData",      27, OpRaw, 32, T2DbProjectileLifetime },
       { "TracerProjectileData",      34, OpRaw, 32, T2DbTracerLength       },
       { "TracerProjectileData",      35, OpRaw, 32, T2DbTracerWidth        },
+   // Four nodes past the width, with the minimum pixels, the alpha flag and
+   // the colour between them: AABullet reads 0.99 and 0.99 here, and
+   // ChaingunBullet 0.99 and 0.2, which is what their scripts say.
+      { "TracerProjectileData",      39, OpRaw, 32, T2DbCrossViewAng       },
+      { "TracerProjectileData",      40, OpRaw, 32, T2DbCrossSize          },
       { "TracerProjectileData",      67, OpRaw, 32, T2DbScaleX             },
       { "TracerProjectileData",      68, OpRaw, 32, T2DbScaleY             },
       { "TracerProjectileData",      69, OpRaw, 32, T2DbScaleZ             },
