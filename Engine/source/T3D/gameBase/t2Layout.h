@@ -804,6 +804,17 @@ namespace T2Layout
       T2DbSplashRingTime,
       T2DbSplashRingEmitter,
 
+      // ParticleEmitterData's particle list: a count and then an id apiece.
+      T2DbEmitterParticleCount,
+      T2DbEmitterParticle,
+
+      // What ParticleData's two selects count: its colour keys, one less than
+      // how many there are, and the texture names that end it, then the names
+      // themselves.
+      T2DbParticleKeysLast,
+      T2DbParticleTextures,
+      T2DbParticleTextureName,
+
       T2DbFieldCount
    };
 
