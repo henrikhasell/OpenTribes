@@ -549,6 +549,17 @@ namespace T2Protocol
       { "ItemData",  52, OpRaw,   32, T2DbItemLightRadius     },
       { "ItemData",  53, OpFlag,   1, T2DbItemLightOnlyStatic },
 
+      { "JetEffectData",  0, OpColor,  32, T2DbJetCoolColor      },
+      { "JetEffectData",  1, OpColor,  32, T2DbJetHotColor       },
+      { "JetEffectData",  2, OpRaw,    32, T2DbJetActivateTime   },
+      { "JetEffectData",  3, OpRaw,    32, T2DbJetDeactivateTime },
+      { "JetEffectData",  4, OpRaw,    32, T2DbJetLength         },
+      { "JetEffectData",  5, OpRaw,    32, T2DbJetWidth          },
+      { "JetEffectData",  6, OpRaw,    32, T2DbJetSpeed          },
+      { "JetEffectData",  7, OpRaw,    32, T2DbJetStretch        },
+      { "JetEffectData",  8, OpRaw,    32, T2DbJetYOffset        },
+      { "JetEffectData", 11, OpString,  0, T2DbJetTexture        },
+
       { "ParticleEmitterData",  0, OpInt,    10, T2DbEjectionPeriodMS  },
       { "ParticleEmitterData",  1, OpInt,    10, T2DbPeriodVarianceMS  },
       { "ParticleEmitterData",  2, OpInt,    16, T2DbEjectionVelocity  },
