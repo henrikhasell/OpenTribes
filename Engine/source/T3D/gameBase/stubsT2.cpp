@@ -46,6 +46,15 @@ void publish(SimObject *object, const Field *fields, U32 count)
             break;
          }
 
+         case Vector3:
+         {
+            F32 xyz[3] = { 0.0f, 0.0f, 0.0f };
+            dSscanf(value, "%g %g %g", &xyz[0], &xyz[1], &xyz[2]);
+            for(U32 c = 0; c < 3; c++)
+               T2Layout::publishDataBlockWhole(field.slot + c, xyz[c]);
+            break;
+         }
+
          case Word:
             T2Layout::publishDataBlockWord(field.slot, U32(dAtoi(value)));
             break;
@@ -57,6 +66,18 @@ void publish(SimObject *object, const Field *fields, U32 count)
          case Text:
             T2Layout::publishDataBlockString(field.slot, value);
             break;
+
+         case DataBlock:
+         {
+            SimObject *named = Sim::findObject(value);
+            if(named)
+               T2Layout::publishDataBlockWord(field.slot,
+                  named->getId() - DataBlockObjectIdFirst);
+            else
+               Con::warnf("StubT2::publish - %s names no object '%s' for %s",
+                  object->getName(), value, field.name);
+            break;
+         }
       }
    }
 }

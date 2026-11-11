@@ -100,7 +100,12 @@ IMPLEMENT_DATABLOCK_T2( AudioEnvironment );
 IMPLEMENT_DATABLOCK_T2( AudioSampleEnvironment );
 IMPLEMENT_DATABLOCK_T2( BombProjectileData );
 IMPLEMENT_DATABLOCK_T2( EffectProfile );
-IMPLEMENT_DATABLOCK_T2( FireballAtmosphereData );
+static const StubT2::Field sT2FireballAtmosphereDataFields[] =
+{
+   { "fireball", T2Layout::T2DbFireballDebris, StubT2::DataBlock },
+};
+
+IMPLEMENT_DATABLOCK_T2_WRITES( FireballAtmosphereData );
 IMPLEMENT_DATABLOCK_T2( FlareProjectileData );
 // HH: The jet flame, settled against a recorded retail server: two colours,
 // then seven whole floats, then the texture behind a flag. Body 1 of demo004
@@ -123,6 +128,28 @@ static const StubT2::Field sT2JetEffectDataFields[] =
 };
 
 IMPLEMENT_DATABLOCK_T2_WRITES( JetEffectData );
-IMPLEMENT_DATABLOCK_T2( ParticleEmissionDummyData );
-IMPLEMENT_DATABLOCK_T2( RunningLightData );
+static const StubT2::Field sT2ParticleEmissionDummyDataFields[] =
+{
+   { "timeMultiple", T2Layout::T2DbEmissionDummyTimeMultiple, StubT2::Whole },
+};
+
+IMPLEMENT_DATABLOCK_T2_WRITES( ParticleEmissionDummyData );
+// A light names its nodes one way or the other by its type, and a script sets
+// only the set it means, so both namings are listed against the same slots.
+static const StubT2::Field sT2RunningLightDataFields[] =
+{
+   { "radius",        T2Layout::T2DbLightRadius,    StubT2::Whole   },
+   { "pointSize",     T2Layout::T2DbLightRadius,    StubT2::Whole   },
+   { "color",         T2Layout::T2DbLightColor,     StubT2::Colour  },
+   { "pointColor",    T2Layout::T2DbLightColor,     StubT2::Colour  },
+   { "type",          T2Layout::T2DbLightType,      StubT2::Word    },
+   { "length",        T2Layout::T2DbLightLength,    StubT2::Whole   },
+   { "nodeName",      T2Layout::T2DbLightNodeName,  StubT2::Text    },
+   { "pointNodeName", T2Layout::T2DbLightNodeName,  StubT2::Text    },
+   { "direction",     T2Layout::T2DbLightDirection, StubT2::Vector3 },
+   { "offset",        T2Layout::T2DbLightOffset,    StubT2::Vector3 },
+   { "texture",       T2Layout::T2DbLightTexture,   StubT2::Text    },
+};
+
+IMPLEMENT_DATABLOCK_T2_WRITES( RunningLightData );
 IMPLEMENT_DATABLOCK_T2( ShockwaveData );

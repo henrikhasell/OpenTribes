@@ -810,6 +810,25 @@ namespace T2Layout
       T2DbSplashRingTime,
       T2DbSplashRingEmitter,
 
+      // RunningLightData. One set of nodes under two namings, which its type
+      // picks between: a cone light calls them radius, color and nodeName,
+      // and a point light pointSize, pointColor and pointNodeName.
+      T2DbLightRadius,
+      T2DbLightColor,
+      T2DbLightType,
+      T2DbLightLength,
+      T2DbLightNodeName,
+      T2DbLightDirection,
+      T2DbLightDirectionLast = T2DbLightDirection + 2,
+      T2DbLightOffset,
+      T2DbLightOffsetLast = T2DbLightOffset + 2,
+      T2DbLightTexture,
+
+      // ParticleEmissionDummyData's one value, and the debris a
+      // FireballAtmosphere throws, each the only thing its body carries.
+      T2DbEmissionDummyTimeMultiple,
+      T2DbFireballDebris,
+
       // JetEffectData, which is two colours, seven whole floats and a
       // texture, in the order its body carries them.
       T2DbJetCoolColor,
