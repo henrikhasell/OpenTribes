@@ -388,7 +388,13 @@ struct ShapeBaseImageData: public GameBaseData {
    MatrixF           mountOffset;   ///< Mount point offset, so we know where the image is.
    MatrixF           eyeOffset;     ///< Offset from eye for first person.
 
-   ProjectileData* projectile;      ///< Information about what projectile this
+   // HH: Modified for Tribes 2 compatibility. Tribes 2's projectile
+   // datablocks are their own family, not Torque's ProjectileData, so a
+   // field typed to Torque's refused `projectile = DiscProjectile` and a
+   // fired disc came into the world with no datablock at all. Nothing in the
+   // engine reads this -- the scripts hand it straight to the projectile
+   // they make.
+   GameBaseData* projectile;         ///< Information about what projectile this
                                     ///  image fires.
 
    F32   mass;                      ///< Mass!

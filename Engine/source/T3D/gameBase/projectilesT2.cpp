@@ -133,6 +133,12 @@ public:
 
    ProjectileDataT2();
 
+      // HH: Added for Tribes 2 compatibility. What a server raises where one
+      // goes off: `ProjectileData::onExplode(%data, %proj, %pos, %mod)` is
+      // where a mission's damage comes from -- it calls RadiusExplosion with
+      // the datablock's radius, its indirect damage and its kick.
+   DECLARE_CALLBACK(void, onExplode, (GameBase *proj, Point3F pos, F32 mod));
+
       /// A bullet is seen as the streak it leaves, which is what retail draws
       /// of one, so the shape its datablock also names is never wanted.
    bool namesGameBaseShape() const { return streakLength <= 0.0f; }
@@ -175,7 +181,17 @@ public:
    DECLARE_CONOBJECT(ProjectileDataT2);
 };
 
-IMPLEMENT_CONOBJECT(ProjectileDataT2);
+// The console name is Tribes 2's own: every projectile datablock in the game
+// descends from it, and the scripts' ProjectileData methods are found through
+// it.
+IMPLEMENT_CO_DATABLOCK_V1_NAMED(ProjectileDataT2, "ProjectileData");
+
+IMPLEMENT_CALLBACK( ProjectileDataT2, onExplode, void,
+   ( GameBase *proj, Point3F pos, F32 mod ), ( proj, pos, mod ),
+   "@brief Called on the server where a projectile goes off.\n\n"
+   "@param proj The projectile\n"
+   "@param pos Where it went off\n"
+   "@param mod How much of its damage it carries\n" );
 
 ConsoleDocClass( ProjectileDataT2,
    "@brief What a Tribes 2 projectile's datablock says about its flight.\n\n"
@@ -1129,23 +1145,80 @@ public:
    void onRemove();
    bool onNewDataBlock(GameBaseData *dptr, bool reload);
    void onT2BodyRead(const T2Layout::Body &body);
+   void processTick(const Move *move);
    void advanceTime(F32 dt);
    void prepRenderImage(SceneRenderState *state);
 
    void submitLights(LightManager *lm, bool staticLighting);
    LightInfo *getLight() { return mLight; }
 
+      // HH: Added for Tribes 2 compatibility. What a server's scripts state
+      // when they fire one, and what its body says when it is ghosted.
+   static void initPersistFields();
+   void getT2Body(T2Layout::Body *body, bool isInitial) const;
+
+      /// Where a script put it and which way it was aimed, held until onAdd
+      /// so the two arrive together however the fields were written.
+   Point3F mInitialPosition;
+   VectorF mInitialDirection;
+   S32     mSourceSlotField;
+
    DECLARE_CONOBJECT(ProjectileT2);
 };
 
 IMPLEMENT_CONOBJECT(ProjectileT2);
+
+// HH: Added for Tribes 2 compatibility. A weapon's script fires one by making
+// it and stating these: `new (%data.projectileType)() { dataBlock = ...;
+// initialDirection = %obj.getMuzzleVector(%slot); initialPosition =
+// %obj.getMuzzlePoint(%slot); sourceObject = %obj; sourceSlot = %slot; }`.
+// Without them a fired projectile sat at the origin with no flight.
+void ProjectileT2::initPersistFields()
+{
+   Parent::initPersistFields();
+
+   addField("initialPosition",  TYPEID< Point3F >(),
+      Offset(mInitialPosition, ProjectileT2),
+      "Where it starts, which is the muzzle point of what fired it.");
+   addField("initialDirection", TYPEID< Point3F >(),
+      Offset(mInitialDirection, ProjectileT2),
+      "And the way it was aimed.");
+   addField("sourceObject",     TYPEID< S32 >(),
+      Offset(mSourceObject, ProjectileT2),
+      "What fired it, which it does not hit on the way out.");
+   addField("sourceSlot",       TYPEID< S32 >(),
+      Offset(mSourceSlotField, ProjectileT2),
+      "The image slot it was fired from.");
+}
+
+// HH: Added for Tribes 2 compatibility. A projectile's body says where it
+// started and which way, and a client works the speed out of the datablock.
+void ProjectileT2::getT2Body(T2Layout::Body *body, bool isInitial) const
+{
+   Parent::getT2Body(body, isInitial);
+
+   body->hasRotation = false;
+   body->hasScale = false;
+
+   if(isInitial)
+   {
+      body->hasPosition = true;
+      body->position = mStart;
+      body->hasDirection = !mInitialDirection.isZero();
+      body->direction = mInitialDirection;
+
+   }
+}
 
 ConsoleDocClass( ProjectileT2,
    "@brief A Tribes 2 projectile, flown by the client that was told of it.\n\n"
    "@internal" );
 
 ProjectileT2::ProjectileT2()
-   : mData(NULL),
+   : mInitialPosition(0.0f, 0.0f, 0.0f),
+     mInitialDirection(0.0f, 0.0f, 0.0f),
+     mSourceSlotField(0),
+     mData(NULL),
      mSound(NULL),
      mShapeInstance(NULL),
      mAmbientThread(NULL),
@@ -1191,12 +1264,31 @@ bool ProjectileT2::onAdd()
 
    mObjBox.minExtents.set(-0.5f, -0.5f, -0.5f);
    mObjBox.maxExtents.set( 0.5f,  0.5f,  0.5f);
+
+   // HH: Added for Tribes 2 compatibility. A server's scripts make one and
+   // state where it starts and which way it was aimed; a client is told the
+   // same two in the body. Either way the flight starts from them.
+   if(isServerObject() && !mInitialDirection.isZero())
+   {
+      mStart = mPosition = mInitialPosition;
+      mTrailAt = mEmitAt = mInitialPosition;
+      mVelocity = mInitialDirection;
+      mNeedsSpeed = true;
+      mBounces = false;
+      mFlying = true;
+
+      MatrixF mat(true);
+      mat.setPosition(mPosition);
+      setTransform(mat);
+   }
+
    resetWorldBox();
    addToScene();
 
-      // Nothing else moves it: the flight happens here.
-   if(isClientObject())
-      setProcessTick(true);
+      // Nothing else moves it: the flight happens here, on a server as well
+      // as on a client, because a server's own copy is what goes off and
+      // damages what it reaches.
+   setProcessTick(true);
 
    return true;
 }
@@ -1427,6 +1519,12 @@ void ProjectileT2::explode()
 
    mExploded = true;
 
+   // HH: Added for Tribes 2 compatibility. The damage is the script's, and a
+   // server is the only end that deals it: ProjectileData::onExplode calls
+   // RadiusExplosion, which searches for what is near and damages it.
+   if(isServerObject() && mData)
+      mData->onExplode_callback(this, mPosition, 1.0f);
+
       // The mark it leaves goes down where it went off (0x0062d9dc), facing
       // out of the surface it hit.
    if(mMarks && mData && mData->decal && gDecalManagerT2)
@@ -1451,6 +1549,49 @@ void ProjectileT2::explode()
                  mData->getName());
       delete blast;
    }
+}
+
+// HH: Added for Tribes 2 compatibility. A server flies its own copy a tick at
+// a time, which is what goes off and damages what it reaches -- a client's
+// copy is the one that is seen, and that flies in advanceTime a frame at a
+// time. The flight itself is the same step().
+void ProjectileT2::processTick(const Move *move)
+{
+   Parent::processTick(move);
+
+   if(!isServerObject() || !mFlying || !mData)
+      return;
+
+   if(mNeedsSpeed)
+   {
+      mVelocity *= mData->velocity;
+      mNeedsSpeed = false;
+   }
+
+   mAge += TickSec;
+
+   // One that runs out of life goes off where it is if its datablock says so,
+   // and otherwise simply stops being.
+   if(mData->lifetimeMS && mAge * 1000.0f > F32(mData->lifetimeMS))
+   {
+      mFlying = false;
+      if(mData->explodeOnDeath)
+         explode();
+      safeDeleteObject();
+      return;
+   }
+
+   step(TickSec);
+
+   MatrixF mat(true);
+   headingMatrix(&mat);
+   mat.setPosition(mPosition);
+   setTransform(mat);
+
+   // step() ends the flight where it hit something, and the explosion with
+   // it: there is nothing left for a server to keep.
+   if(!mFlying)
+      safeDeleteObject();
 }
 
 void ProjectileT2::advanceTime(F32 dt)
