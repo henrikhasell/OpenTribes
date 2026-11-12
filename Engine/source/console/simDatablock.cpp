@@ -95,16 +95,17 @@ void SimDataBlock::assignId()
    if ( isProperlyAdded() )
       return;
 
-   const SimObjectId id = sNextObjectId++;
-   setId( id );
+   // Zero is the one id that cannot be a datablock's. A body names another
+   // datablock by its id and says "none" by not sending one at all, so a
+   // writer has nothing to tell the two apart by; the console cannot address
+   // object zero either. Retail's first datablock is not word zero on the
+   // wire, so skipping it costs nothing and the first declared datablock --
+   // CommanderIconData's CMDPlayerIcon in the stock scripts -- goes out
+   // instead of being dropped.
+   if ( !sNextObjectId )
+      sNextObjectId = DataBlockObjectIdFirst + 1;
 
-   // Zero is the one id registration reads as unset and replaces, so it has to
-   // be forced -- as the datablocks arriving on a client are
-   // (SimDataBlockEvent::process). Nothing registers between here and this
-   // object's own registration: a datablock body holds fields, not
-   // declarations.
-   if ( !id )
-      SimObject::setForcedId( id );
+   setId( sNextObjectId++ );
 }
 
 //-----------------------------------------------------------------------------

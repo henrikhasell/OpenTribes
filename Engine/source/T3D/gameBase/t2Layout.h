@@ -2,6 +2,10 @@
 #ifndef _T2LAYOUT_H_
 #define _T2LAYOUT_H_
 
+#ifndef _COLOR_H_
+#include "core/color.h"
+#endif
+
 #ifndef _PLATFORM_H_
 #include "platform/platform.h"
 #endif
@@ -321,8 +325,29 @@ namespace T2Layout
       T2DbProjectileMaxRotSpeedZ,
       T2DbProjectileSize,
       T2DbProjectileUseLensFlare,
-      T2DbProjectileTexture,
-      T2DbProjectileTextureLast = T2DbProjectileTexture + 11,
+      T2DbProjectileString,
+      T2DbProjectileStringLast = T2DbProjectileString + 11,
+      T2DbBeamHeadMultiplier,
+      T2DbShockLanceEmitter,
+      T2DbElfEmitter,
+      T2DbBeamHitColor,
+      T2DbBeamHitScale,
+      T2DbSeekerTurning,
+      T2DbSeekerProximity,
+      T2DbSeekerTerrainAvoidanceSpeed,
+      T2DbSeekerTerrainScanAhead,
+      T2DbSeekerTerrainHeightFail,
+      T2DbSeekerTerrainAvoidanceRadius,
+      T2DbSeekerFlareDistance,
+      T2DbSeekerFlareAngle,
+      T2DbSeekerUseFlechette,
+      T2DbSeekerMaxVelocity,
+      T2DbSeekerAcceleration,
+      T2DbSeekerFlechetteDelay,
+      T2DbSeekerExhaustTime,
+      T2DbSeekerCasingDebris,
+      T2DbSeekerPuffEmitter,
+      T2DbSeekerExhaustEmitter,
       T2DbTracerMinPixels,
       T2DbTracerAlpha,
       T2DbTracerColor,
@@ -980,7 +1005,24 @@ namespace T2Layout
 
    /// The word a whole float goes out as, where Tribes 2 sends all 32 bits of
    /// one rather than a fraction of a scale.
-   /// A time in milliseconds as retail keeps one: whole ticks, rounded up. A
+   /// A colour's byte as retail makes one. The multiply is in double precision
+/// because retail's build does it on the x87 stack: a red of 0.7 is 178 and
+/// not 179, because the float nearest 0.7 times 255 is 178.49999 and only a
+/// float32 product would round that to 178.5 before the half is added.
+inline U32 t2ColorByte(F32 part)
+{
+   const F64 scaled = F64(mClampF(part, 0.0f, 1.0f)) * 255.0 + 0.5;
+   return U32(scaled);
+}
+
+/// The four bytes of a colour, in the order a body carries them.
+inline U32 t2ColorWord(const ColorF &colour)
+{
+   return t2ColorByte(colour.red) | (t2ColorByte(colour.green) << 8) |
+          (t2ColorByte(colour.blue) << 16) | (t2ColorByte(colour.alpha) << 24);
+}
+
+/// A time in milliseconds as retail keeps one: whole ticks, rounded up. A
 /// lifetimeMS of 5000 is 157 ticks and goes out as 5024.
 inline U32 t2TickMs(S32 ms, S32 least = 0, S32 most = 0)
 {

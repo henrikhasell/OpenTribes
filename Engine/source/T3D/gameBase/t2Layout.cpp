@@ -3705,7 +3705,7 @@ static bool matchProjectileData(T2ShapeDataMap *map)
    U32 texture = 0;
    for(U32 at = 24; at < lightAt && texture < 12; at++)
       if(layout->nodes[at].op == OpString)
-         addShapeDataRow(map, S32(at), T2DbProjectileTexture + texture++);
+         addShapeDataRow(map, S32(at), T2DbProjectileString + texture++);
 
    return true;
 }
