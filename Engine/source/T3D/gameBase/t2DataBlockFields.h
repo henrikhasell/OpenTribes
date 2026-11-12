@@ -142,6 +142,7 @@ namespace T2Protocol
 
       { "DecalData", 0, OpRaw, 32, T2DbDecalSizeX },
       { "DecalData", 1, OpRaw, 32, T2DbDecalSizeY },
+      { "DecalData", 2, OpString, 0, T2DbDecalTextureName },
 
       { "ExplosionData",   7, OpInt,   14, T2DbPlaySpeed          },
       { "ExplosionData",  16, OpInt,   16, T2DbDelayMS            },
@@ -419,7 +420,7 @@ namespace T2Protocol
       { "TracerProjectileData", 35, OpRaw, 32, T2DbTracerWidth     },
       { "TracerProjectileData", 36, OpRaw, 32, T2DbTracerMinPixels },
       { "TracerProjectileData", 37, OpRaw,  8, T2DbTracerAlpha     },
-      { "TracerProjectileData", 38, OpRaw, 32, T2DbTracerColor     },
+      { "TracerProjectileData", 38, OpColor, 32, T2DbTracerColor   },
       { "TracerProjectileData", 39, OpRaw, 32, T2DbCrossViewAng    },
       { "TracerProjectileData", 40, OpRaw, 32, T2DbCrossSize       },
       { "TracerProjectileData", 41, OpRaw,  8, T2DbRenderCross     },
@@ -448,6 +449,11 @@ namespace T2Protocol
       { "ShockLanceProjectileData",  37, OpRaw, 32, T2DbBoltEndWidth1         },
       { "ShockLanceProjectileData",  38, OpRaw, 32, T2DbBoltSpeed1            },
       { "ShockLanceProjectileData",  39, OpRaw, 32, T2DbBoltTexWrap1          },
+   // The emitter it sparks with, behind a flag of its own. The shockwave the
+   // scripts also name is not on the wire: a retail server sent nothing here
+   // for a datablock that set only `shockwave`, and 495 -- the id of what it
+   // was given -- for one that set `emitter`.
+      { "ShockLanceProjectileData",  46, OpDataBlockId, 11, T2DbShockLanceEmitter },
 
    // SeekerProjectileData::packData (0x00637b10) writes its own middle between
    // the two runs matchProjectileData names by their shape: the lifetime, the
@@ -774,8 +780,6 @@ namespace T2Protocol
 
    // SniperProjectileData::packData (0x00641bd0) and TargetProjectileData's
    // (0x006476e0), after ProjectileData's run; the textures are strings.
-      { "SniperProjectileData", 69, OpDataBlockId, 11, T2DbExplosion        },
-      { "SniperProjectileData", 67, OpDataBlockId, 11, T2DbProjectileSplash },
    // RepairProjectileData's own run, read off the wire and checked against
    // DefaultRepairBeam: 10, 0.15, 20, 1, 0.2, 10, 1, 25.
       { "RepairProjectileData", 24, OpRaw, 32, T2DbBeamRange          },
@@ -786,7 +790,6 @@ namespace T2Protocol
       { "RepairProjectileData", 29, OpRaw, 32, T2DbRepairBlurFreq     },
       { "RepairProjectileData", 30, OpRaw, 32, T2DbRepairBlurLifetime },
       { "RepairProjectileData", 31, OpRaw, 32, T2DbRepairCutoffAngle  },
-      { "RepairProjectileData", 50, OpDataBlockId, 11, T2DbProjectileSound },
 
    // ELFProjectileData's run, read off the wire and checked against BasicELF:
    // 38, 0.1, 9, 0.25, 0.1, 0.15.
@@ -796,8 +799,10 @@ namespace T2Protocol
       { "ELFProjectileData", 27, OpRaw, 32, T2DbElfBeamRepeat     },
       { "ELFProjectileData", 28, OpRaw, 32, T2DbElfLightningWidth },
       { "ELFProjectileData", 29, OpRaw, 32, T2DbElfLightningDist  },
+      { "ELFProjectileData", 35, OpDataBlockId, 11, T2DbElfEmitter   },
 
       { "SniperProjectileData", 24, OpRaw,   32, T2DbBeamRange              },
+      { "SniperProjectileData", 25, OpRaw,   32, T2DbBeamHeadMultiplier     },
       { "SniperProjectileData", 26, OpColor, 32, T2DbBeamColor              },
       { "SniperProjectileData", 27, OpRaw,   32, T2DbBeamFadeTime           },
       { "SniperProjectileData", 28, OpRaw,   32, T2DbBeamStartWidth         },
@@ -808,6 +813,9 @@ namespace T2Protocol
       { "SniperProjectileData", 33, OpRaw,   32, T2DbBeamMaxFlareSize       },
       { "SniperProjectileData", 34, OpRaw,   32, T2DbBeamPulseSpeed         },
       { "SniperProjectileData", 35, OpRaw,   32, T2DbBeamPulseLength        },
+   // Two a sniper's body carries that no script sets.
+      { "SniperProjectileData", 36, OpColor, 32, T2DbBeamHitColor           },
+      { "SniperProjectileData", 37, OpRaw,   32, T2DbBeamHitScale           },
 
       { "TargetProjectileData", 24, OpRaw,   32, T2DbBeamRange              },
       { "TargetProjectileData", 25, OpColor, 32, T2DbBeamColor              },

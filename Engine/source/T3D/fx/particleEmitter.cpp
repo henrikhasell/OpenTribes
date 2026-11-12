@@ -486,15 +486,22 @@ void ParticleEmitterData::publishT2Data()
 
    T2Layout::publishDataBlockWord(T2Layout::T2DbThetaMin,        U32(thetaMin));
    T2Layout::publishDataBlockWord(T2Layout::T2DbThetaMax,        U32(thetaMax));
-   T2Layout::publishDataBlockWord(T2Layout::T2DbPhiReferenceVel, U32(phiReferenceVel));
-   T2Layout::publishDataBlockWord(T2Layout::T2DbPhiVariance,     U32(phiVariance));
+   // Three a body only carries where they are not the default, each behind a
+   // flag of its own: a retail server sends none of them for DefaultEmitter.
+   if(phiReferenceVel != 0.0f)
+      T2Layout::publishDataBlockWord(T2Layout::T2DbPhiReferenceVel,
+                                     U32(phiReferenceVel));
+   if(phiVariance != 360.0f)
+      T2Layout::publishDataBlockWord(T2Layout::T2DbPhiVariance,
+                                     U32(phiVariance));
 
    T2Layout::publishDataBlockWord(T2Layout::T2DbEjectionVelocity,
-                                  U32(ejectionVelocity * 100.0f + 0.5f));
+                                  T2Layout::t2ScaledWord(ejectionVelocity, 100.0));
    T2Layout::publishDataBlockWord(T2Layout::T2DbVelocityVariance,
-                                  U32(velocityVariance * 100.0f + 0.5f));
-   T2Layout::publishDataBlockWord(T2Layout::T2DbEjectionOffset,
-                                  U32(ejectionOffset * 100.0f + 0.5f));
+                                  T2Layout::t2ScaledWord(velocityVariance, 100.0));
+   if(ejectionOffset != 0.0f)
+      T2Layout::publishDataBlockWord(T2Layout::T2DbEjectionOffset,
+                                     T2Layout::t2ScaledWord(ejectionOffset, 100.0));
 
    T2Layout::publishDataBlockWord(T2Layout::T2DbEmitterLifetimeMS, lifetimeMS >> 5);
    T2Layout::publishDataBlockWord(T2Layout::T2DbEmitterLifetimeVarianceMS,

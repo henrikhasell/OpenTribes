@@ -388,7 +388,13 @@ struct ShapeBaseImageData: public GameBaseData {
    MatrixF           mountOffset;   ///< Mount point offset, so we know where the image is.
    MatrixF           eyeOffset;     ///< Offset from eye for first person.
 
-   ProjectileData* projectile;      ///< Information about what projectile this
+   // HH: Modified for Tribes 2 compatibility. Tribes 2's projectile
+   // datablocks are their own family, not Torque's ProjectileData, so a
+   // field typed to Torque's refused `projectile = DiscProjectile` and a
+   // fired disc came into the world with no datablock at all. Nothing in the
+   // engine reads this -- the scripts hand it straight to the projectile
+   // they make.
+   GameBaseData* projectile;         ///< Information about what projectile this
                                     ///  image fires.
 
    F32   mass;                      ///< Mass!
@@ -617,6 +623,11 @@ public:
    bool              canControl;
    bool              canObserve;
 
+   // HH: Added for Tribes 2 compatibility. What a sensor and a seeking
+   // missile read a shape by, which its body carries and its scripts set --
+   // `heatSignature = 0` is how a deployable stays off a sensor.
+   F32 heatSignature;
+
    /// @name Physical Properties
    /// @{
    F32 mass;
@@ -762,7 +773,9 @@ public:
    DECLARE_CALLBACK( void, onDisabled, ( ShapeBase* obj, const char* lastState ) );
    DECLARE_CALLBACK( void, onDestroyed, ( ShapeBase* obj, const char* lastState ) );
    DECLARE_CALLBACK( void, onImpact, ( ShapeBase* obj, SceneObject* collObj, VectorF vec, F32 len ) );
-   DECLARE_CALLBACK( void, onCollision, ( ShapeBase* obj, SceneObject* collObj, VectorF vec, F32 len ) );
+   // HH: Modified for Tribes 2 compatibility -- the two objects and nothing
+   // else, which is what every one of its scripts takes.
+   DECLARE_CALLBACK( void, onCollision, ( ShapeBase* obj, SceneObject* collObj ) );
    DECLARE_CALLBACK( void, onDamage, ( ShapeBase* obj, F32 delta ) );
    DECLARE_CALLBACK( void, onTrigger, ( ShapeBase* obj, S32 index, bool state ) );
    DECLARE_CALLBACK( void, onEndSequence, ( ShapeBase* obj, S32 slot ) );

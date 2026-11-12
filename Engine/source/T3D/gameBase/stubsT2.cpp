@@ -51,10 +51,7 @@ void publish(SimObject *object, const Field *fields, U32 count)
             // and ScoutChaingunHit's second colour is the body that says so.
             U32 word = 0;
             for(U32 c = 0; c < 4; c++)
-            {
-               const F32 part = mClampF(rgba[c], 0.0f, 1.0f);
-               word |= U32(part * 255.0f + 0.5f) << (c * 8);
-            }
+               word |= T2Layout::t2ColorByte(rgba[c]) << (c * 8);
             T2Layout::publishDataBlockWord(field.slot, word);
             break;
          }
@@ -74,6 +71,12 @@ void publish(SimObject *object, const Field *fields, U32 count)
 
          case Word32:
             T2Layout::publishDataBlockWord(field.slot, U32(dAtoui(value, 0)));
+            break;
+
+         case Ticks:
+            T2Layout::publishDataBlockWord(field.slot,
+               T2Layout::t2TickMs(dAtoi(value),
+                                  field.fallback ? dAtoi(field.fallback) : 0));
             break;
 
          case Flag:

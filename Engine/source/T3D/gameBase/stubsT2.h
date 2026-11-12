@@ -25,6 +25,8 @@ namespace StubT2
       Vector3,   ///< three floats in one script field, over three slots
       Constant,  ///< a float no script sets, whose literal `name` holds
       Word32,    ///< all 32 bits of a whole number, as a colour is packed
+      Ticks,     ///< a time, as whole ticks rounded up and never under its
+                 ///< fallback, which is the floor retail's onAdd holds
    };
 
    struct Field
