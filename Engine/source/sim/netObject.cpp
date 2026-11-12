@@ -329,6 +329,14 @@ U32 NetObject::packUpdate(NetConnection *conn, U32 mask, BitStream *stream,
    // (0x6159ae), since the reader cannot have it as its control object yet.
    if(isInitial)
       subject.isControlObject = false;
+   // HH: What this object puts in the body, which the walk takes the values
+   // out of as it goes.
+   T2Layout::Body body;
+   T2Layout::beginBody();
+   T2Layout::clearBody(&body);
+   getT2Body(&body, isInitial);
+   T2Layout::publishBody(body);
+
    T2Layout::writeGhost(stream, getClassName(), isInitial, &subject);
    return 0;
 }

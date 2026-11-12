@@ -250,6 +250,8 @@ static Point3F normalVector(U32 word, U32 bits)
 }
 
 static bool planTakesSet(S32 at);
+static bool ghostFlagAt(S32 at, bool *set);
+static bool ghostWordAt(S32 at, U32 *word);
 
 static bool xferFlag(BitStream *stream, bool write, S32 at = -1)
 {
@@ -2134,6 +2136,8 @@ static bool writeStateFlag(S32 at, bool *set)
 static bool planTakesSet(S32 at)
 {
    bool set;
+   if(ghostFlagAt(at, &set))
+      return set;
    if(writeStateFlag(at, &set))
       return set;
 
@@ -2142,6 +2146,260 @@ static bool planTakesSet(S32 at)
       return sDbHas[field] && writeWord(at) != 0;
 
    return Plan::takeSet(at);
+}
+
+// HH: Added for Tribes 2 compatibility.
+/// What a ghost body carries on the write side. A class fills the same Body a
+/// read fills and the walk takes the values back out of it, so one
+/// description of a class's state serves both directions.
+static Body sWriteBody;
+static bool sHasWriteBody = false;
+static bool sWriteInitial = false;
+
+/// The words a multi-word field still owes, in the order the body carries
+/// them: a run is started by the node its field row names and taken by the
+/// nodes the walk visits after it.
+static U32 sWriteRun[16] = { 0 };
+static U32 sWriteRunLeft = 0;
+
+/// The words and strings a class's body carries in the order its layout
+/// reads them, for a class whose reader takes them positionally rather than
+/// by named node.
+static Vector<U32> sWriteBodyWords(__FILE__, __LINE__);
+static U32 sWriteBodyWordsTaken = 0;
+static Vector<String> sWriteBodyStrings(__FILE__, __LINE__);
+static U32 sWriteBodyStringsTaken = 0;
+
+void beginBody()
+{
+   sHasWriteBody = false;
+   sWriteRunLeft = 0;
+   sWriteBodyWords.clear();
+   sWriteBodyWordsTaken = 0;
+   sWriteBodyStrings.clear();
+   sWriteBodyStringsTaken = 0;
+}
+
+void publishBody(const Body &body)
+{
+   sWriteBody = body;
+   sHasWriteBody = true;
+}
+
+void publishBodyWord(U32 word)
+{
+   sWriteBodyWords.push_back(word);
+}
+
+void publishBodyString(const String &text)
+{
+   sWriteBodyStrings.push_back(text);
+}
+
+static U32 floatWord(F32 value)
+{
+   U32 word;
+   dMemcpy(&word, &value, sizeof(word));
+   return word;
+}
+
+/// The quaternion a body's rotation is sent as, which is its three axis parts
+/// with the fourth taken from them and its sign sent as a flag.
+static QuatF writeQuat()
+{
+   MatrixF m = sWriteBody.rotation;
+   return QuatF(m);
+}
+
+/// Whether the node starts a run of words the body has, and with what.
+static bool ghostRunAt(S32 at)
+{
+   const T2DataBlockLayout *layout = (const T2DataBlockLayout *)sFieldsLayout;
+   const T2GhostFieldRow *row = layout ? fieldAt(layout, at) : NULL;
+   if(!row || !sHasWriteBody)
+      return false;
+
+   const U32 words = t2FieldWords(row->field);
+   if(!words || words > ELEMENTS(sWriteRun))
+      return false;
+
+   switch(row->field)
+   {
+      case T2FieldAffine:
+      {
+         if(!sWriteBody.hasPosition && !sWriteBody.hasRotation)
+            return false;
+
+         const QuatF q = writeQuat();
+         sWriteRun[0] = floatWord(sWriteBody.position.x);
+         sWriteRun[1] = floatWord(sWriteBody.position.y);
+         sWriteRun[2] = floatWord(sWriteBody.position.z);
+         sWriteRun[3] = floatWord(q.x);
+         sWriteRun[4] = floatWord(q.y);
+         sWriteRun[5] = floatWord(q.z);
+         sWriteRunLeft = 6;
+         return true;
+      }
+
+      case T2FieldScale:
+      {
+         if(!sWriteBody.hasScale)
+            return false;
+
+         sWriteRun[0] = floatWord(sWriteBody.scale.x);
+         sWriteRun[1] = floatWord(sWriteBody.scale.y);
+         sWriteRun[2] = floatWord(sWriteBody.scale.z);
+         sWriteRunLeft = 3;
+         return true;
+      }
+
+      default:
+         break;
+   }
+
+   return false;
+}
+
+/// The datablock a ghost body names, which the recovered graph branches on at
+/// its root: the set arm reads the id and the clear arm says the object keeps
+/// the one it has.
+static bool ghostDataBlockAt(S32 at, bool *isTheNode)
+{
+   const T2DataBlockLayout *layout = (const T2DataBlockLayout *)sFieldsLayout;
+   *isTheNode = false;
+   if(!layout || layout->root < 0 || U32(layout->root) >= layout->count)
+      return false;
+
+   const T2DataNode &root = layout->nodes[layout->root];
+   if(root.op != OpFlag || !isBranch(&root))
+      return false;
+   if(root.b < 0 || U32(root.b) >= layout->count)
+      return false;
+
+   // The datablock the body names sits on the root's set arm, as an id a
+   // class reads for itself or one the walk takes. A root whose set arm is
+   // anything else -- a terrain's whole state, say -- is a flag over the body
+   // rather than over a datablock.
+   const T2DataNode &behind = layout->nodes[root.b];
+   if(behind.bits != 11 ||
+      (behind.op != OpReadBr && behind.op != OpDataBlockId))
+      return false;
+
+   if(at == layout->root)
+      return true;
+
+   *isTheNode = root.b == at;
+   return false;
+}
+
+/// Whether a ghost layout's root flag is the one over the whole body, which a
+/// first body sets and a later one does not.
+static bool ghostBodyFlagAt(S32 at)
+{
+   const T2DataBlockLayout *layout = (const T2DataBlockLayout *)sFieldsLayout;
+   if(!layout || at != layout->root)
+      return false;
+
+   bool unused;
+   if(ghostDataBlockAt(at, &unused))
+      return false;
+
+   const T2DataNode &root = layout->nodes[layout->root];
+   return root.op == OpFlag && isBranch(&root);
+}
+
+/// The word a ghost body sends at this node, where it has one.
+static bool ghostWordAt(S32 at, U32 *word)
+{
+   if(!sHasWriteBody)
+      return false;
+
+   if(sWriteRunLeft)
+   {
+      *word = sWriteRun[0];
+      for(U32 i = 1; i < sWriteRunLeft; i++)
+         sWriteRun[i - 1] = sWriteRun[i];
+      sWriteRunLeft--;
+      return true;
+   }
+
+   if(ghostRunAt(at))
+      return ghostWordAt(at, word);
+
+   bool isDataBlockNode = false;
+   ghostDataBlockAt(at, &isDataBlockNode);
+   if(isDataBlockNode && sWriteBody.hasDataBlock)
+   {
+      *word = sWriteBody.dataBlockId;
+      return true;
+   }
+
+   // A word of a body whose reader takes them in the order they came. A count
+   // is not one of them: what it counts is its own, and a class that sends
+   // none leaves it clear.
+   const T2DataBlockLayout *layout = (const T2DataBlockLayout *)sFieldsLayout;
+   if(layout && at >= 0 && U32(at) < layout->count &&
+      sWriteBodyWordsTaken < U32(sWriteBodyWords.size()))
+   {
+      const U32 op = layout->nodes[at].op;
+      if(op == OpInt || op == OpRaw)
+      {
+         *word = sWriteBodyWords[sWriteBodyWordsTaken++];
+         return true;
+      }
+   }
+
+   return false;
+}
+
+/// Whether a ghost body's flag goes out set.
+static bool ghostFlagAt(S32 at, bool *set)
+{
+   const T2DataBlockLayout *layout = (const T2DataBlockLayout *)sFieldsLayout;
+   if(!sHasWriteBody || !layout)
+      return false;
+
+   bool unused;
+   if(ghostDataBlockAt(at, &unused))
+   {
+      *set = sWriteBody.hasDataBlock;
+      return true;
+   }
+
+   if(ghostBodyFlagAt(at))
+   {
+      *set = sWriteInitial;
+      return true;
+   }
+
+   const T2GhostFieldRow *row = fieldAt(layout, at);
+   if(row && row->field == T2FieldQuatSign)
+   {
+      *set = writeQuat().w < 0.0f;
+      return true;
+   }
+
+   // A flag whose set arm starts a run of words: it goes out set when the
+   // body has them.
+   const T2DataNode &n = layout->nodes[at];
+   if(n.op == OpFlag && n.b >= 0 && U32(n.b) < layout->count)
+   {
+      const T2GhostFieldRow *behind = fieldAt(layout, n.b);
+      if(behind)
+         switch(behind->field)
+         {
+            case T2FieldAffine:
+               *set = sWriteBody.hasPosition || sWriteBody.hasRotation;
+               return true;
+            case T2FieldScale:
+               *set = sWriteBody.hasScale;
+               return true;
+            default:
+               break;
+         }
+   }
+
+   return false;
 }
 
 /// The text a string node sends: an image state's name, a published string
@@ -2153,6 +2411,8 @@ static const char *writeText(S32 at);
 static U32 writeWord(S32 at)
 {
    U32 word;
+   if(ghostWordAt(at, &word))
+      return word;
    if(writeStateWord(at, &word))
       return word;
 
@@ -2169,6 +2429,10 @@ static U32 writeWord(S32 at)
 
 static const char *writeText(S32 at)
 {
+   // A string of a body whose reader takes them in the order they came.
+   if(sWriteBodyStringsTaken < U32(sWriteBodyStrings.size()))
+      return sWriteBodyStrings[sWriteBodyStringsTaken++].c_str();
+
    U32 index;
    if(writeStateWord(at, &index))
       return index < U32(sStrings.size()) ? sStrings[index].c_str() : "";
@@ -4225,120 +4489,115 @@ static void assembleBody()
    }
 }
 
-static bool runGhost(BitStream *stream, const char *className,
-                     bool isInitial, bool write, const Subject *subject)
+// HH: Added for Tribes 2 compatibility.
+/// Everything a body says nothing about, so that a read says what came
+/// and a write says what a class put there.
+void clearBody(Body *body)
 {
-   sSubject = subject ? *subject : Subject();
-   sBody.hasDataBlock = false;
-   sBody.dataBlockId = 0;
-   sOwnDataBlockId = 0;
-   sFirstString[0] = 0;
-   sHaveFirstWord32 = false;
-   sFirstWord32 = 0;
-   sStrings.clear();
-   sWords.clear();
-   sBody.hasPosition = false;
-   sBody.hasYaw = false;
-   sBody.hasHead = false;
-   sBody.hasRotation = false;
-   sBody.hasScale = false;
-   sBody.hasVelocity = false;
-   sBody.hasDirection = false;
-   sBody.hasImpactNormal = false;
-   sBody.hasBeamTarget = false;
-   sBody.hasZap = false;
-   sBody.zapHit = false;
-   sBody.hasInheritedVel = false;
-   sBody.hasSeekInfo = false;
-   sBody.hasSeekObject = false;
-   sBody.hasSeekPoint = false;
-   sBody.seekCoasting = false;
-   sBody.hasDamage = false;
-   sBody.hasDamageState = false;
-   sBody.blowApart = false;
-   sBody.hasDamageDir = false;
-   sBody.hasShield = false;
-   sBody.shieldNormal.set(0.0f, 0.0f, 1.0f);
-   sBody.shieldEnergy = 0.0f;
-   sBody.hasExplodePoint = false;
-   sBody.hasCurrTick = false;
-   sBody.hasSourceObject = false;
-   sBody.sourceSlot = 0;
-   sBody.hasVehicleObject = false;
-   sBody.hasStationObject = false;
-   sBody.hasTarget = false;
-   sBody.target = -1;
-   sBody.quickSplash = false;
-   sBody.hasJetting = false;
-   sBody.jetting = false;
-   sBody.hasRotate = false;
-   sBody.rotate = false;
-   sBody.hasStatic = false;
-   sBody.isStatic = false;
-   sBody.hasAtRest = false;
-   sBody.atRest = false;
-   sBody.hasWarp = false;
-   sBody.warp = false;
-   sBody.hasImpactSound = false;
-   sBody.impactSound = 0;
-   sBody.hasAction = false;
-   sBody.action = 0;
-   sBody.actionHold = false;
-   sBody.actionAtEnd = false;
-   sBody.actionFirstPerson = false;
-   sBody.hasActionPos = false;
-   sBody.actionPos = 0.0f;
-   sBody.hasArm = false;
-   sBody.arm = 0;
-   sBody.hasInvincible = false;
-   sBody.invincibleTime = 0.0f;
-   sBody.invincibleSpeed = 0.0f;
-   sBody.hasFieldState = false;
-   sBody.fieldState = 0;
-   sBody.hasBeaconType = false;
-   sBody.beaconType = 0;
-   sBody.fieldFade = 0;
+   body->hasDataBlock = false;
+   body->dataBlockId = 0;
+   body->hasPosition = false;
+   body->hasYaw = false;
+   body->hasHead = false;
+   body->hasRotation = false;
+   body->hasScale = false;
+   body->hasVelocity = false;
+   body->hasDirection = false;
+   body->hasImpactNormal = false;
+   body->hasBeamTarget = false;
+   body->hasZap = false;
+   body->zapHit = false;
+   body->hasInheritedVel = false;
+   body->hasSeekInfo = false;
+   body->hasSeekObject = false;
+   body->hasSeekPoint = false;
+   body->seekCoasting = false;
+   body->hasDamage = false;
+   body->hasDamageState = false;
+   body->blowApart = false;
+   body->hasDamageDir = false;
+   body->hasShield = false;
+   body->shieldNormal.set(0.0f, 0.0f, 1.0f);
+   body->shieldEnergy = 0.0f;
+   body->hasExplodePoint = false;
+   body->hasCurrTick = false;
+   body->hasSourceObject = false;
+   body->sourceSlot = 0;
+   body->hasVehicleObject = false;
+   body->hasStationObject = false;
+   body->hasTarget = false;
+   body->target = -1;
+   body->quickSplash = false;
+   body->hasJetting = false;
+   body->jetting = false;
+   body->hasRotate = false;
+   body->rotate = false;
+   body->hasStatic = false;
+   body->isStatic = false;
+   body->hasAtRest = false;
+   body->atRest = false;
+   body->hasWarp = false;
+   body->warp = false;
+   body->hasImpactSound = false;
+   body->impactSound = 0;
+   body->hasAction = false;
+   body->action = 0;
+   body->actionHold = false;
+   body->actionAtEnd = false;
+   body->actionFirstPerson = false;
+   body->hasActionPos = false;
+   body->actionPos = 0.0f;
+   body->hasArm = false;
+   body->arm = 0;
+   body->hasInvincible = false;
+   body->invincibleTime = 0.0f;
+   body->invincibleSpeed = 0.0f;
+   body->hasFieldState = false;
+   body->fieldState = 0;
+   body->hasBeaconType = false;
+   body->beaconType = 0;
+   body->fieldFade = 0;
    const Body::Run none = { -1, 0 };
-   sBody.zonePoints = none;
-   sBody.zonePlanes = none;
-   sBody.zoneEdges = none;
-   sBody.velocityMod = 1.0f;
-   sBody.gravityMod = 1.0f;
-   sBody.hasAppliedForce = false;
-   sBody.appliedForce.set(0.0f, 0.0f, 0.0f);
-   sBody.hasZoneActive = false;
-   sBody.zoneActive = false;
-   sBody.hasCloaked = false;
-   sBody.cloaked = false;
-   sBody.hasFade = false;
-   sBody.fading = false;
-   sBody.fadeVisible = false;
-   sBody.fadeOut = false;
-   sBody.fadeTime = 0.0f;
-   sBody.hasMount = false;
-   sBody.mountGhost = -1;
-   sBody.mountNode = 0;
-   sBody.hasPowered = false;
-   sBody.powered = false;
-   sBody.hasWayPointName = false;
-   sBody.wayPointName[0] = 0;
-   sBody.hasWayPointTeam = false;
-   sBody.wayPointTeam = 0;
-   sBody.hasWayPointHidden = false;
-   sBody.wayPointHidden = false;
-   sBody.hasTurretAim = false;
-   sBody.turretHeading = 0.0f;
-   sBody.turretPitch = 0.0f;
-   sBody.turretActivation = 0.0f;
-   sBody.beamInitial = false;
-   sBody.beamHit = false;
-   sBody.beamWet = false;
-   sBody.beamFollow = false;
-   sBody.hasBeamEnergy = false;
-   sBody.beamEnergy = 1.0f;
+   body->zonePoints = none;
+   body->zonePlanes = none;
+   body->zoneEdges = none;
+   body->velocityMod = 1.0f;
+   body->gravityMod = 1.0f;
+   body->hasAppliedForce = false;
+   body->appliedForce.set(0.0f, 0.0f, 0.0f);
+   body->hasZoneActive = false;
+   body->zoneActive = false;
+   body->hasCloaked = false;
+   body->cloaked = false;
+   body->hasFade = false;
+   body->fading = false;
+   body->fadeVisible = false;
+   body->fadeOut = false;
+   body->fadeTime = 0.0f;
+   body->hasMount = false;
+   body->mountGhost = -1;
+   body->mountNode = 0;
+   body->hasPowered = false;
+   body->powered = false;
+   body->hasWayPointName = false;
+   body->wayPointName[0] = 0;
+   body->hasWayPointTeam = false;
+   body->wayPointTeam = 0;
+   body->hasWayPointHidden = false;
+   body->wayPointHidden = false;
+   body->hasTurretAim = false;
+   body->turretHeading = 0.0f;
+   body->turretPitch = 0.0f;
+   body->turretActivation = 0.0f;
+   body->beamInitial = false;
+   body->beamHit = false;
+   body->beamWet = false;
+   body->beamFollow = false;
+   body->hasBeamEnergy = false;
+   body->beamEnergy = 1.0f;
    for(U32 i = 0; i < MaxImages; i++)
    {
-      Body::Image &image = sBody.images[i];
+      Body::Image &image = body->images[i];
       image.present = false;
       image.hasDataBlock = false;
       image.dataBlockId = 0;
@@ -4356,7 +4615,7 @@ static bool runGhost(BitStream *stream, const char *className,
    }
    for(U32 i = 0; i < MaxThreads; i++)
    {
-      Body::Thread &thread = sBody.threads[i];
+      Body::Thread &thread = body->threads[i];
       thread.present = false;
       thread.sequence = 0;
       thread.state = 0;
@@ -4365,12 +4624,26 @@ static bool runGhost(BitStream *stream, const char *className,
    }
    for(U32 i = 0; i < MaxSounds; i++)
    {
-      Body::Sound &sound = sBody.sounds[i];
+      Body::Sound &sound = body->sounds[i];
       sound.present = false;
       sound.play = false;
       sound.profile = -1;
    }
-   dMemset(&sBody.vehicle, 0, sizeof(sBody.vehicle));
+   dMemset(&body->vehicle, 0, sizeof(body->vehicle));
+}
+
+static bool runGhost(BitStream *stream, const char *className,
+                     bool isInitial, bool write, const Subject *subject)
+{
+   sSubject = subject ? *subject : Subject();
+   sWriteInitial = isInitial;
+   sOwnDataBlockId = 0;
+   sFirstString[0] = 0;
+   sHaveFirstWord32 = false;
+   sFirstWord32 = 0;
+   sStrings.clear();
+   sWords.clear();
+   clearBody(&sBody);
    sTransformAt = -1;
    sAffineAt = -1;
    sScaleAt = -1;

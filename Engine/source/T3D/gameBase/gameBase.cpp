@@ -466,6 +466,33 @@ void GameBase::onT2BodyHeadRead(const T2Layout::Body &body)
       setDataBlock(data);
 }
 
+// HH: Added for Tribes 2 compatibility. Where a body is sent whole it names
+// the object's datablock and says where it is; a later one says only what
+// changed, which is a class's own business.
+void GameBase::getT2Body(T2Layout::Body *body, bool isInitial) const
+{
+   Parent::getT2Body(body, isInitial);
+
+   if(mDataBlock)
+   {
+      body->hasDataBlock = true;
+      body->dataBlockId = mDataBlock->getId() - DataBlockObjectIdFirst;
+   }
+
+   if(isInitial)
+   {
+      const MatrixF &transform = getTransform();
+      body->hasPosition = true;
+      body->position = transform.getPosition();
+      body->hasRotation = true;
+      body->rotation = transform;
+
+      const Point3F scale = getScale();
+      body->hasScale = scale.x != 1.0f || scale.y != 1.0f || scale.z != 1.0f;
+      body->scale = scale;
+   }
+}
+
 void GameBase::getT2Subject(T2Layout::Subject *subject,
                             NetConnection *conn) const
 {

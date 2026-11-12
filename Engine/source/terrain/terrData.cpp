@@ -300,6 +300,16 @@ bool TerrainBlock::setFile( const FileName &terrFileName )
       return mFile != NULL;
 
    Resource<TerrainFile> file = ResourceManager::get().load( terrFileName );
+
+   // HH: Modified for Tribes 2 compatibility. A mission states a bare file
+   // name -- Equinox.mis says `terrainFile = "Equinox.ter"` -- which is under
+   // terrains/, where a ghost's name is looked up too. Without this a server
+   // finds nothing, makes itself a flat terrain of its own and sends a client
+   // the name of that.
+   if( !file )
+      file = ResourceManager::get().load(
+         T2Layout::resourcePath( terrFileName.c_str(), "terrains/" ) );
+
    if( !file )
       return false;
       
@@ -879,10 +889,46 @@ void TerrainBlock::onEditorDisable()
 {
 }
 
-// HH: Added for Tribes 2 compatibility.
-// The body carries everything a mission's TerrainBlock states: the CRC, the
-// detail texture, the terrain file, the square size and the empty square run,
-// in that order (`Whiteout.mis` states the same five).
+// HH: Added for Tribes 2 compatibility. What a mission's TerrainBlock states,
+// in the order its layout reads them: the CRC, the terrain file, the detail
+// texture, the square size and the squares it leaves empty. A client refuses
+// the connection outright where the CRC does not match the file it loaded.
+void TerrainBlock::getT2Body(T2Layout::Body *body, bool isInitial) const
+{
+   Parent::getT2Body(body, isInitial);
+
+   // Its transform travels in the body's own nodes, which this layout has
+   // none of: a terrain sits where its file says.
+   body->hasPosition = false;
+   body->hasRotation = false;
+   body->hasScale = false;
+
+   T2Layout::publishBodyWord(mCRC);
+   T2Layout::publishBodyWord(U32(mSquareSize));
+   for(U32 i = 0; i < mEmptySquareRuns.size(); i++)
+      T2Layout::publishBodyWord(mEmptySquareRuns[i]);
+
+   // A bare file name, which is what a read puts back under terrains/.
+   const String file = mTerrFileName;
+   const S32 slash = file.find('/', 0, String::Right);
+   T2Layout::publishBodyString(slash < 0 ? file : file.substr(slash + 1));
+   T2Layout::publishBodyString(mDetailTexture);
+}
+
+U32 TerrainBlock::packUpdate(NetConnection *conn, U32 mask, BitStream *stream,
+                             bool isInitial)
+{
+   const U32 ret = Parent::packUpdate(conn, mask, stream, isInitial);
+
+   // The material names TribesNext's patch appends past protocol 51, which
+   // this engine has none of: the flag has to go out all the same or the
+   // reader takes a bit that is not there.
+   if(conn && conn->getProtocolVersion() > 51)
+      stream->writeFlag(false);
+
+   return ret;
+}
+
 bool TerrainBlock::unpackUpdate(BitStream *stream, bool isInitial)
 {
    if(!Parent::unpackUpdate(stream, isInitial))
