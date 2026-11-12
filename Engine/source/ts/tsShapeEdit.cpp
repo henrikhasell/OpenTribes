@@ -1389,23 +1389,6 @@ bool TSShape::addSequence(const Torque::Path& path, const String& fromSeq,
          }
       }
 
-      // Check that sequences have unique names
-      bool lastSequenceRejected = false;
-      for (S32 i = sequences.size()-1; i >= oldSeqCount; i--)
-      {
-         S32 nameIndex = (i == sequences.size()-1) ? findName(name) : sequences[i].nameIndex;
-         S32 seqIndex = findSequence(nameIndex);
-         if ((seqIndex != -1) && (seqIndex != i))
-         {
-            Con::errorf("TSShape::addSequence: Failed to add sequence '%s' "
-               "(name already exists)", getName(nameIndex).c_str());
-            sequences[i].nameIndex = addName("__dummy__");
-            removeSequence("__dummy__");
-            if (i == sequences.size())
-               lastSequenceRejected = true;
-         }
-      }
-
       // @todo:Need to remove keyframes if start!=0 and end!=-1
       TSShape::Sequence& seq = sequences.last();
 
