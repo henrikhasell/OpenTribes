@@ -1139,6 +1139,23 @@ inline U32 t2WholeWord(F32 value)
    /// carries them. The walk takes the first n of the layout's state blocks.
    void publishImageStates(const Vector<ImageState> &states);
 
+   /// Everything a body says nothing about, so a class can fill one and say
+   /// only what it means to.
+   void clearBody(Body *body);
+
+   /// Start a body: what a class published for the last one is forgotten.
+   void beginBody();
+
+   /// What a ghost body carries: a class fills the same Body a read fills and
+   /// the walk takes the values back out of it.
+   void publishBody(const Body &body);
+
+   /// A word, and a string, of a body whose reader takes them in the order
+   /// they came rather than by named node. They go out in the order they are
+   /// published here, to the nodes that read a word and a string.
+   void publishBodyWord(U32 word);
+   void publishBodyString(const String &text);
+
    /// What a body leaves out because retail reads it off the object and the
    /// connection rather than the stream. A walk without one takes the object
    /// for nobody's control object, with no wheels.
