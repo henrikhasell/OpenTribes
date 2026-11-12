@@ -98,7 +98,6 @@ IMPLEMENT_DATABLOCK_T2( CannedChatItem );
 IMPLEMENT_DATABLOCK_T2( SensorData );
 IMPLEMENT_DATABLOCK_T2( AudioEnvironment );
 IMPLEMENT_DATABLOCK_T2( AudioSampleEnvironment );
-IMPLEMENT_DATABLOCK_T2( BombProjectileData );
 static const StubT2::Field sT2EffectProfileFields[] =
 {
    { "minDistance", T2Layout::T2DbEffectMinDistance, StubT2::Whole, NULL    },
@@ -114,7 +113,6 @@ static const StubT2::Field sT2FireballAtmosphereDataFields[] =
 };
 
 IMPLEMENT_DATABLOCK_T2_WRITES( FireballAtmosphereData );
-IMPLEMENT_DATABLOCK_T2( FlareProjectileData );
 // HH: The jet flame, settled against a recorded retail server: two colours,
 // then seven whole floats, then the texture behind a flag. Body 1 of demo004
 // is HumanArmorJetEffect, whose 0.05, 0.75, -15 and 2.0 pin four of the seven

@@ -28,6 +28,7 @@
 #include "sfx/sfxTypes.h"
 #include "T3D/debris.h"
 #include "T3D/decal/decalData.h"
+#include "T3D/debris.h"
 #include "T3D/gameBase/dataBlocksT2.h"
 #include "T3D/gameBase/decalsT2.h"
 #include "T3D/gameBase/processList.h"
@@ -65,6 +66,7 @@ public:
    U32    baseEmitterId;   ///< the ParticleEmitterData it trails in flight
    U32    bubbleEmitterId; ///< and the one it trails under water instead
    U32    soundId;         ///< the AudioProfile it flies to
+   U32    splashId;        ///< the SplashData it goes into water as
 
       /// HH: What a server's scripts name for those four. A client is handed
       /// the ids above instead and resolves them in preload, so a datablock
@@ -97,6 +99,11 @@ public:
    F32  reflectOnWaterImpactAngle; ///< degrees it skips off water at
    F32  deflectionOnWaterImpact;   ///< and how far it is turned
 
+      /// A vehicle's bomb turns as it falls, and a flare burns at a size.
+   Point3F minRotSpeed;
+   Point3F maxRotSpeed;
+   bool    useLensFlare;
+
       /// What a bullet's streak is drawn with.
    F32    tracerMinPixels;
    F32    tracerAlpha;
@@ -105,7 +112,7 @@ public:
    F32    blurLifetime;    ///< seconds a length of the trail lasts
    F32    blurWidth;
    ColorF blurColor;
-   String texture[2];      ///< the bolt's and the cross's
+   String boltTexture[4];  ///< the bolt's and the cross's, and a lance's four
    U32    numFlares;       ///< the petals a plasma bolt is seen as
    F32    flareSize[3];    ///< how far out they start and end
    ColorF flareColor;
@@ -130,10 +137,34 @@ public:
       /// of one, so the shape its datablock also names is never wanted.
    bool namesGameBaseShape() const { return streakLength <= 0.0f; }
 
-      /// Whether it flies at a fixed speed, which a bolt and a bullet do and
-      /// a grenade does not. The two families keep the same fields in
-      /// different nodes, and quantise their lifetime differently.
-   virtual bool fliesLinearly() const { return false; }
+      /// The strings its own middle carries, read back. A bolt and a bullet
+      /// are drawn with theirs.
+   virtual void readT2Strings()
+   {
+      for(U32 i = 0; i < 2; i++)
+      {
+         const char *at = T2Layout::lastDataBlockString(
+                             T2Layout::T2DbProjectileString + i);
+         if(at)
+            boltTexture[i] = at;
+      }
+   }
+
+      /// The strings its own middle carries. A bolt and a bullet put what
+      /// they are drawn with there; a seeker puts a node name and a shape.
+   virtual void publishT2Strings()
+   {
+      T2Layout::publishDataBlockString(T2Layout::T2DbProjectileString + 0,
+                                       boltTexture[0].c_str());
+      T2Layout::publishDataBlockString(T2Layout::T2DbProjectileString + 1,
+                                       boltTexture[1].c_str());
+   }
+
+      /// What its lifetime goes over as. A grenade's is the milliseconds it
+      /// was given; a bolt's and a bullet's are whole ticks, rounded up,
+      /// between one tick and 510 of them, which retail's onAdd says in as
+      /// many words.
+   virtual U32 lifetimeWord() const { return U32(lifetimeMS); }
    bool unpackData(BitStream *stream, U32 classId);
 
       // HH: Added for Tribes 2 compatibility.
@@ -160,7 +191,7 @@ ProjectileDataT2::ProjectileDataT2()
      scale(1.0f, 1.0f, 1.0f),
      elasticity(0.0f),
      friction(0.0f),
-     gravityMod(0.0f),
+     gravityMod(1.0f),
      drag(0.0f),
      density(1.0f),
      armingDelayMS(0),
@@ -168,6 +199,7 @@ ProjectileDataT2::ProjectileDataT2()
      baseEmitterId(0),
      bubbleEmitterId(0),
      soundId(0),
+     splashId(0),
      explosion(NULL),
      underwaterExplosion(NULL),
      delayEmitter(NULL),
@@ -188,6 +220,9 @@ ProjectileDataT2::ProjectileDataT2()
      doDynamicClientHits(false),
      reflectOnWaterImpactAngle(0.0f),
      deflectionOnWaterImpact(0.0f),
+     minRotSpeed(0.0f, 0.0f, 0.0f),
+     maxRotSpeed(0.0f, 0.0f, 0.0f),
+     useLensFlare(false),
      tracerMinPixels(0.0f),
      tracerAlpha(0.0f),
      tracerColor(1.0f, 1.0f, 1.0f, 1.0f),
@@ -208,7 +243,7 @@ ProjectileDataT2::ProjectileDataT2()
      waterLightColor(1.0f, 1.0f, 1.0f, 1.0f),
      decal(NULL)
 {
-   flareSize[0] = 0.0f;
+   flareSize[0] = 0.2f;
    flareSize[1] = 0.25f;
    flareSize[2] = 3.0f;
    for(U32 i = 0; i < 6; i++)
@@ -297,6 +332,9 @@ void ProjectileDataT2::initPersistFields()
       "How far that light reaches.");
    addField("lightColor",       TYPEID< ColorF >(),  Offset(lightColor, ProjectileDataT2),
       "What colour it is.");
+   addField("hasLightUnderwaterColor", TYPEID< bool >(),
+      Offset(hasWaterLight, ProjectileDataT2),
+      "Whether its light is another colour under water.");
    addField("hasWaterLight",    TYPEID< bool >(),    Offset(hasWaterLight, ProjectileDataT2),
       "It lights differently under water.");
 
@@ -337,17 +375,27 @@ void ProjectileDataT2::initPersistFields()
       "How solid that streak is.");
    addField("tracerColor", TYPEID< ColorF >(), Offset(tracerColor, ProjectileDataT2),
       "And its colour.");
-   addField("tracerTex", TypeRealString, Offset(texture, ProjectileDataT2), 2,
+   addField("minRotSpeed", TYPEID< Point3F >(), Offset(minRotSpeed, ProjectileDataT2),
+      "How slowly a falling bomb turns.");
+   addField("maxRotSpeed", TYPEID< Point3F >(), Offset(maxRotSpeed, ProjectileDataT2),
+      "And how fast.");
+   addField("useLensFlare", TYPEID< bool >(), Offset(useLensFlare, ProjectileDataT2),
+      "Whether a flare is drawn as one.");
+   addField("tracerTex", TypeRealString, Offset(boltTexture, ProjectileDataT2), 2,
       "What its streak is drawn with, and what its cross is.");
+   addField("texture",   TypeRealString, Offset(boltTexture, ProjectileDataT2), 4,
+      "What a bolt is drawn with along its flight and end on, and the four a "
+      "lance's zap is drawn with.");
    // A flare bolt names the same two slots its own way, and the one it is
    // modulated by comes first on the wire.
-   addField("flareModTexture", TypeRealString, Offset(texture, ProjectileDataT2),
+   addField("flareModTexture", TypeRealString, Offset(boltTexture, ProjectileDataT2),
       "What a flare bolt's petals are modulated by.");
    addField("flareBaseTexture", TypeRealString,
-      Offset(texture, ProjectileDataT2) + sizeof(String),
+      Offset(boltTexture, ProjectileDataT2) + sizeof(String),
       "And what they are drawn from.");
    addField("size", TYPEID< F32 >(), Offset(flareSize, ProjectileDataT2), 3,
-      "How far a flare bolt's petals start and end out.");
+      "How far a flare bolt's petals start and end out, and how big a flare "
+      "grenade burns -- a flare bolt keeps three and a grenade the first.");
    addField("renderCross", TYPEID< bool >(), Offset(renderCross, ProjectileDataT2),
       "Whether it is drawn end on as a cross.");
    addField("delayEmitter", TYPEID< ParticleEmitterData >(),
@@ -374,6 +422,9 @@ void ProjectileDataT2::initPersistFields()
       "The one it trails under water instead.");
    addField("sound",        TypeSFXTrackName,                Offset(sound, ProjectileDataT2),
       "The sound it flies to.");
+   addField("underWaterLightColor", TYPEID< ColorF >(),
+      Offset(waterLightColor, ProjectileDataT2),
+      "And what colour that is.");
    addField("waterLightColor",  TYPEID< ColorF >(),  Offset(waterLightColor, ProjectileDataT2),
       "What colour it is there.");
 }
@@ -419,15 +470,19 @@ void ProjectileDataT2::publishT2Data()
    // A grenade's lifetime goes over as it stands; a bolt's is whole ticks,
    // between one and 510 of them.
    T2Layout::publishDataBlockWord(T2Layout::T2DbProjectileLifetime,
-      fliesLinearly() ? T2Layout::t2TickMs(lifetimeMS, 32, 510)
-                      : U32(lifetimeMS));
+                                  lifetimeWord());
 
    T2Layout::publishDataBlockWord(T2Layout::T2DbProjectileFizzleTime,
       T2Layout::t2TickMs(fizzleTimeMS <= 0 || fizzleTimeMS > lifetimeMS
                             ? lifetimeMS : fizzleTimeMS, 32, 510));
+   // A time it cannot live to see is no time at all: retail sends -1 for a
+   // fizzleUnderwaterMS past the lifetime, as it does for one no script set.
+   // ChaingunBullet's 3000 goes out as 3008 against a lifetime of 3000, and
+   // ScoutChaingunBullet's same 3000 as -1 against a lifetime of 1000.
+   const U32 underwater = T2Layout::t2TickMs(fizzleUnderwaterMS, 32, 510);
    T2Layout::publishDataBlockWord(T2Layout::T2DbProjectileFizzleUnderwater,
-      fizzleUnderwaterMS > 0 ? T2Layout::t2TickMs(fizzleUnderwaterMS, 32, 510)
-                             : U32(-1));
+      fizzleUnderwaterMS > 0 && underwater <= lifetimeWord()
+         ? underwater : U32(-1));
    T2Layout::publishDataBlockWord(T2Layout::T2DbProjectileActivateDelay,
                                   U32(activateDelayMS));
    T2Layout::publishDataBlockFlag(T2Layout::T2DbProjectileExplodeOnDeath,
@@ -443,17 +498,27 @@ void ProjectileDataT2::publishT2Data()
    T2Layout::publishDataBlockWhole(T2Layout::T2DbTracerMinPixels, tracerMinPixels);
    T2Layout::publishDataBlockWord(T2Layout::T2DbTracerAlpha, U32(tracerAlpha));
    T2Layout::publishDataBlockWord(T2Layout::T2DbTracerColor,
-      U32(tracerColor.red * 255.0f + 0.5f) |
-      (U32(tracerColor.green * 255.0f + 0.5f) << 8) |
-      (U32(tracerColor.blue * 255.0f + 0.5f) << 16) |
-      (U32(tracerColor.alpha * 255.0f + 0.5f) << 24));
+                                  T2Layout::t2ColorWord(tracerColor));
    T2Layout::publishDataBlockWord(T2Layout::T2DbRenderCross, renderCross ? 1 : 0);
 
-   // What it is drawn with along its flight, and what it is drawn with end on.
-   T2Layout::publishDataBlockString(T2Layout::T2DbProjectileTexture + 0,
-                                    texture[0].c_str());
-   T2Layout::publishDataBlockString(T2Layout::T2DbProjectileTexture + 1,
-                                    texture[1].c_str());
+   T2Layout::publishDataBlockWhole(T2Layout::T2DbProjectileMinRotSpeedX,
+                                   minRotSpeed.x);
+   T2Layout::publishDataBlockWhole(T2Layout::T2DbProjectileMinRotSpeedY,
+                                   minRotSpeed.y);
+   T2Layout::publishDataBlockWhole(T2Layout::T2DbProjectileMinRotSpeedZ,
+                                   minRotSpeed.z);
+   T2Layout::publishDataBlockWhole(T2Layout::T2DbProjectileMaxRotSpeedX,
+                                   maxRotSpeed.x);
+   T2Layout::publishDataBlockWhole(T2Layout::T2DbProjectileMaxRotSpeedY,
+                                   maxRotSpeed.y);
+   T2Layout::publishDataBlockWhole(T2Layout::T2DbProjectileMaxRotSpeedZ,
+                                   maxRotSpeed.z);
+   // A flare grenade's size is the first of the three a flare bolt keeps.
+   T2Layout::publishDataBlockWhole(T2Layout::T2DbProjectileSize, flareSize[0]);
+   T2Layout::publishDataBlockWord(T2Layout::T2DbProjectileUseLensFlare,
+                                  useLensFlare ? 1 : 0);
+
+   publishT2Strings();
 
    // Each is an id the body only carries where there is one, named here by a
    // server's scripts and handed to a client as a number.
@@ -503,9 +568,14 @@ void ProjectileDataT2::publishT2Data()
    T2Layout::publishDataBlockWhole(T2Layout::T2DbBlurColorG, blurColor.green);
    T2Layout::publishDataBlockWhole(T2Layout::T2DbBlurColorB, blurColor.blue);
 
-   T2Layout::publishDataBlockWhole(T2Layout::T2DbScaleX, scale.x);
-   T2Layout::publishDataBlockWhole(T2Layout::T2DbScaleY, scale.y);
-   T2Layout::publishDataBlockWhole(T2Layout::T2DbScaleZ, scale.z);
+   // A scale of one is the default the flag before it says is not there, and
+   // a retail server sends nothing for one.
+   if(scale.x != 1.0f || scale.y != 1.0f || scale.z != 1.0f)
+   {
+      T2Layout::publishDataBlockWhole(T2Layout::T2DbScaleX, scale.x);
+      T2Layout::publishDataBlockWhole(T2Layout::T2DbScaleY, scale.y);
+      T2Layout::publishDataBlockWhole(T2Layout::T2DbScaleZ, scale.z);
+   }
 
    T2Layout::publishDataBlockWhole(T2Layout::T2DbElasticity, elasticity);
    T2Layout::publishDataBlockWhole(T2Layout::T2DbFriction, friction);
@@ -514,11 +584,8 @@ void ProjectileDataT2::publishT2Data()
    T2Layout::publishDataBlockWhole(T2Layout::T2DbProjectileDensity, density);
 
    T2Layout::publishDataBlockWord(T2Layout::T2DbNumFlares, numFlares);
-   // Rounded, as a colour's bytes are.
    T2Layout::publishDataBlockWord(T2Layout::T2DbFlareColor,
-      U32(flareColor.red * 255.0f + 0.5f) |
-      (U32(flareColor.green * 255.0f + 0.5f) << 8) |
-      (U32(flareColor.blue * 255.0f + 0.5f) << 16));
+                                  T2Layout::t2ColorWord(flareColor));
    T2Layout::publishDataBlockWhole(T2Layout::T2DbFlareSize0, flareSize[0]);
    T2Layout::publishDataBlockWhole(T2Layout::T2DbFlareSize1, flareSize[1]);
    T2Layout::publishDataBlockWhole(T2Layout::T2DbFlareSize2, flareSize[2]);
@@ -579,6 +646,8 @@ bool ProjectileDataT2::unpackData(BitStream *stream, U32 classId)
       bubbleEmitterId = word;
    if(T2Layout::lastDataBlockWord(T2Layout::T2DbProjectileSound, &word))
       soundId = word;
+   if(T2Layout::lastDataBlockWord(T2Layout::T2DbProjectileSplash, &word))
+      splashId = word;
    if(T2Layout::lastDataBlockField(T2Layout::T2DbBlurLifetime, &value))
       blurLifetime = value;
    if(T2Layout::lastDataBlockField(T2Layout::T2DbBlurWidth, &value))
@@ -686,14 +755,7 @@ bool ProjectileDataT2::unpackData(BitStream *stream, U32 classId)
       shapeName = StringTable->insert(
          T2Layout::lastDataBlockString(T2Layout::T2DbProjectileShapeName));
 
-      // Every one of these layouts names its shape first and its two
-      // textures after it, which for a bolt are what it is drawn with along
-      // its flight and what it is drawn with end on.
-   const Vector<String> &strings = T2Layout::lastStrings();
-   if(strings.size() > 1)
-      texture[0] = strings[1];
-   if(strings.size() > 2)
-      texture[1] = strings[2];
+   readT2Strings();
 
    return true;
 }
@@ -704,13 +766,244 @@ bool ProjectileDataT2::unpackData(BitStream *stream, U32 classId)
       typedef ProjectileDataT2 Parent;                                       \
    public:                                                                   \
       DECLARE_CONOBJECT(className);                                          \
-      bool fliesLinearly() const { return linear; }                          \
+      U32 lifetimeWord() const                                               \
+      {                                                                      \
+         return linear ? T2Layout::t2TickMs(lifetimeMS, 32, 510)             \
+                       : Parent::lifetimeWord();                             \
+      }                                                                      \
    };                                                                        \
    IMPLEMENT_CO_DATABLOCK_V1(className);                                     \
    ConsoleDocClass( className, "@brief A Tribes 2 projectile's datablock."    \
                                "\n\n@internal" )
 
+//----------------------------------------------------------------------------
+
+// HH: A seeker flies itself: it holds the speeds it turns and climbs at, what
+// it avoids the ground by, and the trail and casing it sheds. Its nodes were
+// settled by probe datablocks a retail server sent back.
+class SeekerProjectileData : public ProjectileDataT2
+{
+   typedef ProjectileDataT2 Parent;
+
+public:
+   F32 turningSpeed;
+   F32 terrainAvoidanceSpeed;
+   F32 terrainScanAhead;
+   F32 terrainHeightFail;
+   F32 terrainAvoidanceRadius;
+   F32 flareDistance;          ///< how far off a flare pulls it
+   F32 flareAngle;
+   F32 maxVelocity;
+   F32 acceleration;
+   S32 flechetteDelayMs;
+   S32 exhaustTimeMs;
+   bool useFlechette;
+   StringTableEntry exhaustNodeName; ///< the node its exhaust hangs off
+   StringTableEntry casingShapeName; ///< and the casing it sheds
+
+   DebrisData          *casingDeb;
+   ParticleEmitterData *puffEmitter;
+   ParticleEmitterData *exhaustEmitter;
+
+   SeekerProjectileData()
+      : turningSpeed(0.0f),
+        terrainAvoidanceSpeed(0.0f),
+        terrainScanAhead(0.0f),
+        terrainHeightFail(0.0f),
+        terrainAvoidanceRadius(0.0f),
+        flareDistance(0.0f),
+        flareAngle(0.0f),
+        // What a seeker a retail server has just made flies at, before a
+        // script has said otherwise: a turret's missile sets neither and its
+        // body carries these.
+        maxVelocity(65.0f),
+        acceleration(10.0f),
+
+        flechetteDelayMs(550),
+        exhaustTimeMs(1000),
+        useFlechette(true),
+        casingDeb(NULL),
+        puffEmitter(NULL),
+        exhaustEmitter(NULL)
+   {
+      exhaustNodeName = StringTable->EmptyString();
+      casingShapeName = StringTable->EmptyString();
+   }
+
+      /// A seeker's lifetime is whole ticks too, but between 500ms and 30s.
+   U32 lifetimeWord() const
+   {
+      return T2Layout::t2TickMs(lifetimeMS, 500, 937);
+   }
+
+   static void initPersistFields()
+   {
+      Parent::initPersistFields();
+
+      addField("turningSpeed", TYPEID< F32 >(),
+         Offset(turningSpeed, SeekerProjectileData),
+         "Degrees a second it can turn.");
+      addField("terrainAvoidanceSpeed", TYPEID< F32 >(),
+         Offset(terrainAvoidanceSpeed, SeekerProjectileData),
+         "How hard it pulls up from the ground.");
+      addField("terrainScanAhead", TYPEID< F32 >(),
+         Offset(terrainScanAhead, SeekerProjectileData),
+         "How far ahead it looks for it.");
+      addField("terrainHeightFail", TYPEID< F32 >(),
+         Offset(terrainHeightFail, SeekerProjectileData),
+         "The height it gives up at.");
+      addField("terrainAvoidanceRadius", TYPEID< F32 >(),
+         Offset(terrainAvoidanceRadius, SeekerProjectileData),
+         "And how wide it keeps clear.");
+      addField("flareDistance", TYPEID< F32 >(),
+         Offset(flareDistance, SeekerProjectileData),
+         "How far off a flare takes it.");
+      addField("flareAngle", TYPEID< F32 >(),
+         Offset(flareAngle, SeekerProjectileData),
+         "And within what angle one works.");
+      addField("maxVelocity", TYPEID< F32 >(),
+         Offset(maxVelocity, SeekerProjectileData),
+         "The fastest it flies.");
+      addField("acceleration", TYPEID< F32 >(),
+         Offset(acceleration, SeekerProjectileData),
+         "And how quickly it gets there.");
+      addField("flechetteDelayMs", TYPEID< S32 >(),
+         Offset(flechetteDelayMs, SeekerProjectileData),
+         "Before a flechette breaks up.");
+      addField("exhaustTimeMs", TYPEID< S32 >(),
+         Offset(exhaustTimeMs, SeekerProjectileData),
+         "How long its exhaust burns.");
+      addField("useFlechette", TYPEID< bool >(),
+         Offset(useFlechette, SeekerProjectileData),
+         "Whether it breaks up at all.");
+      addField("exhaustNodeName", TypeString,
+         Offset(exhaustNodeName, SeekerProjectileData),
+         "The node its exhaust hangs off.");
+      addField("casingShapeName", TypeString,
+         Offset(casingShapeName, SeekerProjectileData),
+         "The casing it sheds on the way out.");
+      addField("casingDeb", TYPEID< DebrisData >(),
+         Offset(casingDeb, SeekerProjectileData),
+         "What that casing is.");
+      addField("puffEmitter", TYPEID< ParticleEmitterData >(),
+         Offset(puffEmitter, SeekerProjectileData),
+         "The puff it leaves the tube in.");
+      addField("exhaustEmitter", TYPEID< ParticleEmitterData >(),
+         Offset(exhaustEmitter, SeekerProjectileData),
+         "And the trail it flies on.");
+   }
+
+   void publishT2Strings() override
+   {
+      T2Layout::publishDataBlockString(T2Layout::T2DbProjectileString + 0,
+                                       exhaustNodeName);
+      T2Layout::publishDataBlockString(T2Layout::T2DbProjectileString + 1,
+                                       casingShapeName);
+   }
+
+   void readT2Strings() override
+   {
+      const char *at =
+         T2Layout::lastDataBlockString(T2Layout::T2DbProjectileString + 0);
+      if(at)
+         exhaustNodeName = StringTable->insert(at);
+      at = T2Layout::lastDataBlockString(T2Layout::T2DbProjectileString + 1);
+      if(at)
+         casingShapeName = StringTable->insert(at);
+   }
+
+   bool unpackData(BitStream *stream, U32 classId) override
+   {
+      if(!Parent::unpackData(stream, classId))
+         return false;
+
+      F32 value;
+      U32 word;
+      if(T2Layout::lastDataBlockField(T2Layout::T2DbSeekerTurning, &value))
+         turningSpeed = value;
+      if(T2Layout::lastDataBlockField(T2Layout::T2DbSeekerMaxVelocity, &value))
+         maxVelocity = value;
+      if(T2Layout::lastDataBlockField(T2Layout::T2DbSeekerAcceleration, &value))
+         acceleration = value;
+      if(T2Layout::lastDataBlockField(T2Layout::T2DbSeekerFlareDistance, &value))
+         flareDistance = value;
+      if(T2Layout::lastDataBlockField(T2Layout::T2DbSeekerFlareAngle, &value))
+         flareAngle = value;
+      if(T2Layout::lastDataBlockField(
+            T2Layout::T2DbSeekerTerrainAvoidanceSpeed, &value))
+         terrainAvoidanceSpeed = value;
+      if(T2Layout::lastDataBlockField(T2Layout::T2DbSeekerTerrainScanAhead, &value))
+         terrainScanAhead = value;
+      if(T2Layout::lastDataBlockField(T2Layout::T2DbSeekerTerrainHeightFail, &value))
+         terrainHeightFail = value;
+      if(T2Layout::lastDataBlockField(
+            T2Layout::T2DbSeekerTerrainAvoidanceRadius, &value))
+         terrainAvoidanceRadius = value;
+      if(T2Layout::lastDataBlockWord(T2Layout::T2DbSeekerUseFlechette, &word))
+         useFlechette = word != 0;
+      if(T2Layout::lastDataBlockWord(T2Layout::T2DbSeekerFlechetteDelay, &word))
+         flechetteDelayMs = S32(word);
+      if(T2Layout::lastDataBlockWord(T2Layout::T2DbSeekerExhaustTime, &word))
+         exhaustTimeMs = S32(word);
+
+      return true;
+   }
+
+   void publishT2Data() override
+   {
+      Parent::publishT2Data();
+
+      T2Layout::publishDataBlockWhole(T2Layout::T2DbSeekerTurning, turningSpeed);
+      // A float at the node after it that no script sets and every body
+      // carries as ten.
+      T2Layout::publishDataBlockWhole(T2Layout::T2DbSeekerProximity, 10.0f);
+      T2Layout::publishDataBlockWhole(T2Layout::T2DbSeekerTerrainAvoidanceSpeed,
+                                      terrainAvoidanceSpeed);
+      T2Layout::publishDataBlockWhole(T2Layout::T2DbSeekerTerrainScanAhead,
+                                      terrainScanAhead);
+      T2Layout::publishDataBlockWhole(T2Layout::T2DbSeekerTerrainHeightFail,
+                                      terrainHeightFail);
+      T2Layout::publishDataBlockWhole(T2Layout::T2DbSeekerTerrainAvoidanceRadius,
+                                      terrainAvoidanceRadius);
+      T2Layout::publishDataBlockWhole(T2Layout::T2DbSeekerFlareDistance,
+                                      flareDistance);
+      T2Layout::publishDataBlockWhole(T2Layout::T2DbSeekerFlareAngle, flareAngle);
+      T2Layout::publishDataBlockWord(T2Layout::T2DbSeekerUseFlechette,
+                                     useFlechette ? 1 : 0);
+      T2Layout::publishDataBlockWhole(T2Layout::T2DbSeekerMaxVelocity, maxVelocity);
+      T2Layout::publishDataBlockWhole(T2Layout::T2DbSeekerAcceleration, acceleration);
+      T2Layout::publishDataBlockWord(T2Layout::T2DbSeekerFlechetteDelay,
+                                     U32(flechetteDelayMs));
+      T2Layout::publishDataBlockWord(T2Layout::T2DbSeekerExhaustTime,
+                                     U32(exhaustTimeMs));
+
+      const SimObject *named[] = { casingDeb, puffEmitter, exhaustEmitter };
+      static const U32 sFields[] =
+      {
+         T2Layout::T2DbSeekerCasingDebris,
+         T2Layout::T2DbSeekerPuffEmitter,
+         T2Layout::T2DbSeekerExhaustEmitter,
+      };
+      for(U32 i = 0; i < 3; i++)
+         if(named[i])
+            T2Layout::publishDataBlockWord(sFields[i],
+               named[i]->getId() - DataBlockObjectIdFirst);
+   }
+
+   DECLARE_CONOBJECT(SeekerProjectileData);
+};
+
+IMPLEMENT_CO_DATABLOCK_V1(SeekerProjectileData);
+
+ConsoleDocClass( SeekerProjectileData,
+   "@brief What a Tribes 2 seeking missile's datablock says about its "
+   "flight.\n\n@internal" );
+
+//----------------------------------------------------------------------------
+
+IMPLEMENT_PROJECTILE_DATA_T2( BombProjectileData,        false );
 IMPLEMENT_PROJECTILE_DATA_T2( EnergyProjectileData,      false );
+IMPLEMENT_PROJECTILE_DATA_T2( FlareProjectileData,       false );
 IMPLEMENT_PROJECTILE_DATA_T2( GrenadeProjectileData,     false );
 IMPLEMENT_PROJECTILE_DATA_T2( LinearFlareProjectileData, true  );
 IMPLEMENT_PROJECTILE_DATA_T2( LinearProjectileData,      true  );
@@ -960,9 +1253,9 @@ bool ProjectileT2::onNewDataBlock(GameBaseData *dptr, bool reload)
 
    mFlares.clear();
    mFlareTexture = NULL;
-   if(isClientObject() && mData->numFlares && mData->texture[0].isNotEmpty())
+   if(isClientObject() && mData->numFlares && mData->boltTexture[0].isNotEmpty())
    {
-      mFlareTexture.set(String("textures/") + mData->texture[0],
+      mFlareTexture.set(String("textures/") + mData->boltTexture[0],
                         &GFXDefaultStaticDiffuseProfile, "ProjectileT2");
       mFlares.setSize(mData->numFlares);
       for(U32 i = 0; i < mFlares.size(); i++)
@@ -988,8 +1281,8 @@ bool ProjectileT2::onNewDataBlock(GameBaseData *dptr, bool reload)
    else
    {
       for(U32 i = 0; i < 2; i++)
-         if(mData->texture[i].isNotEmpty())
-            mTexture[i].set(String("textures/") + mData->texture[i],
+         if(mData->boltTexture[i].isNotEmpty())
+            mTexture[i].set(String("textures/") + mData->boltTexture[i],
                             &GFXDefaultStaticDiffuseProfile, "ProjectileT2");
 
          // A bolt is drawn five metres long and trails a fifth of a second
@@ -1916,9 +2209,9 @@ IMPLEMENT_PROJECTILE_T2( TracerProjectile, false );
 
 /// What both of Tribes 2's beams are drawn with. A sniper shot names twelve
 /// textures and a targeting beam four, each in its own order.
-class BeamProjectileDataT2 : public DataBlockT2
+class BeamProjectileDataT2 : public ProjectileDataT2
 {
-   typedef DataBlockT2 Parent;
+   typedef ProjectileDataT2 Parent;
 
 public:
    enum { MaxTextures = 12 };
@@ -1934,14 +2227,19 @@ public:
    F32    maxFlareSize;    ///< pixels
    F32    pulseSpeed;
    F32    pulseLength;
-   U32    explosionId;
-   U32    splashId;
+   F32    headMultiplier;  ///< what a sniper shot does to a head
    String textureName[MaxTextures];
    GFXTexHandle texture[MaxTextures];
 
    BeamProjectileDataT2();
    bool unpackData(BitStream *stream, U32 classId);
    bool preload(bool server, String &errorStr);
+
+      // HH: Added for Tribes 2 compatibility.
+   static void initPersistFields();
+   void publishT2Data() override;
+   void publishT2Strings() override;
+   void readT2Strings() override;
 
    DECLARE_CONOBJECT(BeamProjectileDataT2);
 };
@@ -1964,8 +2262,7 @@ BeamProjectileDataT2::BeamProjectileDataT2()
      maxFlareSize(400.0f),
      pulseSpeed(6.0f),
      pulseLength(0.15f),
-     explosionId(0),
-     splashId(0)
+     headMultiplier(1.0f)
 {
 }
 
@@ -2000,16 +2297,8 @@ bool BeamProjectileDataT2::unpackData(BitStream *stream, U32 classId)
       pulseSpeed = value;
    if(T2Layout::lastDataBlockField(T2Layout::T2DbBeamPulseLength, &value))
       pulseLength = value;
-   if(T2Layout::lastDataBlockWord(T2Layout::T2DbExplosion, &word))
-      explosionId = word;
-   if(T2Layout::lastDataBlockWord(T2Layout::T2DbProjectileSplash, &word))
-      splashId = word;
-
-      // The shape ProjectileData names comes first; the textures are every
-      // string after it.
-   const Vector<String> &strings = T2Layout::lastStrings();
-   for(U32 i = 0; i < MaxTextures && i + 1 < strings.size(); i++)
-      textureName[i] = strings[i + 1];
+   if(T2Layout::lastDataBlockField(T2Layout::T2DbBeamHeadMultiplier, &value))
+      headMultiplier = value;
 
    return true;
 }
@@ -2028,19 +2317,117 @@ bool BeamProjectileDataT2::preload(bool server, String &errorStr)
    return true;
 }
 
-#define IMPLEMENT_BEAM_DATA_T2( className )                                  \
+// HH: What a beam's scripts name, and what its body carries. Nothing sets its
+// textures: every body a retail server sends has the twelve its engine was
+// built with, so those are the defaults here.
+void BeamProjectileDataT2::initPersistFields()
+{
+   Parent::initPersistFields();
+
+   addField("maxRifleRange",      TYPEID< F32 >(),
+      Offset(range, BeamProjectileDataT2), "How far it reaches.");
+   addField("rifleHeadMultiplier", TYPEID< F32 >(),
+      Offset(headMultiplier, BeamProjectileDataT2),
+      "What a hit on the head is worth.");
+   addField("beamColor",          TYPEID< ColorF >(),
+      Offset(color, BeamProjectileDataT2), "The colour it is drawn in.");
+   addField("fadeTime",           TYPEID< F32 >(),
+      Offset(fadeTime, BeamProjectileDataT2), "Seconds it takes to go.");
+   addField("startBeamWidth",     TYPEID< F32 >(),
+      Offset(startWidth, BeamProjectileDataT2), "How wide it leaves at.");
+   addField("endBeamWidth",       TYPEID< F32 >(),
+      Offset(endWidth, BeamProjectileDataT2), "And how wide it arrives.");
+   addField("pulseBeamWidth",     TYPEID< F32 >(),
+      Offset(pulseWidth, BeamProjectileDataT2), "The pulse that runs along it.");
+   addField("beamFlareAngle",     TYPEID< F32 >(),
+      Offset(flareAngle, BeamProjectileDataT2),
+      "Degrees off the beam its flare shows within.");
+   addField("minFlareSize",       TYPEID< F32 >(),
+      Offset(minFlareSize, BeamProjectileDataT2), "The least that flare is.");
+   addField("maxFlareSize",       TYPEID< F32 >(),
+      Offset(maxFlareSize, BeamProjectileDataT2), "And the most, in pixels.");
+   addField("pulseSpeed",         TYPEID< F32 >(),
+      Offset(pulseSpeed, BeamProjectileDataT2), "How fast the pulse runs.");
+   addField("pulseLength",        TYPEID< F32 >(),
+      Offset(pulseLength, BeamProjectileDataT2), "And how long it is.");
+   addField("textureName",        TypeRealString,
+      Offset(textureName, BeamProjectileDataT2), MaxTextures,
+      "The textures it is drawn with.");
+}
+
+void BeamProjectileDataT2::publishT2Data()
+{
+   Parent::publishT2Data();
+
+   T2Layout::publishDataBlockWhole(T2Layout::T2DbBeamRange, range);
+   T2Layout::publishDataBlockWhole(T2Layout::T2DbBeamHeadMultiplier,
+                                   headMultiplier);
+   T2Layout::publishDataBlockWord(T2Layout::T2DbBeamColor,
+                                  T2Layout::t2ColorWord(color));
+   T2Layout::publishDataBlockWhole(T2Layout::T2DbBeamFadeTime, fadeTime);
+   T2Layout::publishDataBlockWhole(T2Layout::T2DbBeamStartWidth, startWidth);
+   T2Layout::publishDataBlockWhole(T2Layout::T2DbBeamEndWidth, endWidth);
+   T2Layout::publishDataBlockWhole(T2Layout::T2DbBeamPulseWidth, pulseWidth);
+   T2Layout::publishDataBlockWhole(T2Layout::T2DbBeamFlareAngle, flareAngle);
+   T2Layout::publishDataBlockWhole(T2Layout::T2DbBeamMinFlareSize, minFlareSize);
+   T2Layout::publishDataBlockWhole(T2Layout::T2DbBeamMaxFlareSize, maxFlareSize);
+   T2Layout::publishDataBlockWhole(T2Layout::T2DbBeamPulseSpeed, pulseSpeed);
+   T2Layout::publishDataBlockWhole(T2Layout::T2DbBeamPulseLength, pulseLength);
+
+   // Two more a sniper's body carries that no script sets: a colour of
+   // 0xffe60000 and a one.
+   T2Layout::publishDataBlockWord(T2Layout::T2DbBeamHitColor, 0xff000066);
+   T2Layout::publishDataBlockWhole(T2Layout::T2DbBeamHitScale, 1.0f);
+}
+
+void BeamProjectileDataT2::publishT2Strings()
+{
+   for(U32 i = 0; i < MaxTextures; i++)
+      T2Layout::publishDataBlockString(T2Layout::T2DbProjectileString + i,
+                                       textureName[i].c_str());
+}
+
+void BeamProjectileDataT2::readT2Strings()
+{
+   for(U32 i = 0; i < MaxTextures; i++)
+   {
+      const char *at = T2Layout::lastDataBlockString(
+                          T2Layout::T2DbProjectileString + i);
+      if(at)
+         textureName[i] = at;
+   }
+}
+
+// The textures each of them is built with, which its scripts never name.
+static const char *const sT2SniperTextures[] =
+{
+   "special/flare", "special/nonlingradient",
+   "special/laserrip01", "special/laserrip02", "special/laserrip03",
+   "special/laserrip04", "special/laserrip05", "special/laserrip06",
+   "special/laserrip07", "special/laserrip08", "special/laserrip09",
+   "special/sniper00", NULL
+};
+
+static const char *const sT2TargetTextures[] = { NULL };
+
+#define IMPLEMENT_BEAM_DATA_T2( className, defaults )                        \
    class className : public BeamProjectileDataT2                             \
    {                                                                         \
       typedef BeamProjectileDataT2 Parent;                                   \
    public:                                                                   \
+      className()                                                            \
+      {                                                                      \
+         for(U32 i = 0; i < MaxTextures && defaults[i]; i++)                 \
+            textureName[i] = defaults[i];                                    \
+      }                                                                      \
       DECLARE_CONOBJECT(className);                                          \
    };                                                                        \
    IMPLEMENT_CO_DATABLOCK_V1(className);                                     \
    ConsoleDocClass( className, "@brief A Tribes 2 beam's datablock."         \
                                "\n\n@internal" )
 
-IMPLEMENT_BEAM_DATA_T2( SniperProjectileData );
-IMPLEMENT_BEAM_DATA_T2( TargetProjectileData );
+IMPLEMENT_BEAM_DATA_T2( SniperProjectileData, sT2SniperTextures );
+IMPLEMENT_BEAM_DATA_T2( TargetProjectileData, sT2TargetTextures );
 
 //----------------------------------------------------------------------------
 
@@ -2512,9 +2899,9 @@ IMPLEMENT_BEAM_T2( TargetProjectile, false, 0.15f );
 /// texture runs along it, how often that texture repeats, how often it leaves
 /// a fading copy of itself behind and how long one of those lives, and the
 /// angle off the muzzle it will still be drawn at.
-class RepairProjectileDataT2 : public DataBlockT2
+class RepairProjectileDataT2 : public ProjectileDataT2
 {
-   typedef DataBlockT2 Parent;
+   typedef ProjectileDataT2 Parent;
 
 public:
    F32    range;
@@ -2525,13 +2912,22 @@ public:
    F32    blurFreq;
    F32    blurLifetime;
    F32    cutoffAngle;      ///< degrees
-   U32    soundId;
    String textureName[3];
    GFXTexHandle texture[3];
 
    RepairProjectileDataT2();
    bool unpackData(BitStream *stream, U32 classId);
    bool preload(bool server, String &errorStr);
+
+      // HH: Added for Tribes 2 compatibility.
+   static void initPersistFields();
+   void publishT2Data() override;
+   void publishT2Strings() override;
+   void readT2Strings() override;
+
+      /// How many strings its own middle carries: two for a repair beam and
+      /// three for an ELF.
+   virtual U32 beamStrings() const { return 2; }
 
    DECLARE_CONOBJECT(RepairProjectileDataT2);
 };
@@ -2550,9 +2946,11 @@ RepairProjectileDataT2::RepairProjectileDataT2()
      texRepeat(0.2f),
      blurFreq(10.0f),
      blurLifetime(1.0f),
-     cutoffAngle(25.0f),
-     soundId(0)
+     cutoffAngle(25.0f)
 {
+   // What every repair beam a retail server sends is drawn with.
+   textureName[0] = "special/redbump2";
+   textureName[1] = "special/redflare";
 }
 
 bool RepairProjectileDataT2::unpackData(BitStream *stream, U32 classId)
@@ -2578,17 +2976,66 @@ bool RepairProjectileDataT2::unpackData(BitStream *stream, U32 classId)
       blurLifetime = value;
    if(T2Layout::lastDataBlockField(T2Layout::T2DbRepairCutoffAngle, &value))
       cutoffAngle = value;
-   if(T2Layout::lastDataBlockWord(T2Layout::T2DbProjectileSound, &word))
-      soundId = word;
-
-      // The shape name comes first, as it does for every projectile; the
-      // beam's textures are the strings after it -- two for a repair beam,
-      // three for an ELF.
-   const Vector<String> &strings = T2Layout::lastStrings();
-   for(U32 i = 0; i < 3 && i + 1 < strings.size(); i++)
-      textureName[i] = strings[i + 1];
-
    return true;
+}
+
+// HH: A repair beam's own run. Its two textures are the ones retail's engine
+// is built with, which no script names.
+void RepairProjectileDataT2::initPersistFields()
+{
+   Parent::initPersistFields();
+
+   addField("beamRange",   TYPEID< F32 >(), Offset(range, RepairProjectileDataT2),
+      "How far it reaches.");
+   addField("beamWidth",   TYPEID< F32 >(), Offset(width, RepairProjectileDataT2),
+      "How wide it is drawn.");
+   addField("numSegments", TYPEID< S32 >(), Offset(segments, RepairProjectileDataT2),
+      "How many lengths it is drawn in.");
+   addField("texRepeat",   TYPEID< F32 >(), Offset(texRepeat, RepairProjectileDataT2),
+      "How often its texture repeats along it.");
+   addField("blurFreq",    TYPEID< F32 >(), Offset(blurFreq, RepairProjectileDataT2),
+      "How fast it shimmers.");
+   addField("blurLifetime",TYPEID< F32 >(), Offset(blurLifetime, RepairProjectileDataT2),
+      "And how long a shimmer lasts.");
+   addField("cutoffAngle", TYPEID< F32 >(), Offset(cutoffAngle, RepairProjectileDataT2),
+      "Degrees off aim it will still hold a target within.");
+   addField("textures",    TypeRealString,
+      Offset(textureName, RepairProjectileDataT2), 3,
+      "The beam's textures, two for a repair gun and three for an ELF.");
+}
+
+void RepairProjectileDataT2::publishT2Data()
+{
+   Parent::publishT2Data();
+
+   T2Layout::publishDataBlockWhole(T2Layout::T2DbBeamRange, range);
+   T2Layout::publishDataBlockWhole(T2Layout::T2DbRepairWidth, width);
+   T2Layout::publishDataBlockWord(T2Layout::T2DbRepairSegments, segments);
+   // The node between its segments and its texture repeat, which every body
+   // carries as a one and no script sets.
+   T2Layout::publishDataBlockWhole(T2Layout::T2DbRepairSpeed, speed);
+   T2Layout::publishDataBlockWhole(T2Layout::T2DbRepairTexRepeat, texRepeat);
+   T2Layout::publishDataBlockWhole(T2Layout::T2DbRepairBlurFreq, blurFreq);
+   T2Layout::publishDataBlockWhole(T2Layout::T2DbRepairBlurLifetime, blurLifetime);
+   T2Layout::publishDataBlockWhole(T2Layout::T2DbRepairCutoffAngle, cutoffAngle);
+}
+
+void RepairProjectileDataT2::publishT2Strings()
+{
+   for(U32 i = 0; i < beamStrings(); i++)
+      T2Layout::publishDataBlockString(T2Layout::T2DbProjectileString + i,
+                                       textureName[i].c_str());
+}
+
+void RepairProjectileDataT2::readT2Strings()
+{
+   for(U32 i = 0; i < beamStrings(); i++)
+   {
+      const char *at = T2Layout::lastDataBlockString(
+                          T2Layout::T2DbProjectileString + i);
+      if(at)
+         textureName[i] = at;
+   }
 }
 
 bool RepairProjectileDataT2::preload(bool server, String &errorStr)
@@ -3120,6 +3567,11 @@ public:
    F32 lightningWidth;
    F32 lightningDist;
 
+      /// The sparks it throws, which its body carries as the one datablock of
+      /// its own.
+   ParticleEmitterData *emitter;
+   U32                  emitterId;
+
    /// The cosine of the half-angle the gun will hold a target within.
    /// Tribes 2 calls the angle beamHitWidth, keeps it in degrees, clamps it
    /// to ninety and takes the cosine once in preload (0x0064aa14). It is not
@@ -3129,6 +3581,11 @@ public:
 
    ELFProjectileDataT2();
    bool unpackData(BitStream *stream, U32 classId);
+
+      // HH: Added for Tribes 2 compatibility.
+   static void initPersistFields();
+   void publishT2Data() override;
+   U32 beamStrings() const override { return 3; }
 
    DECLARE_CONOBJECT(ELFProjectileDataT2);
 };
@@ -3142,12 +3599,60 @@ ConsoleDocClass( ELFProjectileDataT2,
 ELFProjectileDataT2::ELFProjectileDataT2()
    : lightningWidth(0.1f),
      lightningDist(0.15f),
+     emitter(NULL),
+     emitterId(0),
      hitAngleCos(mCos(mDegToRad(30.0f)))
 {
    width = 0.1f;
    speed = 9.0f;
    texRepeat = 0.25f;
    range = 38.0f;
+
+   // Its textures start empty, as a retail server's do.
+   textureName[0] = "";
+   textureName[1] = "";
+   textureName[2] = "";
+}
+
+// HH: An ELF beam's own run: the beam, and the lightning that crawls along it.
+void ELFProjectileDataT2::initPersistFields()
+{
+   Parent::initPersistFields();
+
+   addField("mainBeamWidth",  TYPEID< F32 >(),
+      Offset(width, ELFProjectileDataT2), "How wide the beam is drawn.");
+   addField("mainBeamSpeed",  TYPEID< F32 >(),
+      Offset(speed, ELFProjectileDataT2), "How fast its texture runs along it.");
+   addField("mainBeamRepeat", TYPEID< F32 >(),
+      Offset(texRepeat, ELFProjectileDataT2), "And how often that repeats.");
+   addField("lightningWidth", TYPEID< F32 >(),
+      Offset(lightningWidth, ELFProjectileDataT2),
+      "How wide the lightning along it is.");
+   addField("lightningDist",  TYPEID< F32 >(),
+      Offset(lightningDist, ELFProjectileDataT2),
+      "And how far it strays from the beam.");
+   addField("emitter",        TYPEID< ParticleEmitterData >(),
+      Offset(emitter, ELFProjectileDataT2),
+      "The sparks it throws where it lands.");
+}
+
+void ELFProjectileDataT2::publishT2Data()
+{
+   // Not RepairProjectileDataT2's run: an ELF keeps the same members in
+   // different nodes, and carries no blur or cutoff at all.
+   ProjectileDataT2::publishT2Data();
+
+   T2Layout::publishDataBlockWhole(T2Layout::T2DbBeamRange, range);
+   T2Layout::publishDataBlockWhole(T2Layout::T2DbElfBeamWidth, width);
+   T2Layout::publishDataBlockWhole(T2Layout::T2DbElfBeamSpeed, speed);
+   T2Layout::publishDataBlockWhole(T2Layout::T2DbElfBeamRepeat, texRepeat);
+   T2Layout::publishDataBlockWhole(T2Layout::T2DbElfLightningWidth, lightningWidth);
+   T2Layout::publishDataBlockWhole(T2Layout::T2DbElfLightningDist, lightningDist);
+
+   const U32 id = emitter ? emitter->getId() - DataBlockObjectIdFirst
+                          : emitterId;
+   if(id)
+      T2Layout::publishDataBlockWord(T2Layout::T2DbElfEmitter, id);
 }
 
 bool ELFProjectileDataT2::unpackData(BitStream *stream, U32 classId)
@@ -3166,6 +3671,10 @@ bool ELFProjectileDataT2::unpackData(BitStream *stream, U32 classId)
       lightningWidth = value;
    if(T2Layout::lastDataBlockField(T2Layout::T2DbElfLightningDist, &value))
       lightningDist = value;
+
+   U32 word;
+   if(T2Layout::lastDataBlockWord(T2Layout::T2DbElfEmitter, &word))
+      emitterId = word;
 
    return true;
 }
@@ -3466,9 +3975,9 @@ void ELFProjectileT2::renderBeam(ObjectRenderInst *, SceneRenderState *state,
 /// array fields a bolt at a time rather than a field at a time, which the
 /// field list does not say and only the values do: startWidth, endWidth,
 /// boltSpeed and texWrap for bolt nought, then the same four for bolt one.
-class ShockLanceProjectileDataT2 : public DataBlockT2
+class ShockLanceProjectileDataT2 : public ProjectileDataT2
 {
-   typedef DataBlockT2 Parent;
+   typedef ProjectileDataT2 Parent;
 
 public:
    enum { NumBolts = 2 };
@@ -3487,9 +3996,21 @@ public:
    String textureName[4];
    GFXTexHandle texture[4];
 
+      /// The emitter it sparks with, which is the one datablock of its own
+      /// its body carries. The shockwave its scripts also name is not on the
+      /// wire at all.
+   ParticleEmitterData *emitter;
+   U32                  emitterId;
+
    ShockLanceProjectileDataT2();
    bool unpackData(BitStream *stream, U32 classId);
    bool preload(bool server, String &errorStr);
+
+      // HH: Added for Tribes 2 compatibility.
+   static void initPersistFields();
+   void publishT2Data() override;
+   void publishT2Strings() override;
+   void readT2Strings() override;
 
    DECLARE_CONOBJECT(ShockLanceProjectileDataT2);
 };
@@ -3507,14 +4028,103 @@ ShockLanceProjectileDataT2::ShockLanceProjectileDataT2()
      lightningFreq(25.0f),
      lightningDensity(3.0f),
      lightningAmp(0.25f),
-     lightningWidth(0.05f)
+     lightningWidth(0.05f),
+     emitter(NULL),
+     emitterId(0)
 {
+   // What a lance a retail server has just made holds, before a script has
+   // said otherwise; its textures start empty.
    for(U32 i = 0; i < NumBolts; i++)
    {
-      startWidth[i] = 0.3f;
-      endWidth[i] = 0.6f;
-      boltSpeed[i] = i ? -0.5f : 2.0f;
-      texWrap[i] = 1.5f;
+      startWidth[i] = 0.1f;
+      endWidth[i] = 1.0f;
+      boltSpeed[i] = i ? 1.2f : 1.0f;
+      texWrap[i] = 1.0f;
+   }
+}
+
+// HH: The lance's own run: how long its zap lasts, how far it reaches, and
+// the two bolts it is drawn as.
+void ShockLanceProjectileDataT2::initPersistFields()
+{
+   Parent::initPersistFields();
+
+   addField("zapDuration",      TYPEID< F32 >(),
+      Offset(zapDuration, ShockLanceProjectileDataT2), "Seconds the zap lasts.");
+   addField("boltLength",       TYPEID< F32 >(),
+      Offset(boltLength, ShockLanceProjectileDataT2), "How far it reaches.");
+   addField("lightningFreq",    TYPEID< F32 >(),
+      Offset(lightningFreq, ShockLanceProjectileDataT2),
+      "How often its lightning jumps.");
+   addField("lightningDensity", TYPEID< F32 >(),
+      Offset(lightningDensity, ShockLanceProjectileDataT2),
+      "How much of it there is.");
+   addField("lightningAmp",     TYPEID< F32 >(),
+      Offset(lightningAmp, ShockLanceProjectileDataT2),
+      "And how far it strays.");
+   addField("lightningWidth",   TYPEID< F32 >(),
+      Offset(lightningWidth, ShockLanceProjectileDataT2),
+      "How wide each stroke is.");
+   addField("startWidth",  TYPEID< F32 >(),
+      Offset(startWidth, ShockLanceProjectileDataT2), NumBolts,
+      "How wide each bolt leaves at.");
+   addField("endWidth",    TYPEID< F32 >(),
+      Offset(endWidth, ShockLanceProjectileDataT2), NumBolts,
+      "And how wide it arrives.");
+   addField("boltSpeed",   TYPEID< F32 >(),
+      Offset(boltSpeed, ShockLanceProjectileDataT2), NumBolts,
+      "How fast its texture runs along it.");
+   addField("texWrap",     TYPEID< F32 >(),
+      Offset(texWrap, ShockLanceProjectileDataT2), NumBolts,
+      "And how often that repeats.");
+
+   addField("emitter",     TYPEID< ParticleEmitterData >(),
+      Offset(emitter, ShockLanceProjectileDataT2), 1,
+      "The sparks it throws where it lands.");
+}
+
+void ShockLanceProjectileDataT2::publishT2Data()
+{
+   Parent::publishT2Data();
+
+   T2Layout::publishDataBlockWhole(T2Layout::T2DbZapDuration, zapDuration);
+   T2Layout::publishDataBlockWhole(T2Layout::T2DbBoltLength, boltLength);
+   T2Layout::publishDataBlockWord(T2Layout::T2DbBoltParts, parts);
+   T2Layout::publishDataBlockWhole(T2Layout::T2DbShockLightningFreq, lightningFreq);
+   T2Layout::publishDataBlockWhole(T2Layout::T2DbShockLightningDensity,
+                                   lightningDensity);
+   T2Layout::publishDataBlockWhole(T2Layout::T2DbShockLightningAmp, lightningAmp);
+   T2Layout::publishDataBlockWhole(T2Layout::T2DbShockLightningWidth, lightningWidth);
+   T2Layout::publishDataBlockWhole(T2Layout::T2DbBoltStartWidth0, startWidth[0]);
+   T2Layout::publishDataBlockWhole(T2Layout::T2DbBoltEndWidth0, endWidth[0]);
+   T2Layout::publishDataBlockWhole(T2Layout::T2DbBoltSpeed0, boltSpeed[0]);
+   T2Layout::publishDataBlockWhole(T2Layout::T2DbBoltTexWrap0, texWrap[0]);
+   T2Layout::publishDataBlockWhole(T2Layout::T2DbBoltStartWidth1, startWidth[1]);
+   T2Layout::publishDataBlockWhole(T2Layout::T2DbBoltEndWidth1, endWidth[1]);
+   T2Layout::publishDataBlockWhole(T2Layout::T2DbBoltSpeed1, boltSpeed[1]);
+   T2Layout::publishDataBlockWhole(T2Layout::T2DbBoltTexWrap1, texWrap[1]);
+
+   const U32 id = emitter ? emitter->getId() - DataBlockObjectIdFirst
+                          : emitterId;
+   if(id)
+      T2Layout::publishDataBlockWord(T2Layout::T2DbShockLanceEmitter, id);
+}
+
+void ShockLanceProjectileDataT2::publishT2Strings()
+{
+   for(U32 i = 0; i < 4; i++)
+      T2Layout::publishDataBlockString(T2Layout::T2DbProjectileString + i,
+                                       boltTexture[i].c_str());
+}
+
+void ShockLanceProjectileDataT2::readT2Strings()
+{
+   for(U32 i = 0; i < 4; i++)
+   {
+      const char *at = T2Layout::lastDataBlockString(
+                          T2Layout::T2DbProjectileString + i);
+      if(at)
+         textureName[i] = at;
    }
 }
 
@@ -3557,10 +4167,8 @@ bool ShockLanceProjectileDataT2::unpackData(BitStream *stream, U32 classId)
    if(T2Layout::lastDataBlockField(T2Layout::T2DbBoltTexWrap1, &value))
       texWrap[1] = value;
 
-      // The shape name comes first, as it does for every projectile.
-   const Vector<String> &strings = T2Layout::lastStrings();
-   for(U32 i = 0; i < 4 && i + 1 < strings.size(); i++)
-      textureName[i] = strings[i + 1];
+   if(T2Layout::lastDataBlockWord(T2Layout::T2DbShockLanceEmitter, &word))
+      emitterId = word;
 
    return true;
 }
