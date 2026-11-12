@@ -161,16 +161,44 @@ static void noteString(const char *str)
 }
 
 // HH: Added for Tribes 2 compatibility.
-/// Say what every node of a body read, for the class named in
-/// $pref::Net::traceLayout.
+/// Say what every node of a body read, for the classes named in
+/// $pref::Net::traceLayout -- a space or comma separated list, or a bare *
+/// for every class there is.
+/// Whether a space or comma separated list names a class, with a bare * for
+/// all of them.
+static bool namedInList(const char *list, const char *name)
+{
+   if(list[0] == '*' && !list[1])
+      return true;
+
+   const U32 len = dStrlen(name);
+   for(const char *at = list; *at; )
+   {
+      while(*at == ' ' || *at == ',')
+         at++;
+
+      const char *end = at;
+      while(*end && *end != ' ' && *end != ',')
+         end++;
+
+      if(U32(end - at) == len && !dStrnicmp(at, name, len))
+         return true;
+
+      at = end;
+   }
+
+   return false;
+}
+
 static bool sTrace = false;
 static U32 sTraceBody = 0;
+static const char *sTraceClass = "";
 
 static void traced(S32 at, U32 op, U32 bits, const char *value)
 {
    if(sTrace)
-      Con::printf("T2 trace %d: node %d op %d bits %d = %s", sTraceBody, at,
-                  op, bits, value);
+      Con::printf("T2 trace %s %d: node %d op %d bits %d = %s", sTraceClass,
+                  sTraceBody, at, op, bits, value);
 }
 
 static void traced(S32 at, U32 op, U32 bits, U32 value)
@@ -3555,6 +3583,133 @@ static bool keepRun(T2ShapeDataMap *map, U32 from, bool found)
    return found;
 }
 
+// HH: Added for Tribes 2 compatibility.
+/// Every projectile datablock in the game opens and closes the same way,
+/// whatever its class puts between: twenty-four nodes of ProjectileData's own
+/// fields, and a tail of twenty-five -- the light it casts, the fifteen
+/// datablocks it can name, and its scale. Only the middle is the class's, so
+/// the shared part is found by that shape rather than numbered per class.
+///
+/// Settled by asking a retail server: a datablock declared at its console goes
+/// out to a client that joins after, so a body whose every field holds a value
+/// nothing else could have written names its own nodes. Twelve of the thirteen
+/// projectile classes answered with the same opening, node for node.
+static const U32 sT2ProjectileIds[] =
+{
+   // Ascending, which is the order a body reads them in; the flags that gate
+   // them run the other way, from node 5 for the last of these.
+   T2DbProjectileDecal + 5,
+   T2DbProjectileDecal + 4,
+   T2DbProjectileDecal + 3,
+   T2DbProjectileDecal + 2,
+   T2DbProjectileDecal + 1,
+   T2DbProjectileDecal,
+   T2DbProjectileFireSound,
+   T2DbProjectileWetFireSound,
+   T2DbProjectileSound,
+   T2DbProjectileSplash,
+   T2DbProjectileUnderwaterExplosion,
+   T2DbExplosion,
+   T2DbProjectileBubbleEmitter,
+   T2DbProjectileDelayEmitter,
+   T2DbProjectileBaseEmitter,
+};
+
+/// The light, which ProjectileData writes behind the hasLight flag as the
+/// radius over twenty at eight bits and the colour at seven (0x0063127d),
+/// with the colour it has under water behind a flag of its own (0x006312db)
+/// in the three nodes before.
+static const U32 sT2ProjectileLight[] =
+{
+   T2DbProjectileWaterLightColorR,
+   T2DbProjectileWaterLightColorG,
+   T2DbProjectileWaterLightColorB,
+   T2DbProjectileLightRadius,
+   T2DbProjectileLightColorR,
+   T2DbProjectileLightColorG,
+   T2DbProjectileLightColorB,
+};
+
+static const U8 sT2ProjectileLightBits[] = { 7, 7, 7, 8, 7, 7, 7 };
+
+static bool matchProjectileData(T2ShapeDataMap *map)
+{
+   const T2DataBlockLayout *layout = map->layout;
+
+   // The tail is twenty-five nodes and the opening twenty-four, with at least
+   // one node of the class's own between them.
+   if(layout->root != 0 || layout->count < 50)
+      return false;
+
+   if(!nodeAt(layout, 0) || layout->nodes[0].op != OpString)
+      return false;
+   if(!isWord(nodeAt(layout, 1), 32) || !isWord(nodeAt(layout, 2), 32))
+      return false;
+
+   // A flag it keeps the value of, and then eighteen it does not: one for its
+   // scale, fifteen for the datablocks it names, one for its light and one
+   // for the colour that light has under water.
+   const T2DataNode *faceViewer = nodeAt(layout, 3);
+   if(!faceViewer || faceViewer->op != OpFlag || faceViewer->bits != 1 ||
+      faceViewer->a != faceViewer->b)
+      return false;
+
+   for(U32 i = 4; i <= 21; i++)
+      if(!isBranch(nodeAt(layout, S32(i))))
+         return false;
+
+   if(!isWord(nodeAt(layout, 22), 8) || !isWord(nodeAt(layout, 23), 32))
+      return false;
+
+   const U32 scaleAt = layout->count - 3;
+   const U32 idsAt   = layout->count - 18;
+   const U32 lightAt = layout->count - 25;
+
+   for(U32 i = 0; i < 3; i++)
+      if(!isWord(nodeAt(layout, S32(scaleAt + i)), 32))
+         return false;
+
+   for(U32 i = 0; i < ELEMENTS(sT2ProjectileIds); i++)
+   {
+      const T2DataNode *n = nodeAt(layout, S32(idsAt + i));
+      if(!n || n->op != OpDataBlockId || n->bits != 11)
+         return false;
+   }
+
+   for(U32 i = 0; i < ELEMENTS(sT2ProjectileLight); i++)
+   {
+      const T2DataNode *n = nodeAt(layout, S32(lightAt + i));
+      if(!n || n->op != OpFloat || n->bits != sT2ProjectileLightBits[i])
+         return false;
+   }
+
+   addShapeDataRow(map, 0, T2DbProjectileShapeName);
+   addShapeDataRow(map, 1, T2DbProjectileEmitterDelay);
+   addShapeDataRow(map, 2, T2DbProjectileBubbleEmitTime);
+   addShapeDataRow(map, 3, T2DbFaceViewer);
+   addShapeDataRow(map, 22, T2DbProjectileExplodeOnWaterImpact);
+   addShapeDataRow(map, 23, T2DbProjectileDepthTolerance);
+
+   static const U32 sScale[] = { T2DbScaleX, T2DbScaleY, T2DbScaleZ };
+   for(U32 i = 0; i < 3; i++)
+      addShapeDataRow(map, S32(scaleAt + i), sScale[i]);
+
+   for(U32 i = 0; i < ELEMENTS(sT2ProjectileIds); i++)
+      addShapeDataRow(map, S32(idsAt + i), sT2ProjectileIds[i]);
+
+   for(U32 i = 0; i < ELEMENTS(sT2ProjectileLight); i++)
+      addShapeDataRow(map, S32(lightAt + i), sT2ProjectileLight[i]);
+
+   // The textures a class's own middle names, in the order it reads them: a
+   // bullet's streak and its cross, a repair beam's two, a sniper's twelve.
+   U32 texture = 0;
+   for(U32 at = 24; at < lightAt && texture < 12; at++)
+      if(layout->nodes[at].op == OpString)
+         addShapeDataRow(map, S32(at), T2DbProjectileTexture + texture++);
+
+   return true;
+}
+
 static const T2ShapeDataMap *resolveShapeData(const T2DataBlockLayout *layout)
 {
    for(U32 i = 0; i < sShapeDataMaps.size(); i++)
@@ -3564,6 +3719,16 @@ static const T2ShapeDataMap *resolveShapeData(const T2DataBlockLayout *layout)
    T2ShapeDataMap *map = new T2ShapeDataMap;
    map->layout = layout;
    S32 at;
+
+   // HH: A projectile datablock opens its own way, not ShapeBaseData's.
+   if(matchProjectileData(map))
+   {
+      Con::printf("T2 layout: %s opens with ProjectileData's fields",
+                  layout->name);
+      sShapeDataMaps.push_back(map);
+      return map;
+   }
+
    if(matchShapeData(map, &at))
    {
       Con::printf("T2 layout: %s opens with ShapeBaseData's fields",
@@ -3723,9 +3888,12 @@ static bool runDataBlock(BitStream *stream, U32 classId, bool write)
    // HH: Added for Tribes 2 compatibility.
    const char *traceName = Con::getVariable("$pref::Net::traceLayout");
    sTrace = !write && traceName && traceName[0] &&
-            !dStricmp(traceName, layout->name);
+            namedInList(traceName, layout->name);
    if(sTrace)
+   {
+      sTraceClass = layout->name;
       sTraceBody++;
+   }
 
    U32 slots[8] = { 0, 0, 0, 0, 0, 0, 0, 0 };
    const bool ok = runGraph(stream, layout, layout->root, slots, 0, false,
@@ -3735,10 +3903,23 @@ static bool runDataBlock(BitStream *stream, U32 classId, bool write)
    // HH: Added for Tribes 2 compatibility. A field the class published that
    // the walk never came to is a field the other end will not see, which is
    // worth hearing about once rather than hunting for in the body.
+   // A publisher shared by a family of classes offers every field any of them
+   // carries, so a field this layout has no node for is not a loss: what is
+   // worth hearing about is a field the layout does name and the walk still
+   // did not come to.
    if(write && ok)
       for(U32 i = 0; i < T2DbFieldCount; i++)
-         if(sDbHas[i] && sDbTaken[i] < U32(sDbList[i].size()))
+      {
+         if(!sDbHas[i] || sDbTaken[i] >= U32(sDbList[i].size()))
+            continue;
+
+         bool named = false;
+         for(U32 r = 0; r < sDbRowCount && !named; r++)
+            named = U32(sDbRows[r]->field) == i;
+
+         if(named)
             warnUnwritten(layout->name, i, sDbTaken[i], sDbList[i].size());
+      }
 
    return ok;
 }
