@@ -193,6 +193,23 @@ IMPLEMENT_CALLBACK( GameConnection, onFlash, void, (bool state), (state),
    "either is on or both are off.  Typically this is used to enable the flash postFx.\n\n"
    "@param state Set to true if either the damage flash or white out conditions are active.\n\n");
 
+// HH: Added for Tribes 2 compatibility.
+// The four tones a missile lock plays, each one a script method on the
+// connection that starts or stops an alxPlay loop (client.cs:1964).  The
+// state is the string "true" or "false" because that is what the scripts
+// compare it against.
+IMPLEMENT_CALLBACK( GameConnection, onTargetLocked, void, (const char *state), (state),
+   "@brief Called on the shooter's client when its launcher takes or loses hold.\n\n" );
+
+IMPLEMENT_CALLBACK( GameConnection, onTrackingTarget, void, (const char *state), (state),
+   "@brief Called on the shooter's client while its launcher is still looking.\n\n" );
+
+IMPLEMENT_CALLBACK( GameConnection, onLockWarning, void, (const char *state), (state),
+   "@brief Called on a target's client while something holds a lock on it.\n\n" );
+
+IMPLEMENT_CALLBACK( GameConnection, onHomeWarning, void, (const char *state), (state),
+   "@brief Called on a target's client while a missile is homing on it.\n\n" );
+
 //----------------------------------------------------------------------------
 GameConnection::GameConnection()
 {
@@ -226,8 +243,11 @@ GameConnection::GameConnection()
    mSensorPing = false;
    mSensorJammed = false;
    mObserverMode = 0;
+   mObserverPosValid = false;
    mObserverPos.set(0.0f, 0.0f, 0.0f);
    mObserverRot.set(0.0f, 0.0f, 0.0f);
+   mObserverObject = NULL;
+   mLockWarning = mHomeWarning = mTargetLocked = mTrackingTarget = false;
 
    mMissionCRC = 0xffffffff;
 
@@ -252,11 +272,84 @@ GameConnection::GameConnection()
 
 GameConnection::~GameConnection()
 {
+   // HH: Added for Tribes 2 compatibility.
+   // A tone is a looping alxPlay the script holds the handle to, so a
+   // connection that goes while one is playing has to say so or it never
+   // stops (0x005fa6e6).
+   if(mLockWarning)
+      onLockWarning_callback("false");
+   if(mHomeWarning)
+      onHomeWarning_callback("false");
+   if(mTargetLocked)
+      onTargetLocked_callback("false");
+   if(mTrackingTarget)
+      onTrackingTarget_callback("false");
+   mLockWarning = mHomeWarning = mTargetLocked = mTrackingTarget = false;
+
    delete mAuthInfo;
    for(U32 i = 0; i < mConnectArgc; i++)
       dFree(mConnectArgv[i]);
    dFree(mJoinPassword);
    delete mMoveList;
+}
+
+//----------------------------------------------------------------------------
+
+// HH: Added for Tribes 2 compatibility.
+// The shooter's two tones (0x005fccc0): locked while the block names an
+// object or a second point, searching while it carries a position.  Both
+// run from the client's own process, not from the packet, so a connection
+// that stops hearing from the server keeps whichever it had.
+void GameConnection::updateTargetTones()
+{
+   const bool locked = mObserverMode == ObserverFollowsObject ||
+                       mObserverMode == ObserverFacesDirection;
+   if(locked != mTargetLocked)
+   {
+      mTargetLocked = locked;
+      onTargetLocked_callback(locked ? "true" : "false");
+   }
+
+   if(mObserverPosValid != mTrackingTarget)
+   {
+      mTrackingTarget = mObserverPosValid;
+      onTrackingTarget_callback(mTrackingTarget ? "true" : "false");
+   }
+}
+
+// The target's two (0x005fcd90).  A missile already on its way outranks the
+// lock that sent it: while the second indicator is up the first is left
+// alone rather than turned off, so the warning it started keeps playing
+// under the homing one.
+void GameConnection::updateWarningTones()
+{
+   if(mIndicator[0])
+   {
+      if(!mIndicator[1] && !mLockWarning)
+      {
+         mLockWarning = true;
+         onLockWarning_callback("true");
+      }
+   }
+   else if(mLockWarning)
+   {
+      mLockWarning = false;
+      onLockWarning_callback("false");
+   }
+
+   if(mIndicator[1])
+   {
+      if(!mHomeWarning)
+      {
+         mHomeWarning = true;
+         onHomeWarning_callback("true");
+      }
+   }
+   else if(mHomeWarning)
+   {
+      mHomeWarning = false;
+      onHomeWarning_callback("false");
+   }
 }
 
 //----------------------------------------------------------------------------
@@ -1180,9 +1273,16 @@ void GameConnection::readPacket(BitStream *bstream)
       else
          mIndicator[0] = mIndicator[1] = false;
 
+      // The object the block names is its own member in retail (0x005fbe85),
+      // read by one HUD routine (0x00508ba0) and by nothing that builds the
+      // view: a missile lock puts its target here while the player is alive
+      // and controlling themselves.  Torque's camera object is a different
+      // thing -- getCameraObject prefers it to the control object out of
+      // first person -- so the two must not share a slot.
       if(bstream->readFlag())
       {
-         if(bstream->readFlag())
+         mObserverPosValid = bstream->readFlag();
+         if(mObserverPosValid)
          {
             bstream->read(&mObserverPos.x);
             bstream->read(&mObserverPos.y);
@@ -1195,7 +1295,7 @@ void GameConnection::readPacket(BitStream *bstream)
             GameBase *obj = NULL;
             if(bstream->readFlag())
                obj = dynamic_cast<GameBase*>(resolveGhost(bstream->readInt(NetConnection::GhostIdBitSize)));
-            setCameraObject(obj);
+            mObserverObject = obj;
          }
          else if(mObserverMode == ObserverFacesDirection)
          {
@@ -1204,7 +1304,13 @@ void GameConnection::readPacket(BitStream *bstream)
             bstream->read(&mObserverRot.z);
          }
          else
-            setCameraObject(0);
+            mObserverObject = NULL;
+      }
+      else
+      {
+         mObserverMode = 0;
+         mObserverPosValid = false;
+         mObserverObject = NULL;
       }
 
       if(mSensorPing != bstream->readFlag())

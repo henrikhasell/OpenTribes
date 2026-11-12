@@ -212,14 +212,24 @@ protected:
 
    // HH: Added for Tribes 2 compatibility.
    // What a Tribes 2 server sends between the damage flash and the control
-   // object.  Only the two sensor flags are acted on; the rest are read off
-   // the wire and held.
+   // object: what has a lock on this client, and what this client's own
+   // missile launcher is working on.
    bool     mSensorPing;
    bool     mSensorJammed;
-   bool     mIndicator[2];
-   U32      mObserverMode;
+   bool     mIndicator[2];       ///< something holds a lock on us, and a
+                                 ///  missile is homing on us (0x005fcd96)
+   U32      mObserverMode;       ///< nothing, an object, or a second point
+   bool     mObserverPosValid;   ///< a point came with it
    Point3F  mObserverPos;
-   Point3F  mObserverRot;
+   Point3F  mObserverRot;        ///< the second point, not an angle
+   SimObjectPtr<GameBase> mObserverObject;
+
+   /// Whether each of the four tones is playing, so each one is turned on
+   /// and off once (0x007a1a58 and the three after it).
+   bool     mLockWarning;
+   bool     mHomeWarning;
+   bool     mTargetLocked;
+   bool     mTrackingTarget;
 
    F32   mBlackOut;
    S32   mBlackOutTimeMS;
@@ -297,7 +307,23 @@ public:
    
    void setCameraObject(GameBase *);
    GameBase* getCameraObject();
-   
+
+   // HH: Added for Tribes 2 compatibility.
+   // What the server says this client's missile launcher is working on, for
+   // HudNavDisplay to mark.  The mode says which of the three is meant.
+   U32 getObserverMode() const { return mObserverMode; }
+   bool hasObserverPos() const { return mObserverPosValid; }
+   const Point3F& getObserverPos() const { return mObserverPos; }
+   const Point3F& getObserverPoint() const { return mObserverRot; }
+   GameBase* getObserverObject() const { return mObserverObject; }
+
+   /// Turn the two tones a shooter hears on and off (0x005fccc0).
+   void updateTargetTones();
+
+   /// And the two a target hears (0x005fcd90).
+   void updateWarningTones();
+
+
    bool getControlCameraTransform(F32 dt,MatrixF* mat);
    bool getControlCameraVelocity(Point3F *vel);
 
@@ -403,6 +429,14 @@ protected:
    DECLARE_CALLBACK( void, setLagIcon, (bool state) );
    DECLARE_CALLBACK( void, onDataBlocksDone, (U32 sequence) );
    DECLARE_CALLBACK( void, onFlash, (bool state) );
+
+   // HH: Added for Tribes 2 compatibility.
+   // The four tones a missile lock plays.  Their state is a string because
+   // the scripts that take them compare it against "true".
+   DECLARE_CALLBACK( void, onTargetLocked, (const char *state) );
+   DECLARE_CALLBACK( void, onTrackingTarget, (const char *state) );
+   DECLARE_CALLBACK( void, onLockWarning, (const char *state) );
+   DECLARE_CALLBACK( void, onHomeWarning, (const char *state) );
 };
 
 #endif

@@ -207,6 +207,7 @@ HudNavDisplay::HudNavDisplay()
    mMissileMarkerHilite = StringTable->EmptyString();
 
    mImageOffset = 1;
+   mMissileFlashMS = 200;
    mInfoOffset.set(10, 10);
    mDamageRectSize.set(50, 12);
 
@@ -278,6 +279,23 @@ void HudNavDisplay::loadMarkerImages()
       else
          mMarkerImages[i] = NULL;
    }
+
+   // HH: Added for Tribes 2 compatibility.
+   // The lock's own art, loaded beside the markers (0x00503a44).
+   const StringTableEntry missileNames[NumMissileImages] =
+   {
+      mMissileMarker1, mMissileMarker2, mMissileFlash1,
+      mMissileFlash2,  mMissileTargetRing, mMissileMarkerHilite
+   };
+
+   for(U32 i = 0; i < NumMissileImages; i++)
+   {
+      if(missileNames[i] && missileNames[i][0])
+         mMissileImages[i].set(missileNames[i], &GFXDefaultGUIProfile,
+                               avar("%s() - mMissileImages (line %d)", __FUNCTION__, __LINE__));
+      else
+         mMissileImages[i] = NULL;
+   }
 }
 
 bool HudNavDisplay::onWake()
@@ -293,6 +311,8 @@ void HudNavDisplay::onSleep()
 {
    for(U32 i = 0; i < NumMarkerImages; i++)
       mMarkerImages[i] = NULL;
+   for(U32 i = 0; i < NumMissileImages; i++)
+      mMissileImages[i] = NULL;
 
    Parent::onSleep();
 }
@@ -869,6 +889,113 @@ void HudNavDisplay::drawMarker(const GuiTSCtrl *ts, const Entry &e, Point2I at,
 /// The name and health of what the crosshair is on (0x00505380), beside the
 /// middle of the screen.  Only a player's, or something on this client's own
 /// side.
+// HH: Added for Tribes 2 compatibility.
+// The marker a missile launcher puts over what it is working on
+// (0x00505090).  Still looking is one bitmap on its own; holding on is
+// another with two flashes over it, swapping on a 200ms triangle so the
+// pair reads as one pulse.  The two take their half-sizes differently --
+// the first truncates a float, the rest shift -- which is a pixel either
+// way on an odd size, and is retail's.
+void HudNavDisplay::drawMissileMarker(Point2I at, bool locked)
+{
+   GFXTexHandle &marker1 = mMissileImages[0];
+   GFXTexHandle &marker2 = mMissileImages[1];
+   if(!marker1 || !marker2)
+      return;
+
+   GFXDrawUtil *draw = GFX->getDrawUtil();
+
+   // Both markers are drawn at this much alpha, whatever is under them.
+   const F32 markerAlpha = 120.0f / 255.0f;
+
+   if(!locked)
+   {
+      at.x -= S32(marker1->getWidth() * 0.5f);
+      at.y -= S32(marker1->getHeight() * 0.5f);
+      draw->setBitmapModulation(ColorF(1.0f, 1.0f, 1.0f, markerAlpha));
+      draw->drawBitmap(marker1, at);
+      // Retail leaves the modulation set here where its other three paths
+      // clear it (0x0050517b).  Cleared, because what draws next in this
+      // tree is not what drew next in that one.
+      draw->clearBitmapModulation();
+      return;
+   }
+
+   const Point2I centre(at.x - S32(marker2->getWidth() >> 1),
+                        at.y - S32(marker2->getHeight() >> 1));
+   draw->setBitmapModulation(ColorF(1.0f, 1.0f, 1.0f, markerAlpha));
+   draw->drawBitmap(marker2, centre);
+   draw->clearBitmapModulation();
+
+   GFXTexHandle &flash1 = mMissileImages[2];
+   GFXTexHandle &flash2 = mMissileImages[3];
+   if(!flash1 || !flash2)
+      return;
+
+   at.x -= S32(flash1->getWidth() >> 1);
+   at.y -= S32(flash1->getHeight() >> 1);
+
+   // Up over the first half of the period and back down over the second.
+   const S32 into = S32(Platform::getVirtualMilliseconds() % U32(mMissileFlashMS));
+   F32 t = F32(into) / F32(mMissileFlashMS / 2);
+   if(t > 1.0f)
+      t = 1.0f - (t - 1.0f);
+
+   // The two peak at different alphas, so the pulse has a brighter half.
+   draw->setBitmapModulation(ColorF(1.0f, 1.0f, 1.0f, U8(t * 180.0f) / 255.0f));
+   draw->drawBitmap(flash1, at);
+   draw->clearBitmapModulation();
+
+   draw->setBitmapModulation(ColorF(1.0f, 1.0f, 1.0f, U8((1.0f - t) * 120.0f) / 255.0f));
+   draw->drawBitmap(flash2, at);
+   draw->clearBitmapModulation();
+}
+
+// HH: Added for Tribes 2 compatibility.
+// Which point the marker goes on (0x00508ba0).  The server names one of
+// three things and the mode says which: a point it is still looking at, the
+// object it has hold of, or a second point it has hold of.  A point that
+// does not project is not marked at all -- there is no edge marker for this
+// one.
+void HudNavDisplay::drawMissileLock(const GuiTSCtrl *ts, GameConnection *conn)
+{
+   Point3F world;
+   bool locked;
+
+   switch(conn->getObserverMode())
+   {
+      case GameConnection::ObserverFollowsObject:
+      {
+         SceneObject *obj = dynamic_cast<SceneObject*>(conn->getObserverObject());
+         if(!obj)
+            return;
+
+         const Box3F &box = obj->getWorldBox();
+         world = (box.minExtents + box.maxExtents) * 0.5f;
+         locked = true;
+         break;
+      }
+
+      case GameConnection::ObserverFacesDirection:
+         world = conn->getObserverPoint();
+         locked = true;
+         break;
+
+      default:
+         if(!conn->hasObserverPos())
+            return;
+         world = conn->getObserverPos();
+         locked = false;
+         break;
+   }
+
+   Point3F screen;
+   if(!projectPoint(ts, world, &screen))
+      return;
+
+   drawMissileMarker(Point2I(S32(screen.x), S32(screen.y)), locked);
+}
+
 void HudNavDisplay::drawTargetInfo(const Entry &e, const Point2I &offset)
 {
    ShapeBase *shape = static_cast<ShapeBase*>(e.obj);
@@ -1003,6 +1130,10 @@ void HudNavDisplay::onRender(Point2I offset, const RectI &updateRect)
       if(edgePoint(ts, cam, d / dist, offset, &edge))
          drawMarker(ts, e, edge, true, offset);
    }
+
+   // HH: Added for Tribes 2 compatibility.
+   // Last, so the lock sits over every other marker (0x0050887f).
+   drawMissileLock(ts, conn);
 
    GFX->getDrawUtil()->clearBitmapModulation();
 }
