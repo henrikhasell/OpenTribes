@@ -623,6 +623,11 @@ public:
    bool              canControl;
    bool              canObserve;
 
+   // HH: Added for Tribes 2 compatibility. What a sensor and a seeking
+   // missile read a shape by, which its body carries and its scripts set --
+   // `heatSignature = 0` is how a deployable stays off a sensor.
+   F32 heatSignature;
+
    /// @name Physical Properties
    /// @{
    F32 mass;

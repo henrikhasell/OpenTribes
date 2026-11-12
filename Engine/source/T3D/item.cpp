@@ -185,6 +185,66 @@ void ItemData::initPersistFields()
    Parent::initPersistFields();
 }
 
+// HH: Added for Tribes 2 compatibility. What an item adds to the run every
+// shape datablock opens with: how it slides and bounces, how fast it can
+// fall, whether it sticks, and the light it gives off. Each goes out only
+// where it differs from a default-made ItemData's, which is what retail's
+// packData compares against.
+void ItemData::publishT2Data()
+{
+   Parent::publishT2Data();
+
+   const ItemData &proto = T2Layout::t2DefaultOf<ItemData>();
+
+   static const struct { U32 field; U32 bits; F32 ItemData::*member; } sUnit[] =
+   {
+      { T2Layout::T2DbItemFriction,   10, &ItemData::friction   },
+      { T2Layout::T2DbItemElasticity, 10, &ItemData::elasticity },
+      { T2Layout::T2DbItemGravityMod, 10, &ItemData::gravityMod },
+   };
+
+   for (U32 i = 0; i < sizeof(sUnit) / sizeof(sUnit[0]); i++)
+   {
+      const F32 value = this->*sUnit[i].member;
+      if (value != proto.*sUnit[i].member)
+         T2Layout::publishDataBlockFloat(sUnit[i].field, value,
+                                         sUnit[i].bits);
+   }
+
+   if (maxVelocity != proto.maxVelocity)
+      T2Layout::publishDataBlockWhole(T2Layout::T2DbItemMaxVelocity,
+                                      maxVelocity);
+
+   T2Layout::publishDataBlockFlag(T2Layout::T2DbItemSticky, sticky);
+
+   // The light it gives off, which comes as a type and then everything that
+   // type needs.
+   if (lightType != proto.lightType)
+   {
+      T2Layout::publishDataBlockWord(T2Layout::T2DbItemLightType,
+                                     U32(lightType));
+
+      static const struct { U32 field; F32 ColorF::*channel; } sLight[] =
+      {
+         { T2Layout::T2DbItemLightColorR, &ColorF::red   },
+         { T2Layout::T2DbItemLightColorG, &ColorF::green },
+         { T2Layout::T2DbItemLightColorB, &ColorF::blue  },
+         { T2Layout::T2DbItemLightColorA, &ColorF::alpha },
+      };
+
+      for (U32 i = 0; i < sizeof(sLight) / sizeof(sLight[0]); i++)
+         T2Layout::publishDataBlockFloat(sLight[i].field,
+                                         lightColor.*sLight[i].channel, 7);
+
+      T2Layout::publishDataBlockWord(T2Layout::T2DbItemLightTime,
+                                     U32(lightTime));
+      T2Layout::publishDataBlockWhole(T2Layout::T2DbItemLightRadius,
+                                      lightRadius);
+      T2Layout::publishDataBlockFlag(T2Layout::T2DbItemLightOnlyStatic,
+                                     lightOnlyStatic);
+   }
+}
+
 // HH: Added for Tribes 2 compatibility.
 bool ItemData::unpackData(BitStream *stream, U32 classId)
 {

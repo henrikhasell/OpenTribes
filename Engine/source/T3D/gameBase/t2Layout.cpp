@@ -3559,9 +3559,12 @@ static bool matchShapeData(T2ShapeDataMap *map, S32 *end)
       return false;
    at = sensor->a;
 
-   // heatSignature.
-   if(flaggedRun(layout, at, OpRaw, 32) < 0)
+   // heatSignature, which a sensor reads a shape by: named now, so a shape
+   // that is colder than one can say so.
+   const S32 heat = flaggedRun(layout, at, OpRaw, 32);
+   if(heat < 0)
       return false;
+   addShapeDataRow(map, heat, T2DbHeatSignature);
    at = layout->nodes[at].a;
 
    static const U32 sStringFields[] = { T2DbCmdCategory, T2DbCmdMiniIconName };

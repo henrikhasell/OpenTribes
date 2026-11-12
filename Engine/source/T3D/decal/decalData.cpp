@@ -147,6 +147,17 @@ void DecalData::initPersistFields()
 {
    addGroup( "Decal" );
 
+      // HH: Added for Tribes 2 compatibility. The three a Tribes 2 script
+      // states, which are the three its body carries. Without them a
+      // server's decals held Torque's defaults and a client was told a mark
+      // with no texture at all.
+      addField( "sizeX", TypeF32, Offset( t2SizeX, DecalData ),
+         "How wide the mark is, which Tribes 2 states as a half size." );
+      addField( "sizeY", TypeF32, Offset( t2SizeY, DecalData ),
+         "And how long." );
+      addField( "textureName", TypeString, Offset( t2TextureName, DecalData ),
+         "What it is drawn with, under textures/." );
+
       addField( "size", TypeF32, Offset( size, DecalData ), 
          "Width and height of the decal in meters before scale is applied." );
 
@@ -262,6 +273,19 @@ bool DecalData::preload( bool server, String &errorStr )
                      &GFXDefaultStaticDiffuseProfile, "DecalDataT2" );
 
    return true;
+}
+
+// HH: Added for Tribes 2 compatibility. The three a script states, which are
+// the three the body carries: a retail client says "No texture name for
+// decal!" for a body without the last of them.
+void DecalData::publishT2Data()
+{
+   Parent::publishT2Data();
+
+   T2Layout::publishDataBlockWhole( T2Layout::T2DbDecalSizeX, t2SizeX );
+   T2Layout::publishDataBlockWhole( T2Layout::T2DbDecalSizeY, t2SizeY );
+   T2Layout::publishDataBlockString( T2Layout::T2DbDecalTextureName,
+                                     t2TextureName );
 }
 
 // HH: Added for Tribes 2 compatibility.
