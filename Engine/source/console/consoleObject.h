@@ -1073,6 +1073,20 @@ inline bool& ConsoleObject::getDynamicGroupExpand()
    AbstractClassRep* className::getParentStaticClassRep() { return Parent::getStaticClassRep(); }        \
    ConcreteClassRep<className> className::dynClassRep( #className, "Type" #className, &_smTypeId, NetClassGroupGameMask, NetClassTypeObject, 0, className::getParentStaticClassRep(), &Parent::__description )
 
+// HH: Added for Tribes 2 compatibility. A class whose console name is not its
+// C++ name, for where Tribes 2 wants a name Torque has already given to a
+// class of its own: the scripts hang shared behaviour on the console name, so
+// the one that answers to it has to be the one Tribes 2 means.
+#define IMPLEMENT_CO_DATABLOCK_V1_NAMED( className, consoleName )                                        \
+   IMPLEMENT_CLASS( className, NULL )                                                                    \
+   END_IMPLEMENT_CLASS;                                                                                  \
+   S32 className::_smTypeId;                                                                             \
+   SimObjectRefConsoleBaseType< className > className::ptrRefType( "Type" #className "Ref" );            \
+   AbstractClassRep* className::getClassRep() const { return &className::dynClassRep; }                  \
+   AbstractClassRep* className::getStaticClassRep() { return &dynClassRep; }                             \
+   AbstractClassRep* className::getParentStaticClassRep() { return Parent::getStaticClassRep(); }        \
+   ConcreteClassRep<className> className::dynClassRep(consoleName, "Type" #className, &_smTypeId, NetClassGroupGameMask, NetClassTypeDataBlock, 0, className::getParentStaticClassRep(), &Parent::__description )
+
 #define IMPLEMENT_CO_DATABLOCK_V1( className )                                                           \
    IMPLEMENT_CLASS( className, NULL )                                                                    \
    END_IMPLEMENT_CLASS;                                                                                  \
