@@ -762,7 +762,9 @@ public:
    DECLARE_CALLBACK( void, onDisabled, ( ShapeBase* obj, const char* lastState ) );
    DECLARE_CALLBACK( void, onDestroyed, ( ShapeBase* obj, const char* lastState ) );
    DECLARE_CALLBACK( void, onImpact, ( ShapeBase* obj, SceneObject* collObj, VectorF vec, F32 len ) );
-   DECLARE_CALLBACK( void, onCollision, ( ShapeBase* obj, SceneObject* collObj, VectorF vec, F32 len ) );
+   // HH: Modified for Tribes 2 compatibility -- the two objects and nothing
+   // else, which is what every one of its scripts takes.
+   DECLARE_CALLBACK( void, onCollision, ( ShapeBase* obj, SceneObject* collObj ) );
    DECLARE_CALLBACK( void, onDamage, ( ShapeBase* obj, F32 delta ) );
    DECLARE_CALLBACK( void, onTrigger, ( ShapeBase* obj, S32 index, bool state ) );
    DECLARE_CALLBACK( void, onEndSequence, ( ShapeBase* obj, S32 slot ) );
