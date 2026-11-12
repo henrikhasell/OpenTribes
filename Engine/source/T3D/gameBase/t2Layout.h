@@ -990,12 +990,16 @@ namespace T2Layout
       if(!mask)
          return 0;
 
-      const F32 scaled = value * F32(mask);
-      if(scaled <= 0.0f)
+      // The scale is in double precision because retail's build does it on
+      // the x87 stack, and the result is not held to the field: retail writes
+      // it and the bit stream keeps the low bits, so a value over the range
+      // wraps rather than sticking at the top. A particle size of 56 over a
+      // range of fifty is 1964 in fourteen bits and not 16383, and a key's
+      // time of two is 254 in eight.
+      const F64 scaled = F64(value) * F64(mask);
+      if(scaled <= 0.0)
          return 0;
-      if(scaled >= F32(mask))
-         return mask;
-      return U32(scaled);
+      return U32(scaled) & mask;
    }
 
    inline U32 t2SignedFloatWord(F32 value, U32 bits)
@@ -1005,14 +1009,25 @@ namespace T2Layout
 
    /// The word a whole float goes out as, where Tribes 2 sends all 32 bits of
    /// one rather than a fraction of a scale.
-   /// A colour's byte as retail makes one. The multiply is in double precision
+   /// A value scaled into a whole number as retail makes one: the multiply is in
+/// double precision, because retail's build does it on the x87 stack, and the
+/// result is cut rather than rounded. An ejection velocity of 7.45968 over a
+/// scale of a hundred is 745, where rounding gives 746 and a float32 product
+/// rounds the product itself before that.
+inline U32 t2ScaledWord(F32 value, F64 scale, F64 half = 0.0)
+{
+   const F64 scaled = F64(value) * scale + half;
+   return scaled <= 0.0 ? 0 : U32(scaled);
+}
+
+/// A colour's byte as retail makes one. The multiply is in double precision
 /// because retail's build does it on the x87 stack: a red of 0.7 is 178 and
 /// not 179, because the float nearest 0.7 times 255 is 178.49999 and only a
 /// float32 product would round that to 178.5 before the half is added.
 inline U32 t2ColorByte(F32 part)
 {
-   const F64 scaled = F64(mClampF(part, 0.0f, 1.0f)) * 255.0 + 0.5;
-   return U32(scaled);
+   // A colour's byte is the one scaling retail rounds: 0.3 goes out as 77.
+   return t2ScaledWord(mClampF(part, 0.0f, 1.0f), 255.0, 0.5);
 }
 
 /// The four bytes of a colour, in the order a body carries them.
