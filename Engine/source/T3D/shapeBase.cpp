@@ -103,12 +103,16 @@ IMPLEMENT_CALLBACK( ShapeBaseData, onImpact, void, ( ShapeBase* obj, SceneObject
    "@param vec Collision impact vector\n"
    "@param len Length of the impact vector\n" );
 
-IMPLEMENT_CALLBACK( ShapeBaseData, onCollision, void, ( ShapeBase* obj, SceneObject *collObj, VectorF vec, F32 len ), ( obj, collObj, vec, len ),
+// HH: Modified for Tribes 2 compatibility. Tribes 2 raises this with the two
+// objects and nothing else: every one of its scripts takes
+// `(%data, %obj, %col)`, and `Armor::onCollision` has a fourth of its own --
+// a vehicle node another script forces -- which it reads as "mount whatever
+// was hit" when it is not empty. Passing the impact vector there mounted a
+// player on the first thing it touched, which on open ground is the terrain.
+IMPLEMENT_CALLBACK( ShapeBaseData, onCollision, void, ( ShapeBase* obj, SceneObject *collObj ), ( obj, collObj ),
    "@brief Called when we collide with another object.\n\n"
    "@param obj The ShapeBase object\n"
-   "@param collObj The object we collided with\n"
-   "@param vec Collision impact vector\n"
-   "@param len Length of the impact vector\n" );
+   "@param collObj The object we collided with\n" );
 
 IMPLEMENT_CALLBACK( ShapeBaseData, onDamage, void, ( ShapeBase* obj, F32 delta ), ( obj, delta ),
    "@brief Called when the object is damaged.\n\n"
@@ -4072,7 +4076,7 @@ void ShapeBase::notifyCollision()
 void ShapeBase::onCollision( SceneObject *object, const VectorF &vec )
 {
    if (!isGhost())
-      mDataBlock->onCollision_callback( this, object, vec, vec.len() );
+      mDataBlock->onCollision_callback( this, object );
 }
 
 //--------------------------------------------------------------------------
