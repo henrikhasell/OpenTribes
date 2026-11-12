@@ -267,7 +267,8 @@ bool DebrisData::preload(bool server, String &errorStr)
 
    if( shapeName && shapeName[0] != '\0' && !bool(shape) )
    {
-      shape = ResourceManager::get().load(shapeName);
+      shape = ResourceManager::get().load(
+         T2Layout::resourcePath(shapeName, "shapes/"));
       if( bool(shape) == false )
       {
          errorStr = String::ToString("DebrisData::load: Couldn't load shape \"%s\"", shapeName);

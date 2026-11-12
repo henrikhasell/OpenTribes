@@ -22,6 +22,7 @@
 
 #include "platform/platform.h"
 #include "T3D/fx/explosion.h"
+#include "T3D/gameBase/t2Layout.h"
 
 #include "core/resourceManager.h"
 #include "console/consoleTypes.h"
@@ -793,8 +794,11 @@ bool ExplosionData::preload(bool server, String &errorStr)
             Con::errorf(ConsoleLogEntry::General, "Error, unable to load particle emitter for explosion datablock");
    }
 
-   if (dtsFileName && dtsFileName[0]) {
-      explosionShape = ResourceManager::get().load(dtsFileName);
+   // HH: An explosion's shape is a client's business, as debris's is. A server
+   // that fails on one drops the datablock it would have sent.
+   if (!server && dtsFileName && dtsFileName[0]) {
+      explosionShape = ResourceManager::get().load(
+         T2Layout::resourcePath(dtsFileName, "shapes/"));
       if (!bool(explosionShape)) {
          errorStr = String::ToString("ExplosionData: Couldn't load shape \"%s\"", dtsFileName);
          return false;

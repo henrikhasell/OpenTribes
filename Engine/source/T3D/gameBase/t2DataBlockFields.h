@@ -350,24 +350,89 @@ namespace T2Protocol
       { "TurretImageData",    19, OpFlag, 1, T2DbImageCloakable },
       { "TurretImageData",    27, OpFlag, 1, T2DbImageEmap },
 
-   // Every projectile carries the same run of datablock ids, the emitters then
-   // the explosions then the splash and the sound, so the sound is three past
-   // whichever node that class's explosion sits at.
-      { "BombProjectileData",        56, OpDataBlockId, 11, T2DbProjectileSound },
-      { "ELFProjectileData",         51, OpDataBlockId, 11, T2DbProjectileSound },
-      { "EnergyProjectileData",      57, OpDataBlockId, 11, T2DbProjectileSound },
-      { "FlareProjectileData",       52, OpDataBlockId, 11, T2DbProjectileSound },
-      { "GrenadeProjectileData",     48, OpDataBlockId, 11, T2DbProjectileSound },
-      { "LinearFlareProjectileData", 57, OpDataBlockId, 11, T2DbProjectileSound },
-      { "LinearProjectileData",      50, OpDataBlockId, 11, T2DbProjectileSound },
-      { "ProjectileData",            40, OpDataBlockId, 11, T2DbProjectileSound },
-      { "RepairProjectileData",      50, OpDataBlockId, 11, T2DbProjectileSound },
-      { "SeekerProjectileData",      63, OpDataBlockId, 11, T2DbProjectileSound },
-      { "ShockLanceProjectileData",  63, OpDataBlockId, 11, T2DbProjectileSound },
-      { "SniperProjectileData",      66, OpDataBlockId, 11, T2DbProjectileSound },
-      { "TargetProjectileData",      53, OpDataBlockId, 11, T2DbProjectileSound },
-      { "TracerProjectileData",      60, OpDataBlockId, 11, T2DbProjectileSound },
+   // What each projectile class puts between the run every one of them opens
+   // with and the tail every one of them ends with, both of which t2Layout's
+   // matchProjectileData names by their shape. Settled by declaring probe
+   // datablocks at a retail server's console and reading the bodies it sent:
+   // twelve of the thirteen classes agreed on the shared parts node for node,
+   // and each of these is the class's own middle.
+   //
+   // The ms fields a class carries are quantised to whole ticks, rounding up,
+   // which is why a lifetimeMS of 5000 goes out as 5024.
+#define T2_PROJECTILE_BALLISTIC_ROWS( cls )                                   \
+      { cls, 24, OpRaw, 32, T2DbArmingDelay        },                         \
+      { cls, 25, OpRaw, 32, T2DbProjectileVelocity },                         \
+      { cls, 26, OpRaw, 32, T2DbElasticity         },                         \
+      { cls, 27, OpRaw, 32, T2DbFriction           },                         \
+      { cls, 28, OpRaw, 32, T2DbProjectileDrag     },                         \
+      { cls, 29, OpRaw, 32, T2DbProjectileDensity  },                         \
+      { cls, 30, OpRaw, 32, T2DbGravityMod         },                         \
+      { cls, 31, OpRaw, 32, T2DbProjectileLifetime },
 
+   // What a bolt and a bullet carry instead: the two speeds it flies at, the
+   // three times it lives by, and how it meets water.
+#define T2_PROJECTILE_LINEAR_ROWS( cls )                                      \
+      { cls, 24, OpRaw,  32, T2DbProjectileDryVelocity               },       \
+      { cls, 25, OpRaw,  32, T2DbProjectileWetVelocity               },       \
+      { cls, 26, OpRaw,  32, T2DbProjectileFizzleTime                },       \
+      { cls, 27, OpRaw,  32, T2DbProjectileLifetime                  },       \
+      { cls, 28, OpFlag,  1, T2DbProjectileExplodeOnDeath            },       \
+      { cls, 29, OpInt,   7, T2DbProjectileReflectOnWaterImpactAngle },       \
+      { cls, 30, OpInt,   7, T2DbProjectileDeflectionOnWaterImpact   },       \
+      { cls, 31, OpRaw,  32, T2DbProjectileFizzleUnderwater          },       \
+      { cls, 32, OpRaw,  32, T2DbProjectileActivateDelay             },       \
+      { cls, 33, OpFlag,  1, T2DbProjectileDoDynamicClientHits       },
+
+      T2_PROJECTILE_BALLISTIC_ROWS( "BombProjectileData"    )
+      T2_PROJECTILE_BALLISTIC_ROWS( "EnergyProjectileData"  )
+      T2_PROJECTILE_BALLISTIC_ROWS( "FlareProjectileData"   )
+      T2_PROJECTILE_BALLISTIC_ROWS( "GrenadeProjectileData" )
+
+      T2_PROJECTILE_LINEAR_ROWS( "LinearFlareProjectileData" )
+      T2_PROJECTILE_LINEAR_ROWS( "LinearProjectileData"      )
+      T2_PROJECTILE_LINEAR_ROWS( "TracerProjectileData"      )
+#undef T2_PROJECTILE_BALLISTIC_ROWS
+#undef T2_PROJECTILE_LINEAR_ROWS
+
+   // A vehicle's bomb turns as it falls, each speed a vector of three.
+      { "BombProjectileData", 32, OpRaw, 32, T2DbProjectileMinRotSpeedX },
+      { "BombProjectileData", 33, OpRaw, 32, T2DbProjectileMinRotSpeedY },
+      { "BombProjectileData", 34, OpRaw, 32, T2DbProjectileMinRotSpeedZ },
+      { "BombProjectileData", 35, OpRaw, 32, T2DbProjectileMaxRotSpeedX },
+      { "BombProjectileData", 36, OpRaw, 32, T2DbProjectileMaxRotSpeedY },
+      { "BombProjectileData", 37, OpRaw, 32, T2DbProjectileMaxRotSpeedZ },
+
+   // A bolt is drawn as a blur of its own colour, end on as a cross.
+      { "EnergyProjectileData", 32, OpRaw, 32, T2DbCrossViewAng },
+      { "EnergyProjectileData", 33, OpRaw, 32, T2DbCrossSize    },
+      { "EnergyProjectileData", 34, OpRaw, 32, T2DbBlurLifetime },
+      { "EnergyProjectileData", 35, OpRaw, 32, T2DbBlurWidth    },
+      { "EnergyProjectileData", 36, OpRaw, 32, T2DbBlurColorR   },
+      { "EnergyProjectileData", 37, OpRaw, 32, T2DbBlurColorG   },
+      { "EnergyProjectileData", 38, OpRaw, 32, T2DbBlurColorB   },
+
+      { "FlareProjectileData", 32, OpRaw, 32, T2DbProjectileSize        },
+      { "FlareProjectileData", 33, OpRaw,  8, T2DbProjectileUseLensFlare },
+
+   // A bullet is seen as the streak it leaves and the cross it is end on.
+      { "TracerProjectileData", 34, OpRaw, 32, T2DbTracerLength    },
+      { "TracerProjectileData", 35, OpRaw, 32, T2DbTracerWidth     },
+      { "TracerProjectileData", 36, OpRaw, 32, T2DbTracerMinPixels },
+      { "TracerProjectileData", 37, OpRaw,  8, T2DbTracerAlpha     },
+      { "TracerProjectileData", 38, OpRaw, 32, T2DbTracerColor     },
+      { "TracerProjectileData", 39, OpRaw, 32, T2DbCrossViewAng    },
+      { "TracerProjectileData", 40, OpRaw, 32, T2DbCrossSize       },
+      { "TracerProjectileData", 41, OpRaw,  8, T2DbRenderCross     },
+
+   // A flare bolt's petals.
+      { "LinearFlareProjectileData", 34, OpRaw,   32, T2DbNumFlares  },
+      { "LinearFlareProjectileData", 35, OpColor, 32, T2DbFlareColor },
+      { "LinearFlareProjectileData", 38, OpRaw,   32, T2DbFlareSize0 },
+      { "LinearFlareProjectileData", 39, OpRaw,   32, T2DbFlareSize1 },
+      { "LinearFlareProjectileData", 40, OpRaw,   32, T2DbFlareSize2 },
+
+   // The lance's zap: how long it lasts, how far it reaches, and the two
+   // bolts it is drawn as.
       { "ShockLanceProjectileData",  24, OpRaw, 32, T2DbZapDuration           },
       { "ShockLanceProjectileData",  25, OpRaw, 32, T2DbBoltLength            },
       { "ShockLanceProjectileData",  26, OpRaw, 32, T2DbBoltParts             },
@@ -384,64 +449,14 @@ namespace T2Protocol
       { "ShockLanceProjectileData",  38, OpRaw, 32, T2DbBoltSpeed1            },
       { "ShockLanceProjectileData",  39, OpRaw, 32, T2DbBoltTexWrap1          },
 
-      { "LinearProjectileData",      24, OpRaw, 32, T2DbProjectileVelocity },
-      { "LinearProjectileData",      27, OpRaw, 32, T2DbProjectileLifetime },
-      { "LinearProjectileData",      57, OpRaw, 32, T2DbScaleX             },
-      { "LinearProjectileData",      58, OpRaw, 32, T2DbScaleY             },
-      { "LinearProjectileData",      59, OpRaw, 32, T2DbScaleZ             },
-      { "LinearProjectileData",      53, OpDataBlockId, 11, T2DbExplosion   },
-
-      { "LinearFlareProjectileData", 24, OpRaw, 32, T2DbProjectileVelocity },
-      { "LinearFlareProjectileData", 27, OpRaw, 32, T2DbProjectileLifetime },
-      { "LinearFlareProjectileData", 64, OpRaw, 32, T2DbScaleX             },
-      { "LinearFlareProjectileData", 65, OpRaw, 32, T2DbScaleY             },
-      { "LinearFlareProjectileData", 66, OpRaw, 32, T2DbScaleZ             },
-      { "LinearFlareProjectileData", 60, OpDataBlockId, 11, T2DbExplosion   },
-   // The flag ProjectileData writes after its shape and two words, which
-   // turns a plasma bolt's flat shape to the camera (0x0063105d), and what
-   // LinearFlareProjectileData writes after the run every projectile shares
-   // (0x0063dbf0): the flares, their colour, two textures and three sizes.
-      { "LinearFlareProjectileData",  3, OpFlag,   1, T2DbFaceViewer },
-      { "LinearFlareProjectileData", 34, OpRaw,   32, T2DbNumFlares  },
-      { "LinearFlareProjectileData", 35, OpColor, 32, T2DbFlareColor },
-      { "LinearFlareProjectileData", 38, OpRaw,   32, T2DbFlareSize0 },
-      { "LinearFlareProjectileData", 39, OpRaw,   32, T2DbFlareSize1 },
-      { "LinearFlareProjectileData", 40, OpRaw,   32, T2DbFlareSize2 },
-
-      { "TracerProjectileData",      24, OpRaw, 32, T2DbProjectileVelocity },
-      { "TracerProjectileData",      27, OpRaw, 32, T2DbProjectileLifetime },
-      { "TracerProjectileData",      34, OpRaw, 32, T2DbTracerLength       },
-      { "TracerProjectileData",      35, OpRaw, 32, T2DbTracerWidth        },
-      { "TracerProjectileData",      67, OpRaw, 32, T2DbScaleX             },
-      { "TracerProjectileData",      68, OpRaw, 32, T2DbScaleY             },
-      { "TracerProjectileData",      69, OpRaw, 32, T2DbScaleZ             },
-      { "TracerProjectileData",      63, OpDataBlockId, 11, T2DbExplosion   },
-
-      { "EnergyProjectileData",      24, OpRaw, 32, T2DbArmingDelay        },
-      { "EnergyProjectileData",      25, OpRaw, 32, T2DbProjectileVelocity },
-      { "EnergyProjectileData",      26, OpRaw, 32, T2DbElasticity         },
-      { "EnergyProjectileData",      27, OpRaw, 32, T2DbFriction           },
-      { "EnergyProjectileData",      30, OpRaw, 32, T2DbGravityMod         },
-      { "EnergyProjectileData",      31, OpRaw, 32, T2DbProjectileLifetime },
-      { "EnergyProjectileData",      32, OpRaw, 32, T2DbCrossViewAng       },
-      { "EnergyProjectileData",      33, OpRaw, 32, T2DbCrossSize          },
-      { "EnergyProjectileData",      34, OpRaw, 32, T2DbBlurLifetime       },
-      { "EnergyProjectileData",      35, OpRaw, 32, T2DbBlurWidth          },
-      { "EnergyProjectileData",      36, OpRaw, 32, T2DbBlurColorR         },
-      { "EnergyProjectileData",      37, OpRaw, 32, T2DbBlurColorG         },
-      { "EnergyProjectileData",      38, OpRaw, 32, T2DbBlurColorB         },
-      { "EnergyProjectileData",      64, OpRaw, 32, T2DbScaleX             },
-      { "EnergyProjectileData",      65, OpRaw, 32, T2DbScaleY             },
-      { "EnergyProjectileData",      66, OpRaw, 32, T2DbScaleZ             },
-      { "EnergyProjectileData",      60, OpDataBlockId, 11, T2DbExplosion   },
-
-   // SeekerProjectileData::packData (0x00637b10) writes its own run after
-   // ProjectileData's: the lifetime, the speed it leaves the muzzle at, how
-   // fast it turns, the radius it goes off inside, the four terrain-avoidance
-   // fields, how far and how wide it looks for a flare, whether it drops a
-   // casing, the speed its motor takes it to and how hard, how long the
-   // casing takes, how long the launcher's exhaust lasts, the node that
-   // exhaust comes out of, the shape the casing is, and three datablock ids.
+   // SeekerProjectileData::packData (0x00637b10) writes its own middle between
+   // the two runs matchProjectileData names by their shape: the lifetime, the
+   // speed it leaves the muzzle at, how fast it turns, the radius it goes off
+   // inside, the four terrain-avoidance fields, how far and how wide it looks
+   // for a flare, whether it drops a casing, the speed its motor takes it to
+   // and how hard, how long the casing takes, how long the launcher's exhaust
+   // lasts, the node that exhaust comes out of, the shape the casing is, and
+   // the three datablock ids of its own.
       { "SeekerProjectileData", 24, OpRaw, 32, T2DbProjectileLifetime     },
       { "SeekerProjectileData", 25, OpRaw, 32, T2DbSeekerMuzzleVelocity   },
       { "SeekerProjectileData", 26, OpRaw, 32, T2DbSeekerTurningSpeed     },
@@ -462,56 +477,6 @@ namespace T2Protocol
       { "SeekerProjectileData", 47, OpDataBlockId, 11, T2DbSeekerCasingDebris  },
       { "SeekerProjectileData", 46, OpDataBlockId, 11, T2DbSeekerPuffEmitter   },
       { "SeekerProjectileData", 45, OpDataBlockId, 11, T2DbSeekerExhaustEmitter },
-   // and ProjectileData's own run around it, at the nodes every projectile
-   // layout puts them: the scale three past the top of the id chain, the
-   // explosion three before the sound, baseEmitter six past it.
-      { "SeekerProjectileData",  3, OpFlag,  1, T2DbFaceViewer },
-      { "SeekerProjectileData", 70, OpRaw,  32, T2DbScaleX     },
-      { "SeekerProjectileData", 71, OpRaw,  32, T2DbScaleY     },
-      { "SeekerProjectileData", 72, OpRaw,  32, T2DbScaleZ     },
-      { "SeekerProjectileData", 69, OpDataBlockId, 11,
-        T2DbProjectileBaseEmitter },
-      { "SeekerProjectileData", 67, OpDataBlockId, 11,
-        T2DbProjectileBubbleEmitter },
-      { "SeekerProjectileData", 66, OpDataBlockId, 11, T2DbExplosion },
-
-      { "GrenadeProjectileData", 24, OpRaw, 32, T2DbArmingDelay        },
-      { "GrenadeProjectileData", 25, OpRaw, 32, T2DbProjectileVelocity },
-      { "GrenadeProjectileData", 26, OpRaw, 32, T2DbElasticity         },
-      { "GrenadeProjectileData", 27, OpRaw, 32, T2DbFriction           },
-      { "GrenadeProjectileData", 28, OpRaw, 32, T2DbProjectileDrag     },
-      { "GrenadeProjectileData", 29, OpRaw, 32, T2DbProjectileDensity  },
-      { "GrenadeProjectileData", 30, OpRaw, 32, T2DbGravityMod         },
-      { "GrenadeProjectileData", 31, OpRaw, 32, T2DbProjectileLifetime },
-
-      { "GrenadeProjectileData", 51, OpDataBlockId, 11, T2DbExplosion   },
-   // baseEmitter, the first of the run, which ProjectileData::packData
-   // writes from 0xe8 (0x631107).
-      { "GrenadeProjectileData", 54, OpDataBlockId, 11,
-        T2DbProjectileBaseEmitter },
-      { "GrenadeProjectileData", 52, OpDataBlockId, 11,
-        T2DbProjectileBubbleEmitter },
-
-   // The light, which ProjectileData::packData writes behind the hasLight
-   // flag as the radius over twenty at eight bits and the colour at seven
-   // (0x0063127d). Each layout reads it at the node twelve before its sound.
-   // The colour it has under water follows behind a flag of its own
-   // (0x006312db), and every layout reads that in the three nodes before.
-#define T2_PROJECTILE_LIGHT_ROWS( cls, at )                                   \
-      { cls, at - 3, OpFloat, 7, T2DbProjectileWaterLightColorR },            \
-      { cls, at - 2, OpFloat, 7, T2DbProjectileWaterLightColorG },            \
-      { cls, at - 1, OpFloat, 7, T2DbProjectileWaterLightColorB },            \
-      { cls, at,     OpFloat, 8, T2DbProjectileLightRadius },                 \
-      { cls, at + 1, OpFloat, 7, T2DbProjectileLightColorR },                 \
-      { cls, at + 2, OpFloat, 7, T2DbProjectileLightColorG },                 \
-      { cls, at + 3, OpFloat, 7, T2DbProjectileLightColorB }
-      T2_PROJECTILE_LIGHT_ROWS( "EnergyProjectileData",      45 ),
-      T2_PROJECTILE_LIGHT_ROWS( "GrenadeProjectileData",     36 ),
-      T2_PROJECTILE_LIGHT_ROWS( "LinearFlareProjectileData", 45 ),
-      T2_PROJECTILE_LIGHT_ROWS( "LinearProjectileData",      38 ),
-      T2_PROJECTILE_LIGHT_ROWS( "SeekerProjectileData",      51 ),
-      T2_PROJECTILE_LIGHT_ROWS( "TracerProjectileData",      48 ),
-#undef T2_PROJECTILE_LIGHT_ROWS
 
    // The shield effect's lifetime and scale, which ShapeBaseData::unpackData
    // (0x005e6b8a) reads after its two flags: the scale only when a flag

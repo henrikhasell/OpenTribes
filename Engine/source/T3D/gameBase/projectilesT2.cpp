@@ -70,9 +70,38 @@ public:
       /// the ids above instead and resolves them in preload, so a datablock
       /// holds one or the other and sends whichever it has.
    ExplosionData       *explosion;
+   ExplosionData       *underwaterExplosion;
    ParticleEmitterData *baseEmitter;
    ParticleEmitterData *bubbleEmitter;
+   ParticleEmitterData *delayEmitter;
    SFXTrack            *sound;
+   SFXTrack            *fireSound;
+   SFXTrack            *wetFireSound;
+   SplashData          *splash;
+   F32                  velInheritFactor; ///< how much of the firer's speed
+   S32                  emitterDelay;     ///< ms before its trail lights
+
+      /// The rest of the run every projectile datablock opens with.
+   F32  bubbleEmitTime;       ///< seconds it trails bubbles under water
+   F32  depthTolerance;       ///< how deep water has to be to drown it
+   bool explodeOnWaterImpact; ///< it goes off where it goes in
+
+      /// What a bolt or a bullet carries where a grenade carries its flight.
+   F32  dryVelocity;          ///< metres a second in air
+   F32  wetVelocity;          ///< and under water
+   S32  fizzleTimeMS;         ///< when it goes out rather than off
+   S32  fizzleUnderwaterMS;
+   S32  activateDelayMS;      ///< before it can hit anything
+   bool explodeOnDeath;
+   bool doDynamicClientHits;
+   F32  reflectOnWaterImpactAngle; ///< degrees it skips off water at
+   F32  deflectionOnWaterImpact;   ///< and how far it is turned
+
+      /// What a bullet's streak is drawn with.
+   F32    tracerMinPixels;
+   F32    tracerAlpha;
+   ColorF tracerColor;
+   bool   renderCross;
    F32    blurLifetime;    ///< seconds a length of the trail lasts
    F32    blurWidth;
    ColorF blurColor;
@@ -92,12 +121,19 @@ public:
       /// are the only DecalData its body names.
    Vector<U32> decalIds;
    DecalData  *decal;
+      /// What a server's scripts name instead, six slots of them.
+   DecalData  *decalData[6];
 
    ProjectileDataT2();
 
       /// A bullet is seen as the streak it leaves, which is what retail draws
       /// of one, so the shape its datablock also names is never wanted.
    bool namesGameBaseShape() const { return streakLength <= 0.0f; }
+
+      /// Whether it flies at a fixed speed, which a bolt and a bullet do and
+      /// a grenade does not. The two families keep the same fields in
+      /// different nodes, and quantise their lifetime differently.
+   virtual bool fliesLinearly() const { return false; }
    bool unpackData(BitStream *stream, U32 classId);
 
       // HH: Added for Tribes 2 compatibility.
@@ -116,7 +152,7 @@ ConsoleDocClass( ProjectileDataT2,
 
 ProjectileDataT2::ProjectileDataT2()
    : velocity(0.0f),
-     lifetimeMS(0),
+     lifetimeMS(20000),
      streakLength(0.0f),
      streakWidth(0.0f),
      crossSize(0.0f),
@@ -133,6 +169,29 @@ ProjectileDataT2::ProjectileDataT2()
      bubbleEmitterId(0),
      soundId(0),
      explosion(NULL),
+     underwaterExplosion(NULL),
+     delayEmitter(NULL),
+     fireSound(NULL),
+     wetFireSound(NULL),
+     splash(NULL),
+     velInheritFactor(0.0f),
+     emitterDelay(-1),
+     bubbleEmitTime(0.5f),
+     depthTolerance(5.0f),
+     explodeOnWaterImpact(false),
+     dryVelocity(0.1f),
+     wetVelocity(0.1f),
+     fizzleTimeMS(0),
+     fizzleUnderwaterMS(-1),
+     activateDelayMS(-1),
+     explodeOnDeath(false),
+     doDynamicClientHits(false),
+     reflectOnWaterImpactAngle(0.0f),
+     deflectionOnWaterImpact(0.0f),
+     tracerMinPixels(0.0f),
+     tracerAlpha(0.0f),
+     tracerColor(1.0f, 1.0f, 1.0f, 1.0f),
+     renderCross(false),
      baseEmitter(NULL),
      bubbleEmitter(NULL),
      sound(NULL),
@@ -149,7 +208,11 @@ ProjectileDataT2::ProjectileDataT2()
      waterLightColor(1.0f, 1.0f, 1.0f, 1.0f),
      decal(NULL)
 {
-   flareSize[0] = flareSize[1] = flareSize[2] = 0.0f;
+   flareSize[0] = 0.0f;
+   flareSize[1] = 0.25f;
+   flareSize[2] = 3.0f;
+   for(U32 i = 0; i < 6; i++)
+      decalData[i] = NULL;
 }
 
 /// The decals are the only DecalData among the datablocks a projectile's
@@ -186,6 +249,8 @@ void ProjectileDataT2::initPersistFields()
 {
    Parent::initPersistFields();
 
+   addField("projectileShapeName", TypeShapeFilename, Offset(shapeName, ProjectileDataT2),
+      "The shape it flies as, where it is seen as one.");
    addField("muzzleVelocity",   TYPEID< F32 >(),     Offset(velocity, ProjectileDataT2),
       "Metres a second along the way it was fired.");
    addField("lifetimeMS",       TYPEID< S32 >(),     Offset(lifetimeMS, ProjectileDataT2),
@@ -237,6 +302,72 @@ void ProjectileDataT2::initPersistFields()
 
    addField("explosion",    TYPEID< ExplosionData >(),       Offset(explosion, ProjectileDataT2),
       "The explosion it ends as.");
+   addField("bubbleEmitTime", TYPEID< F32 >(), Offset(bubbleEmitTime, ProjectileDataT2),
+      "Seconds it trails bubbles under water.");
+   addField("depthTolerance", TYPEID< F32 >(), Offset(depthTolerance, ProjectileDataT2),
+      "How deep water has to be to drown it.");
+   addField("explodeOnWaterImpact", TYPEID< bool >(),
+      Offset(explodeOnWaterImpact, ProjectileDataT2),
+      "It goes off where it goes in.");
+   addField("dryVelocity", TYPEID< F32 >(), Offset(dryVelocity, ProjectileDataT2),
+      "Metres a second in air, for one that flies at a fixed speed.");
+   addField("wetVelocity", TYPEID< F32 >(), Offset(wetVelocity, ProjectileDataT2),
+      "And under water.");
+   addField("fizzleTimeMS", TYPEID< S32 >(), Offset(fizzleTimeMS, ProjectileDataT2),
+      "When it goes out rather than off.");
+   addField("fizzleUnderwaterMS", TYPEID< S32 >(),
+      Offset(fizzleUnderwaterMS, ProjectileDataT2),
+      "And how long it lasts under water.");
+   addField("activateDelayMS", TYPEID< S32 >(), Offset(activateDelayMS, ProjectileDataT2),
+      "Before it can hit anything.");
+   addField("explodeOnDeath", TYPEID< bool >(), Offset(explodeOnDeath, ProjectileDataT2),
+      "Whether running out of life sets it off.");
+   addField("doDynamicClientHits", TYPEID< bool >(),
+      Offset(doDynamicClientHits, ProjectileDataT2),
+      "Whether a client tests it against moving things.");
+   addField("reflectOnWaterImpactAngle", TYPEID< F32 >(),
+      Offset(reflectOnWaterImpactAngle, ProjectileDataT2),
+      "Degrees it skips off water at.");
+   addField("deflectionOnWaterImpact", TYPEID< F32 >(),
+      Offset(deflectionOnWaterImpact, ProjectileDataT2),
+      "And how far going in turns it.");
+   addField("tracerMinPixels", TYPEID< F32 >(), Offset(tracerMinPixels, ProjectileDataT2),
+      "The least a streak is drawn as.");
+   addField("tracerAlpha", TYPEID< F32 >(), Offset(tracerAlpha, ProjectileDataT2),
+      "How solid that streak is.");
+   addField("tracerColor", TYPEID< ColorF >(), Offset(tracerColor, ProjectileDataT2),
+      "And its colour.");
+   addField("tracerTex", TypeRealString, Offset(texture, ProjectileDataT2), 2,
+      "What its streak is drawn with, and what its cross is.");
+   // A flare bolt names the same two slots its own way, and the one it is
+   // modulated by comes first on the wire.
+   addField("flareModTexture", TypeRealString, Offset(texture, ProjectileDataT2),
+      "What a flare bolt's petals are modulated by.");
+   addField("flareBaseTexture", TypeRealString,
+      Offset(texture, ProjectileDataT2) + sizeof(String),
+      "And what they are drawn from.");
+   addField("size", TYPEID< F32 >(), Offset(flareSize, ProjectileDataT2), 3,
+      "How far a flare bolt's petals start and end out.");
+   addField("renderCross", TYPEID< bool >(), Offset(renderCross, ProjectileDataT2),
+      "Whether it is drawn end on as a cross.");
+   addField("delayEmitter", TYPEID< ParticleEmitterData >(),
+      Offset(delayEmitter, ProjectileDataT2),
+      "What it trails once its delay is up.");
+   addField("fireSound", TYPEID< SFXTrack >(), Offset(fireSound, ProjectileDataT2),
+      "What is heard where it was fired.");
+   addField("wetFireSound", TYPEID< SFXTrack >(), Offset(wetFireSound, ProjectileDataT2),
+      "And what is heard under water instead.");
+   addField("decalData", TYPEID< DecalData >(), Offset(decalData, ProjectileDataT2), 6,
+      "The marks it leaves where it goes off.");
+   addField("underwaterExplosion", TYPEID< ExplosionData >(),
+      Offset(underwaterExplosion, ProjectileDataT2),
+      "The one it ends as under water instead.");
+   addField("splash",       TYPEID< SplashData >(),          Offset(splash, ProjectileDataT2),
+      "The splash it makes going in.");
+   addField("velInheritFactor", TYPEID< F32 >(), Offset(velInheritFactor, ProjectileDataT2),
+      "How much of the firer's speed it keeps.");
+   addField("emitterDelay", TYPEID< S32 >(), Offset(emitterDelay, ProjectileDataT2),
+      "Ticks before its trail lights, and -1 for none.");
    addField("baseEmitter",  TYPEID< ParticleEmitterData >(), Offset(baseEmitter, ProjectileDataT2),
       "The emitter it trails in flight.");
    addField("bubbleEmitter",TYPEID< ParticleEmitterData >(), Offset(bubbleEmitter, ProjectileDataT2),
@@ -256,26 +387,107 @@ void ProjectileDataT2::publishT2Data()
 {
    Parent::publishT2Data();
 
+   // The run every projectile datablock opens with.
+   T2Layout::publishDataBlockString(T2Layout::T2DbProjectileShapeName,
+                                    shapeName ? shapeName : "");
+   T2Layout::publishDataBlockWord(T2Layout::T2DbProjectileEmitterDelay,
+                                  U32(emitterDelay));
+   T2Layout::publishDataBlockWhole(T2Layout::T2DbProjectileBubbleEmitTime,
+                                   bubbleEmitTime);
+   T2Layout::publishDataBlockWord(T2Layout::T2DbProjectileExplodeOnWaterImpact,
+                                  explodeOnWaterImpact ? 1 : 0);
+   T2Layout::publishDataBlockWhole(T2Layout::T2DbProjectileDepthTolerance,
+                                   depthTolerance);
+
    T2Layout::publishDataBlockWhole(T2Layout::T2DbProjectileVelocity, velocity);
-   T2Layout::publishDataBlockWord(T2Layout::T2DbProjectileLifetime, lifetimeMS);
    T2Layout::publishDataBlockWhole(T2Layout::T2DbTracerLength, streakLength);
    T2Layout::publishDataBlockWhole(T2Layout::T2DbTracerWidth, streakWidth);
    T2Layout::publishDataBlockWhole(T2Layout::T2DbCrossSize, crossSize);
    T2Layout::publishDataBlockWhole(T2Layout::T2DbCrossViewAng, crossViewAng);
-   T2Layout::publishDataBlockWord(T2Layout::T2DbArmingDelay, armingDelayMS);
+
+   // A grenade's arming delay is whole ticks and never under 250ms, which
+   // retail's onAdd says in as many words: 650 goes out as 672.
+   T2Layout::publishDataBlockWord(T2Layout::T2DbArmingDelay,
+                                  T2Layout::t2TickMs(armingDelayMS, 250));
+
+   // A bolt's and a bullet's own flight. Each of its three times is whole
+   // ticks too, between one tick and 510 of them.
+   T2Layout::publishDataBlockWhole(T2Layout::T2DbProjectileDryVelocity,
+                                   dryVelocity);
+   T2Layout::publishDataBlockWhole(T2Layout::T2DbProjectileWetVelocity,
+                                   wetVelocity);
+   // A grenade's lifetime goes over as it stands; a bolt's is whole ticks,
+   // between one and 510 of them.
+   T2Layout::publishDataBlockWord(T2Layout::T2DbProjectileLifetime,
+      fliesLinearly() ? T2Layout::t2TickMs(lifetimeMS, 32, 510)
+                      : U32(lifetimeMS));
+
+   T2Layout::publishDataBlockWord(T2Layout::T2DbProjectileFizzleTime,
+      T2Layout::t2TickMs(fizzleTimeMS <= 0 || fizzleTimeMS > lifetimeMS
+                            ? lifetimeMS : fizzleTimeMS, 32, 510));
+   T2Layout::publishDataBlockWord(T2Layout::T2DbProjectileFizzleUnderwater,
+      fizzleUnderwaterMS > 0 ? T2Layout::t2TickMs(fizzleUnderwaterMS, 32, 510)
+                             : U32(-1));
+   T2Layout::publishDataBlockWord(T2Layout::T2DbProjectileActivateDelay,
+                                  U32(activateDelayMS));
+   T2Layout::publishDataBlockFlag(T2Layout::T2DbProjectileExplodeOnDeath,
+                                  explodeOnDeath);
+   T2Layout::publishDataBlockFlag(T2Layout::T2DbProjectileDoDynamicClientHits,
+                                  doDynamicClientHits);
+   T2Layout::publishDataBlockWord(T2Layout::T2DbProjectileReflectOnWaterImpactAngle,
+      U32(mClampF(reflectOnWaterImpactAngle, 0.0f, 90.0f)));
+   T2Layout::publishDataBlockWord(T2Layout::T2DbProjectileDeflectionOnWaterImpact,
+      U32(mClampF(deflectionOnWaterImpact, 0.0f, 90.0f)));
+
+   // A bullet's streak, and the cross it is drawn as end on.
+   T2Layout::publishDataBlockWhole(T2Layout::T2DbTracerMinPixels, tracerMinPixels);
+   T2Layout::publishDataBlockWord(T2Layout::T2DbTracerAlpha, U32(tracerAlpha));
+   T2Layout::publishDataBlockWord(T2Layout::T2DbTracerColor,
+      U32(tracerColor.red * 255.0f + 0.5f) |
+      (U32(tracerColor.green * 255.0f + 0.5f) << 8) |
+      (U32(tracerColor.blue * 255.0f + 0.5f) << 16) |
+      (U32(tracerColor.alpha * 255.0f + 0.5f) << 24));
+   T2Layout::publishDataBlockWord(T2Layout::T2DbRenderCross, renderCross ? 1 : 0);
+
+   // What it is drawn with along its flight, and what it is drawn with end on.
+   T2Layout::publishDataBlockString(T2Layout::T2DbProjectileTexture + 0,
+                                    texture[0].c_str());
+   T2Layout::publishDataBlockString(T2Layout::T2DbProjectileTexture + 1,
+                                    texture[1].c_str());
 
    // Each is an id the body only carries where there is one, named here by a
    // server's scripts and handed to a client as a number.
-   const SimObject *named[] = { explosion, baseEmitter, bubbleEmitter, sound };
+   const SimObject *named[] =
+   {
+      explosion, underwaterExplosion, splash, sound, fireSound, wetFireSound,
+      baseEmitter, delayEmitter, bubbleEmitter,
+      decalData[0], decalData[1], decalData[2],
+      decalData[3], decalData[4], decalData[5],
+   };
    static const U32 sIdFields[] =
    {
       T2Layout::T2DbExplosion,
-      T2Layout::T2DbProjectileBaseEmitter,
-      T2Layout::T2DbProjectileBubbleEmitter,
+      T2Layout::T2DbProjectileUnderwaterExplosion,
+      T2Layout::T2DbProjectileSplash,
       T2Layout::T2DbProjectileSound,
+      T2Layout::T2DbProjectileFireSound,
+      T2Layout::T2DbProjectileWetFireSound,
+      T2Layout::T2DbProjectileBaseEmitter,
+      T2Layout::T2DbProjectileDelayEmitter,
+      T2Layout::T2DbProjectileBubbleEmitter,
+      T2Layout::T2DbProjectileDecal + 0,
+      T2Layout::T2DbProjectileDecal + 1,
+      T2Layout::T2DbProjectileDecal + 2,
+      T2Layout::T2DbProjectileDecal + 3,
+      T2Layout::T2DbProjectileDecal + 4,
+      T2Layout::T2DbProjectileDecal + 5,
    };
    const U32 sIdWords[] =
-      { explosionId, baseEmitterId, bubbleEmitterId, soundId };
+   {
+      explosionId, 0, 0, soundId, 0, 0,
+      baseEmitterId, 0, bubbleEmitterId,
+      0, 0, 0, 0, 0, 0,
+   };
 
    for(U32 i = 0; i < sizeof(sIdFields) / sizeof(sIdFields[0]); i++)
    {
@@ -428,7 +640,51 @@ bool ProjectileDataT2::unpackData(BitStream *stream, U32 classId)
    if(T2Layout::lastDataBlockWord(T2Layout::T2DbProjectileWaterLightColorB, &word))
       waterLightColor.blue = T2Layout::t2Float(word, 7);
 
+   // What the run every projectile opens with carries, and what a bolt or a
+   // bullet puts in the middle.
+   if(T2Layout::lastDataBlockField(T2Layout::T2DbProjectileBubbleEmitTime, &value))
+      bubbleEmitTime = value;
+   if(T2Layout::lastDataBlockField(T2Layout::T2DbProjectileDepthTolerance, &value))
+      depthTolerance = value;
+   if(T2Layout::lastDataBlockWord(T2Layout::T2DbProjectileExplodeOnWaterImpact, &word))
+      explodeOnWaterImpact = word != 0;
+   if(T2Layout::lastDataBlockField(T2Layout::T2DbProjectileDryVelocity, &value))
+      dryVelocity = value;
+   if(T2Layout::lastDataBlockField(T2Layout::T2DbProjectileWetVelocity, &value))
+      wetVelocity = value;
+   if(T2Layout::lastDataBlockWord(T2Layout::T2DbProjectileFizzleTime, &word))
+      fizzleTimeMS = S32(word);
+   if(T2Layout::lastDataBlockWord(T2Layout::T2DbProjectileFizzleUnderwater, &word))
+      fizzleUnderwaterMS = S32(word);
+   if(T2Layout::lastDataBlockWord(T2Layout::T2DbProjectileActivateDelay, &word))
+      activateDelayMS = S32(word);
+   if(T2Layout::lastDataBlockWord(T2Layout::T2DbProjectileExplodeOnDeath, &word))
+      explodeOnDeath = word != 0;
+   if(T2Layout::lastDataBlockWord(T2Layout::T2DbProjectileDoDynamicClientHits, &word))
+      doDynamicClientHits = word != 0;
+   if(T2Layout::lastDataBlockWord(
+         T2Layout::T2DbProjectileReflectOnWaterImpactAngle, &word))
+      reflectOnWaterImpactAngle = F32(word);
+   if(T2Layout::lastDataBlockWord(
+         T2Layout::T2DbProjectileDeflectionOnWaterImpact, &word))
+      deflectionOnWaterImpact = F32(word);
+   if(T2Layout::lastDataBlockField(T2Layout::T2DbTracerMinPixels, &value))
+      tracerMinPixels = value;
+   if(T2Layout::lastDataBlockWord(T2Layout::T2DbTracerAlpha, &word))
+      tracerAlpha = F32(word);
+   if(T2Layout::lastDataBlockWord(T2Layout::T2DbTracerColor, &word))
+      tracerColor.set(F32(word & 0xff) / 255.0f, F32((word >> 8) & 0xff) / 255.0f,
+                      F32((word >> 16) & 0xff) / 255.0f,
+                      F32((word >> 24) & 0xff) / 255.0f);
+   if(T2Layout::lastDataBlockWord(T2Layout::T2DbRenderCross, &word))
+      renderCross = word != 0;
+
    decalIds = T2Layout::lastDataBlockIds();
+
+   // The shape it flies as, which its layout names first of all.
+   if(T2Layout::lastDataBlockString(T2Layout::T2DbProjectileShapeName))
+      shapeName = StringTable->insert(
+         T2Layout::lastDataBlockString(T2Layout::T2DbProjectileShapeName));
 
       // Every one of these layouts names its shape first and its two
       // textures after it, which for a bolt are what it is drawn with along
@@ -442,22 +698,23 @@ bool ProjectileDataT2::unpackData(BitStream *stream, U32 classId)
    return true;
 }
 
-#define IMPLEMENT_PROJECTILE_DATA_T2( className )                            \
+#define IMPLEMENT_PROJECTILE_DATA_T2( className, linear )                    \
    class className : public ProjectileDataT2                                 \
    {                                                                         \
       typedef ProjectileDataT2 Parent;                                       \
    public:                                                                   \
       DECLARE_CONOBJECT(className);                                          \
+      bool fliesLinearly() const { return linear; }                          \
    };                                                                        \
    IMPLEMENT_CO_DATABLOCK_V1(className);                                     \
    ConsoleDocClass( className, "@brief A Tribes 2 projectile's datablock."    \
                                "\n\n@internal" )
 
-IMPLEMENT_PROJECTILE_DATA_T2( EnergyProjectileData );
-IMPLEMENT_PROJECTILE_DATA_T2( GrenadeProjectileData );
-IMPLEMENT_PROJECTILE_DATA_T2( LinearFlareProjectileData );
-IMPLEMENT_PROJECTILE_DATA_T2( LinearProjectileData );
-IMPLEMENT_PROJECTILE_DATA_T2( TracerProjectileData );
+IMPLEMENT_PROJECTILE_DATA_T2( EnergyProjectileData,      false );
+IMPLEMENT_PROJECTILE_DATA_T2( GrenadeProjectileData,     false );
+IMPLEMENT_PROJECTILE_DATA_T2( LinearFlareProjectileData, true  );
+IMPLEMENT_PROJECTILE_DATA_T2( LinearProjectileData,      true  );
+IMPLEMENT_PROJECTILE_DATA_T2( TracerProjectileData,      true  );
 
 //----------------------------------------------------------------------------
 
