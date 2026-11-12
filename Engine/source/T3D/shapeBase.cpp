@@ -172,6 +172,7 @@ ShapeBaseData::ShapeBaseData()
    shadowNode( -1 ),
    shapeName( StringTable->insert("") ),
    cloakTexName( StringTable->insert("") ),
+   heatSignature( 1.0f ),
    mass( 1.0f ),
    drag( 0.0f ),
    density( 1.0f ),
@@ -499,27 +500,58 @@ void ShapeBaseData::publishT2Data()
       { T2Layout::T2DbCameraMaxFov,     &ShapeBaseData::cameraMaxFov     },
    };
 
-   for (U32 i = 0; i < sizeof(sFields) / sizeof(sFields[0]); i++)
-      T2Layout::publishDataBlockWhole(sFields[i].field,
-                                      this->*sFields[i].member);
+   // Each of these is behind a flag of its own and goes out only where it
+   // differs from the same field of a default-made object of this class,
+   // which is what retail's packData compares against (0x005e5d5e compares
+   // mass against the one at 0x840454, a ShapeBaseData of its own at
+   // 0x8403e0). A body that sends them all is not the body retail sends: an
+   // item's carries its shape and little else.
+   const ShapeBaseData &proto = T2Layout::t2DefaultOf<ShapeBaseData>();
 
-   // An id of -1 is none, and none is the flag left clear.
-   static const struct { U32 field; S32 ShapeBaseData::*member; } sIds[] =
+   for (U32 i = 0; i < sizeof(sFields) / sizeof(sFields[0]); i++)
    {
-      { T2Layout::T2DbCmdIcon,                  &ShapeBaseData::cmdIconID    },
-      { T2Layout::T2DbShapeExplosion,           &ShapeBaseData::explosionID  },
+      const F32 value = this->*sFields[i].member;
+      if (value == proto.*sFields[i].member)
+         continue;
+
+      T2Layout::publishDataBlockWhole(sFields[i].field, value);
+   }
+
+   // An id of -1 is none, and none is the flag left clear. A server's scripts
+   // name the datablock and a client is handed the id instead, so whichever
+   // this end has is the one that goes out.
+   static const struct
+   {
+      U32 field;
+      S32 ShapeBaseData::*id;
+      SimObjectPtr<GameBaseData> ShapeBaseData::*named;
+   }
+   sIds[] =
+   {
+      { T2Layout::T2DbCmdIcon,        &ShapeBaseData::cmdIconID,   NULL },
+      { T2Layout::T2DbShapeExplosion, &ShapeBaseData::explosionID, NULL },
       { T2Layout::T2DbShapeUnderwaterExplosion,
-                                      &ShapeBaseData::underwaterExplosionID },
-      { T2Layout::T2DbShapeDebris,              &ShapeBaseData::debrisID     },
+                                &ShapeBaseData::underwaterExplosionID, NULL },
+      { T2Layout::T2DbShapeDebris,    &ShapeBaseData::debrisID,    NULL },
    };
+
+   const SimObject *named[] = { cmdIcon, explosion, underwaterExplosion,
+                                debris };
 
    for (U32 i = 0; i < sizeof(sIds) / sizeof(sIds[0]); i++)
    {
-      const S32 id = this->*sIds[i].member;
-      if (id != -1)
+      const S32 id = named[i] ? S32(named[i]->getId())
+                              : this->*sIds[i].id;
+      if (id != -1 && id != 0)
          T2Layout::publishDataBlockWord(sIds[i].field,
                                         U32(id) - DataBlockObjectIdFirst);
    }
+
+   // What a sensor sees it as, which is one and not nought unless a script
+   // says so.
+   if (heatSignature != proto.heatSignature)
+      T2Layout::publishDataBlockWhole(T2Layout::T2DbHeatSignature,
+                                      heatSignature);
 
    static const struct { U32 field; bool ShapeBaseData::*member; } sFlags[] =
    {
@@ -550,14 +582,20 @@ void ShapeBaseData::publishT2Data()
          T2Layout::publishDataBlockWord(T2Layout::T2DbSensorColorR + i, rgba[i]);
    }
 
+   // Not behind a flag: every body carries it, which is why a retail
+   // server's items all say 300.
    T2Layout::publishDataBlockWord(T2Layout::T2DbShieldEffectLifetimeMS,
                                   U32(shieldEffectLifetimeMS));
-   T2Layout::publishDataBlockWhole(T2Layout::T2DbShieldEffectScaleX,
-                                   shieldEffectScale.x);
-   T2Layout::publishDataBlockWhole(T2Layout::T2DbShieldEffectScaleY,
-                                   shieldEffectScale.y);
-   T2Layout::publishDataBlockWhole(T2Layout::T2DbShieldEffectScaleZ,
-                                   shieldEffectScale.z);
+
+   if (shieldEffectScale != proto.shieldEffectScale)
+   {
+      T2Layout::publishDataBlockWhole(T2Layout::T2DbShieldEffectScaleX,
+                                      shieldEffectScale.x);
+      T2Layout::publishDataBlockWhole(T2Layout::T2DbShieldEffectScaleY,
+                                      shieldEffectScale.y);
+      T2Layout::publishDataBlockWhole(T2Layout::T2DbShieldEffectScaleZ,
+                                      shieldEffectScale.z);
+   }
 
    for (U32 i = 0; i < NumHudRenderImages; i++)
    {
@@ -950,6 +988,8 @@ void ShapeBaseData::initPersistFields()
 
       addField( "cmdCategory", TypeString, Offset(cmdCategory, ShapeBaseData),
          "The commander map's category for this shape." );
+      addField( "heatSignature", TypeF32, Offset(heatSignature, ShapeBaseData),
+         "What a sensor and a seeking missile read this shape by." );
       addField( "cmdIcon", TYPEID< GameBaseData >(), Offset(cmdIcon, ShapeBaseData),
          "The CommanderIconData the commander map draws this shape with." );
       addField( "cmdMiniIconName", TypeString, Offset(cmdMiniIconName, ShapeBaseData),

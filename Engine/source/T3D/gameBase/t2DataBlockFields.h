@@ -142,6 +142,7 @@ namespace T2Protocol
 
       { "DecalData", 0, OpRaw, 32, T2DbDecalSizeX },
       { "DecalData", 1, OpRaw, 32, T2DbDecalSizeY },
+      { "DecalData", 2, OpString, 0, T2DbDecalTextureName },
 
       { "ExplosionData",   7, OpInt,   14, T2DbPlaySpeed          },
       { "ExplosionData",  16, OpInt,   16, T2DbDelayMS            },

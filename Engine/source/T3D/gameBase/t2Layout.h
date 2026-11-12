@@ -325,6 +325,8 @@ namespace T2Layout
       T2DbProjectileMaxRotSpeedZ,
       T2DbProjectileSize,
       T2DbProjectileUseLensFlare,
+      T2DbHeatSignature,
+      T2DbDecalTextureName,
       T2DbProjectileString,
       T2DbProjectileStringLast = T2DbProjectileString + 11,
       T2DbBeamHeadMultiplier,
@@ -1018,6 +1020,19 @@ inline U32 t2ScaledWord(F32 value, F64 scale, F64 half = 0.0)
 {
    const F64 scaled = F64(value) * scale + half;
    return scaled <= 0.0 ? 0 : U32(scaled);
+}
+
+/// The object a body is written against. Tribes 2's packData sends a field
+/// only where it differs from the same field of a default-made object of the
+/// class that *declares* it, and it keeps one such object per class --
+/// ShapeBaseData's is at 0x8403e0, and its packData compares mass against
+/// 0x840454, which is that object's own mass. The class matters: an item's
+/// density of 2 goes out because a plain ShapeBaseData's is 1, even though
+/// every ItemData starts at 2.
+template< class T > const T &t2DefaultOf()
+{
+   static const T sDefault;
+   return sDefault;
 }
 
 /// A colour's byte as retail makes one. The multiply is in double precision
