@@ -60,6 +60,8 @@ static S32 sImpactAt = -1;
 static S32 sZapStartAt = -1;
 static S32 sZapEndAt = -1;
 static S32 sForceAt = -1;
+static S32 sInheritedAt = -1;
+static S32 sSeekPointAt = -1;
 static bool sQuatNegative = false;
 static bool sAxisNegative = false;
 static F32 sSpeed = 0.0f;
@@ -1766,6 +1768,15 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
                      case T2FieldQuickSplash:
                         sBody.quickSplash = set;
                         break;
+                     // A missile that names nothing is chasing nothing: the
+                     // clear arm of this flag is how a lock is let go
+                     // (0x0063c470).
+                     case T2FieldSeekHere:
+                        sBody.hasSeekInfo = true;
+                        break;
+                     case T2FieldSeekCoasting:
+                        sBody.seekCoasting = set;
+                        break;
                      case T2FieldActionHere:
                         sBody.hasAction = set;
                         break;
@@ -2287,6 +2298,8 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
                   case T2FieldZapStart:      sZapStartAt  = sWords.size(); break;
                   case T2FieldZapEnd:        sZapEndAt    = sWords.size(); break;
                   case T2FieldAppliedForce:  sForceAt     = sWords.size(); break;
+                  case T2FieldInheritedVel:  sInheritedAt = sWords.size(); break;
+                  case T2FieldSeekPoint:     sSeekPointAt = sWords.size(); break;
                   default:                                                 break;
                }
 
@@ -2298,6 +2311,12 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
                {
                   sBody.hasBeamTarget = true;
                   sBody.beamTarget = word;
+               }
+
+               if(row && row->field == T2FieldSeekObject)
+               {
+                  sBody.hasSeekObject = true;
+                  sBody.seekObject = word;
                }
 
                U32 state, part;
@@ -3484,6 +3503,21 @@ static void assembleBody()
                        wordFloat(sZapEndAt + 2));
       sBody.hasZap = true;
    }
+
+   if(sInheritedAt >= 0 && sWords.size() >= U32(sInheritedAt) + 3)
+   {
+      sBody.inheritedVel.set(wordFloat(sInheritedAt),
+                             wordFloat(sInheritedAt + 1),
+                             wordFloat(sInheritedAt + 2));
+      sBody.hasInheritedVel = true;
+   }
+
+   if(sSeekPointAt >= 0 && sWords.size() >= U32(sSeekPointAt) + 3)
+   {
+      sBody.seekPoint.set(wordFloat(sSeekPointAt), wordFloat(sSeekPointAt + 1),
+                          wordFloat(sSeekPointAt + 2));
+      sBody.hasSeekPoint = true;
+   }
 }
 
 static bool runGhost(BitStream *stream, const char *className,
@@ -3509,6 +3543,11 @@ static bool runGhost(BitStream *stream, const char *className,
    sBody.hasBeamTarget = false;
    sBody.hasZap = false;
    sBody.zapHit = false;
+   sBody.hasInheritedVel = false;
+   sBody.hasSeekInfo = false;
+   sBody.hasSeekObject = false;
+   sBody.hasSeekPoint = false;
+   sBody.seekCoasting = false;
    sBody.hasDamage = false;
    sBody.hasDamageState = false;
    sBody.blowApart = false;
@@ -3635,6 +3674,8 @@ static bool runGhost(BitStream *stream, const char *className,
    sZapStartAt = -1;
    sZapEndAt = -1;
    sForceAt = -1;
+   sInheritedAt = -1;
+   sSeekPointAt = -1;
    sQuatNegative = false;
    sAxisNegative = false;
    sSpeed = 0.0f;

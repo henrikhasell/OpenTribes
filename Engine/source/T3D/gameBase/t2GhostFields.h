@@ -40,6 +40,16 @@ namespace T2Protocol
                                     ///  the zap reached
       T2FieldZapHit,                ///< the bit after them: whether the zap
                                     ///  reached anything at all
+      T2FieldInheritedVel,          ///< the first of a Point3F's three words:
+                                    ///< the velocity a missile left with
+      T2FieldSeekHere,              ///< the flag that says what follows names
+                                    ///< what it is chasing; clear is nothing
+      T2FieldSeekObject,            ///< readInt(bits), the ghost index of
+                                    ///< what a missile is chasing
+      T2FieldSeekPoint,             ///< the first of the three words of the
+                                    ///< point it flies at instead
+      T2FieldSeekCoasting,          ///< the flag that says its motor has not
+                                    ///< lit yet
       T2FieldSourceObject,
       T2FieldSourceSlot,
       T2FieldVehicleObject,
@@ -115,6 +125,8 @@ namespace T2Protocol
          case T2FieldExplodeWords:  return 3;
          case T2FieldImpactWords:   return 3;
          case T2FieldAppliedForce:  return 3;
+         case T2FieldInheritedVel:  return 3;
+         case T2FieldSeekPoint:     return 3;
          default:                   return 0;
       }
    }
@@ -326,6 +338,30 @@ namespace T2Protocol
       T2_GRENADE_PROJECTILE_FIELDS( "BombProjectile"    )
 
 #undef T2_GRENADE_PROJECTILE_FIELDS
+
+   // SeekerProjectile::unpackUpdate (0x0063c010). An initial body carries the
+   // whole launch -- where it is, how fast, and the share of its source's
+   // velocity its motor works on top of -- then the source, then what it is
+   // chasing, then whether its motor has lit. Every later body is either the
+   // detonation or the flight again, and what it is chasing can change on
+   // any of them.
+      { "SeekerProjectile", 38, OpRaw,  32, T2FieldPointWords    },
+      { "SeekerProjectile", 35, OpRaw,  32, T2FieldVelocityWords },
+      { "SeekerProjectile", 32, OpRaw,  32, T2FieldInheritedVel  },
+      { "SeekerProjectile", 28, OpInt,  11, T2FieldSourceObject  },
+      { "SeekerProjectile", 27, OpInt,   3, T2FieldSourceSlot    },
+      { "SeekerProjectile", 26, OpFlag,  1, T2FieldSeekHere      },
+      { "SeekerProjectile", 24, OpInt,  11, T2FieldSeekObject    },
+      { "SeekerProjectile", 23, OpRaw,  32, T2FieldSeekPoint     },
+      { "SeekerProjectile", 20, OpFlag,  1, T2FieldSeekCoasting  },
+
+      { "SeekerProjectile", 18, OpRaw,  32, T2FieldExplodeWords  },
+      { "SeekerProjectile", 15, OpRaw,  32, T2FieldImpactWords   },
+      { "SeekerProjectile", 12, OpRaw,  32, T2FieldPointWords    },
+      { "SeekerProjectile",  9, OpRaw,  32, T2FieldVelocityWords },
+      { "SeekerProjectile",  6, OpFlag,  1, T2FieldSeekHere      },
+      { "SeekerProjectile",  4, OpInt,  11, T2FieldSeekObject    },
+      { "SeekerProjectile",  3, OpRaw,  32, T2FieldSeekPoint     },
 
    // SniperProjectile::unpackUpdate (0x00643aa0) and TargetProjectile's
    // (0x00649c70) share every body after the first: the source, or failing
