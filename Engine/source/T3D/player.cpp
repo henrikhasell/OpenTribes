@@ -97,6 +97,12 @@ static S32 sJetTrigger = 3;
 // Retail compares the contact timer against eight (0x005d3f36).
 static S32 sJetContactTicks = 8;
 
+// The three constants its skiing reads, in the order it compares them
+// (0x005d43c9, 0x005d43e5, 0x0079b3e0).
+static F32 sSkiStopSpeed = 4.0f;
+static F32 sSkiAnimSpeed = 30.0f;
+static S32 sSkiAnimTicks = 22;
+
 // Client prediction
 static F32 sMinWarpTicks = 0.5f;       // Fraction of tick at which instant warp occurs
 static S32 sMaxWarpTicks = 3;          // Max warp duration in ticks
@@ -385,6 +391,7 @@ PlayerData::PlayerData()
    decalOffset      = 0.0f;
 
    lookAction = 0;
+   skiAction = 0;
 
    // size of bounding box
    boxSize.set(1.0f, 1.0f, 2.3f);
@@ -738,9 +745,16 @@ bool PlayerData::preload(bool server, String &errorStr)
       // Resolve lookAction index
       dp = &actionList[0];
       String lookName("look");
+      // HH: Added for Tribes 2 compatibility.
+      // Resolved in the same pass retail resolves it in (0x005ce1c0).
+      String skiName("ski");
       for (int c = 0; c < actionCount; c++,dp++)
+      {
          if( dStricmp( dp->name, lookName ) == 0 )
             lookAction = c;
+         else if( dStricmp( dp->name, skiName ) == 0 )
+            skiAction = c;
+      }
 
       for (S32 i = 0; i < MaxJetNodes; i++)
       {
@@ -1559,6 +1573,8 @@ Player::Player()
    mContactTimer = 0;
    mJumpDelay = 0;
    mJumpSurfaceLastContact = 0;
+   mSkiing = false;
+   mSkiAnimTimer = 0;
    mJumpSurfaceNormal.set(0.0f, 0.0f, 1.0f);
    mControlObject = 0;
    dMemset( mSplashEmitter, 0, sizeof( mSplashEmitter ) );
@@ -2941,25 +2957,68 @@ void Player::updateMove(const Move* move)
          mEnergy -= mDataBlock->jumpEnergyDrain;
 
          // If we don't have a StandJumpAnim, just play the JumpAnim...
-         S32 seq = (mVelocity.len() < 0.5) ? PlayerData::StandJumpAnim: PlayerData::JumpAnim; 
+         S32 seq = (mVelocity.len() < 0.5) ? PlayerData::StandJumpAnim: PlayerData::JumpAnim;
          if ( mDataBlock->actionList[seq].sequence == -1 )
-            seq = PlayerData::JumpAnim;         
-         setActionThread( seq, true, false, true );
+            seq = PlayerData::JumpAnim;
+
+         // HH: Added for Tribes 2 compatibility.
+         // Skiing (0x005d4381). A held jump trigger re-jumps on every contact
+         // tick, so the first of those is the jump and every one after it is a
+         // bounce down a hill. Retail animates and sounds those bounces rather
+         // than replaying the jump: above 30 m/s the ski sequence goes on for
+         // 22 ticks and a scrape plays through the impact channel, between 4
+         // and 30 the thread is left alone, and under 4 the player is too slow
+         // to be skiing at all and jumps again.
+         bool playThread = true;
+         if (mSkiing)
+         {
+            const F32 speed = mVelocity.len();
+            if (speed < sSkiStopSpeed)
+               mSkiing = false;
+            else if (speed < sSkiAnimSpeed)
+            {
+               playThread = false;
+               mSkiAnimTimer = 0;
+            }
+            else
+            {
+               mSkiAnimTimer = sSkiAnimTicks;
+               seq = mDataBlock->skiAction;
+               if (!isGhost())
+               {
+                  mImpactSound = PlayerData::ImpactSki;
+                  setMaskBits(ImpactMask);
+               }
+            }
+         }
+         else
+            mSkiing = true;
+
+         if (playThread)
+            setActionThread( seq, true, false, true );
 
          mJumpSurfaceLastContact = JumpSkipContactsMax;
       }
    }
    else
    {
-      if (jumpSurface) 
-      {
-         if (mJumpDelay > 0)
-            mJumpDelay--;
+      if (jumpSurface)
          mJumpSurfaceLastContact = 0;
-      }
       else
          mJumpSurfaceLastContact++;
    }
+
+   // HH: Modified for Tribes 2 compatibility.
+   // Both arms reach retail's tail (0x005d44ac): the delay counts down
+   // wherever the player is, and the hold is only over once he is back on a
+   // jump surface with the trigger released.
+   if (mJumpDelay > 0)
+      mJumpDelay--;
+   else if (jumpSurface && !move->trigger[sJumpTrigger])
+      mSkiing = false;
+
+   if (mSkiAnimTimer > 0)
+      mSkiAnimTimer--;
 
    if (move->trigger[sJumpJetTrigger] && !isMounted() && canJetJump())
    {
@@ -3902,6 +3961,13 @@ void Player::pickActionAnimation()
          setActionThread(PlayerData::RootAnim,true,false,false);
       return;
    }
+
+   // HH: Added for Tribes 2 compatibility.
+   // A skiing player keeps the ski sequence for as long as its timer runs
+   // (0x005d6282); without this the next tick's pick puts a run or a fall
+   // over it between bounces.
+   if (mSkiAnimTimer)
+      return;
 
    bool forward = true;
    U32 action = PlayerData::RootAnim;
@@ -5312,6 +5378,12 @@ void Player::onT2BodyRead(const T2Layout::Body &body)
    if (body.hasJetting)
       mJetting = body.jetting;
 
+   // HH: Added for Tribes 2 compatibility.
+   // The sound itself waits for advanceTime, as retail's does: the body only
+   // says which one the server wants (0x005db32f).
+   if (body.hasImpactSound)
+      mImpactSound = S32(body.impactSound);
+
    if (body.hasAction && mDataBlock)
       readT2Action(body);
 
@@ -6576,6 +6648,10 @@ void Player::playFootstepSound( bool triggeredLeft, S32 sound )
    }
 }
 
+// HH: Modified for Tribes 2 compatibility.
+// Player::playImpactSound (0x005dd810): the ground names the sound the way it
+// does for a footstep, hard for a surface with none of its own, and a skiing
+// player takes the ski set eight slots along from the impact one.
 void Player:: playImpactSound()
 {
    if( mWaterCoverage == 0.0f )
@@ -6587,47 +6663,32 @@ void Player:: playImpactSound()
 
       if( gClientContainer.castRay( Point3F( pos.x, pos.y, pos.z + 0.01f ),
                                     Point3F( pos.x, pos.y, pos.z - 2.0f ),
-                                    STATIC_COLLISION_TYPEMASK | VehicleObjectType,
+                                    TerrainObjectType | InteriorObjectType |
+                                    VehicleObjectType,
                                     &rInfo ) )
       {
-         Material* material = ( rInfo.material ? dynamic_cast< Material* >( rInfo.material->getMaterial() ) : 0 );
-
-         if( material && material->mImpactSoundCustom )
-            SFX->playOnce( material->mImpactSoundCustom, &getTransform() );
-         else
+         S32 sound = -1;
+         if( rInfo.object->getTypeMask() & TerrainObjectType )
          {
-            S32 sound = -1;
-            if( material && material->mImpactSoundId )
-               sound = material->mImpactSoundId;
-            else if( rInfo.object->getTypeMask() & VehicleObjectType )
-               sound = 2; // Play metal;
-
-            switch( sound )
-            {
-            case 0:
-               //Soft
-               SFX->playOnce( mDataBlock->sound[ PlayerData::ImpactSoft ], &getTransform() );
-               break;
-            case 1:
-               //Hard
-               SFX->playOnce( mDataBlock->sound[ PlayerData::ImpactHard ], &getTransform() );
-               break;
-            case 2:
-               //Metal
-               SFX->playOnce( mDataBlock->sound[ PlayerData::ImpactMetal ], &getTransform() );
-               break;
-            case 3:
-               //Snow
-               SFX->playOnce( mDataBlock->sound[ PlayerData::ImpactSnow ], &getTransform() );
-               break;
-               /*
-            default:
-               //Hard
-               alxPlay(mDataBlock->sound[PlayerData::ImpactHard], &getTransform());
-               break;
-               */
-            }
+            if( const MaterialPropertyMap::Entry *e = groundDustProperties( rInfo.object ) )
+               sound = e->sound;
          }
+         else if( rInfo.object->getTypeMask() & VehicleObjectType )
+            sound = 2;
+
+         U32 which;
+         switch( sound )
+         {
+         case 0:  which = PlayerData::ImpactSoft;  break;
+         case 2:  which = PlayerData::ImpactMetal; break;
+         case 3:  which = PlayerData::ImpactSnow;  break;
+         default: which = PlayerData::ImpactHard;  break;
+         }
+
+         if( mImpactSound == PlayerData::ImpactSki )
+            which += PlayerData::SkiSoft - PlayerData::ImpactSoft;
+
+         SFX->playOnce( mDataBlock->sound[ which ], &getTransform() );
       }
    }
 

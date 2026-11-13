@@ -57,6 +57,9 @@ namespace T2Protocol
       T2FieldTarget,                ///< readInt(bits), the target manager's
                                     ///< id for the object
       T2FieldQuickSplash,
+      T2FieldImpactHere,            ///< the flag an impact sound follows
+      T2FieldImpactSound,           ///< readInt(bits): which sound a player
+                                    ///< landing or skiing asks for
       T2FieldActionHere,            ///< the flag an action thread follows
       T2FieldAction,                ///< readInt(bits), an action number
       T2FieldActionHold,            ///< the flag that holds it at its end
@@ -152,6 +155,12 @@ namespace T2Protocol
       { "Player", 19, OpRaw,   7,  T2FieldYaw          },
 
       { "Player", 26, OpFlag,  1,  T2FieldJetting      },
+
+   // The impact sound, which the body opens with (0x005db328): none, a
+   // landing or a ski scrape, which playImpactSound sounds against whatever
+   // is under the player's feet.
+      { "Player", 44, OpFlag,  1,  T2FieldImpactHere        },
+      { "Player", 43, OpRaw,   3,  T2FieldImpactSound       },
 
    // The action thread Player::unpackUpdate reads after the impact sound:
    // the action, then hold, atEnd and firstPerson, then the thread's

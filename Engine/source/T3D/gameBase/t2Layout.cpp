@@ -1777,6 +1777,9 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
                      case T2FieldSeekCoasting:
                         sBody.seekCoasting = set;
                         break;
+                     case T2FieldImpactHere:
+                        sBody.hasImpactSound = set;
+                        break;
                      case T2FieldActionHere:
                         sBody.hasAction = set;
                         break;
@@ -2391,6 +2394,9 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
                   case T2FieldStationObject:
                      sBody.hasStationObject = true;
                      sBody.stationObject = word;
+                     break;
+                  case T2FieldImpactSound:
+                     sBody.impactSound = word;
                      break;
                   case T2FieldAction:
                      sBody.action = word;
@@ -3574,6 +3580,8 @@ static bool runGhost(BitStream *stream, const char *className,
    sBody.atRest = false;
    sBody.hasWarp = false;
    sBody.warp = false;
+   sBody.hasImpactSound = false;
+   sBody.impactSound = 0;
    sBody.hasAction = false;
    sBody.action = 0;
    sBody.actionHold = false;

@@ -112,6 +112,8 @@ namespace T2Layout
       bool    hasWarp;
       bool    warp;                 ///< interpolate to the position rather
                                     ///< than snap to it
+      bool    hasImpactSound;       ///< the body asked for an impact sound
+      U32     impactSound;          ///< none, a landing or a ski scrape
       bool    hasAction;
       U32     action;               ///< a Tribes 2 action number
       bool    actionHold;
