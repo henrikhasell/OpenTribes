@@ -87,6 +87,11 @@ struct PlayerData: public ShapeBaseData {
    F32 maxStepHeight;         ///< Maximum height the player can step up
    F32 runSurfaceAngle;       ///< Maximum angle from vertical in degrees the player can run up
 
+   // HH: Added for Tribes 2 compatibility.
+   /// Skiing: holding the jump trigger stops the run force braking the player
+   /// along the way he is heading.
+   bool noFrictionOnSki;
+
    F32 horizMaxSpeed;         ///< Max speed attainable in the horizontal
    F32 horizResistSpeed;      ///< Speed at which resistance will take place
    F32 horizResistFactor;     ///< Factor of resistance once horizResistSpeed has been reached
@@ -307,14 +312,25 @@ struct PlayerData: public ShapeBaseData {
    U32 actionFromT2(U32 t2Action) const;
 
    U32 lookAction;
+
+   // HH: Added for Tribes 2 compatibility.
+   /// The action the ski sequence names. Tribes 2's action table holds eight
+   /// names and ski is not one of them, so preload resolves it by name off
+   /// the shape beside look and standjump (0x005ce199).
+   U32 skiAction;
+
    S32 spineNode[NumSpineNodes];
    S32 pickupDelta;           ///< Base off of pcikupRadius
    F32 runSurfaceCos;         ///< Angle from vertical in cos(runSurfaceAngle)
    F32 jumpSurfaceCos;        ///< Angle from vertical in cos(jumpSurfaceAngle)
 
+   // HH: Modified for Tribes 2 compatibility.
+   // The three values its packUpdate writes in ImpactBits (0x005daec6); a
+   // skiing player reaches playImpactSound through the same channel.
    enum Impacts {
       ImpactNone,
       ImpactNormal,
+      ImpactSki,
    };
 
    enum Recoil {
@@ -511,6 +527,14 @@ protected:
 
    Point3F mJumpSurfaceNormal;      ///< Normal of the surface the player last jumped on
    U32 mJumpSurfaceLastContact;     ///< How long it's been since the player landed (ticks)
+
+   // HH: Added for Tribes 2 compatibility.
+   /// The jump trigger has been held since the jump it began with, so every
+   /// bounce after that one is a ski rather than a fresh jump.
+   bool mSkiing;
+   /// Ticks the ski animation is held for, which stops pickActionAnimation
+   /// putting a run or a fall over it between bounces.
+   S32 mSkiAnimTimer;
    F32  mWeaponBackFraction;        ///< Amount to slide the weapon back (if it's up against something)
 
    SFXSource* mMoveBubbleSound;   ///< Sound for moving bubbles
