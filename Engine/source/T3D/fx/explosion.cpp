@@ -22,6 +22,7 @@
 
 #include "platform/platform.h"
 #include "T3D/fx/explosion.h"
+#include "T3D/gameBase/t2Layout.h"
 
 #include "core/resourceManager.h"
 #include "console/consoleTypes.h"
@@ -524,6 +525,260 @@ bool ExplosionData::onAdd()
 
 
 
+// HH: Added for Tribes 2 compatibility. Read where every other class reads,
+// so that a body written and read back carries these too.
+bool ExplosionData::unpackData( BitStream *stream, U32 classId )
+{
+   if( !Parent::unpackData( stream, classId ) )
+      return false;
+
+   readT2Fields();
+   return true;
+}
+
+
+void ExplosionData::readT2Fields()
+{
+   U32 word;
+   if( T2Layout::lastDataBlockWord( T2Layout::T2DbFaceViewer, &word ) )
+      this->faceViewer = word != 0;
+   if( T2Layout::lastDataBlockWord( T2Layout::T2DbPlaySpeed, &word ) )
+      this->playSpeed = F32( word ) * 0.05f;
+   if( T2Layout::lastDataBlockWord( T2Layout::T2DbDelayMS, &word ) )
+      this->delayMS = word * TickMs;
+   if( T2Layout::lastDataBlockWord( T2Layout::T2DbDelayVariance, &word ) )
+      this->delayVariance = word * TickMs;
+   if( T2Layout::lastDataBlockWord( T2Layout::T2DbExplosionLifetime, &word ) )
+      this->lifetimeMS = word * TickMs;
+   if( T2Layout::lastDataBlockWord( T2Layout::T2DbLifetimeVariance, &word ) )
+      this->lifetimeVariance = word * TickMs;
+   if( T2Layout::lastDataBlockWord( T2Layout::T2DbExplosionOffset, &word ) )
+      dMemcpy( &this->offset, &word, sizeof( this->offset ) );
+
+   U32 x, y, z;
+   if( T2Layout::lastDataBlockWord( T2Layout::T2DbExplosionScaleX, &x ) &&
+       T2Layout::lastDataBlockWord( T2Layout::T2DbExplosionScaleY, &y ) &&
+       T2Layout::lastDataBlockWord( T2Layout::T2DbExplosionScaleZ, &z ) )
+      this->explosionScale.set( F32( x ) * 0.01f, F32( y ) * 0.01f,
+                              F32( z ) * 0.01f );
+
+   const Vector<U32> &times = T2Layout::lastDataBlockValues(
+      T2Layout::T2DbExplosionTime );
+   const Vector<U32> &sizes = T2Layout::lastDataBlockValues(
+      T2Layout::T2DbExplosionSize );
+
+   for( U32 i = 0; i < times.size() && i < ExplosionData::EC_NUM_TIME_KEYS;
+        i++ )
+      this->times[i] = F32( times[i] ) / 255.0f;
+
+   for( U32 i = 0; i * 3 + 2 < sizes.size() &&
+                   i < ExplosionData::EC_NUM_TIME_KEYS; i++ )
+      this->sizes[i].set( F32( sizes[i * 3 + 0] ) * 0.01f,
+                        F32( sizes[i * 3 + 1] ) * 0.01f,
+                        F32( sizes[i * 3 + 2] ) * 0.01f );
+
+   if( T2Layout::lastDataBlockWord( T2Layout::T2DbExplosionSound, &word ) )
+      *reinterpret_cast< U32 * >( &this->soundProfile ) =
+         ( ( word + DataBlockObjectIdFirst ) << 1 ) | 0x1;
+
+   if( T2Layout::lastDataBlockWord( T2Layout::T2DbExplosionParticleEmitter, &word ) )
+      this->particleEmitterId = word + DataBlockObjectIdFirst;
+   if( T2Layout::lastDataBlockWord( T2Layout::T2DbExplosionParticleDensity, &word ) )
+      this->particleDensity = word;
+
+   F32 value;
+   if( T2Layout::lastDataBlockField( T2Layout::T2DbExplosionParticleRadius, &value ) )
+      this->particleRadius = value;
+
+   if( T2Layout::lastDataBlockWord( T2Layout::T2DbExplosionDebrisThetaMin, &word ) )
+      this->debrisThetaMin = F32( word );
+   if( T2Layout::lastDataBlockWord( T2Layout::T2DbExplosionDebrisThetaMax, &word ) )
+      this->debrisThetaMax = F32( word );
+   if( T2Layout::lastDataBlockWord( T2Layout::T2DbExplosionDebrisPhiMin, &word ) )
+      this->debrisPhiMin = F32( word );
+   if( T2Layout::lastDataBlockWord( T2Layout::T2DbExplosionDebrisPhiMax, &word ) )
+      this->debrisPhiMax = F32( word );
+   if( T2Layout::lastDataBlockWord( T2Layout::T2DbExplosionDebrisNum, &word ) )
+      this->debrisNum = word;
+   if( T2Layout::lastDataBlockWord( T2Layout::T2DbExplosionDebrisNumVariance, &word ) )
+      this->debrisNumVariance = word;
+   if( T2Layout::lastDataBlockWord( T2Layout::T2DbExplosionDebrisVelocity, &word ) )
+      this->debrisVelocity = F32( word ) * 0.1f;
+   if( T2Layout::lastDataBlockWord( T2Layout::T2DbExplosionDebrisVelocityVariance, &word ) )
+      this->debrisVelocityVariance = F32( word ) * 0.1f;
+
+   if( T2Layout::lastDataBlockWord( T2Layout::T2DbExplosionShakeCamera, &word ) )
+      this->shakeCamera = word != 0;
+
+   if( T2Layout::lastDataBlockField( T2Layout::T2DbExplosionShakeFreqX, &value ) )
+      this->camShakeFreq.x = value;
+   if( T2Layout::lastDataBlockField( T2Layout::T2DbExplosionShakeFreqY, &value ) )
+      this->camShakeFreq.y = value;
+   if( T2Layout::lastDataBlockField( T2Layout::T2DbExplosionShakeFreqZ, &value ) )
+      this->camShakeFreq.z = value;
+   if( T2Layout::lastDataBlockField( T2Layout::T2DbExplosionShakeAmpX, &value ) )
+      this->camShakeAmp.x = value;
+   if( T2Layout::lastDataBlockField( T2Layout::T2DbExplosionShakeAmpY, &value ) )
+      this->camShakeAmp.y = value;
+   if( T2Layout::lastDataBlockField( T2Layout::T2DbExplosionShakeAmpZ, &value ) )
+      this->camShakeAmp.z = value;
+   if( T2Layout::lastDataBlockField( T2Layout::T2DbExplosionShakeDuration, &value ) )
+      this->camShakeDuration = value;
+   if( T2Layout::lastDataBlockField( T2Layout::T2DbExplosionShakeRadius, &value ) )
+      this->camShakeRadius = value;
+   if( T2Layout::lastDataBlockField( T2Layout::T2DbExplosionShakeFalloff, &value ) )
+      this->camShakeFalloff = value;
+
+   // ExplosionData::onAdd turns these ids into the datablocks they name.
+   if( T2Layout::lastDataBlockWord( T2Layout::T2DbExplosionDebris, &word ) )
+      this->debrisIDList[0] = word + DataBlockObjectIdFirst;
+
+   static const U32 sEmitters[ExplosionData::EC_NUM_EMITTERS] =
+   {
+      T2Layout::T2DbExplosionEmitter0, T2Layout::T2DbExplosionEmitter1,
+      T2Layout::T2DbExplosionEmitter2, T2Layout::T2DbExplosionEmitter3,
+   };
+   for( U32 i = 0; i < ExplosionData::EC_NUM_EMITTERS; i++ )
+      if( T2Layout::lastDataBlockWord( sEmitters[i], &word ) )
+         this->emitterIDList[i] = word + DataBlockObjectIdFirst;
+
+   static const U32 sSubs[ExplosionData::EC_MAX_SUB_EXPLOSIONS] =
+   {
+      T2Layout::T2DbSubExplosion0, T2Layout::T2DbSubExplosion1,
+      T2Layout::T2DbSubExplosion2, T2Layout::T2DbSubExplosion3,
+      T2Layout::T2DbSubExplosion4,
+   };
+   for( U32 i = 0; i < ExplosionData::EC_MAX_SUB_EXPLOSIONS; i++ )
+      if( T2Layout::lastDataBlockWord( sSubs[i], &word ) )
+         this->explosionIDList[i] = word + DataBlockObjectIdFirst;
+}
+
+
+// HH: Added for Tribes 2 compatibility. readT2Explosion the other way round:
+// the same fields at the same scales, and each id taken from whatever the
+// datablock holds -- a server's scripts name an object, a client was handed a
+// number and keeps that until preload resolves it.
+void ExplosionData::publishT2Data()
+{
+   Parent::publishT2Data();
+
+   T2Layout::publishDataBlockFlag( T2Layout::T2DbFaceViewer, faceViewer );
+   T2Layout::publishDataBlockWord( T2Layout::T2DbPlaySpeed,
+                                   U32( playSpeed / 0.05f ) );
+
+   // The times a body keeps in ticks.
+   T2Layout::publishDataBlockWord( T2Layout::T2DbDelayMS, delayMS / TickMs );
+   T2Layout::publishDataBlockWord( T2Layout::T2DbDelayVariance,
+                                   delayVariance / TickMs );
+   T2Layout::publishDataBlockWord( T2Layout::T2DbExplosionLifetime,
+                                   lifetimeMS / TickMs );
+   T2Layout::publishDataBlockWord( T2Layout::T2DbLifetimeVariance,
+                                   lifetimeVariance / TickMs );
+
+   T2Layout::publishDataBlockWhole( T2Layout::T2DbExplosionOffset, offset );
+
+   T2Layout::publishDataBlockWord( T2Layout::T2DbExplosionScaleX,
+                                   U32( explosionScale.x * 100.0f ) );
+   T2Layout::publishDataBlockWord( T2Layout::T2DbExplosionScaleY,
+                                   U32( explosionScale.y * 100.0f ) );
+   T2Layout::publishDataBlockWord( T2Layout::T2DbExplosionScaleZ,
+                                   U32( explosionScale.z * 100.0f ) );
+
+   // The keys, in the order the body carries them: a time apiece and three
+   // words of size each, behind the select that says how many there are.
+   T2Layout::publishDataBlockWord( T2Layout::T2DbExplosionKeys,
+                                   EC_NUM_TIME_KEYS );
+   for( U32 i = 0; i < EC_NUM_TIME_KEYS; i++ )
+      T2Layout::publishDataBlockWord( T2Layout::T2DbExplosionTime,
+                                      U32( times[i] * 255.0f ) );
+   for( U32 i = 0; i < EC_NUM_TIME_KEYS; i++ )
+   {
+      T2Layout::publishDataBlockWord( T2Layout::T2DbExplosionSize,
+                                      U32( sizes[i].x * 100.0f ) );
+      T2Layout::publishDataBlockWord( T2Layout::T2DbExplosionSize,
+                                      U32( sizes[i].y * 100.0f ) );
+      T2Layout::publishDataBlockWord( T2Layout::T2DbExplosionSize,
+                                      U32( sizes[i].z * 100.0f ) );
+   }
+
+   if( soundProfile )
+   {
+      const uintptr_t parked = uintptr_t( soundProfile );
+      const U32 id = ( parked & 0x1 ) ? U32( parked >> 1 )
+                                      : soundProfile->getId();
+      T2Layout::publishDataBlockWord( T2Layout::T2DbExplosionSound,
+                                      id - DataBlockObjectIdFirst );
+   }
+
+   if( particleEmitter || particleEmitterId > 0 )
+      T2Layout::publishDataBlockWord( T2Layout::T2DbExplosionParticleEmitter,
+         ( particleEmitter ? particleEmitter->getId() : U32( particleEmitterId ) )
+            - DataBlockObjectIdFirst );
+
+   T2Layout::publishDataBlockWord( T2Layout::T2DbExplosionParticleDensity,
+                                   U32( particleDensity ) );
+   T2Layout::publishDataBlockWhole( T2Layout::T2DbExplosionParticleRadius,
+                                    particleRadius );
+
+   T2Layout::publishDataBlockWord( T2Layout::T2DbExplosionDebrisThetaMin,
+                                   U32( debrisThetaMin ) );
+   T2Layout::publishDataBlockWord( T2Layout::T2DbExplosionDebrisThetaMax,
+                                   U32( debrisThetaMax ) );
+   T2Layout::publishDataBlockWord( T2Layout::T2DbExplosionDebrisPhiMin,
+                                   U32( debrisPhiMin ) );
+   T2Layout::publishDataBlockWord( T2Layout::T2DbExplosionDebrisPhiMax,
+                                   U32( debrisPhiMax ) );
+   T2Layout::publishDataBlockWord( T2Layout::T2DbExplosionDebrisNum,
+                                   U32( debrisNum ) );
+   T2Layout::publishDataBlockWord( T2Layout::T2DbExplosionDebrisNumVariance,
+                                   U32( debrisNumVariance ) );
+   T2Layout::publishDataBlockWord( T2Layout::T2DbExplosionDebrisVelocity,
+                                   U32( debrisVelocity * 10.0f ) );
+   T2Layout::publishDataBlockWord( T2Layout::T2DbExplosionDebrisVelocityVariance,
+                                   U32( debrisVelocityVariance * 10.0f ) );
+
+   T2Layout::publishDataBlockFlag( T2Layout::T2DbExplosionShakeCamera,
+                                   shakeCamera );
+   T2Layout::publishDataBlockWhole( T2Layout::T2DbExplosionShakeFreqX, camShakeFreq.x );
+   T2Layout::publishDataBlockWhole( T2Layout::T2DbExplosionShakeFreqY, camShakeFreq.y );
+   T2Layout::publishDataBlockWhole( T2Layout::T2DbExplosionShakeFreqZ, camShakeFreq.z );
+   T2Layout::publishDataBlockWhole( T2Layout::T2DbExplosionShakeAmpX, camShakeAmp.x );
+   T2Layout::publishDataBlockWhole( T2Layout::T2DbExplosionShakeAmpY, camShakeAmp.y );
+   T2Layout::publishDataBlockWhole( T2Layout::T2DbExplosionShakeAmpZ, camShakeAmp.z );
+   T2Layout::publishDataBlockWhole( T2Layout::T2DbExplosionShakeDuration, camShakeDuration );
+   T2Layout::publishDataBlockWhole( T2Layout::T2DbExplosionShakeRadius, camShakeRadius );
+   T2Layout::publishDataBlockWhole( T2Layout::T2DbExplosionShakeFalloff, camShakeFalloff );
+
+   if( debrisList[0] || debrisIDList[0] > 0 )
+      T2Layout::publishDataBlockWord( T2Layout::T2DbExplosionDebris,
+         ( debrisList[0] ? debrisList[0]->getId() : U32( debrisIDList[0] ) )
+            - DataBlockObjectIdFirst );
+
+   static const U32 sEmitters[ EC_NUM_EMITTERS ] =
+   {
+      T2Layout::T2DbExplosionEmitter0, T2Layout::T2DbExplosionEmitter1,
+      T2Layout::T2DbExplosionEmitter2, T2Layout::T2DbExplosionEmitter3,
+   };
+   for( U32 i = 0; i < EC_NUM_EMITTERS; i++ )
+      if( emitterList[i] || emitterIDList[i] > 0 )
+         T2Layout::publishDataBlockWord( sEmitters[i],
+            ( emitterList[i] ? emitterList[i]->getId()
+                             : U32( emitterIDList[i] ) ) - DataBlockObjectIdFirst );
+
+   static const U32 sSubs[ EC_MAX_SUB_EXPLOSIONS ] =
+   {
+      T2Layout::T2DbSubExplosion0, T2Layout::T2DbSubExplosion1,
+      T2Layout::T2DbSubExplosion2, T2Layout::T2DbSubExplosion3,
+      T2Layout::T2DbSubExplosion4,
+   };
+   for( U32 i = 0; i < EC_MAX_SUB_EXPLOSIONS; i++ )
+      if( explosionList[i] || explosionIDList[i] > 0 )
+         T2Layout::publishDataBlockWord( sSubs[i],
+            ( explosionList[i] ? explosionList[i]->getId()
+                               : U32( explosionIDList[i] ) ) - DataBlockObjectIdFirst );
+}
+
+
 bool ExplosionData::preload(bool server, String &errorStr)
 {
    if (Parent::preload(server, errorStr) == false)
@@ -539,8 +794,11 @@ bool ExplosionData::preload(bool server, String &errorStr)
             Con::errorf(ConsoleLogEntry::General, "Error, unable to load particle emitter for explosion datablock");
    }
 
-   if (dtsFileName && dtsFileName[0]) {
-      explosionShape = ResourceManager::get().load(dtsFileName);
+   // HH: An explosion's shape is a client's business, as debris's is. A server
+   // that fails on one drops the datablock it would have sent.
+   if (!server && dtsFileName && dtsFileName[0]) {
+      explosionShape = ResourceManager::get().load(
+         T2Layout::resourcePath(dtsFileName, "shapes/"));
       if (!bool(explosionShape)) {
          errorStr = String::ToString("ExplosionData: Couldn't load shape \"%s\"", dtsFileName);
          return false;

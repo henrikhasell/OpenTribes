@@ -380,6 +380,12 @@ public:
    virtual void getT2Subject(T2Layout::Subject *subject,
                              NetConnection *conn) const {}
 
+   /// HH: Added for Tribes 2 compatibility. What this object's body carries,
+   /// which is the same Body a read fills: the walk takes its values back out
+   /// of this, and a field the body says nothing about keeps the layout's
+   /// default. `isInitial` is a first body, which carries everything.
+   virtual void getT2Body(T2Layout::Body *body, bool isInitial) const {}
+
    /// Queries the object about information used to determine scope.
    ///
    /// Something that is 'in scope' is somehow interesting to the client.

@@ -147,6 +147,16 @@ public:
    virtual void packData(BitStream* stream, U32 classId);
    virtual bool unpackData(BitStream* stream, U32 classId);
 
+   // HH: Added for Tribes 2 compatibility.
+   /// Hand the Tribes 2 layout the fields this datablock holds, for it to
+   /// write each one at its own node. This is unpackData the other way round
+   /// and runs in the same order: a class publishes its parent's fields
+   /// before its own, where unpackData takes its parent's first.
+   ///
+   /// A class with none of this yet writes the layout's default at every
+   /// node, which is the width the reader takes it at and nothing more.
+   virtual void publishT2Data() {}
+
    /// Called to prepare the datablock for use, after it has been unpacked.
    ///
    /// @param  server      Set if we're running on the server (and therefore don't need to load

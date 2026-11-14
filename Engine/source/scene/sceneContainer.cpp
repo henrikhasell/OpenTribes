@@ -1594,6 +1594,29 @@ DefineEngineFunction( containerSearchCurrRadiusDist, F32, ( bool useClientContai
 
 //-----------------------------------------------------------------------------
 
+// HH: Added for Tribes 2 compatibility. The name Tribes 2's scripts call the
+// same answer by -- `RadiusExplosion` asks every object it found how far it
+// is before working out its share of the damage. Retail's own
+// (0x0058f5a0) is this function to the instruction: the distance between the
+// two centres, less the object's smallest extent, and never below zero.
+DefineEngineFunction( containerSearchCurrRadDamageDist, F32,
+   ( bool useClientContainer ), ( false ),
+   "@brief Get the distance of the closest point of the current item from the "
+   "center of the current initContainerRadiusSearch.\n\n"
+   "@param useClientContainer Optionally indicates the search should be within "
+   "the client container.\n"
+   "@return distance from the closest point of the current object to the "
+   "center of the search\n"
+   "@see containerSearchNext\n"
+   "@ingroup Game")
+{
+   SceneContainer* pContainer = useClientContainer ? &gClientContainer : &gServerContainer;
+
+   return pContainer->containerSearchCurrRadiusDist();
+}
+
+//-----------------------------------------------------------------------------
+
 //TODO: make RayInfo an API type
 DefineEngineFunction( containerRayCast, const char*,
    ( Point3F start, Point3F end, U32 mask, SceneObject *pExempt, bool useClientContainer ), ( NULL, false ),

@@ -153,6 +153,29 @@ MODULE_END;
 // Datablocks.
 //-----------------------------------------------------------------------------
 
+// HH: Modified for Tribes 2 compatibility. Read where every other class
+// reads, so that what the layout gave this class is visible to anything that
+// writes a body and reads it back.
+bool AudioDescription::unpackData( BitStream *stream, U32 classId )
+{
+   if( !Parent::unpackData( stream, classId ) )
+      return false;
+
+   readT2Fields();
+   return true;
+}
+
+
+bool AudioProfile::unpackData( BitStream *stream, U32 classId )
+{
+   if( !Parent::unpackData( stream, classId ) )
+      return false;
+
+   readT2Fields();
+   return true;
+}
+
+
 void AudioDescription::readT2Fields()
 {
    U32 word;
@@ -213,6 +236,82 @@ void AudioProfile::readT2Fields()
          ( ( word + DataBlockObjectIdFirst ) << 1 ) | 0x1;
 
    mPreload = false;
+}
+
+
+// HH: Added for Tribes 2 compatibility. readT2Fields the other way round.
+// The flags gate the rest: looping sends three whole words after it and is3D
+// sends the distances, the cone and three more. Those six nodes are not named
+// yet and go out as the layout's defaults.
+void AudioDescription::publishT2Data()
+{
+   Parent::publishT2Data();
+
+   T2Layout::publishDataBlockFloat( T2Layout::T2DbAudioVolume,
+                                    mVolume, 6 );
+   T2Layout::publishDataBlockFlag( T2Layout::T2DbAudioLooping, mIsLooping );
+   T2Layout::publishDataBlockFlag( T2Layout::T2DbAudio3D, mIs3D );
+
+   if( mIs3D )
+   {
+      T2Layout::publishDataBlockWhole( T2Layout::T2DbAudioReferenceDistance,
+                                       mMinDistance );
+      T2Layout::publishDataBlockWhole( T2Layout::T2DbAudioMaxDistance,
+                                       mMaxDistance );
+      T2Layout::publishDataBlockWord( T2Layout::T2DbAudioConeInsideAngle,
+                                      U32( mConeInsideAngle ) );
+      T2Layout::publishDataBlockWord( T2Layout::T2DbAudioConeOutsideAngle,
+                                      U32( mConeOutsideAngle ) );
+      T2Layout::publishDataBlockFloat( T2Layout::T2DbAudioConeOutsideVolume,
+                                       mConeOutsideVolume, 6 );
+   }
+
+   // The mixer channel, which the read side parks in a `type` field.
+   static StringTableEntry sType = StringTable->insert( "type" );
+   const char *type = getDataField( sType, NULL );
+   T2Layout::publishDataBlockWord( T2Layout::T2DbAudioChannel,
+                                   type && type[ 0 ] ? U32( dAtoi( type ) ) : 0 );
+}
+
+
+// HH: Added for Tribes 2 compatibility. readT2Fields the other way round.
+// Retail sends the description and, where the script names one, the
+// EffectProfile under `effect`, then the file with its extension off --
+// "fx/armor/thrust" for a script's "fx/armor/thrust.wav", which readT2Fields
+// puts back.
+void AudioProfile::publishT2Data()
+{
+   Parent::publishT2Data();
+
+   if( mDescription )
+   {
+      // An unresolved one is still parked as an id with its low bit set.
+      const uintptr_t parked = uintptr_t( mDescription );
+      const U32 id = ( parked & 0x1 ) ? U32( parked >> 1 )
+                                      : mDescription->getId();
+      T2Layout::publishDataBlockWord( T2Layout::T2DbAudioDescription,
+                                      id - DataBlockObjectIdFirst );
+   }
+
+   // The effect is a field the class never declared, so it is the script's
+   // value under its own name.
+   static StringTableEntry sEffect = StringTable->insert( "effect" );
+   const char *effect = getDataField( sEffect, NULL );
+   if( effect && effect[ 0 ] )
+   {
+      SimObject *object = Sim::findObject( effect );
+      if( object )
+         T2Layout::publishDataBlockWord( T2Layout::T2DbAudioEffect,
+            object->getId() - DataBlockObjectIdFirst );
+      else
+         Con::warnf( "AudioProfile::publishT2Data - %s names no effect '%s'",
+            getName(), effect );
+   }
+
+   String file = mFilename;
+   if( file.endsWith( ".wav" ) || file.endsWith( ".WAV" ) )
+      file = file.substr( 0, file.length() - 4 );
+   T2Layout::publishDataBlockString( T2Layout::T2DbAudioFile, file.c_str() );
 }
 
 

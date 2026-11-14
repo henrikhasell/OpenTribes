@@ -11,6 +11,9 @@
 
 namespace T2Layout
 {
+
+#define ELEMENTS( a ) ( sizeof( a ) / sizeof( ( a )[ 0 ] ) )
+
 #include "T3D/gameBase/t2DataBlockTables.h"
 #include "T3D/gameBase/t2GhostTablesRecovered.h"
 #include "T3D/gameBase/t2EventTables.h"
@@ -158,16 +161,44 @@ static void noteString(const char *str)
 }
 
 // HH: Added for Tribes 2 compatibility.
-/// Say what every node of a body read, for the class named in
-/// $pref::Net::traceLayout.
+/// Say what every node of a body read, for the classes named in
+/// $pref::Net::traceLayout -- a space or comma separated list, or a bare *
+/// for every class there is.
+/// Whether a space or comma separated list names a class, with a bare * for
+/// all of them.
+static bool namedInList(const char *list, const char *name)
+{
+   if(list[0] == '*' && !list[1])
+      return true;
+
+   const U32 len = dStrlen(name);
+   for(const char *at = list; *at; )
+   {
+      while(*at == ' ' || *at == ',')
+         at++;
+
+      const char *end = at;
+      while(*end && *end != ' ' && *end != ',')
+         end++;
+
+      if(U32(end - at) == len && !dStrnicmp(at, name, len))
+         return true;
+
+      at = end;
+   }
+
+   return false;
+}
+
 static bool sTrace = false;
 static U32 sTraceBody = 0;
+static const char *sTraceClass = "";
 
 static void traced(S32 at, U32 op, U32 bits, const char *value)
 {
    if(sTrace)
-      Con::printf("T2 trace %d: node %d op %d bits %d = %s", sTraceBody, at,
-                  op, bits, value);
+      Con::printf("T2 trace %s %d: node %d op %d bits %d = %s", sTraceClass,
+                  sTraceBody, at, op, bits, value);
 }
 
 static void traced(S32 at, U32 op, U32 bits, U32 value)
@@ -181,6 +212,8 @@ static void traced(S32 at, U32 op, U32 bits, U32 value)
 /// it at the same width. Every branch below therefore asks for its value
 /// through one of these two and then treats it the same way, so the writer
 /// cannot drift away from the reader's idea of how wide a node is.
+static U32 writeWord(S32 at);
+
 static U32 xferInt(BitStream *stream, U32 bits, bool write, S32 at = -1,
                    U32 op = 0)
 {
@@ -189,8 +222,11 @@ static U32 xferInt(BitStream *stream, U32 bits, bool write, S32 at = -1,
 
    if(write)
    {
-      stream->writeInt(0, bits);
-      return 0;
+      // HH: Modified for Tribes 2 compatibility. What the datablock published
+      // for this node, or the default an unported class still writes.
+      const U32 value = writeWord(at);
+      stream->writeInt(value, bits);
+      return value;
    }
 
    const U32 value = stream->readInt(bits);
@@ -213,12 +249,20 @@ static Point3F normalVector(U32 word, U32 bits)
                   mSin(theta));
 }
 
+static bool planTakesSet(S32 at);
+static bool ghostFlagAt(S32 at, bool *set);
+static bool ghostWordAt(S32 at, U32 *word);
+
 static bool xferFlag(BitStream *stream, bool write, S32 at = -1)
 {
    if(write)
    {
-      stream->writeFlag(false);
-      return false;
+      // HH: Modified for Tribes 2 compatibility. A flag the body keeps the
+      // value of sends that value; one that gates a run sends whether the run
+      // follows.
+      const bool set = planTakesSet(at);
+      stream->writeFlag(set);
+      return set;
    }
 
    const bool set = stream->readFlag();
@@ -244,6 +288,81 @@ static void noteDbField(const T2DataBlockFieldRow *row, U32 word)
    sDbWords[row->field] = word;
    sDbHas[row->field] = true;
    sDbList[row->field].push_back(word);
+}
+
+// HH: Added for Tribes 2 compatibility.
+/// How many of a published field's values the write walk has sent, so a field
+/// a body repeats goes out in the order it was published.
+static U32 sDbTaken[T2DbFieldCount] = { 0 };
+
+/// The image states a datablock published, in the order its body carries them,
+/// with each name's place among the body's strings.
+static Vector<ImageState> sWriteStates(__FILE__, __LINE__);
+static Vector<U32>        sWriteStateName(__FILE__, __LINE__);
+
+void publishImageStates(const Vector<ImageState> &states)
+{
+   sWriteStates = states;
+   sWriteStateName.setSize(states.size());
+   for(U32 i = 0; i < states.size(); i++)
+   {
+      sWriteStateName[i] = U32(sStrings.size());
+      sStrings.push_back(states[i].name);
+   }
+}
+
+void beginDataBlock()
+{
+   sWriteStates.clear();
+   sWriteStateName.clear();
+   for(U32 i = 0; i < T2DbFieldCount; i++)
+   {
+      sDbHas[i] = false;
+      sDbWords[i] = 0;
+      sDbValues[i] = 0.0f;
+      sDbList[i].clear();
+      sDbTaken[i] = 0;
+   }
+   sStrings.clear();
+}
+
+void publishDataBlockWord(U32 field, U32 value)
+{
+   if(field >= T2DbFieldCount)
+      return;
+
+   dMemcpy(&sDbValues[field], &value, sizeof(F32));
+   sDbWords[field] = value;
+   sDbHas[field] = true;
+   sDbList[field].push_back(value);
+}
+
+void publishDataBlockFlag(U32 field, bool value)
+{
+   publishDataBlockWord(field, value ? 1 : 0);
+}
+
+void publishDataBlockFloat(U32 field, F32 value, U32 bits)
+{
+   publishDataBlockWord(field, t2FloatWord(value, bits));
+}
+
+void publishDataBlockSignedFloat(U32 field, F32 value, U32 bits)
+{
+   publishDataBlockWord(field, t2SignedFloatWord(value, bits));
+}
+
+void publishDataBlockWhole(U32 field, F32 value)
+{
+   publishDataBlockWord(field, t2WholeWord(value));
+}
+
+void publishDataBlockString(U32 field, const char *value)
+{
+   // A string field keeps where it sits among the body's strings, which is
+   // what the read side records for one too.
+   sStrings.push_back(String(value ? value : ""));
+   publishDataBlockWord(field, U32(sStrings.size() - 1));
 }
 
 static const T2DataBlockFieldRow *dbFieldAt(const T2DataBlockLayout *layout,
@@ -1430,6 +1549,9 @@ struct T2StateMap
    U32                      states;
    Vector<S16>              part;   ///< node -> state * T2StateParts + part,
                                     ///< or -1
+   /// HH: the flag that reaches each state -> that state's number, or -1.
+   /// A writer takes the first n of them and leaves the rest clear.
+   Vector<S16>              head;
 };
 
 static Vector<T2StateMap *> sStateMaps(__FILE__, __LINE__);
@@ -1601,8 +1723,12 @@ static const T2StateMap *resolveStates(const T2DataBlockLayout *layout)
    map->layout = layout;
    map->states = 0;
    map->part.setSize(layout->count);
+   map->head.setSize(layout->count);
    for(U32 i = 0; i < layout->count; i++)
+   {
       map->part[i] = -1;
+      map->head[i] = -1;
+   }
 
    Vector<S16> parts(__FILE__, __LINE__);
    parts.setSize(layout->count * T2StateParts);
@@ -1640,6 +1766,7 @@ static const T2StateMap *resolveStates(const T2DataBlockLayout *layout)
           at = layout->nodes[at].a, state++)
       {
          const S32 block = layout->nodes[at].b;
+         map->head[at] = S16(state);
          for(U32 p = 0; p < T2StateParts; p++)
             map->part[parts[block * T2StateParts + p]] =
                S16(state * T2StateParts + p);
@@ -1674,6 +1801,22 @@ static bool stateAt(const T2DataBlockLayout *layout, S32 at, U32 *state,
    return true;
 }
 
+// HH: Added for Tribes 2 compatibility.
+/// Which state the flag at \a at reaches, where it reaches one.
+static bool headAt(const T2DataBlockLayout *layout, S32 at, U32 *state)
+{
+   if(!sStates || sStates->layout != layout || at < 0 ||
+      U32(at) >= sStates->head.size())
+      return false;
+
+   const S16 what = sStates->head[at];
+   if(what < 0)
+      return false;
+
+   *state = U32(what);
+   return true;
+}
+
 /// Which slot and field this node is, where it is one of an image slot's.
 static bool imageAt(const T2DataBlockLayout *layout, S32 at, U32 *slot,
                     U32 *part)
@@ -1689,6 +1832,617 @@ static bool imageAt(const T2DataBlockLayout *layout, S32 at, U32 *slot,
    *slot = U32(what) / T2ImageParts;
    *part = U32(what) % T2ImageParts;
    return true;
+}
+
+// HH: Added for Tribes 2 compatibility.
+//
+// Writing a body is reading one backwards: the same graph, with the values a
+// datablock published put where the read walk would have taken them from. The
+// only thing the graph does not say is which way to go at a flag the body does
+// not keep the value of, because such a flag is there to say whether what is
+// behind it follows at all. Those flags gate a run of value nodes that rejoins
+// the clear arm -- ParticleData's node 1 is a flag over windCoefficient alone,
+// node 8 a flag over the two spin bounds -- so the way to go is "set, if
+// anything in the run is a field this datablock published".
+//
+// A flag over something that is not a plain run keeps its clear arm, which is
+// what an unported class writes anyway. Nothing is silently dropped on that
+// account: the walk is run once without a stream first, and a field that was
+// published and does not come up says so.
+namespace Plan
+{
+   static const T2DataBlockLayout *sFor = NULL;
+   static U32    sPublished[(T2DbFieldCount + 31) / 32] = { 0 };
+   static Vector<S16> sField(__FILE__, __LINE__);  ///< node -> field, or -1
+   static Vector<U8>  sTakeSet(__FILE__, __LINE__);///< node -> take the set arm
+
+   static bool published(U32 field)
+   {
+      return field < T2DbFieldCount &&
+             (sPublished[field >> 5] & (1u << (field & 31))) != 0;
+   }
+
+   /// Everything reachable from \a from, up to a bound, which is how the
+   /// two arms of a flag are told apart: what they share is not what either
+   /// of them gates.
+   static U32 reachable(const T2DataBlockLayout *layout, S32 from, S32 *out,
+                        U32 room)
+   {
+      S32 stack[128];
+      U32 depth = 0, count = 0;
+      stack[depth++] = from;
+
+      while(depth)
+      {
+         const S32 at = stack[--depth];
+         if(at < 0 || U32(at) >= layout->count)
+            continue;
+
+         U32 i = 0;
+         for(; i < count; i++)
+            if(out[i] == at)
+               break;
+         if(i < count)
+            continue;
+         if(count >= room)
+            return count;
+         out[count++] = at;
+
+         const T2DataNode &n = layout->nodes[at];
+         if(n.op == OpEnd || n.op == OpEndBody)
+            continue;
+
+         if(n.op == OpSelect || n.op == OpReadBr)
+         {
+            if(!layout->select)
+               continue;
+            const U32 arms = n.op == OpReadBr ? 2u : 1u << n.bits;
+            for(U32 arm = 0; arm < arms && depth < ELEMENTS(stack); arm++)
+               stack[depth++] = layout->select[n.a + arm];
+            continue;
+         }
+
+         if(depth < ELEMENTS(stack))
+            stack[depth++] = n.a;
+         if((n.op == OpFlag || n.op == OpLoop) && depth < ELEMENTS(stack))
+            stack[depth++] = n.b;
+      }
+
+      return count;
+   }
+
+   /// Whether anything the flag at \a at gates was published. What it gates is
+   /// what its set arm reaches and its clear arm does not -- the two come back
+   /// together somewhere, and everything from there on belongs to neither.
+   /// A flag over one value and one over a whole block, as ShapeBaseData's hud
+   /// images are, are both this.
+   static bool gatesWanted(const T2DataBlockLayout *layout, S32 at)
+   {
+      const T2DataNode &flag = layout->nodes[at];
+
+      S32 shared[192];
+      const U32 sharedCount = reachable(layout, flag.a, shared,
+                                        ELEMENTS(shared));
+
+      S32 stack[128];
+      U32 depth = 0;
+      stack[depth++] = flag.b;
+
+      S32 seen[192];
+      U32 seenCount = 0;
+
+      while(depth)
+      {
+         const S32 walk = stack[--depth];
+         if(walk < 0 || U32(walk) >= layout->count)
+            continue;
+
+         // Shared with the clear arm, so past where the two rejoin.
+         U32 i = 0;
+         for(; i < sharedCount; i++)
+            if(shared[i] == walk)
+               break;
+         if(i < sharedCount)
+            continue;
+
+         for(i = 0; i < seenCount; i++)
+            if(seen[i] == walk)
+               break;
+         if(i < seenCount)
+            continue;
+         if(seenCount >= ELEMENTS(seen))
+            return false;
+         seen[seenCount++] = walk;
+
+         if(U32(walk) < sField.size() && sField[walk] >= 0 &&
+            published(U32(sField[walk])))
+            return true;
+
+         const T2DataNode &n = layout->nodes[walk];
+         if(n.op == OpEnd || n.op == OpEndBody)
+            continue;
+
+         if(n.op == OpSelect || n.op == OpReadBr)
+         {
+            if(!layout->select)
+               return false;
+            const U32 arms = n.op == OpReadBr ? 2u : 1u << n.bits;
+            for(U32 arm = 0; arm < arms; arm++)
+            {
+               if(depth >= ELEMENTS(stack))
+                  return false;
+               stack[depth++] = layout->select[n.a + arm];
+            }
+            continue;
+         }
+
+         if(depth + 2 > ELEMENTS(stack))
+            return false;
+         stack[depth++] = n.a;
+         if(n.op == OpFlag || n.op == OpLoop)
+            stack[depth++] = n.b;
+      }
+
+      return false;
+   }
+
+   /// Worked out once per class and set of published fields, since every
+   /// instance of a class publishes the same ones.
+   static void resolve(const T2DataBlockLayout *layout)
+   {
+      U32 now[(T2DbFieldCount + 31) / 32] = { 0 };
+      for(U32 i = 0; i < T2DbFieldCount; i++)
+         if(sDbHas[i])
+            now[i >> 5] |= 1u << (i & 31);
+
+      if(sFor == layout && !dMemcmp(now, sPublished, sizeof(now)))
+         return;
+
+      sFor = layout;
+      dMemcpy(sPublished, now, sizeof(sPublished));
+
+      sField.setSize(layout->count);
+      for(U32 i = 0; i < layout->count; i++)
+         sField[i] = -1;
+      for(U32 i = 0; i < sDbRowCount; i++)
+         if(sDbRows[i]->node >= 0 && U32(sDbRows[i]->node) < layout->count)
+            sField[sDbRows[i]->node] = S16(sDbRows[i]->field);
+
+      sTakeSet.setSize(layout->count);
+      for(U32 i = 0; i < layout->count; i++)
+      {
+         const T2DataNode &n = layout->nodes[i];
+         sTakeSet[i] = n.op == OpFlag && isBranch(&n) &&
+                       sField[i] < 0 && gatesWanted(layout, S32(i));
+      }
+   }
+
+   static S16 fieldAt(S32 at)
+   {
+      return at >= 0 && U32(at) < sField.size() ? sField[at] : -1;
+   }
+
+   static bool takeSet(S32 at)
+   {
+      return at >= 0 && U32(at) < sTakeSet.size() && sTakeSet[at];
+   }
+}
+
+// HH: Added for Tribes 2 compatibility.
+/// The state and part a node belongs to, for the class whose layout is loaded.
+static bool writeStateAt(S32 at, U32 *state, U32 *part)
+{
+   if(!sStates || sWriteStates.empty())
+      return false;
+   if(!stateAt(sStates->layout, at, state, part))
+      return false;
+   return *state < sWriteStates.size();
+}
+
+/// What a node of a published image state sends.
+static bool writeStateWord(S32 at, U32 *word)
+{
+   U32 index, part;
+   if(!writeStateAt(at, &index, &part))
+      return false;
+
+   const ImageState &state = sWriteStates[index];
+   if(part == T2StateName)
+   {
+      *word = index < sWriteStateName.size() ? sWriteStateName[index] : 0;
+      return true;
+   }
+   if(part >= T2StateTransition &&
+      part < T2StateTransition + ImageState::TransitionCount)
+   {
+      // Nothing is zero; a way out is the state behind it.
+      *word = U32(state.transition[part - T2StateTransition] + 1);
+      return true;
+   }
+
+   switch(part)
+   {
+      case T2StateTimeout:        *word = t2WholeWord(state.timeout); return true;
+      case T2StateLoaded:         *word = state.loaded;               return true;
+      case T2StateSpin:           *word = state.spin;                 return true;
+      case T2StateRecoil:         *word = state.recoil;               return true;
+      case T2StateSound:
+         *word = state.sound >= 0 ? U32(state.sound) : 0;
+         return true;
+      case T2StateSequence:
+         *word = U32(state.sequence < 0 ? -state.sequence : state.sequence);
+         return true;
+      case T2StateSequenceVis:
+         *word = U32(state.sequenceVis < 0 ? -state.sequenceVis
+                                           : state.sequenceVis);
+         return true;
+      default:
+         break;
+   }
+
+   return false;
+}
+
+/// Whether a flag of a published image state goes out set.
+static bool writeStateFlag(S32 at, bool *set)
+{
+   U32 index, part;
+   if(writeStateAt(at, &index, &part))
+   {
+      const ImageState &state = sWriteStates[index];
+      switch(part)
+      {
+         case T2StateHasTimeout:    *set = state.hasTimeout;      return true;
+         case T2StateWaitForTimeout:*set = state.waitForTimeout;  return true;
+         case T2StateFire:          *set = state.fire;            return true;
+         case T2StateEjectShell:    *set = state.ejectShell;      return true;
+         case T2StateDirection:     *set = state.direction;       return true;
+         case T2StateSequenceSign:  *set = state.sequence < 0;    return true;
+         case T2StateSequenceVisSign:
+            *set = state.sequenceVis < 0;
+            return true;
+         default:
+            break;
+      }
+   }
+
+   if(!sStates || at < 0 || U32(at) >= sStates->layout->count)
+      return false;
+
+   // The flag that reaches a state: the first n of them are the states this
+   // datablock has, and the rest are left clear.
+   U32 reaches;
+   if(headAt(sStates->layout, at, &reaches))
+   {
+      *set = reaches < sWriteStates.size();
+      return true;
+   }
+
+   // A flag over one of a state's own optional values -- a sequence index,
+   // which the state keeps a sign and a magnitude for.
+   const T2DataNode &n = sStates->layout->nodes[at];
+   if(n.b >= 0 && writeStateAt(n.b, &index, &part))
+   {
+      const ImageState &state = sWriteStates[index];
+      if(part == T2StateSequenceSign)    { *set = state.hasSequence;    return true; }
+      if(part == T2StateSequenceVisSign) { *set = state.hasSequenceVis; return true; }
+   }
+
+   return false;
+}
+
+/// Whether a flag goes out set: the value the body keeps there if it keeps
+/// one, or whether the run behind it holds anything published.
+static bool planTakesSet(S32 at)
+{
+   bool set;
+   if(ghostFlagAt(at, &set))
+      return set;
+   if(writeStateFlag(at, &set))
+      return set;
+
+   const S16 field = Plan::fieldAt(at);
+   if(field >= 0)
+      return sDbHas[field] && writeWord(at) != 0;
+
+   return Plan::takeSet(at);
+}
+
+// HH: Added for Tribes 2 compatibility.
+/// What a ghost body carries on the write side. A class fills the same Body a
+/// read fills and the walk takes the values back out of it, so one
+/// description of a class's state serves both directions.
+static Body sWriteBody;
+static bool sHasWriteBody = false;
+static bool sWriteInitial = false;
+
+/// The words a multi-word field still owes, in the order the body carries
+/// them: a run is started by the node its field row names and taken by the
+/// nodes the walk visits after it.
+static U32 sWriteRun[16] = { 0 };
+static U32 sWriteRunLeft = 0;
+
+/// The words and strings a class's body carries in the order its layout
+/// reads them, for a class whose reader takes them positionally rather than
+/// by named node.
+static Vector<U32> sWriteBodyWords(__FILE__, __LINE__);
+static U32 sWriteBodyWordsTaken = 0;
+static Vector<String> sWriteBodyStrings(__FILE__, __LINE__);
+static U32 sWriteBodyStringsTaken = 0;
+
+void beginBody()
+{
+   sHasWriteBody = false;
+   sWriteRunLeft = 0;
+   sWriteBodyWords.clear();
+   sWriteBodyWordsTaken = 0;
+   sWriteBodyStrings.clear();
+   sWriteBodyStringsTaken = 0;
+}
+
+void publishBody(const Body &body)
+{
+   sWriteBody = body;
+   sHasWriteBody = true;
+}
+
+void publishBodyWord(U32 word)
+{
+   sWriteBodyWords.push_back(word);
+}
+
+void publishBodyString(const String &text)
+{
+   sWriteBodyStrings.push_back(text);
+}
+
+static U32 floatWord(F32 value)
+{
+   U32 word;
+   dMemcpy(&word, &value, sizeof(word));
+   return word;
+}
+
+/// The quaternion a body's rotation is sent as, which is its three axis parts
+/// with the fourth taken from them and its sign sent as a flag.
+static QuatF writeQuat()
+{
+   MatrixF m = sWriteBody.rotation;
+   return QuatF(m);
+}
+
+/// Whether the node starts a run of words the body has, and with what.
+static bool ghostRunAt(S32 at)
+{
+   const T2DataBlockLayout *layout = (const T2DataBlockLayout *)sFieldsLayout;
+   const T2GhostFieldRow *row = layout ? fieldAt(layout, at) : NULL;
+   if(!row || !sHasWriteBody)
+      return false;
+
+   const U32 words = t2FieldWords(row->field);
+   if(!words || words > ELEMENTS(sWriteRun))
+      return false;
+
+   switch(row->field)
+   {
+      case T2FieldAffine:
+      {
+         if(!sWriteBody.hasPosition && !sWriteBody.hasRotation)
+            return false;
+
+         const QuatF q = writeQuat();
+         sWriteRun[0] = floatWord(sWriteBody.position.x);
+         sWriteRun[1] = floatWord(sWriteBody.position.y);
+         sWriteRun[2] = floatWord(sWriteBody.position.z);
+         sWriteRun[3] = floatWord(q.x);
+         sWriteRun[4] = floatWord(q.y);
+         sWriteRun[5] = floatWord(q.z);
+         sWriteRunLeft = 6;
+         return true;
+      }
+
+      case T2FieldScale:
+      {
+         if(!sWriteBody.hasScale)
+            return false;
+
+         sWriteRun[0] = floatWord(sWriteBody.scale.x);
+         sWriteRun[1] = floatWord(sWriteBody.scale.y);
+         sWriteRun[2] = floatWord(sWriteBody.scale.z);
+         sWriteRunLeft = 3;
+         return true;
+      }
+
+      default:
+         break;
+   }
+
+   return false;
+}
+
+/// The datablock a ghost body names, which the recovered graph branches on at
+/// its root: the set arm reads the id and the clear arm says the object keeps
+/// the one it has.
+static bool ghostDataBlockAt(S32 at, bool *isTheNode)
+{
+   const T2DataBlockLayout *layout = (const T2DataBlockLayout *)sFieldsLayout;
+   *isTheNode = false;
+   if(!layout || layout->root < 0 || U32(layout->root) >= layout->count)
+      return false;
+
+   const T2DataNode &root = layout->nodes[layout->root];
+   if(root.op != OpFlag || !isBranch(&root))
+      return false;
+   if(root.b < 0 || U32(root.b) >= layout->count)
+      return false;
+
+   // The datablock the body names sits on the root's set arm, as an id a
+   // class reads for itself or one the walk takes. A root whose set arm is
+   // anything else -- a terrain's whole state, say -- is a flag over the body
+   // rather than over a datablock.
+   const T2DataNode &behind = layout->nodes[root.b];
+   if(behind.bits != 11 ||
+      (behind.op != OpReadBr && behind.op != OpDataBlockId))
+      return false;
+
+   if(at == layout->root)
+      return true;
+
+   *isTheNode = root.b == at;
+   return false;
+}
+
+/// Whether a ghost layout's root flag is the one over the whole body, which a
+/// first body sets and a later one does not.
+static bool ghostBodyFlagAt(S32 at)
+{
+   const T2DataBlockLayout *layout = (const T2DataBlockLayout *)sFieldsLayout;
+   if(!layout || at != layout->root)
+      return false;
+
+   bool unused;
+   if(ghostDataBlockAt(at, &unused))
+      return false;
+
+   const T2DataNode &root = layout->nodes[layout->root];
+   return root.op == OpFlag && isBranch(&root);
+}
+
+/// The word a ghost body sends at this node, where it has one.
+static bool ghostWordAt(S32 at, U32 *word)
+{
+   if(!sHasWriteBody)
+      return false;
+
+   if(sWriteRunLeft)
+   {
+      *word = sWriteRun[0];
+      for(U32 i = 1; i < sWriteRunLeft; i++)
+         sWriteRun[i - 1] = sWriteRun[i];
+      sWriteRunLeft--;
+      return true;
+   }
+
+   if(ghostRunAt(at))
+      return ghostWordAt(at, word);
+
+   bool isDataBlockNode = false;
+   ghostDataBlockAt(at, &isDataBlockNode);
+   if(isDataBlockNode && sWriteBody.hasDataBlock)
+   {
+      *word = sWriteBody.dataBlockId;
+      return true;
+   }
+
+   // A word of a body whose reader takes them in the order they came. A count
+   // is not one of them: what it counts is its own, and a class that sends
+   // none leaves it clear.
+   const T2DataBlockLayout *layout = (const T2DataBlockLayout *)sFieldsLayout;
+   if(layout && at >= 0 && U32(at) < layout->count &&
+      sWriteBodyWordsTaken < U32(sWriteBodyWords.size()))
+   {
+      const U32 op = layout->nodes[at].op;
+      if(op == OpInt || op == OpRaw)
+      {
+         *word = sWriteBodyWords[sWriteBodyWordsTaken++];
+         return true;
+      }
+   }
+
+   return false;
+}
+
+/// Whether a ghost body's flag goes out set.
+static bool ghostFlagAt(S32 at, bool *set)
+{
+   const T2DataBlockLayout *layout = (const T2DataBlockLayout *)sFieldsLayout;
+   if(!sHasWriteBody || !layout)
+      return false;
+
+   bool unused;
+   if(ghostDataBlockAt(at, &unused))
+   {
+      *set = sWriteBody.hasDataBlock;
+      return true;
+   }
+
+   if(ghostBodyFlagAt(at))
+   {
+      *set = sWriteInitial;
+      return true;
+   }
+
+   const T2GhostFieldRow *row = fieldAt(layout, at);
+   if(row && row->field == T2FieldQuatSign)
+   {
+      *set = writeQuat().w < 0.0f;
+      return true;
+   }
+
+   // A flag whose set arm starts a run of words: it goes out set when the
+   // body has them.
+   const T2DataNode &n = layout->nodes[at];
+   if(n.op == OpFlag && n.b >= 0 && U32(n.b) < layout->count)
+   {
+      const T2GhostFieldRow *behind = fieldAt(layout, n.b);
+      if(behind)
+         switch(behind->field)
+         {
+            case T2FieldAffine:
+               *set = sWriteBody.hasPosition || sWriteBody.hasRotation;
+               return true;
+            case T2FieldScale:
+               *set = sWriteBody.hasScale;
+               return true;
+            default:
+               break;
+         }
+   }
+
+   return false;
+}
+
+/// The text a string node sends: an image state's name, a published string
+/// field, or nothing.
+static const char *writeText(S32 at);
+
+/// The word a node sends: the next of what its field published, or the default
+/// a class with no encoder yet writes.
+static U32 writeWord(S32 at)
+{
+   U32 word;
+   if(ghostWordAt(at, &word))
+      return word;
+   if(writeStateWord(at, &word))
+      return word;
+
+   const S16 field = Plan::fieldAt(at);
+   if(field < 0 || !sDbHas[field])
+      return 0;
+
+   const Vector<U32> &list = sDbList[field];
+   if(sDbTaken[field] < U32(list.size()))
+      return list[sDbTaken[field]++];
+
+   return sDbWords[field];
+}
+
+static const char *writeText(S32 at)
+{
+   // A string of a body whose reader takes them in the order they came.
+   if(sWriteBodyStringsTaken < U32(sWriteBodyStrings.size()))
+      return sWriteBodyStrings[sWriteBodyStringsTaken++].c_str();
+
+   U32 index;
+   if(writeStateWord(at, &index))
+      return index < U32(sStrings.size()) ? sStrings[index].c_str() : "";
+
+   const S16 field = Plan::fieldAt(at);
+   if(field < 0 || !sDbHas[field])
+      return "";
+
+   index = writeWord(at);
+   return index < U32(sStrings.size()) ? sStrings[index].c_str() : "";
 }
 
 static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
@@ -2228,6 +2982,17 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
             const U32 word = xferInt(stream, n.bits, write, at, n.op);
             const T2GhostFieldRow *row = write ? NULL : fieldAt(layout, at);
 
+            // HH: Added for Tribes 2 compatibility. A datablock field named
+            // against one of these was read off the wire and then dropped,
+            // which cost ParticleData its gravityCoefficient: every particle
+            // in a mission fell at whatever the class defaults to.
+            if(!write)
+            {
+               const T2DataBlockFieldRow *dbRow = dbFieldAt(layout, at);
+               if(dbRow)
+                  noteDbField(dbRow, word);
+            }
+
             if(row && (row->field == T2FieldNormalPhi ||
                        row->field == T2FieldImpactPhi))
                sPhi = signedFloatOf(word, n.bits) * M_PI_F;
@@ -2561,7 +3326,9 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
 
          case OpString:
             if(write)
-               stream->writeString("");
+               // HH: Modified for Tribes 2 compatibility. A string field keeps
+               // where it sits among the body's strings, both ways round.
+               stream->writeString(writeText(at));
             else
             {
                stream->readString(buf);
@@ -2646,9 +3413,28 @@ static bool runNamed(BitStream *stream, const char *name,
    return runGraph(stream, layout, layout->root, slots, 0, isInitial, write);
 }
 
-#define ELEMENTS( a ) ( sizeof( a ) / sizeof( ( a )[ 0 ] ) )
-
 static Vector<StringTableEntry> sUnimplemented(__FILE__, __LINE__);
+
+// HH: Added for Tribes 2 compatibility.
+static Vector<StringTableEntry> sUnwritten(__FILE__, __LINE__);
+
+/// A field the class published and the walk did not reach, which means either
+/// a field named against the wrong node or a gate this does not model.
+static void warnUnwritten(const char *name, U32 field, U32 taken, U32 had)
+{
+   char keyed[160];
+   dSprintf(keyed, sizeof(keyed), "%s field %u", name, field);
+
+   StringTableEntry key = StringTable->insert(keyed);
+   for(U32 i = 0; i < sUnwritten.size(); i++)
+      if(sUnwritten[i] == key)
+         return;
+   sUnwritten.push_back(key);
+
+   Con::errorf("T2 datablock write: %s published %u value(s) of field %u and "
+               "the body carried %u of them -- the other end sees the rest as "
+               "defaults.", name, had, field, taken);
+}
 
 static void warnUnimplemented(const char *kind, const char *name, bool write)
 {
@@ -2773,9 +3559,12 @@ static bool matchShapeData(T2ShapeDataMap *map, S32 *end)
       return false;
    at = sensor->a;
 
-   // heatSignature.
-   if(flaggedRun(layout, at, OpRaw, 32) < 0)
+   // heatSignature, which a sensor reads a shape by: named now, so a shape
+   // that is colder than one can say so.
+   const S32 heat = flaggedRun(layout, at, OpRaw, 32);
+   if(heat < 0)
       return false;
+   addShapeDataRow(map, heat, T2DbHeatSignature);
    at = layout->nodes[at].a;
 
    static const U32 sStringFields[] = { T2DbCmdCategory, T2DbCmdMiniIconName };
@@ -3061,6 +3850,152 @@ static bool keepRun(T2ShapeDataMap *map, U32 from, bool found)
    return found;
 }
 
+// HH: Added for Tribes 2 compatibility.
+/// Every projectile datablock in the game opens and closes the same way,
+/// whatever its class puts between: twenty-four nodes of ProjectileData's own
+/// fields, and a tail of twenty-five -- the light it casts, the fifteen
+/// datablocks it can name, and its scale. Only the middle is the class's, so
+/// the shared part is found by that shape rather than numbered per class.
+///
+/// Settled by asking a retail server: a datablock declared at its console goes
+/// out to a client that joins after, so a body whose every field holds a value
+/// nothing else could have written names its own nodes. Twelve of the thirteen
+/// projectile classes answered with the same opening, node for node.
+static const U32 sT2ProjectileIds[] =
+{
+   // Ascending, which is the order a body reads them in; the flags that gate
+   // them run the other way, from node 5 for the last of these.
+   T2DbProjectileDecal + 5,
+   T2DbProjectileDecal + 4,
+   T2DbProjectileDecal + 3,
+   T2DbProjectileDecal + 2,
+   T2DbProjectileDecal + 1,
+   T2DbProjectileDecal,
+   T2DbProjectileFireSound,
+   T2DbProjectileWetFireSound,
+   T2DbProjectileSound,
+   T2DbProjectileSplash,
+   T2DbProjectileUnderwaterExplosion,
+   T2DbExplosion,
+   T2DbProjectileBubbleEmitter,
+   T2DbProjectileDelayEmitter,
+   T2DbProjectileBaseEmitter,
+};
+
+/// The light, which ProjectileData writes behind the hasLight flag as the
+/// radius over twenty at eight bits and the colour at seven (0x0063127d),
+/// with the colour it has under water behind a flag of its own (0x006312db)
+/// in the three nodes before.
+static const U32 sT2ProjectileLight[] =
+{
+   T2DbProjectileWaterLightColorR,
+   T2DbProjectileWaterLightColorG,
+   T2DbProjectileWaterLightColorB,
+   T2DbProjectileLightRadius,
+   T2DbProjectileLightColorR,
+   T2DbProjectileLightColorG,
+   T2DbProjectileLightColorB,
+};
+
+static const U8 sT2ProjectileLightBits[] = { 7, 7, 7, 8, 7, 7, 7 };
+
+/// Whether a class names a node of its own in the table, which the shared
+/// matcher must then leave alone: a seeker's exhaust node and casing shape
+/// are strings its middle carries under names of their own, so the generic
+/// run of textures must not claim those nodes as well. The table is read
+/// rather than the rows resolved against this layout, because a matcher's
+/// answer is cached and must not depend on what has been resolved yet.
+static bool namesNodeInTable(const char *cls, S32 at)
+{
+   for(U32 i = 0; i < ELEMENTS(sT2DataBlockFields); i++)
+      if(sT2DataBlockFields[i].node == at &&
+         !dStrcmp(sT2DataBlockFields[i].cls, cls))
+         return true;
+
+   return false;
+}
+
+static bool matchProjectileData(T2ShapeDataMap *map)
+{
+   const T2DataBlockLayout *layout = map->layout;
+
+   // The tail is twenty-five nodes and the opening twenty-four, with at least
+   // one node of the class's own between them.
+   if(layout->root != 0 || layout->count < 50)
+      return false;
+
+   if(!nodeAt(layout, 0) || layout->nodes[0].op != OpString)
+      return false;
+   if(!isWord(nodeAt(layout, 1), 32) || !isWord(nodeAt(layout, 2), 32))
+      return false;
+
+   // A flag it keeps the value of, and then eighteen it does not: one for its
+   // scale, fifteen for the datablocks it names, one for its light and one
+   // for the colour that light has under water.
+   const T2DataNode *faceViewer = nodeAt(layout, 3);
+   if(!faceViewer || faceViewer->op != OpFlag || faceViewer->bits != 1 ||
+      faceViewer->a != faceViewer->b)
+      return false;
+
+   for(U32 i = 4; i <= 21; i++)
+      if(!isBranch(nodeAt(layout, S32(i))))
+         return false;
+
+   if(!isWord(nodeAt(layout, 22), 8) || !isWord(nodeAt(layout, 23), 32))
+      return false;
+
+   const U32 scaleAt = layout->count - 3;
+   const U32 idsAt   = layout->count - 18;
+   const U32 lightAt = layout->count - 25;
+
+   for(U32 i = 0; i < 3; i++)
+      if(!isWord(nodeAt(layout, S32(scaleAt + i)), 32))
+         return false;
+
+   for(U32 i = 0; i < ELEMENTS(sT2ProjectileIds); i++)
+   {
+      const T2DataNode *n = nodeAt(layout, S32(idsAt + i));
+      if(!n || n->op != OpDataBlockId || n->bits != 11)
+         return false;
+   }
+
+   for(U32 i = 0; i < ELEMENTS(sT2ProjectileLight); i++)
+   {
+      const T2DataNode *n = nodeAt(layout, S32(lightAt + i));
+      if(!n || n->op != OpFloat || n->bits != sT2ProjectileLightBits[i])
+         return false;
+   }
+
+   addShapeDataRow(map, 0, T2DbProjectileShapeName);
+   addShapeDataRow(map, 1, T2DbProjectileEmitterDelay);
+   addShapeDataRow(map, 2, T2DbProjectileBubbleEmitTime);
+   addShapeDataRow(map, 3, T2DbFaceViewer);
+   addShapeDataRow(map, 22, T2DbProjectileExplodeOnWaterImpact);
+   addShapeDataRow(map, 23, T2DbProjectileDepthTolerance);
+
+   static const U32 sScale[] = { T2DbScaleX, T2DbScaleY, T2DbScaleZ };
+   for(U32 i = 0; i < 3; i++)
+      addShapeDataRow(map, S32(scaleAt + i), sScale[i]);
+
+   for(U32 i = 0; i < ELEMENTS(sT2ProjectileIds); i++)
+      addShapeDataRow(map, S32(idsAt + i), sT2ProjectileIds[i]);
+
+   for(U32 i = 0; i < ELEMENTS(sT2ProjectileLight); i++)
+      addShapeDataRow(map, S32(lightAt + i), sT2ProjectileLight[i]);
+
+   // The textures a class's own middle names, in the order it reads them: a
+   // bullet's streak and its cross, a repair beam's two, a sniper's twelve.
+   // A node the class names itself is that field's, not one of these, and it
+   // takes none of their order with it.
+   U32 texture = 0;
+   for(U32 at = 24; at < lightAt && texture < 12; at++)
+      if(layout->nodes[at].op == OpString &&
+         !namesNodeInTable(layout->name, S32(at)))
+         addShapeDataRow(map, S32(at), T2DbProjectileString + texture++);
+
+   return true;
+}
+
 static const T2ShapeDataMap *resolveShapeData(const T2DataBlockLayout *layout)
 {
    for(U32 i = 0; i < sShapeDataMaps.size(); i++)
@@ -3070,6 +4005,16 @@ static const T2ShapeDataMap *resolveShapeData(const T2DataBlockLayout *layout)
    T2ShapeDataMap *map = new T2ShapeDataMap;
    map->layout = layout;
    S32 at;
+
+   // HH: A projectile datablock opens its own way, not ShapeBaseData's.
+   if(matchProjectileData(map))
+   {
+      Con::printf("T2 layout: %s opens with ProjectileData's fields",
+                  layout->name);
+      sShapeDataMaps.push_back(map);
+      return map;
+   }
+
    if(matchShapeData(map, &at))
    {
       Con::printf("T2 layout: %s opens with ShapeBaseData's fields",
@@ -3165,9 +4110,15 @@ static bool runDataBlock(BitStream *stream, U32 classId, bool write)
    AssertFatal(ELEMENTS(sT2DataBlocks) == NetClassTable::DataBlockCount,
       "The datablock layouts are not one per net class id!");
 
-   sShapeName[0] = 0;
-   sDataBlockIds.clear();
-   sStrings.clear();
+   // HH: Modified for Tribes 2 compatibility. These are what a read leaves
+   // behind for its class to pick up; a write arrives with them already
+   // holding what the class published.
+   if(!write)
+   {
+      sShapeName[0] = 0;
+      sDataBlockIds.clear();
+      sStrings.clear();
+   }
    if(classId >= ELEMENTS(sT2DataBlocks))
    {
       char id[32];
@@ -3178,10 +4129,19 @@ static bool runDataBlock(BitStream *stream, U32 classId, bool write)
 
    const T2DataBlockLayout *layout = &sT2DataBlocks[classId];
    resolveDataBlockFields(classId, layout);
-   for(U32 i = 0; i < T2DbFieldCount; i++)
+   // HH: Modified for Tribes 2 compatibility. A read starts from nothing
+   // known; a write starts from what the class published.
+   if(!write)
+      for(U32 i = 0; i < T2DbFieldCount; i++)
+      {
+         sDbHas[i] = false;
+         sDbList[i].clear();
+      }
+   else
    {
-      sDbHas[i] = false;
-      sDbList[i].clear();
+      Plan::resolve(layout);
+      for(U32 i = 0; i < T2DbFieldCount; i++)
+         sDbTaken[i] = 0;
    }
 
    // HH: Added for Tribes 2 compatibility.
@@ -3214,14 +4174,39 @@ static bool runDataBlock(BitStream *stream, U32 classId, bool write)
    // HH: Added for Tribes 2 compatibility.
    const char *traceName = Con::getVariable("$pref::Net::traceLayout");
    sTrace = !write && traceName && traceName[0] &&
-            !dStricmp(traceName, layout->name);
+            namedInList(traceName, layout->name);
    if(sTrace)
+   {
+      sTraceClass = layout->name;
       sTraceBody++;
+   }
 
    U32 slots[8] = { 0, 0, 0, 0, 0, 0, 0, 0 };
    const bool ok = runGraph(stream, layout, layout->root, slots, 0, false,
                             write);
    sTrace = false;
+
+   // HH: Added for Tribes 2 compatibility. A field the class published that
+   // the walk never came to is a field the other end will not see, which is
+   // worth hearing about once rather than hunting for in the body.
+   // A publisher shared by a family of classes offers every field any of them
+   // carries, so a field this layout has no node for is not a loss: what is
+   // worth hearing about is a field the layout does name and the walk still
+   // did not come to.
+   if(write && ok)
+      for(U32 i = 0; i < T2DbFieldCount; i++)
+      {
+         if(!sDbHas[i] || sDbTaken[i] >= U32(sDbList[i].size()))
+            continue;
+
+         bool named = false;
+         for(U32 r = 0; r < sDbRowCount && !named; r++)
+            named = U32(sDbRows[r]->field) == i;
+
+         if(named)
+            warnUnwritten(layout->name, i, sDbTaken[i], sDbList[i].size());
+      }
+
    return ok;
 }
 
@@ -3526,120 +4511,115 @@ static void assembleBody()
    }
 }
 
-static bool runGhost(BitStream *stream, const char *className,
-                     bool isInitial, bool write, const Subject *subject)
+// HH: Added for Tribes 2 compatibility.
+/// Everything a body says nothing about, so that a read says what came
+/// and a write says what a class put there.
+void clearBody(Body *body)
 {
-   sSubject = subject ? *subject : Subject();
-   sBody.hasDataBlock = false;
-   sBody.dataBlockId = 0;
-   sOwnDataBlockId = 0;
-   sFirstString[0] = 0;
-   sHaveFirstWord32 = false;
-   sFirstWord32 = 0;
-   sStrings.clear();
-   sWords.clear();
-   sBody.hasPosition = false;
-   sBody.hasYaw = false;
-   sBody.hasHead = false;
-   sBody.hasRotation = false;
-   sBody.hasScale = false;
-   sBody.hasVelocity = false;
-   sBody.hasDirection = false;
-   sBody.hasImpactNormal = false;
-   sBody.hasBeamTarget = false;
-   sBody.hasZap = false;
-   sBody.zapHit = false;
-   sBody.hasInheritedVel = false;
-   sBody.hasSeekInfo = false;
-   sBody.hasSeekObject = false;
-   sBody.hasSeekPoint = false;
-   sBody.seekCoasting = false;
-   sBody.hasDamage = false;
-   sBody.hasDamageState = false;
-   sBody.blowApart = false;
-   sBody.hasDamageDir = false;
-   sBody.hasShield = false;
-   sBody.shieldNormal.set(0.0f, 0.0f, 1.0f);
-   sBody.shieldEnergy = 0.0f;
-   sBody.hasExplodePoint = false;
-   sBody.hasCurrTick = false;
-   sBody.hasSourceObject = false;
-   sBody.sourceSlot = 0;
-   sBody.hasVehicleObject = false;
-   sBody.hasStationObject = false;
-   sBody.hasTarget = false;
-   sBody.target = -1;
-   sBody.quickSplash = false;
-   sBody.hasJetting = false;
-   sBody.jetting = false;
-   sBody.hasRotate = false;
-   sBody.rotate = false;
-   sBody.hasStatic = false;
-   sBody.isStatic = false;
-   sBody.hasAtRest = false;
-   sBody.atRest = false;
-   sBody.hasWarp = false;
-   sBody.warp = false;
-   sBody.hasImpactSound = false;
-   sBody.impactSound = 0;
-   sBody.hasAction = false;
-   sBody.action = 0;
-   sBody.actionHold = false;
-   sBody.actionAtEnd = false;
-   sBody.actionFirstPerson = false;
-   sBody.hasActionPos = false;
-   sBody.actionPos = 0.0f;
-   sBody.hasArm = false;
-   sBody.arm = 0;
-   sBody.hasInvincible = false;
-   sBody.invincibleTime = 0.0f;
-   sBody.invincibleSpeed = 0.0f;
-   sBody.hasFieldState = false;
-   sBody.fieldState = 0;
-   sBody.hasBeaconType = false;
-   sBody.beaconType = 0;
-   sBody.fieldFade = 0;
+   body->hasDataBlock = false;
+   body->dataBlockId = 0;
+   body->hasPosition = false;
+   body->hasYaw = false;
+   body->hasHead = false;
+   body->hasRotation = false;
+   body->hasScale = false;
+   body->hasVelocity = false;
+   body->hasDirection = false;
+   body->hasImpactNormal = false;
+   body->hasBeamTarget = false;
+   body->hasZap = false;
+   body->zapHit = false;
+   body->hasInheritedVel = false;
+   body->hasSeekInfo = false;
+   body->hasSeekObject = false;
+   body->hasSeekPoint = false;
+   body->seekCoasting = false;
+   body->hasDamage = false;
+   body->hasDamageState = false;
+   body->blowApart = false;
+   body->hasDamageDir = false;
+   body->hasShield = false;
+   body->shieldNormal.set(0.0f, 0.0f, 1.0f);
+   body->shieldEnergy = 0.0f;
+   body->hasExplodePoint = false;
+   body->hasCurrTick = false;
+   body->hasSourceObject = false;
+   body->sourceSlot = 0;
+   body->hasVehicleObject = false;
+   body->hasStationObject = false;
+   body->hasTarget = false;
+   body->target = -1;
+   body->quickSplash = false;
+   body->hasJetting = false;
+   body->jetting = false;
+   body->hasRotate = false;
+   body->rotate = false;
+   body->hasStatic = false;
+   body->isStatic = false;
+   body->hasAtRest = false;
+   body->atRest = false;
+   body->hasWarp = false;
+   body->warp = false;
+   body->hasImpactSound = false;
+   body->impactSound = 0;
+   body->hasAction = false;
+   body->action = 0;
+   body->actionHold = false;
+   body->actionAtEnd = false;
+   body->actionFirstPerson = false;
+   body->hasActionPos = false;
+   body->actionPos = 0.0f;
+   body->hasArm = false;
+   body->arm = 0;
+   body->hasInvincible = false;
+   body->invincibleTime = 0.0f;
+   body->invincibleSpeed = 0.0f;
+   body->hasFieldState = false;
+   body->fieldState = 0;
+   body->hasBeaconType = false;
+   body->beaconType = 0;
+   body->fieldFade = 0;
    const Body::Run none = { -1, 0 };
-   sBody.zonePoints = none;
-   sBody.zonePlanes = none;
-   sBody.zoneEdges = none;
-   sBody.velocityMod = 1.0f;
-   sBody.gravityMod = 1.0f;
-   sBody.hasAppliedForce = false;
-   sBody.appliedForce.set(0.0f, 0.0f, 0.0f);
-   sBody.hasZoneActive = false;
-   sBody.zoneActive = false;
-   sBody.hasCloaked = false;
-   sBody.cloaked = false;
-   sBody.hasFade = false;
-   sBody.fading = false;
-   sBody.fadeVisible = false;
-   sBody.fadeOut = false;
-   sBody.fadeTime = 0.0f;
-   sBody.hasMount = false;
-   sBody.mountGhost = -1;
-   sBody.mountNode = 0;
-   sBody.hasPowered = false;
-   sBody.powered = false;
-   sBody.hasWayPointName = false;
-   sBody.wayPointName[0] = 0;
-   sBody.hasWayPointTeam = false;
-   sBody.wayPointTeam = 0;
-   sBody.hasWayPointHidden = false;
-   sBody.wayPointHidden = false;
-   sBody.hasTurretAim = false;
-   sBody.turretHeading = 0.0f;
-   sBody.turretPitch = 0.0f;
-   sBody.turretActivation = 0.0f;
-   sBody.beamInitial = false;
-   sBody.beamHit = false;
-   sBody.beamWet = false;
-   sBody.beamFollow = false;
-   sBody.hasBeamEnergy = false;
-   sBody.beamEnergy = 1.0f;
+   body->zonePoints = none;
+   body->zonePlanes = none;
+   body->zoneEdges = none;
+   body->velocityMod = 1.0f;
+   body->gravityMod = 1.0f;
+   body->hasAppliedForce = false;
+   body->appliedForce.set(0.0f, 0.0f, 0.0f);
+   body->hasZoneActive = false;
+   body->zoneActive = false;
+   body->hasCloaked = false;
+   body->cloaked = false;
+   body->hasFade = false;
+   body->fading = false;
+   body->fadeVisible = false;
+   body->fadeOut = false;
+   body->fadeTime = 0.0f;
+   body->hasMount = false;
+   body->mountGhost = -1;
+   body->mountNode = 0;
+   body->hasPowered = false;
+   body->powered = false;
+   body->hasWayPointName = false;
+   body->wayPointName[0] = 0;
+   body->hasWayPointTeam = false;
+   body->wayPointTeam = 0;
+   body->hasWayPointHidden = false;
+   body->wayPointHidden = false;
+   body->hasTurretAim = false;
+   body->turretHeading = 0.0f;
+   body->turretPitch = 0.0f;
+   body->turretActivation = 0.0f;
+   body->beamInitial = false;
+   body->beamHit = false;
+   body->beamWet = false;
+   body->beamFollow = false;
+   body->hasBeamEnergy = false;
+   body->beamEnergy = 1.0f;
    for(U32 i = 0; i < MaxImages; i++)
    {
-      Body::Image &image = sBody.images[i];
+      Body::Image &image = body->images[i];
       image.present = false;
       image.hasDataBlock = false;
       image.dataBlockId = 0;
@@ -3657,7 +4637,7 @@ static bool runGhost(BitStream *stream, const char *className,
    }
    for(U32 i = 0; i < MaxThreads; i++)
    {
-      Body::Thread &thread = sBody.threads[i];
+      Body::Thread &thread = body->threads[i];
       thread.present = false;
       thread.sequence = 0;
       thread.state = 0;
@@ -3666,12 +4646,26 @@ static bool runGhost(BitStream *stream, const char *className,
    }
    for(U32 i = 0; i < MaxSounds; i++)
    {
-      Body::Sound &sound = sBody.sounds[i];
+      Body::Sound &sound = body->sounds[i];
       sound.present = false;
       sound.play = false;
       sound.profile = -1;
    }
-   dMemset(&sBody.vehicle, 0, sizeof(sBody.vehicle));
+   dMemset(&body->vehicle, 0, sizeof(body->vehicle));
+}
+
+static bool runGhost(BitStream *stream, const char *className,
+                     bool isInitial, bool write, const Subject *subject)
+{
+   sSubject = subject ? *subject : Subject();
+   sWriteInitial = isInitial;
+   sOwnDataBlockId = 0;
+   sFirstString[0] = 0;
+   sHaveFirstWord32 = false;
+   sFirstWord32 = 0;
+   sStrings.clear();
+   sWords.clear();
+   clearBody(&sBody);
    sTransformAt = -1;
    sAffineAt = -1;
    sScaleAt = -1;

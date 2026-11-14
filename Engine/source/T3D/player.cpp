@@ -459,6 +459,107 @@ PlayerData::PlayerData()
    dMemset( actionList, 0, sizeof(actionList) );
 }
 
+// HH: Added for Tribes 2 compatibility.
+// PlayerData's fields and the slots they travel in, which both ends use:
+// unpackData takes each one out of the layout and publishT2Data puts it
+// back, so neither side can drift from the other.
+static const struct { U32 field; F32 PlayerData::*member; } sT2Fields[] =
+{
+   { T2Layout::T2DbJetForce,                 &PlayerData::jetForce                 },
+   { T2Layout::T2DbUnderwaterJetForce,       &PlayerData::underwaterJetForce       },
+   { T2Layout::T2DbUnderwaterVertJetFactor,  &PlayerData::underwaterVertJetFactor  },
+   { T2Layout::T2DbJetEnergyDrain,           &PlayerData::jetEnergyDrain           },
+   { T2Layout::T2DbUnderwaterJetEnergyDrain, &PlayerData::underwaterJetEnergyDrain },
+   { T2Layout::T2DbMinJetEnergy,             &PlayerData::minJetEnergy             },
+   { T2Layout::T2DbMaxJetForwardSpeed,       &PlayerData::maxJetForwardSpeed       },
+   { T2Layout::T2DbMaxJetHorizontalPercentage,
+     &PlayerData::maxJetHorizontalPercentage },
+   { T2Layout::T2DbHeatDecayPerSec,          &PlayerData::heatDecayPerSec          },
+   { T2Layout::T2DbHeatIncreasePerSec,       &PlayerData::heatIncreasePerSec       },
+
+   { T2Layout::T2DbMinLookAngle,             &PlayerData::minLookAngle             },
+   { T2Layout::T2DbMaxLookAngle,             &PlayerData::maxLookAngle             },
+   { T2Layout::T2DbMaxFreelookAngle,         &PlayerData::maxFreelookAngle         },
+   { T2Layout::T2DbMaxTimeScale,             &PlayerData::maxTimeScale             },
+   { T2Layout::T2DbMaxStepHeight,            &PlayerData::maxStepHeight            },
+   { T2Layout::T2DbRunForce,                 &PlayerData::runForce                 },
+   { T2Layout::T2DbRunEnergyDrain,           &PlayerData::runEnergyDrain           },
+   { T2Layout::T2DbMinRunEnergy,             &PlayerData::minRunEnergy             },
+   { T2Layout::T2DbMaxForwardSpeed,          &PlayerData::maxForwardSpeed          },
+   { T2Layout::T2DbMaxBackwardSpeed,         &PlayerData::maxBackwardSpeed         },
+   { T2Layout::T2DbMaxSideSpeed,             &PlayerData::maxSideSpeed             },
+   { T2Layout::T2DbMaxUnderwaterForwardSpeed,
+     &PlayerData::maxUnderwaterForwardSpeed },
+   { T2Layout::T2DbMaxUnderwaterBackwardSpeed,
+     &PlayerData::maxUnderwaterBackwardSpeed },
+   { T2Layout::T2DbMaxUnderwaterSideSpeed,   &PlayerData::maxUnderwaterSideSpeed   },
+   { T2Layout::T2DbRunSurfaceAngle,          &PlayerData::runSurfaceAngle          },
+   { T2Layout::T2DbRecoverRunForceScale,     &PlayerData::recoverRunForceScale     },
+   { T2Layout::T2DbJumpForce,                &PlayerData::jumpForce                },
+   { T2Layout::T2DbJumpEnergyDrain,          &PlayerData::jumpEnergyDrain          },
+   { T2Layout::T2DbMinJumpEnergy,            &PlayerData::minJumpEnergy            },
+   { T2Layout::T2DbMinJumpSpeed,             &PlayerData::minJumpSpeed             },
+   { T2Layout::T2DbMaxJumpSpeed,             &PlayerData::maxJumpSpeed             },
+   { T2Layout::T2DbJumpSurfaceAngle,         &PlayerData::jumpSurfaceAngle         },
+   { T2Layout::T2DbHorizMaxSpeed,            &PlayerData::horizMaxSpeed            },
+   { T2Layout::T2DbHorizResistSpeed,         &PlayerData::horizResistSpeed         },
+   { T2Layout::T2DbHorizResistFactor,        &PlayerData::horizResistFactor        },
+   { T2Layout::T2DbUpMaxSpeed,               &PlayerData::upMaxSpeed               },
+   { T2Layout::T2DbUpResistSpeed,            &PlayerData::upResistSpeed            },
+   { T2Layout::T2DbUpResistFactor,           &PlayerData::upResistFactor           },
+   { T2Layout::T2DbSplashVelocity,           &PlayerData::splashVelocity           },
+   { T2Layout::T2DbSplashAngle,              &PlayerData::splashAngle              },
+   { T2Layout::T2DbSplashFreqMod,            &PlayerData::splashFreqMod            },
+   { T2Layout::T2DbSplashVelEpsilon,         &PlayerData::splashVelEpsilon         },
+   { T2Layout::T2DbBubbleEmitTime,           &PlayerData::bubbleEmitTime           },
+   { T2Layout::T2DbMedSplashSoundVel,        &PlayerData::medSplashSoundVel        },
+   { T2Layout::T2DbHardSplashSoundVel,       &PlayerData::hardSplashSoundVel       },
+   { T2Layout::T2DbExitSplashSoundVel,       &PlayerData::exitSplashSoundVel       },
+   { T2Layout::T2DbFootSplashHeight,         &PlayerData::footSplashHeight         },
+   { T2Layout::T2DbMinImpactSpeed,           &PlayerData::minImpactSpeed           },
+   { T2Layout::T2DbFootPuffRadius,           &PlayerData::footPuffRadius           },
+   { T2Layout::T2DbDecalOffset,              &PlayerData::decalOffset              },
+   { T2Layout::T2DbGroundImpactMinSpeed,     &PlayerData::groundImpactMinSpeed     },
+   { T2Layout::T2DbGroundImpactShakeDuration,
+     &PlayerData::groundImpactShakeDuration },
+   { T2Layout::T2DbGroundImpactShakeFalloff,
+     &PlayerData::groundImpactShakeFalloff },
+};
+
+static const struct { U32 field; Point3F PlayerData::*vector;
+                      F32 Point3F::*part; } sT2Parts[] =
+{
+   { T2Layout::T2DbBoxSizeX, &PlayerData::boxSize, &Point3F::x },
+   { T2Layout::T2DbBoxSizeY, &PlayerData::boxSize, &Point3F::y },
+   { T2Layout::T2DbBoxSizeZ, &PlayerData::boxSize, &Point3F::z },
+   { T2Layout::T2DbGroundImpactShakeFreqX,
+     &PlayerData::groundImpactShakeFreq, &Point3F::x },
+   { T2Layout::T2DbGroundImpactShakeFreqY,
+     &PlayerData::groundImpactShakeFreq, &Point3F::y },
+   { T2Layout::T2DbGroundImpactShakeFreqZ,
+     &PlayerData::groundImpactShakeFreq, &Point3F::z },
+   { T2Layout::T2DbGroundImpactShakeAmpX,
+     &PlayerData::groundImpactShakeAmp, &Point3F::x },
+   { T2Layout::T2DbGroundImpactShakeAmpY,
+     &PlayerData::groundImpactShakeAmp, &Point3F::y },
+   { T2Layout::T2DbGroundImpactShakeAmpZ,
+     &PlayerData::groundImpactShakeAmp, &Point3F::z },
+};
+
+static const struct { U32 field; S32 PlayerData::*member; } sT2Counts[] =
+{
+   { T2Layout::T2DbRecoverDelay,     &PlayerData::recoverDelay     },
+   { T2Layout::T2DbJumpDelay,        &PlayerData::jumpDelay        },
+   { T2Layout::T2DbFootPuffNumParts, &PlayerData::footPuffNumParts },
+};
+
+static const struct { U32 field; S32 PlayerData::*member; } sT2Emitters[] =
+{
+   { T2Layout::T2DbJetEmitter,      &PlayerData::jetEmitterID },
+   { T2Layout::T2DbDustEmitter,     &PlayerData::dustID       },
+   { T2Layout::T2DbFootPuffEmitter, &PlayerData::footPuffID   },
+};
+
 bool PlayerData::unpackData(BitStream *stream, U32 classId)
 {
    if (!Parent::unpackData(stream, classId))
@@ -469,130 +570,34 @@ bool PlayerData::unpackData(BitStream *stream, U32 classId)
    if (T2Layout::lastDataBlockWord(T2Layout::T2DbNoFrictionOnSki, &flag))
       noFrictionOnSki = flag != 0;
 
-   static const struct { U32 field; F32 PlayerData::*member; } sFields[] =
-   {
-      { T2Layout::T2DbJetForce,                 &PlayerData::jetForce                 },
-      { T2Layout::T2DbUnderwaterJetForce,       &PlayerData::underwaterJetForce       },
-      { T2Layout::T2DbUnderwaterVertJetFactor,  &PlayerData::underwaterVertJetFactor  },
-      { T2Layout::T2DbJetEnergyDrain,           &PlayerData::jetEnergyDrain           },
-      { T2Layout::T2DbUnderwaterJetEnergyDrain, &PlayerData::underwaterJetEnergyDrain },
-      { T2Layout::T2DbMinJetEnergy,             &PlayerData::minJetEnergy             },
-      { T2Layout::T2DbMaxJetForwardSpeed,       &PlayerData::maxJetForwardSpeed       },
-      { T2Layout::T2DbMaxJetHorizontalPercentage,
-        &PlayerData::maxJetHorizontalPercentage },
-      { T2Layout::T2DbHeatDecayPerSec,          &PlayerData::heatDecayPerSec          },
-      { T2Layout::T2DbHeatIncreasePerSec,       &PlayerData::heatIncreasePerSec       },
-
-      { T2Layout::T2DbMinLookAngle,             &PlayerData::minLookAngle             },
-      { T2Layout::T2DbMaxLookAngle,             &PlayerData::maxLookAngle             },
-      { T2Layout::T2DbMaxFreelookAngle,         &PlayerData::maxFreelookAngle         },
-      { T2Layout::T2DbMaxTimeScale,             &PlayerData::maxTimeScale             },
-      { T2Layout::T2DbMaxStepHeight,            &PlayerData::maxStepHeight            },
-      { T2Layout::T2DbRunForce,                 &PlayerData::runForce                 },
-      { T2Layout::T2DbRunEnergyDrain,           &PlayerData::runEnergyDrain           },
-      { T2Layout::T2DbMinRunEnergy,             &PlayerData::minRunEnergy             },
-      { T2Layout::T2DbMaxForwardSpeed,          &PlayerData::maxForwardSpeed          },
-      { T2Layout::T2DbMaxBackwardSpeed,         &PlayerData::maxBackwardSpeed         },
-      { T2Layout::T2DbMaxSideSpeed,             &PlayerData::maxSideSpeed             },
-      { T2Layout::T2DbMaxUnderwaterForwardSpeed,
-        &PlayerData::maxUnderwaterForwardSpeed },
-      { T2Layout::T2DbMaxUnderwaterBackwardSpeed,
-        &PlayerData::maxUnderwaterBackwardSpeed },
-      { T2Layout::T2DbMaxUnderwaterSideSpeed,   &PlayerData::maxUnderwaterSideSpeed   },
-      { T2Layout::T2DbRunSurfaceAngle,          &PlayerData::runSurfaceAngle          },
-      { T2Layout::T2DbRecoverRunForceScale,     &PlayerData::recoverRunForceScale     },
-      { T2Layout::T2DbJumpForce,                &PlayerData::jumpForce                },
-      { T2Layout::T2DbJumpEnergyDrain,          &PlayerData::jumpEnergyDrain          },
-      { T2Layout::T2DbMinJumpEnergy,            &PlayerData::minJumpEnergy            },
-      { T2Layout::T2DbMinJumpSpeed,             &PlayerData::minJumpSpeed             },
-      { T2Layout::T2DbMaxJumpSpeed,             &PlayerData::maxJumpSpeed             },
-      { T2Layout::T2DbJumpSurfaceAngle,         &PlayerData::jumpSurfaceAngle         },
-      { T2Layout::T2DbHorizMaxSpeed,            &PlayerData::horizMaxSpeed            },
-      { T2Layout::T2DbHorizResistSpeed,         &PlayerData::horizResistSpeed         },
-      { T2Layout::T2DbHorizResistFactor,        &PlayerData::horizResistFactor        },
-      { T2Layout::T2DbUpMaxSpeed,               &PlayerData::upMaxSpeed               },
-      { T2Layout::T2DbUpResistSpeed,            &PlayerData::upResistSpeed            },
-      { T2Layout::T2DbUpResistFactor,           &PlayerData::upResistFactor           },
-      { T2Layout::T2DbSplashVelocity,           &PlayerData::splashVelocity           },
-      { T2Layout::T2DbSplashAngle,              &PlayerData::splashAngle              },
-      { T2Layout::T2DbSplashFreqMod,            &PlayerData::splashFreqMod            },
-      { T2Layout::T2DbSplashVelEpsilon,         &PlayerData::splashVelEpsilon         },
-      { T2Layout::T2DbBubbleEmitTime,           &PlayerData::bubbleEmitTime           },
-      { T2Layout::T2DbMedSplashSoundVel,        &PlayerData::medSplashSoundVel        },
-      { T2Layout::T2DbHardSplashSoundVel,       &PlayerData::hardSplashSoundVel       },
-      { T2Layout::T2DbExitSplashSoundVel,       &PlayerData::exitSplashSoundVel       },
-      { T2Layout::T2DbFootSplashHeight,         &PlayerData::footSplashHeight         },
-      { T2Layout::T2DbMinImpactSpeed,           &PlayerData::minImpactSpeed           },
-      { T2Layout::T2DbFootPuffRadius,           &PlayerData::footPuffRadius           },
-      { T2Layout::T2DbDecalOffset,              &PlayerData::decalOffset              },
-      { T2Layout::T2DbGroundImpactMinSpeed,     &PlayerData::groundImpactMinSpeed     },
-      { T2Layout::T2DbGroundImpactShakeDuration,
-        &PlayerData::groundImpactShakeDuration },
-      { T2Layout::T2DbGroundImpactShakeFalloff,
-        &PlayerData::groundImpactShakeFalloff },
-   };
-
-   for (U32 i = 0; i < sizeof(sFields) / sizeof(sFields[0]); i++)
+   for (U32 i = 0; i < sizeof(sT2Fields) / sizeof(sT2Fields[0]); i++)
    {
       F32 value;
-      if (T2Layout::lastDataBlockField(sFields[i].field, &value))
-         this->*sFields[i].member = value;
+      if (T2Layout::lastDataBlockField(sT2Fields[i].field, &value))
+         this->*sT2Fields[i].member = value;
    }
 
-   static const struct { U32 field; Point3F PlayerData::*vector;
-                         F32 Point3F::*part; } sParts[] =
-   {
-      { T2Layout::T2DbBoxSizeX, &PlayerData::boxSize, &Point3F::x },
-      { T2Layout::T2DbBoxSizeY, &PlayerData::boxSize, &Point3F::y },
-      { T2Layout::T2DbBoxSizeZ, &PlayerData::boxSize, &Point3F::z },
-      { T2Layout::T2DbGroundImpactShakeFreqX,
-        &PlayerData::groundImpactShakeFreq, &Point3F::x },
-      { T2Layout::T2DbGroundImpactShakeFreqY,
-        &PlayerData::groundImpactShakeFreq, &Point3F::y },
-      { T2Layout::T2DbGroundImpactShakeFreqZ,
-        &PlayerData::groundImpactShakeFreq, &Point3F::z },
-      { T2Layout::T2DbGroundImpactShakeAmpX,
-        &PlayerData::groundImpactShakeAmp, &Point3F::x },
-      { T2Layout::T2DbGroundImpactShakeAmpY,
-        &PlayerData::groundImpactShakeAmp, &Point3F::y },
-      { T2Layout::T2DbGroundImpactShakeAmpZ,
-        &PlayerData::groundImpactShakeAmp, &Point3F::z },
-   };
-
-   for (U32 i = 0; i < sizeof(sParts) / sizeof(sParts[0]); i++)
+   for (U32 i = 0; i < sizeof(sT2Parts) / sizeof(sT2Parts[0]); i++)
    {
       F32 value;
-      if (T2Layout::lastDataBlockField(sParts[i].field, &value))
-         (this->*sParts[i].vector).*sParts[i].part = value;
+      if (T2Layout::lastDataBlockField(sT2Parts[i].field, &value))
+         (this->*sT2Parts[i].vector).*sT2Parts[i].part = value;
    }
 
    // Tick and particle counts, which Tribes 2 writes as whole words.
-   static const struct { U32 field; S32 PlayerData::*member; } sCounts[] =
-   {
-      { T2Layout::T2DbRecoverDelay,     &PlayerData::recoverDelay     },
-      { T2Layout::T2DbJumpDelay,        &PlayerData::jumpDelay        },
-      { T2Layout::T2DbFootPuffNumParts, &PlayerData::footPuffNumParts },
-   };
 
-   for (U32 i = 0; i < sizeof(sCounts) / sizeof(sCounts[0]); i++)
+   for (U32 i = 0; i < sizeof(sT2Counts) / sizeof(sT2Counts[0]); i++)
    {
       U32 word;
-      if (T2Layout::lastDataBlockWord(sCounts[i].field, &word))
-         this->*sCounts[i].member = S32(word);
+      if (T2Layout::lastDataBlockWord(sT2Counts[i].field, &word))
+         this->*sT2Counts[i].member = S32(word);
    }
 
-   static const struct { U32 field; S32 PlayerData::*member; } sEmitters[] =
-   {
-      { T2Layout::T2DbJetEmitter,      &PlayerData::jetEmitterID },
-      { T2Layout::T2DbDustEmitter,     &PlayerData::dustID       },
-      { T2Layout::T2DbFootPuffEmitter, &PlayerData::footPuffID   },
-   };
-
-   for (U32 i = 0; i < sizeof(sEmitters) / sizeof(sEmitters[0]); i++)
+   for (U32 i = 0; i < sizeof(sT2Emitters) / sizeof(sT2Emitters[0]); i++)
    {
       U32 word;
-      if (T2Layout::lastDataBlockWord(sEmitters[i].field, &word))
-         this->*sEmitters[i].member = S32(word);
+      if (T2Layout::lastDataBlockWord(sT2Emitters[i].field, &word))
+         this->*sT2Emitters[i].member = S32(word);
    }
 
    // HH: Added for Tribes 2 compatibility.
@@ -621,6 +626,53 @@ bool PlayerData::unpackData(BitStream *stream, U32 classId)
                   boxSize.x, boxSize.y, boxSize.z);
 
    return true;
+}
+
+// HH: Added for Tribes 2 compatibility. unpackData's fields the other way
+// round, off the tables above. The emitters and sounds differ: a read parks
+// them as ids for preload to resolve, and a server has long since resolved
+// them, so they go out as the ids of what they point at.
+void PlayerData::publishT2Data()
+{
+   Parent::publishT2Data();
+
+   for (U32 i = 0; i < sizeof(sT2Fields) / sizeof(sT2Fields[0]); i++)
+      T2Layout::publishDataBlockWhole(sT2Fields[i].field,
+                                      this->*sT2Fields[i].member);
+
+   for (U32 i = 0; i < sizeof(sT2Parts) / sizeof(sT2Parts[0]); i++)
+      T2Layout::publishDataBlockWhole(sT2Parts[i].field,
+                                      (this->*sT2Parts[i].vector).*sT2Parts[i].part);
+
+   for (U32 i = 0; i < sizeof(sT2Counts) / sizeof(sT2Counts[0]); i++)
+      T2Layout::publishDataBlockWord(sT2Counts[i].field,
+                                     U32(this->*sT2Counts[i].member));
+
+   static ParticleEmitterData *PlayerData::*const sT2EmitterBlocks[] =
+   {
+      &PlayerData::jetEmitter, &PlayerData::dustEmitter,
+      &PlayerData::footPuffEmitter,
+   };
+
+   for (U32 i = 0; i < sizeof(sT2Emitters) / sizeof(sT2Emitters[0]); i++)
+   {
+      const ParticleEmitterData *emitter = this->*sT2EmitterBlocks[i];
+      if (emitter)
+         T2Layout::publishDataBlockWord(sT2Emitters[i].field,
+                                        emitter->getId() - DataBlockObjectIdFirst);
+   }
+
+   for (U32 i = 0; i < MaxSounds; i++)
+   {
+      if (!sound[i])
+         continue;
+
+      // An unresolved one is still parked as an id with its low bit set.
+      const uintptr_t parked = uintptr_t(sound[i]);
+      const U32 id = (parked & 0x1) ? U32(parked >> 1) : sound[i]->getId();
+      T2Layout::publishDataBlockWord(T2Layout::T2DbPlayerSound + i,
+                                     id - DataBlockObjectIdFirst);
+   }
 }
 
 bool PlayerData::preload(bool server, String &errorStr)

@@ -22,6 +22,8 @@
 
 #include "platform/platform.h"
 #include "console/simDatablock.h"
+#include "console/simFieldDictionary.h"
+#include "sfx/sfxTypes.h"
 
 #include "console/console.h"
 #include "console/consoleInternal.h"
@@ -80,12 +82,30 @@ bool SimDataBlock::onAdd()
 
 //-----------------------------------------------------------------------------
 
+// HH: Modified for Tribes 2 compatibility.
+// Tribes 2 numbers datablocks from zero, so an id of zero means both "no id
+// yet" and "the first datablock", and the range test this used -- which read
+// an unnumbered object as client-only -- cannot fire. Every declared datablock
+// kept the dynamic id the manager gave it instead, which left it out of
+// DataBlockGroup, which is the group a server transmits.
 void SimDataBlock::assignId()
 {
-   // We don't want the id assigned by the manager, but it may have
-   // already been assigned a correct data block id.
-   if ( isClientOnly() )
-      setId(sNextObjectId++);
+   // The declaration this answers for always reaches it on a fresh object; one
+   // already registered has the id it was registered with.
+   if ( isProperlyAdded() )
+      return;
+
+   // Zero is the one id that cannot be a datablock's. A body names another
+   // datablock by its id and says "none" by not sending one at all, so a
+   // writer has nothing to tell the two apart by; the console cannot address
+   // object zero either. Retail's first datablock is not word zero on the
+   // wire, so skipping it costs nothing and the first declared datablock --
+   // CommanderIconData's CMDPlayerIcon in the stock scripts -- goes out
+   // instead of being dropped.
+   if ( !sNextObjectId )
+      sNextObjectId = DataBlockObjectIdFirst + 1;
+
+   setId( sNextObjectId++ );
 }
 
 //-----------------------------------------------------------------------------
@@ -97,8 +117,12 @@ void SimDataBlock::onStaticModified(const char* slotName, const char* newValue)
 
 //-----------------------------------------------------------------------------
 
+// HH: Modified for Tribes 2 compatibility. The class publishes what it holds
+// and the layout writes each field at its own node; see publishT2Data.
 void SimDataBlock::packData(BitStream *stream, U32 classId)
 {
+   T2Layout::beginDataBlock();
+   publishT2Data();
    T2Layout::writeDataBlock(stream, classId);
 }
 
@@ -203,6 +227,139 @@ DefineConsoleFunction( preloadClientDataBlocks, void, (),,
 }
 
 //-----------------------------------------------------------------------------
+
+// HH: Added for Tribes 2 compatibility.
+DefineConsoleFunction( t2RoundTrip, const char *, (SimDataBlock *block), (NULL),
+   "@brief Write a datablock the Tribes 2 way, read it back into a fresh one "
+   "of its class, and answer the fields that did not survive.\n\n"
+   "The reader is the one measured against retail, so a field that comes back "
+   "changed is one this engine would send a Tribes 2 client wrongly. The "
+   "answer is \"bits=<n> ok\" or a list of field=sent/back, and the fields a "
+   "Tribes 2 body does not carry are in it too -- the layout says which those "
+   "are.\n\n@internal" )
+{
+   if( !block )
+      return "no datablock";
+
+   const U32 classId = block->getClassId( NetClassGroupGame );
+
+   U8 buffer[ 32768 ];
+   BitStream stream( buffer, sizeof( buffer ) );
+   block->packData( &stream, classId );
+   const U32 bits = stream.getPosition() * 8 + stream.getCurPos() % 8;
+
+   SimObject *made = ( SimObject * ) ConsoleObject::create(
+      NetClassGroupGame, NetClassTypeDataBlock, classId );
+   SimDataBlock *back = dynamic_cast< SimDataBlock * >( made );
+   if( !back )
+   {
+      delete made;
+      return "could not make a second one of this class";
+   }
+
+   stream.setPosition( 0 );
+   stream.clearCompressionPoint();
+   const bool read = back->unpackData( &stream, classId );
+
+   static char answer[ 4096 ];
+   dSprintf( answer, sizeof( answer ), "bits=%u ", bits );
+   if( !read )
+   {
+      dStrcat( answer, "the body would not read back" );
+      delete back;
+      return answer;
+   }
+
+   // Every field the class keeps, which is more than a body carries: the ones
+   // a Tribes 2 body leaves out come back as the class's own defaults.
+   U32 differing = 0;
+   const AbstractClassRep::FieldList &fields = block->getClassRep()->mFieldList;
+   for( U32 i = 0; i < fields.size(); i++ )
+   {
+      const AbstractClassRep::Field &field = fields[ i ];
+      if( field.type == AbstractClassRep::DeprecatedFieldType ||
+          field.type == AbstractClassRep::StartGroupFieldType ||
+          field.type == AbstractClassRep::EndGroupFieldType ||
+          field.type == AbstractClassRep::StartArrayFieldType ||
+          field.type == AbstractClassRep::EndArrayFieldType )
+         continue;
+
+      // Only fields that hold a value of their own are compared. A field that
+      // holds another datablock answers with that datablock's name, and the
+      // one just read is holding ids its preload has not resolved into
+      // objects yet, so asking would follow a pointer that is an id. What the
+      // body carried for those is an id, and the layout's own slots have it.
+      static const U32 sValueTypes[] =
+      {
+         TypeF32, TypeS32, TypeS8, TypeBool, TypeFlag,
+         TypePoint2I, TypePoint2F, TypePoint3F, TypePoint4F,
+         TypeColorF, TypeColorI,
+         TypeString, TypeCaseString, TypeRealString, TypeFilename,
+         TypeStringFilename, TypeImageFilename, TypeShapeFilename,
+         TypeMatrixPosition, TypeMatrixRotation,
+      };
+
+      bool holdsAValue = false;
+      for( U32 v = 0; v < sizeof( sValueTypes ) / sizeof( sValueTypes[ 0 ] ); v++ )
+         if( field.type == sValueTypes[ v ] )
+         {
+            holdsAValue = true;
+            break;
+         }
+
+      if( !holdsAValue )
+         continue;
+
+      for( U32 e = 0; e < field.elementCount; e++ )
+      {
+         char index[ 16 ];
+         dSprintf( index, sizeof( index ), "%u", e );
+         const char *sent = block->getDataField( field.pFieldname,
+                                                 field.elementCount > 1 ? index : NULL );
+         const char *got  = back->getDataField( field.pFieldname,
+                                                field.elementCount > 1 ? index : NULL );
+         if( !dStrcmp( sent ? sent : "", got ? got : "" ) )
+            continue;
+
+         differing++;
+         char one[ 192 ];
+         dSprintf( one, sizeof( one ), "%s%s=%.40s/%.40s", differing > 1 ? " " : "",
+                   field.pFieldname, sent ? sent : "", got ? got : "" );
+         if( dStrlen( answer ) + dStrlen( one ) < sizeof( answer ) - 1 )
+            dStrcat( answer, one );
+      }
+   }
+
+   // The fields a class never declared, which is where a script's values land
+   // for a class this engine has only stubbed. Without these a stub looks like
+   // it loses nothing because it is holding nothing the comparison can see.
+   if( SimFieldDictionary *dynamic = block->getFieldDictionary() )
+   {
+      SimFieldDictionaryIterator each( dynamic );
+      while( SimFieldDictionary::Entry *entry = *each )
+      {
+         ++each;
+
+         const char *sent = entry->value;
+         const char *got  = back->getDataField( entry->slotName, NULL );
+         if( !dStrcmp( sent ? sent : "", got ? got : "" ) )
+            continue;
+
+         differing++;
+         char one[ 192 ];
+         dSprintf( one, sizeof( one ), "%s%s=%.40s/%.40s", differing > 1 ? " " : "",
+                   entry->slotName, sent ? sent : "", got ? got : "" );
+         if( dStrlen( answer ) + dStrlen( one ) < sizeof( answer ) - 1 )
+            dStrcat( answer, one );
+      }
+   }
+
+   if( !differing )
+      dStrcat( answer, "ok" );
+
+   delete back;
+   return answer;
+}
 
 DefineConsoleFunction( deleteDataBlocks, void, (),,
    "Delete all the datablocks we've downloaded.\n\n"

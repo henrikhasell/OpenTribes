@@ -56,6 +56,10 @@ class PrecipitationData : public GameBaseData
    PrecipitationData();
    DECLARE_CONOBJECT(PrecipitationData);
    bool preload( bool server, String& errorStr );
+
+      // HH: Added for Tribes 2 compatibility.
+   void publishT2Data() override;
+
    static void  initPersistFields();
 };
 
@@ -266,6 +270,8 @@ class Precipitation : public GameBase
 
    bool onNewDataBlock( GameBaseData *dptr, bool reload );
    DECLARE_CONOBJECT(Precipitation);
+   // HH: Added for Tribes 2 compatibility.
+
    static void initPersistFields();
    static void consoleInit();
 

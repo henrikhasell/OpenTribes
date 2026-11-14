@@ -2,6 +2,10 @@
 #ifndef _T2LAYOUT_H_
 #define _T2LAYOUT_H_
 
+#ifndef _COLOR_H_
+#include "core/color.h"
+#endif
+
 #ifndef _PLATFORM_H_
 #include "platform/platform.h"
 #endif
@@ -280,6 +284,7 @@ namespace T2Layout
       T2DbHeatDecayPerSec,
       T2DbHeatIncreasePerSec,
       T2DbCameraMaxDist,
+      T2DbImageShapeFile,
       T2DbImageMountPoint,
       T2DbImageCloakable,
       T2DbImageEmap,   // HH: Added for Tribes 2 compatibility.
@@ -291,6 +296,48 @@ namespace T2Layout
       T2DbImageShellExitVariance,
       T2DbImageShellVelocity,
       T2DbImageCasing,
+      T2DbProjectileShapeName,
+      T2DbProjectileEmitterDelay,
+      T2DbProjectileBubbleEmitTime,
+      T2DbProjectileExplodeOnWaterImpact,
+      T2DbProjectileDepthTolerance,
+      T2DbProjectileUnderwaterExplosion,
+      T2DbProjectileSplash,
+      T2DbProjectileFireSound,
+      T2DbProjectileWetFireSound,
+      T2DbProjectileDelayEmitter,
+      T2DbProjectileDecal,
+      T2DbProjectileDecalLast = T2DbProjectileDecal + 5,
+      T2DbProjectileDryVelocity,
+      T2DbProjectileWetVelocity,
+      T2DbProjectileFizzleTime,
+      T2DbProjectileFizzleUnderwater,
+      T2DbProjectileActivateDelay,
+      T2DbProjectileExplodeOnDeath,
+      T2DbProjectileReflectOnWaterImpactAngle,
+      T2DbProjectileDeflectionOnWaterImpact,
+      T2DbProjectileDoDynamicClientHits,
+      T2DbProjectileMinRotSpeedX,
+      T2DbProjectileMinRotSpeedY,
+      T2DbProjectileMinRotSpeedZ,
+      T2DbProjectileMaxRotSpeedX,
+      T2DbProjectileMaxRotSpeedY,
+      T2DbProjectileMaxRotSpeedZ,
+      T2DbProjectileSize,
+      T2DbProjectileUseLensFlare,
+      T2DbHeatSignature,
+      T2DbDecalTextureName,
+      T2DbProjectileString,
+      T2DbProjectileStringLast = T2DbProjectileString + 11,
+      T2DbBeamHeadMultiplier,
+      T2DbShockLanceEmitter,
+      T2DbElfEmitter,
+      T2DbBeamHitColor,
+      T2DbBeamHitScale,
+      T2DbTracerMinPixels,
+      T2DbTracerAlpha,
+      T2DbTracerColor,
+      T2DbRenderCross,
       T2DbProjectileVelocity,
       T2DbProjectileLifetime,
       T2DbProjectileSound,
@@ -320,7 +367,6 @@ namespace T2Layout
       T2DbExplosion,
       T2DbProjectileBaseEmitter,
       T2DbProjectileBubbleEmitter,
-      T2DbProjectileSplash,
       T2DbFaceViewer,
       T2DbProjectileLightRadius,
       T2DbProjectileLightColorR,
@@ -338,6 +384,7 @@ namespace T2Layout
       T2DbExplosionLifetime,
       T2DbLifetimeVariance,
       T2DbExplosionOffset,
+      T2DbExplosionKeys,
       T2DbExplosionTime,
       T2DbExplosionSize,
       T2DbExplosionSound,
@@ -373,6 +420,8 @@ namespace T2Layout
       T2DbSubExplosion3,
       T2DbSubExplosion4,
 
+      T2DbDebrisTexture,
+      T2DbDebrisShape,
       T2DbDebrisElasticity,
       T2DbDebrisFriction,
       T2DbDebrisNumBounces,
@@ -397,6 +446,8 @@ namespace T2Layout
       T2DbDebrisExplosion,
 
       T2DbAudioDescription,
+      T2DbAudioEffect,
+      T2DbAudioFile,
       T2DbAudioVolume,
       T2DbAudioLooping,
       T2DbAudio3D,
@@ -804,6 +855,99 @@ namespace T2Layout
       T2DbSplashRingTime,
       T2DbSplashRingEmitter,
 
+      // PrecipitationData, settled against demo000's rain, snow and sand.
+      T2DbPrecipSound,
+      T2DbPrecipType,
+      T2DbPrecipMaxSize,
+      T2DbPrecipMaterialList,
+      T2DbPrecipSizeX,
+      T2DbPrecipSizeY,
+      T2DbPrecipMovingBoxPer,
+      T2DbPrecipDivHeightVal,
+      T2DbPrecipSizeBigBox,
+      T2DbPrecipTopBoxSpeed,
+      T2DbPrecipFrontBoxSpeed,
+      T2DbPrecipTopBoxDrawPer,
+      T2DbPrecipBottomDrawHeight,
+      T2DbPrecipSkipIfPer,
+      T2DbPrecipBottomSpeedPer,
+      T2DbPrecipFrontSpeedPer,
+      T2DbPrecipFrontRadiusPer,
+
+      // ShockwaveData, every node of it settled against a recorded server.
+      T2DbShockwaveOne,
+      T2DbShockwaveOneLast = T2DbShockwaveOne + 2,
+      T2DbShockwaveLifetime,
+      T2DbShockwaveWidth,
+      T2DbShockwaveSegments,
+      T2DbShockwaveVertSegments,
+      T2DbShockwaveVelocity,
+      T2DbShockwaveHeight,
+      T2DbShockwaveVerticalCurve,
+      T2DbShockwaveAcceleration,
+      T2DbShockwaveTexWrap,
+      T2DbShockwaveIs2D,
+      T2DbShockwaveOrientToNormal,
+      T2DbShockwaveMapToTerrain,
+      T2DbShockwaveRenderBottom,
+      T2DbShockwaveRenderSquare,
+      T2DbShockwaveColor,
+      T2DbShockwaveColorLast = T2DbShockwaveColor + 3,
+      T2DbShockwaveTime,
+      T2DbShockwaveTimeLast = T2DbShockwaveTime + 3,
+      T2DbShockwaveTexture,
+      T2DbShockwaveTextureLast = T2DbShockwaveTexture + 1,
+
+      // EffectProfile: the two distances a script sets, a third value no
+      // script sets, and the effect it names.
+      T2DbEffectMinDistance,
+      T2DbEffectMaxDistance,
+      T2DbEffectThird,
+      T2DbEffectName,
+
+      // RunningLightData. One set of nodes under two namings, which its type
+      // picks between: a cone light calls them radius, color and nodeName,
+      // and a point light pointSize, pointColor and pointNodeName.
+      T2DbLightRadius,
+      T2DbLightColor,
+      T2DbLightType,
+      T2DbLightLength,
+      T2DbLightNodeName,
+      T2DbLightDirection,
+      T2DbLightDirectionLast = T2DbLightDirection + 2,
+      T2DbLightOffset,
+      T2DbLightOffsetLast = T2DbLightOffset + 2,
+      T2DbLightTexture,
+
+      // ParticleEmissionDummyData's one value, and the debris a
+      // FireballAtmosphere throws, each the only thing its body carries.
+      T2DbEmissionDummyTimeMultiple,
+      T2DbFireballDebris,
+
+      // JetEffectData, which is two colours, seven whole floats and a
+      // texture, in the order its body carries them.
+      T2DbJetCoolColor,
+      T2DbJetHotColor,
+      T2DbJetActivateTime,
+      T2DbJetDeactivateTime,
+      T2DbJetLength,
+      T2DbJetWidth,
+      T2DbJetSpeed,
+      T2DbJetStretch,
+      T2DbJetYOffset,
+      T2DbJetTexture,
+
+      // ParticleEmitterData's particle list: a count and then an id apiece.
+      T2DbEmitterParticleCount,
+      T2DbEmitterParticle,
+
+      // What ParticleData's two selects count: its colour keys, one less than
+      // how many there are, and the texture names that end it, then the names
+      // themselves.
+      T2DbParticleKeysLast,
+      T2DbParticleTextures,
+      T2DbParticleTextureName,
+
       T2DbFieldCount
    };
 
@@ -816,6 +960,99 @@ namespace T2Layout
    inline F32 t2SignedFloat(U32 word, U32 bits)
    {
       return t2Float(word, bits) * 2.0f - 1.0f;
+   }
+
+   // HH: Added for Tribes 2 compatibility.
+   /// t2Float's inverse, for the side that sends. A value outside the scale
+   /// the width carries is held at its end rather than wrapped, since a
+   /// wrapped one reads back as its opposite.
+   ///
+   /// The scaled value is truncated, not rounded, which is what retail's own
+   /// words come back as: a drag of 1.5 over ten bits is 306 and not 307, and
+   /// a size of 1 over fourteen is 327 and not 328.
+   inline U32 t2FloatWord(F32 value, U32 bits)
+   {
+      const U32 mask = bits >= 32 ? 0xffffffffu : (1u << bits) - 1;
+      if(!mask)
+         return 0;
+
+      // The scale is in double precision because retail's build does it on
+      // the x87 stack, and the result is not held to the field: retail writes
+      // it and the bit stream keeps the low bits, so a value over the range
+      // wraps rather than sticking at the top. A particle size of 56 over a
+      // range of fifty is 1964 in fourteen bits and not 16383, and a key's
+      // time of two is 254 in eight.
+      const F64 scaled = F64(value) * F64(mask);
+      if(scaled <= 0.0)
+         return 0;
+      return U32(scaled) & mask;
+   }
+
+   inline U32 t2SignedFloatWord(F32 value, U32 bits)
+   {
+      return t2FloatWord((value + 1.0f) * 0.5f, bits);
+   }
+
+   /// The word a whole float goes out as, where Tribes 2 sends all 32 bits of
+   /// one rather than a fraction of a scale.
+   /// A value scaled into a whole number as retail makes one: the multiply is in
+/// double precision, because retail's build does it on the x87 stack, and the
+/// result is cut rather than rounded. An ejection velocity of 7.45968 over a
+/// scale of a hundred is 745, where rounding gives 746 and a float32 product
+/// rounds the product itself before that.
+inline U32 t2ScaledWord(F32 value, F64 scale, F64 half = 0.0)
+{
+   const F64 scaled = F64(value) * scale + half;
+   return scaled <= 0.0 ? 0 : U32(scaled);
+}
+
+/// The object a body is written against. Tribes 2's packData sends a field
+/// only where it differs from the same field of a default-made object of the
+/// class that *declares* it, and it keeps one such object per class --
+/// ShapeBaseData's is at 0x8403e0, and its packData compares mass against
+/// 0x840454, which is that object's own mass. The class matters: an item's
+/// density of 2 goes out because a plain ShapeBaseData's is 1, even though
+/// every ItemData starts at 2.
+template< class T > const T &t2DefaultOf()
+{
+   static const T sDefault;
+   return sDefault;
+}
+
+/// A colour's byte as retail makes one. The multiply is in double precision
+/// because retail's build does it on the x87 stack: a red of 0.7 is 178 and
+/// not 179, because the float nearest 0.7 times 255 is 178.49999 and only a
+/// float32 product would round that to 178.5 before the half is added.
+inline U32 t2ColorByte(F32 part)
+{
+   // A colour's byte is the one scaling retail rounds: 0.3 goes out as 77.
+   return t2ScaledWord(mClampF(part, 0.0f, 1.0f), 255.0, 0.5);
+}
+
+/// The four bytes of a colour, in the order a body carries them.
+inline U32 t2ColorWord(const ColorF &colour)
+{
+   return t2ColorByte(colour.red) | (t2ColorByte(colour.green) << 8) |
+          (t2ColorByte(colour.blue) << 16) | (t2ColorByte(colour.alpha) << 24);
+}
+
+/// A time in milliseconds as retail keeps one: whole ticks, rounded up. A
+/// lifetimeMS of 5000 is 157 ticks and goes out as 5024.
+inline U32 t2TickMs(S32 ms, S32 least = 0, S32 most = 0)
+{
+   if(ms < least)
+      ms = least;
+   S32 ticks = (ms + 31) / 32;
+   if(most && ticks > most)
+      ticks = most;
+   return U32(ticks * 32);
+}
+
+inline U32 t2WholeWord(F32 value)
+   {
+      U32 word;
+      dMemcpy(&word, &value, sizeof(word));
+      return word;
    }
 
    /// How many states a Tribes 2 image datablock can carry, which is what a
@@ -877,6 +1114,46 @@ namespace T2Layout
 
    /// A field the last datablock sent as a string, or NULL where it sent none.
    const char *lastDataBlockString(U32 field);
+
+   // HH: Added for Tribes 2 compatibility.
+   /// What a datablock hands the write walk, in the same field slots the read
+   /// walk fills off the wire. A class publishes its fields and the walk
+   /// writes each one at its own node, taking the branches that lead there
+   /// and leaving everything it was told nothing about at the default an
+   /// unported class writes.
+   ///
+   /// Publish in the order the body carries a field it repeats: the walk
+   /// takes one value per node it reaches.
+   void beginDataBlock();
+   void publishDataBlockWord(U32 field, U32 value);
+   void publishDataBlockFlag(U32 field, bool value);
+   /// A float Tribes 2 sends as a fraction of its width's scale.
+   void publishDataBlockFloat(U32 field, F32 value, U32 bits);
+   void publishDataBlockSignedFloat(U32 field, F32 value, U32 bits);
+   /// A float Tribes 2 sends whole.
+   void publishDataBlockWhole(U32 field, F32 value);
+   void publishDataBlockString(U32 field, const char *value);
+
+   /// The image states an image datablock carries, in the order its body
+   /// carries them. The walk takes the first n of the layout's state blocks.
+   void publishImageStates(const Vector<ImageState> &states);
+
+   /// Everything a body says nothing about, so a class can fill one and say
+   /// only what it means to.
+   void clearBody(Body *body);
+
+   /// Start a body: what a class published for the last one is forgotten.
+   void beginBody();
+
+   /// What a ghost body carries: a class fills the same Body a read fills and
+   /// the walk takes the values back out of it.
+   void publishBody(const Body &body);
+
+   /// A word, and a string, of a body whose reader takes them in the order
+   /// they came rather than by named node. They go out in the order they are
+   /// published here, to the nodes that read a word and a string.
+   void publishBodyWord(U32 word);
+   void publishBodyString(const String &text);
 
    /// What a body leaves out because retail reads it off the object and the
    /// connection rather than the stream. A walk without one takes the object

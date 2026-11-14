@@ -53,7 +53,13 @@
 #include "console/engineAPI.h"
 
 
-IMPLEMENT_CO_DATABLOCK_V1(ProjectileData);
+// HH: Modified for Tribes 2 compatibility. The console name ProjectileData is
+// Tribes 2's: its thirteen projectile datablock classes descend from a class
+// of that name and its scripts hang the shared behaviour there --
+// `ProjectileData::onExplode` is where a mission's radius damage comes from.
+// Torque's own class keeps its C++ name and answers to TorqueProjectileData,
+// which nothing in this game asks for.
+IMPLEMENT_CO_DATABLOCK_V1_NAMED(ProjectileData, "TorqueProjectileData");
 
 ConsoleDocClass( ProjectileData,
    "@brief Stores properties for an individual projectile type.\n"
