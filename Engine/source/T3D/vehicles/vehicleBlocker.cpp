@@ -88,6 +88,18 @@ void VehicleBlocker::onRemove()
    Parent::onRemove();
 }
 
+// HH: Added for Tribes 2 compatibility. The reader takes the first sixteen
+// words of every body as this object's transform, and nothing else sends one
+// for a blocker. Left empty, the client gets an all-zero matrix, which
+// collision then tries to invert.
+void VehicleBlocker::getT2Body(T2Layout::Body *body, bool isInitial) const
+{
+   Parent::getT2Body(body, isInitial);
+
+   body->hasRotation = true;
+   body->rotation = getTransform();
+}
+
 
 
 

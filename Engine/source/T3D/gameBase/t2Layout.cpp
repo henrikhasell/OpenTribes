@@ -2225,6 +2225,20 @@ static bool ghostRunAt(S32 at)
 
    switch(row->field)
    {
+      case T2FieldTransform:
+      {
+         // The reader takes the sixteen words in the matrix's own order, so
+         // they go out in that order too; without them it reads a zero matrix.
+         if(!sWriteBody.hasRotation)
+            return false;
+
+         const F32 *m = sWriteBody.rotation;
+         for(U32 i = 0; i < 16; i++)
+            sWriteRun[i] = floatWord(m[i]);
+         sWriteRunLeft = 16;
+         return true;
+      }
+
       case T2FieldAffine:
       {
          if(!sWriteBody.hasPosition && !sWriteBody.hasRotation)
