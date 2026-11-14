@@ -794,227 +794,6 @@ bool ProjectileDataT2::unpackData(BitStream *stream, U32 classId)
 
 //----------------------------------------------------------------------------
 
-// HH: A seeker flies itself: it holds the speeds it turns and climbs at, what
-// it avoids the ground by, and the trail and casing it sheds. Its nodes were
-// settled by probe datablocks a retail server sent back.
-class SeekerProjectileData : public ProjectileDataT2
-{
-   typedef ProjectileDataT2 Parent;
-
-public:
-   F32 turningSpeed;
-   F32 terrainAvoidanceSpeed;
-   F32 terrainScanAhead;
-   F32 terrainHeightFail;
-   F32 terrainAvoidanceRadius;
-   F32 flareDistance;          ///< how far off a flare pulls it
-   F32 flareAngle;
-   F32 maxVelocity;
-   F32 acceleration;
-   S32 flechetteDelayMs;
-   S32 exhaustTimeMs;
-   bool useFlechette;
-   StringTableEntry exhaustNodeName; ///< the node its exhaust hangs off
-   StringTableEntry casingShapeName; ///< and the casing it sheds
-
-   DebrisData          *casingDeb;
-   ParticleEmitterData *puffEmitter;
-   ParticleEmitterData *exhaustEmitter;
-
-   SeekerProjectileData()
-      : turningSpeed(0.0f),
-        terrainAvoidanceSpeed(0.0f),
-        terrainScanAhead(0.0f),
-        terrainHeightFail(0.0f),
-        terrainAvoidanceRadius(0.0f),
-        flareDistance(0.0f),
-        flareAngle(0.0f),
-        // What a seeker a retail server has just made flies at, before a
-        // script has said otherwise: a turret's missile sets neither and its
-        // body carries these.
-        maxVelocity(65.0f),
-        acceleration(10.0f),
-
-        flechetteDelayMs(550),
-        exhaustTimeMs(1000),
-        useFlechette(true),
-        casingDeb(NULL),
-        puffEmitter(NULL),
-        exhaustEmitter(NULL)
-   {
-      exhaustNodeName = StringTable->EmptyString();
-      casingShapeName = StringTable->EmptyString();
-   }
-
-      /// A seeker's lifetime is whole ticks too, but between 500ms and 30s.
-   U32 lifetimeWord() const
-   {
-      return T2Layout::t2TickMs(lifetimeMS, 500, 937);
-   }
-
-   static void initPersistFields()
-   {
-      Parent::initPersistFields();
-
-      addField("turningSpeed", TYPEID< F32 >(),
-         Offset(turningSpeed, SeekerProjectileData),
-         "Degrees a second it can turn.");
-      addField("terrainAvoidanceSpeed", TYPEID< F32 >(),
-         Offset(terrainAvoidanceSpeed, SeekerProjectileData),
-         "How hard it pulls up from the ground.");
-      addField("terrainScanAhead", TYPEID< F32 >(),
-         Offset(terrainScanAhead, SeekerProjectileData),
-         "How far ahead it looks for it.");
-      addField("terrainHeightFail", TYPEID< F32 >(),
-         Offset(terrainHeightFail, SeekerProjectileData),
-         "The height it gives up at.");
-      addField("terrainAvoidanceRadius", TYPEID< F32 >(),
-         Offset(terrainAvoidanceRadius, SeekerProjectileData),
-         "And how wide it keeps clear.");
-      addField("flareDistance", TYPEID< F32 >(),
-         Offset(flareDistance, SeekerProjectileData),
-         "How far off a flare takes it.");
-      addField("flareAngle", TYPEID< F32 >(),
-         Offset(flareAngle, SeekerProjectileData),
-         "And within what angle one works.");
-      addField("maxVelocity", TYPEID< F32 >(),
-         Offset(maxVelocity, SeekerProjectileData),
-         "The fastest it flies.");
-      addField("acceleration", TYPEID< F32 >(),
-         Offset(acceleration, SeekerProjectileData),
-         "And how quickly it gets there.");
-      addField("flechetteDelayMs", TYPEID< S32 >(),
-         Offset(flechetteDelayMs, SeekerProjectileData),
-         "Before a flechette breaks up.");
-      addField("exhaustTimeMs", TYPEID< S32 >(),
-         Offset(exhaustTimeMs, SeekerProjectileData),
-         "How long its exhaust burns.");
-      addField("useFlechette", TYPEID< bool >(),
-         Offset(useFlechette, SeekerProjectileData),
-         "Whether it breaks up at all.");
-      addField("exhaustNodeName", TypeString,
-         Offset(exhaustNodeName, SeekerProjectileData),
-         "The node its exhaust hangs off.");
-      addField("casingShapeName", TypeString,
-         Offset(casingShapeName, SeekerProjectileData),
-         "The casing it sheds on the way out.");
-      addField("casingDeb", TYPEID< DebrisData >(),
-         Offset(casingDeb, SeekerProjectileData),
-         "What that casing is.");
-      addField("puffEmitter", TYPEID< ParticleEmitterData >(),
-         Offset(puffEmitter, SeekerProjectileData),
-         "The puff it leaves the tube in.");
-      addField("exhaustEmitter", TYPEID< ParticleEmitterData >(),
-         Offset(exhaustEmitter, SeekerProjectileData),
-         "And the trail it flies on.");
-   }
-
-   void publishT2Strings() override
-   {
-      T2Layout::publishDataBlockString(T2Layout::T2DbProjectileString + 0,
-                                       exhaustNodeName);
-      T2Layout::publishDataBlockString(T2Layout::T2DbProjectileString + 1,
-                                       casingShapeName);
-   }
-
-   void readT2Strings() override
-   {
-      const char *at =
-         T2Layout::lastDataBlockString(T2Layout::T2DbProjectileString + 0);
-      if(at)
-         exhaustNodeName = StringTable->insert(at);
-      at = T2Layout::lastDataBlockString(T2Layout::T2DbProjectileString + 1);
-      if(at)
-         casingShapeName = StringTable->insert(at);
-   }
-
-   bool unpackData(BitStream *stream, U32 classId) override
-   {
-      if(!Parent::unpackData(stream, classId))
-         return false;
-
-      F32 value;
-      U32 word;
-      if(T2Layout::lastDataBlockField(T2Layout::T2DbSeekerTurning, &value))
-         turningSpeed = value;
-      if(T2Layout::lastDataBlockField(T2Layout::T2DbSeekerMaxVelocity, &value))
-         maxVelocity = value;
-      if(T2Layout::lastDataBlockField(T2Layout::T2DbSeekerAcceleration, &value))
-         acceleration = value;
-      if(T2Layout::lastDataBlockField(T2Layout::T2DbSeekerFlareDistance, &value))
-         flareDistance = value;
-      if(T2Layout::lastDataBlockField(T2Layout::T2DbSeekerFlareAngle, &value))
-         flareAngle = value;
-      if(T2Layout::lastDataBlockField(
-            T2Layout::T2DbSeekerTerrainAvoidanceSpeed, &value))
-         terrainAvoidanceSpeed = value;
-      if(T2Layout::lastDataBlockField(T2Layout::T2DbSeekerTerrainScanAhead, &value))
-         terrainScanAhead = value;
-      if(T2Layout::lastDataBlockField(T2Layout::T2DbSeekerTerrainHeightFail, &value))
-         terrainHeightFail = value;
-      if(T2Layout::lastDataBlockField(
-            T2Layout::T2DbSeekerTerrainAvoidanceRadius, &value))
-         terrainAvoidanceRadius = value;
-      if(T2Layout::lastDataBlockWord(T2Layout::T2DbSeekerUseFlechette, &word))
-         useFlechette = word != 0;
-      if(T2Layout::lastDataBlockWord(T2Layout::T2DbSeekerFlechetteDelay, &word))
-         flechetteDelayMs = S32(word);
-      if(T2Layout::lastDataBlockWord(T2Layout::T2DbSeekerExhaustTime, &word))
-         exhaustTimeMs = S32(word);
-
-      return true;
-   }
-
-   void publishT2Data() override
-   {
-      Parent::publishT2Data();
-
-      T2Layout::publishDataBlockWhole(T2Layout::T2DbSeekerTurning, turningSpeed);
-      // A float at the node after it that no script sets and every body
-      // carries as ten.
-      T2Layout::publishDataBlockWhole(T2Layout::T2DbSeekerProximity, 10.0f);
-      T2Layout::publishDataBlockWhole(T2Layout::T2DbSeekerTerrainAvoidanceSpeed,
-                                      terrainAvoidanceSpeed);
-      T2Layout::publishDataBlockWhole(T2Layout::T2DbSeekerTerrainScanAhead,
-                                      terrainScanAhead);
-      T2Layout::publishDataBlockWhole(T2Layout::T2DbSeekerTerrainHeightFail,
-                                      terrainHeightFail);
-      T2Layout::publishDataBlockWhole(T2Layout::T2DbSeekerTerrainAvoidanceRadius,
-                                      terrainAvoidanceRadius);
-      T2Layout::publishDataBlockWhole(T2Layout::T2DbSeekerFlareDistance,
-                                      flareDistance);
-      T2Layout::publishDataBlockWhole(T2Layout::T2DbSeekerFlareAngle, flareAngle);
-      T2Layout::publishDataBlockWord(T2Layout::T2DbSeekerUseFlechette,
-                                     useFlechette ? 1 : 0);
-      T2Layout::publishDataBlockWhole(T2Layout::T2DbSeekerMaxVelocity, maxVelocity);
-      T2Layout::publishDataBlockWhole(T2Layout::T2DbSeekerAcceleration, acceleration);
-      T2Layout::publishDataBlockWord(T2Layout::T2DbSeekerFlechetteDelay,
-                                     U32(flechetteDelayMs));
-      T2Layout::publishDataBlockWord(T2Layout::T2DbSeekerExhaustTime,
-                                     U32(exhaustTimeMs));
-
-      const SimObject *named[] = { casingDeb, puffEmitter, exhaustEmitter };
-      static const U32 sFields[] =
-      {
-         T2Layout::T2DbSeekerCasingDebris,
-         T2Layout::T2DbSeekerPuffEmitter,
-         T2Layout::T2DbSeekerExhaustEmitter,
-      };
-      for(U32 i = 0; i < 3; i++)
-         if(named[i])
-            T2Layout::publishDataBlockWord(sFields[i],
-               named[i]->getId() - DataBlockObjectIdFirst);
-   }
-
-   DECLARE_CONOBJECT(SeekerProjectileData);
-};
-
-IMPLEMENT_CO_DATABLOCK_V1(SeekerProjectileData);
-
-ConsoleDocClass( SeekerProjectileData,
-   "@brief What a Tribes 2 seeking missile's datablock says about its "
-   "flight.\n\n@internal" );
-
 //----------------------------------------------------------------------------
 
 IMPLEMENT_PROJECTILE_DATA_T2( BombProjectileData,        false );
@@ -1584,7 +1363,7 @@ void ProjectileT2::processTick(const Move *move)
    step(TickSec);
 
    MatrixF mat(true);
-   headingMatrix(&mat);
+   headingMatrixT2(&mat, mVelocity);
    mat.setPosition(mPosition);
    setTransform(mat);
 
@@ -4752,10 +4531,27 @@ public:
    U32  exhaustEmitterId;
    U32  casingDebrisId;
 
+      /// What a server's scripts name instead, which a read leaves alone: the
+      /// ids above are what came off the wire, these are what goes out.
+   DebrisData          *casingDeb;
+   ParticleEmitterData *puffEmitter;
+   ParticleEmitterData *exhaustEmitter;
+
    SeekerProjectileDataT2();
 
    bool unpackData(BitStream *stream, U32 classId);
    bool preload(bool server, String &errorStr);
+
+      /// A seeker's lifetime is whole ticks too, but between 500ms and 30s.
+   U32 lifetimeWord() const
+   {
+      return T2Layout::t2TickMs(lifetimeMS, 500, 937);
+   }
+
+      // HH: Added for Tribes 2 compatibility.
+   static void initPersistFields();
+   void publishT2Data() override;
+   void publishT2Strings() override;
 
    DECLARE_CONOBJECT(SeekerProjectileDataT2);
 };
@@ -4785,8 +4581,135 @@ SeekerProjectileDataT2::SeekerProjectileDataT2()
      casingShapeName(StringTable->EmptyString()),
      puffEmitterId(0),
      exhaustEmitterId(0),
-     casingDebrisId(0)
+     casingDebrisId(0),
+     casingDeb(NULL),
+     puffEmitter(NULL),
+     exhaustEmitter(NULL)
 {
+}
+
+void SeekerProjectileDataT2::initPersistFields()
+{
+   Parent::initPersistFields();
+
+   addField("muzzleVelocity", TYPEID< F32 >(),
+      Offset(muzzleVelocity, SeekerProjectileDataT2),
+      "How fast it leaves, before its motor lights.");
+   addField("turningSpeed", TYPEID< F32 >(),
+      Offset(turningSpeed, SeekerProjectileDataT2),
+      "Degrees a second it can turn.");
+   addField("terrainAvoidanceSpeed", TYPEID< F32 >(),
+      Offset(avoidanceSpeed, SeekerProjectileDataT2),
+      "How hard it pulls up from the ground.");
+   addField("terrainScanAhead", TYPEID< F32 >(),
+      Offset(scanAhead, SeekerProjectileDataT2),
+      "How far ahead it looks for it.");
+   addField("terrainHeightFail", TYPEID< F32 >(),
+      Offset(heightFail, SeekerProjectileDataT2),
+      "The height it gives up at.");
+   addField("terrainAvoidanceRadius", TYPEID< F32 >(),
+      Offset(avoidanceRadius, SeekerProjectileDataT2),
+      "And how wide it keeps clear.");
+   addField("flareDistance", TYPEID< F32 >(),
+      Offset(flareDistance, SeekerProjectileDataT2),
+      "How far off a flare takes it.");
+   addField("flareAngle", TYPEID< F32 >(),
+      Offset(flareAngle, SeekerProjectileDataT2),
+      "And within what angle one works.");
+   addField("maxVelocity", TYPEID< F32 >(),
+      Offset(maxVelocity, SeekerProjectileDataT2),
+      "The fastest it flies.");
+   addField("acceleration", TYPEID< F32 >(),
+      Offset(acceleration, SeekerProjectileDataT2),
+      "And how quickly it gets there.");
+   addField("flechetteDelayMs", TypeS32,
+      Offset(flechetteDelayMS, SeekerProjectileDataT2),
+      "Before a flechette breaks up.");
+   addField("exhaustTimeMs", TypeS32,
+      Offset(exhaustTimeMS, SeekerProjectileDataT2),
+      "How long its exhaust burns.");
+   addField("useFlechette", TYPEID< bool >(),
+      Offset(useFlechette, SeekerProjectileDataT2),
+      "Whether it breaks up at all.");
+   addField("exhaustNodeName", TypeString,
+      Offset(exhaustNodeName, SeekerProjectileDataT2),
+      "The node its exhaust hangs off.");
+   addField("casingShapeName", TypeString,
+      Offset(casingShapeName, SeekerProjectileDataT2),
+      "The casing it sheds on the way out.");
+   addField("casingDeb", TYPEID< DebrisData >(),
+      Offset(casingDeb, SeekerProjectileDataT2),
+      "What that casing is.");
+   addField("puffEmitter", TYPEID< ParticleEmitterData >(),
+      Offset(puffEmitter, SeekerProjectileDataT2),
+      "The puff it leaves the tube in.");
+   addField("exhaustEmitter", TYPEID< ParticleEmitterData >(),
+      Offset(exhaustEmitter, SeekerProjectileDataT2),
+      "And the trail it flies on.");
+}
+
+// HH: Added for Tribes 2 compatibility. unpackData's fields the other way
+// round. The node its exhaust comes out of and the shape its casing is are
+// the two strings its own middle carries, which the shared matcher leaves to
+// the fields named against those nodes.
+void SeekerProjectileDataT2::publishT2Strings()
+{
+   T2Layout::publishDataBlockString(T2Layout::T2DbSeekerExhaustNode,
+                                    exhaustNodeName ? exhaustNodeName : "");
+   T2Layout::publishDataBlockString(T2Layout::T2DbSeekerCasingShape,
+                                    casingShapeName ? casingShapeName : "");
+}
+
+void SeekerProjectileDataT2::publishT2Data()
+{
+   Parent::publishT2Data();
+
+   T2Layout::publishDataBlockWhole(T2Layout::T2DbSeekerMuzzleVelocity,
+                                   muzzleVelocity);
+   T2Layout::publishDataBlockWhole(T2Layout::T2DbSeekerTurningSpeed,
+                                   turningSpeed);
+   // A float no script sets, so it is the ten metres the constructor leaves
+   // that every body carries.
+   T2Layout::publishDataBlockWhole(T2Layout::T2DbSeekerProximityRadius,
+                                   proximityRadius);
+   T2Layout::publishDataBlockWhole(T2Layout::T2DbSeekerAvoidanceSpeed,
+                                   avoidanceSpeed);
+   T2Layout::publishDataBlockWhole(T2Layout::T2DbSeekerScanAhead, scanAhead);
+   T2Layout::publishDataBlockWhole(T2Layout::T2DbSeekerHeightFail, heightFail);
+   T2Layout::publishDataBlockWhole(T2Layout::T2DbSeekerAvoidanceRadius,
+                                   avoidanceRadius);
+   T2Layout::publishDataBlockWhole(T2Layout::T2DbSeekerFlareDistance,
+                                   flareDistance);
+   T2Layout::publishDataBlockWhole(T2Layout::T2DbSeekerFlareAngle, flareAngle);
+   T2Layout::publishDataBlockWord(T2Layout::T2DbSeekerUseFlechette,
+                                  useFlechette ? 1 : 0);
+   T2Layout::publishDataBlockWhole(T2Layout::T2DbSeekerMaxVelocity,
+                                   maxVelocity);
+   T2Layout::publishDataBlockWhole(T2Layout::T2DbSeekerAcceleration,
+                                   acceleration);
+   T2Layout::publishDataBlockWord(T2Layout::T2DbSeekerFlechetteDelay,
+                                  flechetteDelayMS);
+   T2Layout::publishDataBlockWord(T2Layout::T2DbSeekerExhaustTime,
+                                  exhaustTimeMS);
+
+   // Each is an id a server's scripts named, and what a read parked is what
+   // goes back out where they named nothing.
+   const SimObject *named[] = { casingDeb, puffEmitter, exhaustEmitter };
+   static const U32 sFields[] =
+   {
+      T2Layout::T2DbSeekerCasingDebris,
+      T2Layout::T2DbSeekerPuffEmitter,
+      T2Layout::T2DbSeekerExhaustEmitter,
+   };
+   const U32 sWords[] = { casingDebrisId, puffEmitterId, exhaustEmitterId };
+
+   for(U32 i = 0; i < 3; i++)
+   {
+      const U32 id = named[i] ? named[i]->getId() - DataBlockObjectIdFirst
+                              : sWords[i];
+      if(id)
+         T2Layout::publishDataBlockWord(sFields[i], id);
+   }
 }
 
 // The casing's shape is loaded beside the projectile's, and the missile is
