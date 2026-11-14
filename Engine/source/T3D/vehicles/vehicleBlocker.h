@@ -54,6 +54,9 @@ class VehicleBlocker : public SceneObject
    DECLARE_CONOBJECT(VehicleBlocker);
    static void initPersistFields();
 
+   // HH: Added for Tribes 2 compatibility.
+   void getT2Body(T2Layout::Body *body, bool isInitial) const override;
+
 };
 
 #endif // _H_VEHICLEBLOCKER
