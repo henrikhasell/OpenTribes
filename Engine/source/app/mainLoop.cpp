@@ -43,6 +43,8 @@
 #include "util/fpsTracker.h"
 
 #include "console/debugOutputConsumer.h"
+// HH: Added for Tribes 2 compatibility. For the console's copy to the terminal.
+#include <stdio.h>
 #include "console/consoleTypes.h"
 #include "console/engineAPI.h"
 #include "sfx/sfxSystem.h"
@@ -207,6 +209,18 @@ void processTimeEvent(S32 elapsedTime)
    Con::setFloatVariable("Sim::Time",F32(Platform::getVirtualMilliseconds()) / 1000);
 }
 
+// HH: Added for Tribes 2 compatibility.
+// The console to the terminal, alongside whatever telnet is listening. Errors
+// go to stderr and everything else to stdout, a line at a time, so a pipe or
+// a redirect sees each as it happens rather than when a buffer fills.
+static void terminalConsumer( U32 level, const char *line )
+{
+   FILE *stream = level == ConsoleLogEntry::Error ? stderr : stdout;
+
+   fprintf( stream, "%s\n", line );
+   fflush( stream );
+}
+
 void StandardMainLoop::init()
 {
    #ifdef TORQUE_DEBUG
@@ -242,6 +256,13 @@ void StandardMainLoop::init()
 #if defined( _XBOX ) || defined( TORQUE_OS_MAC )
    DebugOutputConsumer::init();
 #endif
+
+   // HH: Added for Tribes 2 compatibility.
+   // Tribes 2's scripts call setLogMode only under -prepbuild, so nothing
+   // here writes console.log and the consumer above is not built on this
+   // platform: without this a run says nothing a terminal can see, and a
+   // dedicated server has no window to say it in either.
+   Con::addConsumer( terminalConsumer );
 
    Processor::init();
    Math::init();
