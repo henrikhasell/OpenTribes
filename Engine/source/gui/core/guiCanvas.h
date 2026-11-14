@@ -457,4 +457,10 @@ private:
 #endif
 };
 
+// HH: Added for Tribes 2 compatibility.
+// Made on demand by a run that has no canvas to bring them: see the comments
+// on each in guiCanvas.cpp.
+void ensureGuiDefaultProfile();
+void ensureDedicatedGui();
+
 #endif

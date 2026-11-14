@@ -709,6 +709,12 @@ bool GuiControl::onAdd()
       mAddGroup = Sim::getGuiGroup();
    mAddGroup->addObject(this);
 
+   // HH: Added for Tribes 2 compatibility.
+   // A dedicated server never made a canvas, so the device this control
+   // builds a state block on and the profile it falls back to are made here,
+   // on the first control that wants either.
+   ensureDedicatedGui();
+
    // If we don't have a profile we must assign one now.
    // Try assigning one based on the control's class name...
    if ( !mProfile )

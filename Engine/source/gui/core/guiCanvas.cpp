@@ -2365,6 +2365,50 @@ DefineEngineFunction( toggleConsole, void, (), ,
 }
 
 // HH: Added for Tribes 2 compatibility.
+// The profile a GuiControl falls back to when nothing named one for it.
+// Tribes 2 defines none, so the engine makes it.
+void ensureGuiDefaultProfile()
+{
+   if ( Sim::findObject( "GuiDefaultProfile" ) )
+      return;
+
+   GuiControlProfile *profile = new GuiControlProfile();
+
+   profile->mModal = true;
+   profile->mBorder = 0;
+   profile->mFontSize = 14;
+   profile->mBitmapName = StringTable->insert( "gui/darkScroll" );
+
+   profile->mFillColor = profile->mFillColorHL = profile->mFillColorNA =
+      profile->mFillColorSEL = ColorI( 0, 0, 0 );
+   profile->mBorderColor = profile->mBorderColorHL = profile->mBorderColorNA =
+      profile->mBevelColorHL = profile->mBevelColorLL = ColorI( 0, 0, 0 );
+   profile->mCursorColor = ColorI( 0, 0, 0 );
+
+   for ( U32 i = 0; i < 10; ++i )
+      profile->mFontColors[ i ] = ColorI( 255, 255, 255 );
+
+   profile->registerObject( "GuiDefaultProfile" );
+}
+
+// HH: Added for Tribes 2 compatibility.
+// What a canvas would have brought with it, for a run that never makes one.
+// console_start.cs calls createCanvas only in the branch it takes when this
+// is *not* a dedicated server, so a dedicated run reaches its first
+// GuiControl with no device to build a state block on and no profile to fall
+// back to. Both are made here, the first time either is wanted.
+void ensureDedicatedGui()
+{
+   if ( dStricmp( Con::getVariable( "$LaunchMode" ), "DedicatedServer" ) )
+      return;
+
+   if ( !GFXDevice::get() )
+      Con::evaluate( "GFXInit::createNullDevice();" );
+
+   ensureGuiDefaultProfile();
+}
+
+// HH: Added for Tribes 2 compatibility.
 // TGE defines this in script and Tribes 2 does not, so the engine must.
 DefineEngineFunction( createCanvas, bool, ( const char *windowTitle ), ( "" ),
                "@brief Create the game window and the canvas that draws into it.\n\n"
@@ -2378,9 +2422,12 @@ DefineEngineFunction( createCanvas, bool, ( const char *windowTitle ), ( "" ),
 
                "@ingroup GuiCore" )
 {
-   if ( Con::getBoolVariable( "$isDedicated" ) )
+   // Tribes 2 says so in $LaunchMode, which console_start.cs sets from
+   // -dedicated. TGE's $isDedicated is written by a Templates script this
+   // game never runs, so reading it here was reading nothing.
+   if ( !dStricmp( Con::getVariable( "$LaunchMode" ), "DedicatedServer" ) )
    {
-      Con::evaluate( "GFXInit::createNullDevice();" );
+      ensureDedicatedGui();
       return true;
    }
 
@@ -2390,26 +2437,7 @@ DefineEngineFunction( createCanvas, bool, ( const char *windowTitle ), ( "" ),
       return false;
    }
 
-   if ( !Sim::findObject( "GuiDefaultProfile" ) )
-   {
-      GuiControlProfile *profile = new GuiControlProfile();
-
-      profile->mModal = true;
-      profile->mBorder = 0;
-      profile->mFontSize = 14;
-      profile->mBitmapName = StringTable->insert( "gui/darkScroll" );
-
-      profile->mFillColor = profile->mFillColorHL = profile->mFillColorNA =
-         profile->mFillColorSEL = ColorI( 0, 0, 0 );
-      profile->mBorderColor = profile->mBorderColorHL = profile->mBorderColorNA =
-         profile->mBevelColorHL = profile->mBevelColorLL = ColorI( 0, 0, 0 );
-      profile->mCursorColor = ColorI( 0, 0, 0 );
-
-      for ( U32 i = 0; i < 10; ++i )
-         profile->mFontColors[ i ] = ColorI( 255, 255, 255 );
-
-      profile->registerObject( "GuiDefaultProfile" );
-   }
+   ensureGuiDefaultProfile();
 
    GuiCanvas *canvas = new GuiCanvas();
    canvas->registerObject( "Canvas" );
