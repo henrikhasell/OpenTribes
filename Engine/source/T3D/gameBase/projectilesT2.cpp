@@ -4592,9 +4592,9 @@ void SeekerProjectileDataT2::initPersistFields()
 {
    Parent::initPersistFields();
 
-   addField("muzzleVelocity", TYPEID< F32 >(),
-      Offset(muzzleVelocity, SeekerProjectileDataT2),
-      "How fast it leaves, before its motor lights.");
+   // muzzleVelocity is not named again here: ProjectileData already carries
+   // that field, against the velocity every projectile is fired at, and a
+   // second one of the same name would take a script's value away from it.
    addField("turningSpeed", TYPEID< F32 >(),
       Offset(turningSpeed, SeekerProjectileDataT2),
       "Degrees a second it can turn.");
@@ -4664,8 +4664,12 @@ void SeekerProjectileDataT2::publishT2Data()
 {
    Parent::publishT2Data();
 
+   // The node every projectile carries its muzzle velocity on, which this
+   // class names as its own: it goes out from ProjectileData's field, which
+   // is the one a script set, and not from the member a read parks -- nothing
+   // but the wire ever fills that.
    T2Layout::publishDataBlockWhole(T2Layout::T2DbSeekerMuzzleVelocity,
-                                   muzzleVelocity);
+                                   velocity);
    T2Layout::publishDataBlockWhole(T2Layout::T2DbSeekerTurningSpeed,
                                    turningSpeed);
    // A float no script sets, so it is the ten metres the constructor leaves
