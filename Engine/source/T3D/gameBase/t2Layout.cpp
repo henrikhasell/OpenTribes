@@ -3899,6 +3899,22 @@ static const U32 sT2ProjectileLight[] =
 
 static const U8 sT2ProjectileLightBits[] = { 7, 7, 7, 8, 7, 7, 7 };
 
+/// Whether a class names a node of its own in the table, which the shared
+/// matcher must then leave alone: a seeker's exhaust node and casing shape
+/// are strings its middle carries under names of their own, so the generic
+/// run of textures must not claim those nodes as well. The table is read
+/// rather than the rows resolved against this layout, because a matcher's
+/// answer is cached and must not depend on what has been resolved yet.
+static bool namesNodeInTable(const char *cls, S32 at)
+{
+   for(U32 i = 0; i < ELEMENTS(sT2DataBlockFields); i++)
+      if(sT2DataBlockFields[i].node == at &&
+         !dStrcmp(sT2DataBlockFields[i].cls, cls))
+         return true;
+
+   return false;
+}
+
 static bool matchProjectileData(T2ShapeDataMap *map)
 {
    const T2DataBlockLayout *layout = map->layout;
@@ -3969,9 +3985,12 @@ static bool matchProjectileData(T2ShapeDataMap *map)
 
    // The textures a class's own middle names, in the order it reads them: a
    // bullet's streak and its cross, a repair beam's two, a sniper's twelve.
+   // A node the class names itself is that field's, not one of these, and it
+   // takes none of their order with it.
    U32 texture = 0;
    for(U32 at = 24; at < lightAt && texture < 12; at++)
-      if(layout->nodes[at].op == OpString)
+      if(layout->nodes[at].op == OpString &&
+         !namesNodeInTable(layout->name, S32(at)))
          addShapeDataRow(map, S32(at), T2DbProjectileString + texture++);
 
    return true;

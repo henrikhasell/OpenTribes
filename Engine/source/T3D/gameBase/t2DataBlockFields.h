@@ -432,28 +432,6 @@ namespace T2Protocol
       { "LinearFlareProjectileData", 39, OpRaw,   32, T2DbFlareSize1 },
       { "LinearFlareProjectileData", 40, OpRaw,   32, T2DbFlareSize2 },
 
-   // A seeker's own flight, and the trail and casing it sheds. Nodes 39 and
-   // 40 are strings the shared matcher names, and 45 to 47 are three more
-   // datablock ids of its own, each behind a flag.
-      { "SeekerProjectileData", 24, OpRaw, 32, T2DbProjectileLifetime         },
-      { "SeekerProjectileData", 25, OpRaw, 32, T2DbProjectileVelocity         },
-      { "SeekerProjectileData", 26, OpRaw, 32, T2DbSeekerTurning              },
-      { "SeekerProjectileData", 27, OpRaw, 32, T2DbSeekerProximity            },
-      { "SeekerProjectileData", 28, OpRaw, 32, T2DbSeekerTerrainAvoidanceSpeed},
-      { "SeekerProjectileData", 29, OpRaw, 32, T2DbSeekerTerrainScanAhead     },
-      { "SeekerProjectileData", 30, OpRaw, 32, T2DbSeekerTerrainHeightFail    },
-      { "SeekerProjectileData", 31, OpRaw, 32, T2DbSeekerTerrainAvoidanceRadius},
-      { "SeekerProjectileData", 32, OpRaw, 32, T2DbSeekerFlareDistance        },
-      { "SeekerProjectileData", 33, OpRaw, 32, T2DbSeekerFlareAngle           },
-      { "SeekerProjectileData", 34, OpRaw,  8, T2DbSeekerUseFlechette         },
-      { "SeekerProjectileData", 35, OpRaw, 32, T2DbSeekerMaxVelocity          },
-      { "SeekerProjectileData", 36, OpRaw, 32, T2DbSeekerAcceleration         },
-      { "SeekerProjectileData", 37, OpRaw, 32, T2DbSeekerFlechetteDelay       },
-      { "SeekerProjectileData", 38, OpRaw, 32, T2DbSeekerExhaustTime          },
-      { "SeekerProjectileData", 45, OpDataBlockId, 11, T2DbSeekerExhaustEmitter},
-      { "SeekerProjectileData", 46, OpDataBlockId, 11, T2DbSeekerPuffEmitter  },
-      { "SeekerProjectileData", 47, OpDataBlockId, 11, T2DbSeekerCasingDebris },
-
    // The lance's zap: how long it lasts, how far it reaches, and the two
    // bolts it is drawn as.
       { "ShockLanceProjectileData",  24, OpRaw, 32, T2DbZapDuration           },
