@@ -53,6 +53,7 @@ def launch(
     telnet_port: Optional[int] = None,
     connect_to: Optional[str] = None,
     dedicated: bool = False,
+    extra: Optional[list[str]] = None,
 ) -> None:
     if dedicated and connect_to:
         raise ValueError("a dedicated server can't connect to another server")
@@ -83,6 +84,8 @@ def launch(
         "-mod", "Classic"
     ]
 
+    argv += extra or []
+
     delete_dso_files()
     exec(*argv)
 
@@ -96,13 +99,18 @@ def main() -> None:
         "--connect", nargs="?", const="local", metavar="HOST[:PORT]",
         help=f"join a server on start; with no address, the dedicated server on this machine (port {GAME_PORT} by default)",
     )
+    parser.add_argument(
+        "extra", nargs=argparse.REMAINDER, metavar="-- ARG...",
+        help="arguments passed to the game as they stand, after a bare --",
+    )
     args = parser.parse_args()
 
     if args.dedicated and args.connect:
         parser.error("a dedicated server can't --connect")
 
+    extra = args.extra[1:] if args.extra[:1] == ["--"] else args.extra
     connect_to = local_ip() if args.connect == "local" else args.connect
-    launch(args.mode, args.telnet_port, connect_to, args.dedicated)
+    launch(args.mode, args.telnet_port, connect_to, args.dedicated, extra)
 
 
 if __name__ == "__main__":
