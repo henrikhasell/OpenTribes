@@ -38,6 +38,7 @@ void TargetManagerT2::clearTarget(Target &target)
    target.alwaysVisMask = 0;
    target.neverVisMask  = 0;
    target.friendlyMask  = 0;
+   target.renderMask    = 0;
    target.sensorData    = NULL;
 }
 
@@ -71,6 +72,7 @@ void TargetManagerT2::resetTargets()
    // clears its copy of the targets (0x66d610); that is V34e.  Each object
    // then loses its target as setTargetInfo(NULL) has it (0x5e37e0), so an
    // object outliving the reset is not left naming an id reused later.
+   broadcastReset();
    for(U32 i = 0; i < MaxTargets; i++)
       if(GameBase *obj = mTargets[i].object)
          obj->mTarget = -1;
@@ -138,6 +140,7 @@ S32 TargetManagerT2::allocTarget(const NetStringHandle &name,
       Sim::findObject(dataBlockId, data);
    target.dataBlock = data;
 
+   broadcastInfo(id, FieldAll);
    return id;
 }
 
@@ -149,6 +152,7 @@ void TargetManagerT2::freeTarget(S32 id)
    if(GameBase *obj = target.object)
       obj->mTarget = -1;
 
+   broadcastFree(id);
    clearTarget(target);
 
    const U32 bit = 1u << (id & 31);
@@ -168,6 +172,74 @@ void TargetManagerT2::setSensorGroup(S32 id, S32 group)
 
    target.sensorGroup = group;
    takeGroupMasks(target, group);
+   broadcastInfo(id, FieldSensorGroup);
+}
+
+void TargetManagerT2::setName(S32 id, const NetStringHandle &name)
+{
+   // 0x66ea90 and 0x66d9a0.
+   Target &target = mTargets[id];
+   if(target.name == name)
+      return;
+
+   target.name = name;
+   broadcastInfo(id, FieldName);
+}
+
+void TargetManagerT2::setSkin(S32 id, const NetStringHandle &skin)
+{
+   // 0x66ec30 and 0x66da70.
+   Target &target = mTargets[id];
+   if(target.skin == skin)
+      return;
+
+   target.skin = skin;
+   broadcastInfo(id, FieldSkin);
+}
+
+void TargetManagerT2::setRenderMask(S32 id, U32 mask)
+{
+   // 0x66fb00 and 0x66ddf0.  Retail sends it even when nothing changed.
+   mTargets[id].renderMask = mask & 0x1ff;
+   broadcastInfo(id, FieldRenderMask);
+}
+
+void TargetManagerT2::sendTargetsTo(GameConnection *conn)
+{
+   // 0x66e3a0 and 0x66ccc0.  Nothing is sent to a connection not yet told
+   // about targets, and the scripts ask for it once its data blocks are in.
+   if(!conn->isEstablished() || !conn->getReceivedDataBlocks())
+      return;
+
+   for(S32 id = 0; id < MaxTargets; id++)
+      if(allocMask(id >> 5) & (1u << (id & 31)))
+         conn->sendTargetInfo(id, FieldAll);
+}
+
+void TargetManagerT2::broadcastInfo(S32 id, U32 fields)
+{
+   SimGroup *clients = Sim::getClientGroup();
+   for(S32 i = 0; i < clients->size(); i++)
+      if(GameConnection *conn = dynamic_cast<GameConnection *>((*clients)[i]))
+         if(conn->isEstablished() && conn->getReceivedDataBlocks())
+            conn->sendTargetInfo(id, fields);
+}
+
+void TargetManagerT2::broadcastFree(S32 id)
+{
+   SimGroup *clients = Sim::getClientGroup();
+   for(S32 i = 0; i < clients->size(); i++)
+      if(GameConnection *conn = dynamic_cast<GameConnection *>((*clients)[i]))
+         conn->sendTargetFree(id);
+}
+
+void TargetManagerT2::broadcastReset()
+{
+   SimGroup *clients = Sim::getClientGroup();
+   for(S32 i = 0; i < clients->size(); i++)
+      if(GameConnection *conn = dynamic_cast<GameConnection *>((*clients)[i]))
+         if(conn->isEstablished() && conn->getReceivedDataBlocks())
+            conn->sendResetTargets(false);
 }
 
 void TargetManagerT2::setTargetObject(S32 id, GameBase *obj)
@@ -452,6 +524,62 @@ ConsoleFunction(setSensorGroupCount, void, 2, 2, "setSensorGroupCount(count)")
    TargetManagerT2::server()->setGroupCount(count);
 }
 
+ConsoleFunction(setTargetName, void, 3, 3, "setTargetName(targetId, nameTag)")
+{
+   // 0x66ea90.  Team targets are named too; the checks let them be changed.
+   const S32 id = validateTarget(dAtoi(argv[1]), "cSetTargetName", false);
+   if(id == -1)
+      return;
+   TargetManagerT2::server()->setName(id, tagArg(argv[2]));
+}
+
+ConsoleFunction(setTargetSkin, void, 3, 3, "setTargetSkin(targetId, skinTag)")
+{
+   // 0x66ec30.
+   const S32 id = validateTarget(dAtoi(argv[1]), "cSetTargetSkin", false);
+   if(id == -1)
+      return;
+   TargetManagerT2::server()->setSkin(id, tagArg(argv[2]));
+}
+
+ConsoleFunction(getTargetRenderMask, S32, 2, 2, "getTargetRenderMask(targetId)")
+{
+   // 0x66fab0.
+   const S32 id = validateTarget(dAtoi(argv[1]), "cGetTargetRender", false);
+   if(id == -1)
+      return -1;
+   return TargetManagerT2::server()->getTarget(id).renderMask;
+}
+
+ConsoleFunction(setTargetRenderMask, void, 3, 3, "setTargetRenderMask(targetId, mask)")
+{
+   // 0x66fb00.
+   const S32 id = validateTarget(dAtoi(argv[1]), "cSetTargetRender", false);
+   if(id == -1)
+      return;
+   TargetManagerT2::server()->setRenderMask(id, dAtoui(argv[2]));
+}
+
+ConsoleFunction(sendTargetsToClient, void, 2, 2, "sendTargetsToClient(client)")
+{
+   // 0x66e3a0.  The scripts send each client its targets once its data
+   // blocks are in.
+   GameConnection *conn = NULL;
+   if(!Sim::findObject(argv[1], conn))
+      return;
+   TargetManagerT2::server()->sendTargetsTo(conn);
+}
+
+ConsoleFunction(resetClientTargets, void, 3, 3, "resetClientTargets(client, tasksOnly)")
+{
+   // 0x66e2e0.  tasksOnly asks for the commander's tasks and waypoints, which
+   // a client does not keep, so the client clears nothing for it.
+   GameConnection *conn = NULL;
+   if(!Sim::findObject(argv[1], conn))
+      return;
+   conn->sendResetTargets(dAtob(argv[2]));
+}
+
 ConsoleMethod(GameBase, setTarget, void, 3, 3, "obj.setTarget(targetId)")
 {
    // 0x5e3570.  A ghost's target is the server's to say.
@@ -486,4 +614,14 @@ ConsoleMethod(GameConnection, getSensorGroup, S32, 2, 2, "conn.getSensorGroup()"
 {
    // 0x5fdcd0.
    return object->getSensorGroup();
+}
+
+ConsoleMethod(GameConnection, getReceivedDataBlocks, bool, 2, 2, "conn.getReceivedDataBlocks()")
+{
+   return object->getReceivedDataBlocks();
+}
+
+ConsoleMethod(GameConnection, setReceivedDataBlocks, void, 3, 3, "conn.setReceivedDataBlocks(received)")
+{
+   object->setReceivedDataBlocks(dAtob(argv[2]));
 }
