@@ -127,6 +127,9 @@ class Trigger : public GameBase
    void inspectPostApply();
 
    // NetObject
+   // HH: Added for Tribes 2 compatibility. Retail's own body, not the recovered layout.
+   U32  packUpdate(NetConnection *conn, U32 mask, BitStream *stream, bool isInitial);
+   bool unpackUpdate(BitStream *stream, bool isInitial);
 
    // SceneObject
    void setTransform(const MatrixF &mat);
