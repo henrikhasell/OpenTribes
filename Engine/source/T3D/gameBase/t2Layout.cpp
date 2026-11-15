@@ -4,6 +4,7 @@
 #include "core/strings/stringFunctions.h"
 #include "console/console.h"
 #include "console/netClassTable.h"
+#include "console/sim.h"
 #include "math/mPoint3.h"
 #include "math/mQuat.h"
 #include "math/mMathFn.h"
@@ -313,6 +314,10 @@ void publishImageStates(const Vector<ImageState> &states)
 
 void beginDataBlock()
 {
+   // HH: Added for Tribes 2 compatibility. A class may publish body strings and
+   // words of its own, and they must not carry over into the next datablock.
+   beginBody();
+
    sWriteStates.clear();
    sWriteStateName.clear();
    for(U32 i = 0; i < T2DbFieldCount; i++)
@@ -2885,10 +2890,10 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
                   if(layout == sFieldsLayout)
                   {
                      sBody.hasDataBlock = true;
-                     sBody.dataBlockId = v;
+                     sBody.dataBlockId = v + DataBlockObjectIdFirst;
                   }
                   if(depth == 0)
-                     sOwnDataBlockId = v;
+                     sOwnDataBlockId = v + DataBlockObjectIdFirst;
                }
             }
             if(!layout->select)
@@ -2973,12 +2978,12 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
                root.b == at)
             {
                sBody.hasDataBlock = true;
-               sBody.dataBlockId = dbId;
+               sBody.dataBlockId = dbId + DataBlockObjectIdFirst;
             }
             // GameBase's own, under the flag every body opens with. The first
             // id a body reads is not always it: a sound slot names a profile.
             if(depth == 0 && at == root.b && root.op == OpFlag)
-               sOwnDataBlockId = dbId;
+               sOwnDataBlockId = dbId + DataBlockObjectIdFirst;
             if(isImage)
             {
                sBody.images[slot].hasDataBlock = true;
@@ -2987,7 +2992,7 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
             if(isSound)
                sBody.sounds[soundSlot].profile = S32(dbId);
             if(!write)
-               sDataBlockIds.push_back(dbId);
+               sDataBlockIds.push_back(dbId + DataBlockObjectIdFirst);
             break;
          }
 

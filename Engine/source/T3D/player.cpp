@@ -422,12 +422,15 @@ PlayerData::PlayerData()
 
    jetEmitter = NULL;
    jetEmitterID = 0;
+   jetEffect = NULL;
+   jetEffectID = 0;
    for (U32 i = 0; i < NumT2Actions; i++)
       t2ActionMap[i] = NullAnimation;
    for (S32 i = 0; i < MaxJetNodes; i++)
       jetNode[i] = -1;
 
    splash = NULL;
+   splashID = 0;
    splashId = 0;
    splashVelocity = 1.0f;
    splashAngle = 45.0f;
@@ -597,8 +600,21 @@ bool PlayerData::unpackData(BitStream *stream, U32 classId)
    {
       U32 word;
       if (T2Layout::lastDataBlockWord(sT2Emitters[i].field, &word))
-         this->*sT2Emitters[i].member = S32(word);
+         this->*sT2Emitters[i].member = S32(word + DataBlockObjectIdFirst);
    }
+
+   U32 jetEffectWord;
+   if (T2Layout::lastDataBlockWord(T2Layout::T2DbPlayerJetEffect, &jetEffectWord))
+      jetEffectID = S32(jetEffectWord + DataBlockObjectIdFirst);
+
+   U32 splashWord;
+   if (T2Layout::lastDataBlockWord(T2Layout::T2DbPlayerDecal, &splashWord))
+      decalID = S32(splashWord + DataBlockObjectIdFirst);
+   if (T2Layout::lastDataBlockWord(T2Layout::T2DbPlayerSplash, &splashWord))
+      splashID = S32(splashWord + DataBlockObjectIdFirst);
+   for (U32 i = 0; i < NUM_SPLASH_EMITTERS; i++)
+      if (T2Layout::lastDataBlockWord(T2Layout::T2DbPlayerSplashEmitter + i, &splashWord))
+         splashEmitterIDList[i] = S32(splashWord + DataBlockObjectIdFirst);
 
    // HH: Added for Tribes 2 compatibility.
    // Kept for preload, which picks the footprint out of them by its class.
@@ -636,6 +652,12 @@ void PlayerData::publishT2Data()
 {
    Parent::publishT2Data();
 
+   // HH: Added for Tribes 2 compatibility. A body opens with this flag, ahead
+   // of every float, and unpackData already reads it back; nothing sent it, so
+   // a client always got the default and retail's own bodies carry it set.
+   T2Layout::publishDataBlockFlag(T2Layout::T2DbNoFrictionOnSki,
+                                  noFrictionOnSki);
+
    for (U32 i = 0; i < sizeof(sT2Fields) / sizeof(sT2Fields[0]); i++)
       T2Layout::publishDataBlockWhole(sT2Fields[i].field,
                                       this->*sT2Fields[i].member);
@@ -660,6 +682,41 @@ void PlayerData::publishT2Data()
       if (emitter)
          T2Layout::publishDataBlockWord(sT2Emitters[i].field,
                                         emitter->getId() - DataBlockObjectIdFirst);
+   }
+
+   // The jet effect goes out as the id of what it points at, the way the
+   // emitters do; an unresolved one still holds the id it was read as.
+   if (jetEffect)
+      T2Layout::publishDataBlockWord(T2Layout::T2DbPlayerJetEffect,
+                                     jetEffect->getId() - DataBlockObjectIdFirst);
+   else if (jetEffectID != 0)
+      T2Layout::publishDataBlockWord(T2Layout::T2DbPlayerJetEffect,
+                                     U32(jetEffectID) - DataBlockObjectIdFirst);
+
+   // The footprint, the splash and its emitters go out the same way: as the id
+   // of what they point at, or the id they were read as if nothing resolved.
+   if (decalData)
+      T2Layout::publishDataBlockWord(T2Layout::T2DbPlayerDecal,
+                                     decalData->getId() - DataBlockObjectIdFirst);
+   else if (decalID != 0)
+      T2Layout::publishDataBlockWord(T2Layout::T2DbPlayerDecal,
+                                     U32(decalID) - DataBlockObjectIdFirst);
+
+   if (splash)
+      T2Layout::publishDataBlockWord(T2Layout::T2DbPlayerSplash,
+                                     splash->getId() - DataBlockObjectIdFirst);
+   else if (splashID != 0)
+      T2Layout::publishDataBlockWord(T2Layout::T2DbPlayerSplash,
+                                     U32(splashID) - DataBlockObjectIdFirst);
+
+   for (U32 i = 0; i < NUM_SPLASH_EMITTERS; i++)
+   {
+      if (splashEmitterList[i])
+         T2Layout::publishDataBlockWord(T2Layout::T2DbPlayerSplashEmitter + i,
+                                        splashEmitterList[i]->getId() - DataBlockObjectIdFirst);
+      else if (splashEmitterIDList[i] != 0)
+         T2Layout::publishDataBlockWord(T2Layout::T2DbPlayerSplashEmitter + i,
+                                        U32(splashEmitterIDList[i]) - DataBlockObjectIdFirst);
    }
 
    for (U32 i = 0; i < MaxSounds; i++)
@@ -859,6 +916,10 @@ bool PlayerData::preload(bool server, String &errorStr)
       if (!Sim::findObject(decalID, decalData))
          Con::errorf(ConsoleLogEntry::General, "PlayerData::preload Invalid packet, bad datablockId(decalData): 0x%x", decalID);
 
+   if (!splash && splashID != 0)
+      if (!Sim::findObject(splashID, splash))
+         Con::errorf(ConsoleLogEntry::General, "PlayerData::preload - Invalid packet, bad datablockId(splash): 0x%x", splashID);
+
    // HH: Added for Tribes 2 compatibility.
    // The footprint is the only DecalData the body named, so it needs no node
    // of its own: the ids the walk read are enough to find it.
@@ -876,6 +937,10 @@ bool PlayerData::preload(bool server, String &errorStr)
    if (!jetEmitter && jetEmitterID != 0 )
       if (!Sim::findObject(jetEmitterID, jetEmitter))
          Con::errorf(ConsoleLogEntry::General, "PlayerData::preload - Invalid packet, bad datablockId(jetEmitter): 0x%x", jetEmitterID);
+
+   if (!jetEffect && jetEffectID != 0)
+      if (!Sim::findObject(jetEffectID, jetEffect))
+         Con::errorf(ConsoleLogEntry::General, "PlayerData::preload - Invalid packet, bad datablockId(jetEffect): 0x%x", jetEffectID);
 
    for (int i=0; i<NUM_SPLASH_EMITTERS; i++)
       if( !splashEmitterList[i] && splashEmitterIDList[i] != 0 )
@@ -1094,6 +1159,9 @@ void PlayerData::initPersistFields()
       addField( "maxJetHorizontalPercentage", TypeF32, Offset(maxJetHorizontalPercentage, PlayerData),
          "@brief Most of the pack a move may take for horizontal thrust.\n\n"
          "@see maxJetForwardSpeed\n" );
+      addField( "jetEffect", TYPEID< SimDataBlock >(), Offset(jetEffect, PlayerData),
+         "@brief The jet effect a pack's flame is drawn by.\n\n"
+         "@internal\n" );
       addField( "jetEmitter", TYPEID< ParticleEmitterData >(), Offset(jetEmitter, PlayerData),
          "@brief Emitter the pack blows out of each of its nozzles.\n\n"
          "One emitter is created per `jetNozzle%d` node the shape carries, so "
