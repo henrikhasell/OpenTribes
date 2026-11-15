@@ -91,6 +91,9 @@ class ParticleData : public SimDataBlock
    bool onAdd();
    bool preload(bool server, String &errorStr);
    bool unpackData(BitStream *stream, U32 classId) override;
+
+      // HH: Added for Tribes 2 compatibility.
+   void publishT2Data() override;
    DECLARE_CONOBJECT(ParticleData);
    static void  initPersistFields();
 
