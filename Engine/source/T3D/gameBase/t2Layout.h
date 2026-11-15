@@ -280,6 +280,7 @@ namespace T2Layout
       T2DbHeatDecayPerSec,
       T2DbHeatIncreasePerSec,
       T2DbCameraMaxDist,
+      T2DbImageShapeFile,
       T2DbImageMountPoint,
       T2DbImageCloakable,
       T2DbImageEmap,   // HH: Added for Tribes 2 compatibility.
@@ -945,6 +946,10 @@ namespace T2Layout
    /// A float Tribes 2 sends whole.
    void publishDataBlockWhole(U32 field, F32 value);
    void publishDataBlockString(U32 field, const char *value);
+
+   /// The image states an image datablock carries, in the order its body
+   /// carries them. The walk takes the first n of the layout's state blocks.
+   void publishImageStates(const Vector<ImageState> &states);
 
    /// What a body leaves out because retail reads it off the object and the
    /// connection rather than the stream. A walk without one takes the object
