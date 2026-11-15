@@ -355,6 +355,14 @@ public:
    /// Set the datablock sequence number.
    void setDataBlockSequence(U32 seq) { mDataBlockSequence = seq; }
 
+   /// End the datablock transfer the way Tribes 2 does. A remote client is sent
+   /// the checksum challenge, and dataBlocksDone waits for its answer; a local
+   /// connection has nothing to checksum, so dataBlocksDone runs at once.
+   void sendDataBlocksChallenge(U32 sequence);
+
+   /// Run dataBlocksDone. Called when the client answers the checksum challenge.
+   void finishDataBlocks(U32 sequence) { dataBlocksDone_callback(sequence); }
+
    /// @}
 
    /// @name Fade control

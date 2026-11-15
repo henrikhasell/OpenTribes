@@ -132,7 +132,7 @@ void SimDataBlockEvent::notifyDelivered(NetConnection *conn, bool )
    if(mIndex == g->size() - 1)
    {
       gc->setDataBlockModifiedKey(gc->getMaxDataBlockModifiedKey());
-      gc->sendConnectionMessage(GameConnection::DataBlocksDone, mMissionSequence);
+      gc->sendDataBlocksChallenge(mMissionSequence);
    }
 
    if(g->size() <= nextIndex)
