@@ -367,7 +367,13 @@ struct PlayerData: public ShapeBaseData {
    S32 jetEmitterID;
    S32 jetNode[MaxJetNodes];
 
+   // HH: Added for Tribes 2 compatibility. The jet effect a pack's flame is
+   // drawn by; a retail body names it as a datablock id, one past the emitter's.
+   SimDataBlock * jetEffect;
+   S32 jetEffectID;
+
    SplashData* splash;
+   S32 splashID;
    S32 splashId;
    F32 splashVelocity;
    F32 splashAngle;

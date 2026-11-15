@@ -655,15 +655,15 @@ bool ProjectileDataT2::unpackData(BitStream *stream, U32 classId)
    if(T2Layout::lastDataBlockWord(T2Layout::T2DbArmingDelay, &word))
       armingDelayMS = word;
    if(T2Layout::lastDataBlockWord(T2Layout::T2DbExplosion, &word))
-      explosionId = word;
+      explosionId = word + DataBlockObjectIdFirst;
    if(T2Layout::lastDataBlockWord(T2Layout::T2DbProjectileBaseEmitter, &word))
-      baseEmitterId = word;
+      baseEmitterId = word + DataBlockObjectIdFirst;
    if(T2Layout::lastDataBlockWord(T2Layout::T2DbProjectileBubbleEmitter, &word))
-      bubbleEmitterId = word;
+      bubbleEmitterId = word + DataBlockObjectIdFirst;
    if(T2Layout::lastDataBlockWord(T2Layout::T2DbProjectileSound, &word))
-      soundId = word;
+      soundId = word + DataBlockObjectIdFirst;
    if(T2Layout::lastDataBlockWord(T2Layout::T2DbProjectileSplash, &word))
-      splashId = word;
+      splashId = word + DataBlockObjectIdFirst;
    if(T2Layout::lastDataBlockField(T2Layout::T2DbBlurLifetime, &value))
       blurLifetime = value;
    if(T2Layout::lastDataBlockField(T2Layout::T2DbBlurWidth, &value))
@@ -3594,7 +3594,7 @@ bool ELFProjectileDataT2::unpackData(BitStream *stream, U32 classId)
 
    U32 word;
    if(T2Layout::lastDataBlockWord(T2Layout::T2DbElfEmitter, &word))
-      emitterId = word;
+      emitterId = word + DataBlockObjectIdFirst;
 
    return true;
 }
@@ -4088,7 +4088,7 @@ bool ShockLanceProjectileDataT2::unpackData(BitStream *stream, U32 classId)
       texWrap[1] = value;
 
    if(T2Layout::lastDataBlockWord(T2Layout::T2DbShockLanceEmitter, &word))
-      emitterId = word;
+      emitterId = word + DataBlockObjectIdFirst;
 
    return true;
 }
@@ -4770,11 +4770,11 @@ bool SeekerProjectileDataT2::unpackData(BitStream *stream, U32 classId)
    if(const char *name = T2Layout::lastDataBlockString(T2Layout::T2DbSeekerCasingShape))
       casingShapeName = StringTable->insert(name);
    if(T2Layout::lastDataBlockWord(T2Layout::T2DbSeekerPuffEmitter, &word))
-      puffEmitterId = word;
+      puffEmitterId = word + DataBlockObjectIdFirst;
    if(T2Layout::lastDataBlockWord(T2Layout::T2DbSeekerExhaustEmitter, &word))
-      exhaustEmitterId = word;
+      exhaustEmitterId = word + DataBlockObjectIdFirst;
    if(T2Layout::lastDataBlockWord(T2Layout::T2DbSeekerCasingDebris, &word))
-      casingDebrisId = word;
+      casingDebrisId = word + DataBlockObjectIdFirst;
 
    return true;
 }

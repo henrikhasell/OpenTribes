@@ -60,6 +60,32 @@ public:
       return true;
    }
 
+   // HH: Added for Tribes 2 compatibility. The body is the base shape, then how
+   // many sequences follow, then each sequence in the order the script set them.
+   void publishT2Data()
+   {
+      Parent::publishT2Data();
+
+      const char *base = getDataField(StringTable->insert("baseShape"), NULL);
+      T2Layout::publishBodyString(String(base ? base : ""));
+
+      Vector<String> sequences;
+      for(U32 i = 0; ; i++)
+      {
+         char slot[32];
+         dSprintf(slot, sizeof(slot), "sequence%u", i);
+         const char *value = getDataField(StringTable->insert(slot), NULL);
+         if(!value || !value[0])
+            break;
+         sequences.push_back(String(value));
+      }
+
+      T2Layout::publishDataBlockWord(T2Layout::T2DbShapeConstructorCount,
+                                     sequences.size());
+      for(U32 i = 0; i < sequences.size(); i++)
+         T2Layout::publishBodyString(sequences[i]);
+   }
+
    bool preload(bool server, String &errorStr)
    {
       if(!Parent::preload(server, errorStr))

@@ -60,7 +60,11 @@ typedef U32 SimObjectId;
 /// Sim::initRoot() and following.
 enum SimObjectsConstants
 {
-   DataBlockObjectIdFirst = 0,
+   // HH: Modified for Tribes 2 compatibility. Retail's datablock references are
+   // 0-based positions in the send order (its registration table is indexed by
+   // position), so the wire value is id - DataBlockObjectIdFirst, the position.
+   // The first id is 1 so that no datablock is id zero, which Sim reads as unset.
+   DataBlockObjectIdFirst = 1,
    DataBlockObjectIdBitSize = 11,
    DataBlockObjectIdLast = DataBlockObjectIdFirst + (1 << DataBlockObjectIdBitSize) - 1,
 

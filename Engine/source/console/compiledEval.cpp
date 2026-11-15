@@ -728,7 +728,15 @@ breakContinue:
             if(!currentNewObject)
             {
                // Well, looks like we have to create a new object.
-               ConsoleObject *object = ConsoleObject::create(callArgv[1]);
+               // HH: Added for Tribes 2 compatibility. The stock scripts declare
+               // shape constructors as datablocks under the name Torque gives
+               // its plain TSShapeConstructor object, so the datablock keyword
+               // makes the Tribes 2 datablock that carries the same fields.
+               const char *className = callArgv[1];
+               if(isDataBlock && !dStrcmp(className, "TSShapeConstructor"))
+                  className = "TSShapeConstructorT2";
+
+               ConsoleObject *object = ConsoleObject::create(className);
 
                // Deal with failure!
                if(!object)

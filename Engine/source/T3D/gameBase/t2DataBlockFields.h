@@ -34,6 +34,20 @@ namespace T2Protocol
       { "PlayerData", 52, OpRaw, 32, T2DbMaxJetHorizontalPercentage },
 
       { "PlayerData", 187, OpDataBlockId, 11, T2DbJetEmitter },
+      // HH: The jet effect, the datablock id one past the emitter's. Retail's
+      // own LightMaleHumanArmor body carries it at node 186 behind the flag at
+      // 54; nothing named it, so a body went out without it.
+      { "PlayerData", 186, OpDataBlockId, 11, T2DbPlayerJetEffect },
+      // HH: The footprint, the splash and its three emitters, each an id named
+      // by the flag above it. Nothing named them, so a body went out without.
+      { "PlayerData", 152, OpDataBlockId, 11, T2DbPlayerDecal },
+      { "PlayerData", 150, OpDataBlockId, 11, T2DbPlayerSplash },
+      { "PlayerData", 149, OpDataBlockId, 11, T2DataBlockField(T2DbPlayerSplashEmitter + 0) },
+      { "PlayerData", 148, OpDataBlockId, 11, T2DataBlockField(T2DbPlayerSplashEmitter + 1) },
+      { "PlayerData", 147, OpDataBlockId, 11, T2DataBlockField(T2DbPlayerSplashEmitter + 2) },
+      // HH: How many sequence strings a shape constructor's body carries, the
+      // count its OpReadBr node reads. Nothing named it, so none went out.
+      { "TSShapeConstructor", 1, OpReadBr, 7, T2DbShapeConstructorCount },
 
       { "PlayerData", 55, OpRaw, 32, T2DbRunForce                   },
       { "PlayerData", 56, OpRaw, 32, T2DbRunEnergyDrain             },
