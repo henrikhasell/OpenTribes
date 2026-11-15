@@ -196,6 +196,10 @@ void NetInterface::sendConnectChallengeRequest(NetConnection *conn)
    BitStream::sendPacketStream(conn->getNetAddress());
 }
 
+// HH: Added for Tribes 2 compatibility. The scripts set this for the length of
+// a mission cycle, and while it is set a challenge is refused.
+static bool sCyclingConnections = false;
+
 void NetInterface::handleConnectChallengeRequest(const NetAddress *addr, BitStream *stream)
 {
    char buf[256];
@@ -215,6 +219,16 @@ void NetInterface::handleConnectChallengeRequest(const NetAddress *addr, BitStre
    if(serverPassword[0] && dStrcmp(joinPassword, serverPassword))
    {
       sendConnectChallengeReject(addr, connectSequence, "CHR_PASSWORD");
+      return;
+   }
+
+   // HH: Added for Tribes 2 compatibility. Retail sends this reason as text,
+   // not as a CHR_ token. The client shows its generic error box for either,
+   // which is what the retail client shows too.
+   if(sCyclingConnections)
+   {
+      sendConnectChallengeReject(addr, connectSequence,
+         "Server is cycling missions.  Please try to connect in a moment.");
       return;
    }
 
@@ -686,6 +700,19 @@ ConsoleFunction(allowConnections,void,2,2,"allowConnections(bool allow);"
 {
    TORQUE_UNUSED(argc);
    GNet->setAllowsConnections(dAtob(argv[1]));
+}
+
+// HH: Added for Tribes 2 compatibility. The stock scripts set it around each
+// mission load, and it is what turns a joining client away with a reason.
+ConsoleFunction(disableCyclingConnections, void, 2, 2, "disableCyclingConnections(bool cycling);"
+   "@brief Refuses new connections with a message while the server cycles its mission.\n\n"
+
+   "@param cycling Set to true while the mission is loading, and to false once it is up.\n\n"
+
+   "@ingroup Networking\n")
+{
+   TORQUE_UNUSED(argc);
+   sCyclingConnections = dAtob(argv[1]);
 }
 
 ConsoleFunctionGroupEnd(NetInterface);
