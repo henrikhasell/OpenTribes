@@ -702,7 +702,12 @@ public:
       stream->read(&mSum);
       stream->read(&mLength);
    }
-   void process(NetConnection *) {}
+   // The answer releases the datablock transfer. Retail runs dataBlocksDone
+   // whether or not the sums match, so the sums are not checked here.
+   void process(NetConnection *conn)
+   {
+      static_cast<GameConnection *>(conn)->finishDataBlocks(mLength);
+   }
 
    DECLARE_CONOBJECT(CRCChallengeResponseEvent);
 };
@@ -728,6 +733,15 @@ public:
       mGuaranteeType = GuaranteedOrdered;
       mSeed = mStart = mLength = 0;
       mWhole = false;
+   }
+
+   CRCChallengeEvent(U32 seed, U32 start, U32 length, bool whole)
+   {
+      mGuaranteeType = GuaranteedOrdered;
+      mSeed = seed;
+      mStart = start;
+      mLength = length;
+      mWhole = whole;
    }
 
    void pack(NetConnection *, BitStream *stream)
@@ -810,6 +824,20 @@ IMPLEMENT_CO_CLIENTEVENT_V1(CRCChallengeEvent);
 
 ConsoleDocClass( CRCChallengeEvent,
    "@brief Asks a client to checksum part of its install.\n\n@internal" );
+
+void GameConnection::sendDataBlocksChallenge(U32 sequence)
+{
+   if(isLocalConnection())
+   {
+      dataBlocksDone_callback(sequence);
+      return;
+   }
+
+   // Retail seeds its checksum once per process; a seed per transfer does the
+   // same job, as the client only folds it into the sums it sends back.
+   U32 seed = (U32) (Platform::getRandom() * (F32) U32_MAX);
+   postNetEvent(new CRCChallengeEvent(seed, 0, sequence, Con::getBoolVariable("$Host::CRCTextures")));
+}
 
 //----------------------------------------------------------------------------
 
