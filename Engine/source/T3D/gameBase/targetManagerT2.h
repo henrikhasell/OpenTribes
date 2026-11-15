@@ -125,6 +125,9 @@ public:
    void setSkin(S32 id, const NetStringHandle &skin);
    /// Nine bits. A mask is sent even when it does not change (0x66fb00).
    void setRenderMask(S32 id, U32 mask);
+   /// The datablock a target is drawn with, NULL for none. Sent even when it
+   /// does not change (0x66de40).
+   void setDataBlock(S32 id, ShapeBaseData *data);
    /// Sends a connection every target whose allocation bit is set, team
    /// targets included, each in full (0x66e3a0). Changes nothing.
    void sendTargetsTo(GameConnection *conn);

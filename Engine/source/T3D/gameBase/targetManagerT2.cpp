@@ -204,6 +204,13 @@ void TargetManagerT2::setRenderMask(S32 id, U32 mask)
    broadcastInfo(id, FieldRenderMask);
 }
 
+void TargetManagerT2::setDataBlock(S32 id, ShapeBaseData *data)
+{
+   // 0x66de40.  Retail sends it even when the datablock is already set.
+   mTargets[id].dataBlock = data;
+   broadcastInfo(id, FieldDataBlock);
+}
+
 void TargetManagerT2::sendTargetsTo(GameConnection *conn)
 {
    // 0x66e3a0 and 0x66ccc0.  Nothing is sent to a connection not yet told
@@ -558,6 +565,17 @@ ConsoleFunction(setTargetRenderMask, void, 3, 3, "setTargetRenderMask(targetId, 
    if(id == -1)
       return;
    TargetManagerT2::server()->setRenderMask(id, dAtoui(argv[2]));
+}
+
+ConsoleFunction(setTargetDataBlock, void, 3, 3, "setTargetDataBlock(targetId, dataBlock)")
+{
+   // 0x66fa40.  Anything that is not a datablock, 0 included, clears it.
+   const S32 id = validateTarget(dAtoi(argv[1]), "cSetTargetDataBlock", false);
+   if(id == -1)
+      return;
+   ShapeBaseData *data = NULL;
+   Sim::findObject(argv[2], data);
+   TargetManagerT2::server()->setDataBlock(id, data);
 }
 
 ConsoleFunction(sendTargetsToClient, void, 2, 2, "sendTargetsToClient(client)")
