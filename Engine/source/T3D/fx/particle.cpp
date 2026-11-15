@@ -105,10 +105,14 @@ ParticleData::ParticleData()
       sizes[i] = 1.0;
    }
 
+   // HH: Modified for Tribes 2 compatibility. Tribes 2 blends over two keys
+   // unless a script says otherwise and marks the rest as past the end,
+   // which is what DefaultParticle's own times of 0, 1, 2, 2 spell out --
+   // where Torque spread four keys evenly.
    times[0] = 0.0f;
-   times[1] = 0.33f;
-   times[2] = 0.66f;
-   times[3] = 1.0f;
+   times[1] = 1.0f;
+   times[2] = 2.0f;
+   times[3] = 2.0f;
 
    texCoords[0].set(0.0,0.0);   // texture coords at 4 corners
    texCoords[1].set(0.0,1.0);   // of particle quad
@@ -245,7 +249,10 @@ bool ParticleData::protectedSetTimes( void *object, const char *index, const cha
    else
       i = dAtoui(index);
 
-   pData->times[i] = mClampF( val, 0.f, 1.f );
+   // HH: Modified for Tribes 2 compatibility. A time past one is how Tribes 2
+   // marks a key beyond the end of the blend, so it is kept rather than
+   // clamped away.
+   pData->times[i] = mClampF( val, 0.f, 2.f );
 
    return true;
 }
@@ -421,7 +428,9 @@ bool ParticleData::unpackData(BitStream *stream, U32 classId)
                     T2Layout::t2Float(blues[i], 7),
                     T2Layout::t2Float(alphas[i], 7));
       sizes[i] = T2Layout::t2Float(sizeOf[i], 14) * 50.0f;
-      times[i] = T2Layout::t2Float(timeOf[i], 8);
+      // A key that closes the blend goes out as a time of two, which an
+      // eight bit field carries as 254.
+      times[i] = timeOf[i] == 254 ? 2.0f : T2Layout::t2Float(timeOf[i], 8);
    }
 
    const Vector<String> &strings = T2Layout::lastStrings();
@@ -455,9 +464,17 @@ void ParticleData::publishT2Data()
 {
    Parent::publishT2Data();
 
-   T2Layout::publishDataBlockWhole(T2Layout::T2DbWindCoefficient,      windCoefficient);
-   T2Layout::publishDataBlockWhole(T2Layout::T2DbConstantAcceleration, constantAcceleration);
-   T2Layout::publishDataBlockWhole(T2Layout::T2DbSpinSpeed,            spinSpeed);
+   // Four groups a body only carries where they are not the default: a
+   // retail server sends none of them for DefaultParticle, whose script sets
+   // none of them, and sends the spin range for LightPuff, whose script does.
+   if(windCoefficient != 1.0f)
+      T2Layout::publishDataBlockWhole(T2Layout::T2DbWindCoefficient,
+                                      windCoefficient);
+   if(constantAcceleration != 0.0f)
+      T2Layout::publishDataBlockWhole(T2Layout::T2DbConstantAcceleration,
+                                      constantAcceleration);
+   if(spinSpeed != 1.0f)
+      T2Layout::publishDataBlockWhole(T2Layout::T2DbSpinSpeed, spinSpeed);
 
    T2Layout::publishDataBlockFloat(T2Layout::T2DbDragCoefficient,
                                    dragCoefficient / 5.0f, 10);
@@ -471,23 +488,27 @@ void ParticleData::publishT2Data()
    T2Layout::publishDataBlockWord(T2Layout::T2DbParticleLifetimeVarianceMS,
                                   U32(lifetimeVarianceMS) >> 5);
 
-   T2Layout::publishDataBlockWord(T2Layout::T2DbSpinRandomMin,
-                                  U32(S32(spinRandomMin) + 1000));
-   T2Layout::publishDataBlockWord(T2Layout::T2DbSpinRandomMax,
-                                  U32(S32(spinRandomMax) + 1000));
+   if(spinRandomMin != 0.0f || spinRandomMax != 0.0f)
+   {
+      T2Layout::publishDataBlockWord(T2Layout::T2DbSpinRandomMin,
+                                     U32(S32(spinRandomMin) + 1000));
+      T2Layout::publishDataBlockWord(T2Layout::T2DbSpinRandomMax,
+                                     U32(S32(spinRandomMax) + 1000));
+   }
 
    T2Layout::publishDataBlockFlag(T2Layout::T2DbUseInvAlpha, useInvAlpha);
 
-   // A key past the end of the blend is marked by a time beyond it, which is
-   // what the scripts set times[2] and times[3] to where a particle blends
-   // over two: DefaultParticle has 0, 1, 2, 2 and retail sends two keys for
-   // it. The keys go out in the order the body carries them, which is the
-   // order a read takes them in, and the select ahead of them says how many.
-   U32 keys = 0;
-   while(keys < PDC_NUM_KEYS && times[keys] <= 1.0f)
-      keys++;
-   if(!keys)
-      keys = 1;
+   // A body carries one key more than the number of times a script set under
+   // one: the last of them closes the blend, and its colour and size are
+   // whatever the datablock holds there. Asked for a particle with no times
+   // at all a retail server sends two keys, for one with times of 0 and 0.25
+   // three, and for one with 0, 0.3 and 0.6 four. The keys go out in the
+   // order the body carries them and the select ahead of them says how many.
+   U32 keys = 2;
+   for(U32 i = 0; i < PDC_NUM_KEYS; i++)
+      if(times[i] < 1.0f)
+         keys = getMax(keys, i + 2);
+   keys = getMin(keys, U32(PDC_NUM_KEYS));
 
    T2Layout::publishDataBlockWord(T2Layout::T2DbParticleKeysLast, keys - 1);
    for(U32 i = 0; i < keys; i++)
@@ -497,7 +518,10 @@ void ParticleData::publishT2Data()
       T2Layout::publishDataBlockFloat(T2Layout::T2DbParticleColorB, colors[i].blue,  7);
       T2Layout::publishDataBlockFloat(T2Layout::T2DbParticleColorA, colors[i].alpha, 7);
       T2Layout::publishDataBlockFloat(T2Layout::T2DbParticleSize, sizes[i] / 50.0f, 14);
-      T2Layout::publishDataBlockFloat(T2Layout::T2DbParticleTime, times[i], 8);
+      // A time of two, which marks the key that closes the blend, is 510 in
+      // a field of eight bits -- which carries 254.
+      T2Layout::publishDataBlockWord(T2Layout::T2DbParticleTime,
+                                     U32(times[i] * 255.0f) & 0xff);
    }
 
    // The texture, which a read puts back under textures/ and so comes off

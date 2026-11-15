@@ -875,7 +875,7 @@ void ShapeBaseImageData::initPersistFields()
       "the new script prefix-based animation sequence.\n"
       "@see ShapeBase::setImageScriptAnimPrefix()");
 
-   addField( "projectile", TYPEID< ProjectileData >(), Offset(projectile, ShapeBaseImageData),
+   addField( "projectile", TYPEID< GameBaseData >(), Offset(projectile, ShapeBaseImageData),
       "@brief The projectile fired by this Image\n\n" );
 
    addField( "cloakable", TypeBool, Offset(cloakable, ShapeBaseImageData),

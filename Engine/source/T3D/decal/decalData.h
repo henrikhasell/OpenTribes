@@ -104,6 +104,9 @@ class DecalData : public SimDataBlock
       /// A Tribes 2 decal is a texture of its own size laid flat on what it
       /// marks, with no material behind it: half its width, half its height
       /// and the texture, which is all its datablock carries (0x00593970).
+      // HH: Added for Tribes 2 compatibility.
+      void publishT2Data();
+
       F32 t2SizeX;
       F32 t2SizeY;
       StringTableEntry t2TextureName;

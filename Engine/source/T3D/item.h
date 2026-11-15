@@ -62,6 +62,7 @@ struct ItemData: public ShapeBaseData {
    static void initPersistFields();
 
    // HH: Added for Tribes 2 compatibility.
+   void publishT2Data() override;
    bool unpackData(BitStream *stream, U32 classId) override;
 };
 

@@ -2,6 +2,10 @@
 #ifndef _T2LAYOUT_H_
 #define _T2LAYOUT_H_
 
+#ifndef _COLOR_H_
+#include "core/color.h"
+#endif
+
 #ifndef _PLATFORM_H_
 #include "platform/platform.h"
 #endif
@@ -321,8 +325,15 @@ namespace T2Layout
       T2DbProjectileMaxRotSpeedZ,
       T2DbProjectileSize,
       T2DbProjectileUseLensFlare,
-      T2DbProjectileTexture,
-      T2DbProjectileTextureLast = T2DbProjectileTexture + 11,
+      T2DbHeatSignature,
+      T2DbDecalTextureName,
+      T2DbProjectileString,
+      T2DbProjectileStringLast = T2DbProjectileString + 11,
+      T2DbBeamHeadMultiplier,
+      T2DbShockLanceEmitter,
+      T2DbElfEmitter,
+      T2DbBeamHitColor,
+      T2DbBeamHitScale,
       T2DbTracerMinPixels,
       T2DbTracerAlpha,
       T2DbTracerColor,
@@ -965,12 +976,16 @@ namespace T2Layout
       if(!mask)
          return 0;
 
-      const F32 scaled = value * F32(mask);
-      if(scaled <= 0.0f)
+      // The scale is in double precision because retail's build does it on
+      // the x87 stack, and the result is not held to the field: retail writes
+      // it and the bit stream keeps the low bits, so a value over the range
+      // wraps rather than sticking at the top. A particle size of 56 over a
+      // range of fifty is 1964 in fourteen bits and not 16383, and a key's
+      // time of two is 254 in eight.
+      const F64 scaled = F64(value) * F64(mask);
+      if(scaled <= 0.0)
          return 0;
-      if(scaled >= F32(mask))
-         return mask;
-      return U32(scaled);
+      return U32(scaled) & mask;
    }
 
    inline U32 t2SignedFloatWord(F32 value, U32 bits)
@@ -980,7 +995,48 @@ namespace T2Layout
 
    /// The word a whole float goes out as, where Tribes 2 sends all 32 bits of
    /// one rather than a fraction of a scale.
-   /// A time in milliseconds as retail keeps one: whole ticks, rounded up. A
+   /// A value scaled into a whole number as retail makes one: the multiply is in
+/// double precision, because retail's build does it on the x87 stack, and the
+/// result is cut rather than rounded. An ejection velocity of 7.45968 over a
+/// scale of a hundred is 745, where rounding gives 746 and a float32 product
+/// rounds the product itself before that.
+inline U32 t2ScaledWord(F32 value, F64 scale, F64 half = 0.0)
+{
+   const F64 scaled = F64(value) * scale + half;
+   return scaled <= 0.0 ? 0 : U32(scaled);
+}
+
+/// The object a body is written against. Tribes 2's packData sends a field
+/// only where it differs from the same field of a default-made object of the
+/// class that *declares* it, and it keeps one such object per class --
+/// ShapeBaseData's is at 0x8403e0, and its packData compares mass against
+/// 0x840454, which is that object's own mass. The class matters: an item's
+/// density of 2 goes out because a plain ShapeBaseData's is 1, even though
+/// every ItemData starts at 2.
+template< class T > const T &t2DefaultOf()
+{
+   static const T sDefault;
+   return sDefault;
+}
+
+/// A colour's byte as retail makes one. The multiply is in double precision
+/// because retail's build does it on the x87 stack: a red of 0.7 is 178 and
+/// not 179, because the float nearest 0.7 times 255 is 178.49999 and only a
+/// float32 product would round that to 178.5 before the half is added.
+inline U32 t2ColorByte(F32 part)
+{
+   // A colour's byte is the one scaling retail rounds: 0.3 goes out as 77.
+   return t2ScaledWord(mClampF(part, 0.0f, 1.0f), 255.0, 0.5);
+}
+
+/// The four bytes of a colour, in the order a body carries them.
+inline U32 t2ColorWord(const ColorF &colour)
+{
+   return t2ColorByte(colour.red) | (t2ColorByte(colour.green) << 8) |
+          (t2ColorByte(colour.blue) << 16) | (t2ColorByte(colour.alpha) << 24);
+}
+
+/// A time in milliseconds as retail keeps one: whole ticks, rounded up. A
 /// lifetimeMS of 5000 is 157 ticks and goes out as 5024.
 inline U32 t2TickMs(S32 ms, S32 least = 0, S32 most = 0)
 {
@@ -1081,6 +1137,23 @@ inline U32 t2WholeWord(F32 value)
    /// The image states an image datablock carries, in the order its body
    /// carries them. The walk takes the first n of the layout's state blocks.
    void publishImageStates(const Vector<ImageState> &states);
+
+   /// Everything a body says nothing about, so a class can fill one and say
+   /// only what it means to.
+   void clearBody(Body *body);
+
+   /// Start a body: what a class published for the last one is forgotten.
+   void beginBody();
+
+   /// What a ghost body carries: a class fills the same Body a read fills and
+   /// the walk takes the values back out of it.
+   void publishBody(const Body &body);
+
+   /// A word, and a string, of a body whose reader takes them in the order
+   /// they came rather than by named node. They go out in the order they are
+   /// published here, to the nodes that read a word and a string.
+   void publishBodyWord(U32 word);
+   void publishBodyString(const String &text);
 
    /// What a body leaves out because retail reads it off the object and the
    /// connection rather than the stream. A walk without one takes the object
