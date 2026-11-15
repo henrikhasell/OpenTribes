@@ -40,6 +40,7 @@ struct TurretData : public StaticShapeData
    static void initPersistFields();
    bool preload(bool server, String &errorStr);
    bool unpackData(BitStream *stream, U32 classId);
+   void publishT2Data();
 
    DECLARE_CONOBJECT(TurretData);
 };
@@ -70,6 +71,7 @@ struct TurretImageData : public ShapeBaseImageData
    static void initPersistFields();
    bool onAdd();
    bool unpackData(BitStream *stream, U32 classId);
+   void publishT2Data();
 
    DECLARE_CONOBJECT(TurretImageData);
 };
