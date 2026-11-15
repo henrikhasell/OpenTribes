@@ -197,6 +197,22 @@ void TargetManagerT2::setGroupMask(GroupMask which, S32 group, U32 mask)
    groupMask(tables[which], group) = mask;
 }
 
+void TargetManagerT2::setGroupColours(S32 group, U32 mask, const ColorI &colour)
+{
+   // 0x66f950, with 0x66ca50 telling the connections. Only the viewer group's
+   // own connections are sent its row, and a connection that joins later is
+   // sent it with its group.
+   for(U32 i = 0; i < SensorGroups; i++)
+      if(mask & (1u << i))
+         mColours[group][i] = colour;
+
+   SimGroup *clients = Sim::getClientGroup();
+   for(S32 i = 0; i < clients->size(); i++)
+      if(GameConnection *conn = dynamic_cast<GameConnection *>((*clients)[i]))
+         if(conn->getSensorGroup() == group)
+            conn->sendSensorGroupColours(group, mask, mColours[group]);
+}
+
 bool TargetManagerT2::isTargetVisible(S32 id, S32 group) const
 {
    // 0x66e130.  Past what a group is never or always shown, retail asks
@@ -410,6 +426,32 @@ ConsoleFunction(setSensorGroupFriendlyMask, void, 3, 3, "setSensorGroupFriendlyM
    TargetManagerT2::server()->setGroupMask(TargetManagerT2::GroupFriendly, group, dAtoui(argv[2]));
 }
 
+ConsoleFunction(setSensorGroupColor, void, 4, 4, "setSensorGroupColor(sensorGroup, groupMask, color)")
+{
+   // 0x66f950.  The colour is "r g b a" as the script gives it. A value it
+   // leaves off is 0, and alpha is 255. Retail's value there is not established.
+   const S32 group = validateSensorGroup(dAtoi(argv[1]), "cSetSensorGroupColor");
+   if(group == -1)
+      return;
+
+   S32 r = 0, g = 0, b = 0, a = 255;
+   dSscanf(argv[3], "%d %d %d %d", &r, &g, &b, &a);
+   TargetManagerT2::server()->setGroupColours(group, dAtoui(argv[2]),
+      ColorI((U8)r, (U8)g, (U8)b, (U8)a));
+}
+
+ConsoleFunction(setSensorGroupCount, void, 2, 2, "setSensorGroupCount(count)")
+{
+   // 0x66f210.  Zero up to every group, team zero included, is valid.
+   const S32 count = dAtoi(argv[1]);
+   if(count < 0 || count > TargetManagerT2::SensorGroups)
+   {
+      Con::errorf("TargetManager::cSetSensorGroupCount: invalid group count [%d]", count);
+      return;
+   }
+   TargetManagerT2::server()->setGroupCount(count);
+}
+
 ConsoleMethod(GameBase, setTarget, void, 3, 3, "obj.setTarget(targetId)")
 {
    // 0x5e3570.  A ghost's target is the server's to say.
@@ -437,7 +479,7 @@ ConsoleMethod(GameConnection, setSensorGroup, void, 3, 3, "conn.setSensorGroup(g
    // to a server is not one a server can place in a group.
    if(object == GameConnection::getConnectionToServer())
       return;
-   object->setSensorGroup(dAtoi(argv[2]));
+   object->assignSensorGroup(dAtoi(argv[2]));
 }
 
 ConsoleMethod(GameConnection, getSensorGroup, S32, 2, 2, "conn.getSensorGroup()")

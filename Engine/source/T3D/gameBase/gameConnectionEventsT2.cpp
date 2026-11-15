@@ -9,6 +9,7 @@
 #include "T3D/gameBase/gameConnection.h"
 #include "T3D/gameBase/t2Layout.h"
 #include "T3D/gameBase/targetsT2.h"
+#include "T3D/gameBase/targetManagerT2.h"
 #include "T3D/shapeBase.h"
 #include "T3D/player.h"
 #include "core/crc.h"
@@ -568,6 +569,21 @@ public:
          mHere[i] = false;
    }
 
+   /// The colours of one viewer group for the targets in mask. Every colour in
+   /// the mask is sent, where retail leaves out those equal to its default: a
+   /// left-off colour reads back as red here, so sending all is the safe form.
+   SensorGroupColorEvent(U32 group, U32 mask, const ColorI *colours)
+   {
+      mGuaranteeType = GuaranteedOrdered;
+      mGroup = group;
+      mMask = mask;
+      for (U32 i = 0; i < NumGroups; i++)
+      {
+         mHere[i] = (mask & (1 << i)) != 0;
+         mColors[i] = colours[i];
+      }
+   }
+
    /// A group, a mask of the groups whose colour follows, and for each a flag
    /// and the colour's four bytes. A colour left off is red.
    void pack(NetConnection *, BitStream *stream)
@@ -604,6 +620,27 @@ IMPLEMENT_CO_CLIENTEVENT_V1(SensorGroupColorEvent);
 
 ConsoleDocClass( SensorGroupColorEvent,
    "@brief Gives a client the colour to draw a sensor group in.\n\n@internal" );
+
+void GameConnection::sendSensorGroupColours(U32 group, U32 mask, const ColorI *colours)
+{
+   // As retail does, nothing goes to a connection that is not established yet.
+   if (!isEstablished())
+      return;
+   postNetEvent(new SensorGroupColorEvent(group, mask, colours));
+}
+
+void GameConnection::assignSensorGroup(S32 group)
+{
+   // 0x5fdc90. Retail sends the colours before the group, and this keeps that
+   // order. An unchanged group sends nothing.
+   if (group == getSensorGroup())
+      return;
+
+   setSensorGroup(group);
+   sendSensorGroupColours(group, 0xffffffff,
+      TargetManagerT2::server()->groupColours(group));
+   postNetEvent(new SetSensorGroupEvent(group));
+}
 
 //----------------------------------------------------------------------------
 
