@@ -196,6 +196,7 @@ protected:
    // The sensor group a server's scripts put this client in; 0 until they
    // do (0x5fa5eb).
    S32         mSensorGroup = 0;
+   bool        mReceivedDataBlocks = false;
    /// Whether the commander map is open on this client, which scopes every
    /// object its team knows of.
    bool        mScopingCommanderMap = false;
@@ -288,11 +289,21 @@ public:
    // HH: Added for Tribes 2 compatibility.
    S32  getSensorGroup() const   { return mSensorGroup; }
    void setSensorGroup(S32 group) { mSensorGroup = group; }
+   /// Set by the scripts once the client has its datablocks. Targets go to a
+   /// connection only after that (retail's flag at +0x836c).
+   bool getReceivedDataBlocks() const { return mReceivedDataBlocks; }
+   void setReceivedDataBlocks(bool on) { mReceivedDataBlocks = on; }
    /// The server's side of conn.setSensorGroup: the colours the group sees
    /// go first, then the group itself. Only the server sends these.
    void assignSensorGroup(S32 group);
    /// Sends the colours one viewer group sees, for the targets in mask.
    void sendSensorGroupColours(U32 group, U32 mask, const ColorI *colours);
+   /// Sends what a target is called and how it sounds: the fields of
+   /// TargetManagerT2::InfoField, from the server's record of the target.
+   void sendTargetInfo(S32 target, U32 fields);
+   /// Tells this connection a target is gone, or that it should forget all.
+   void sendTargetFree(S32 target);
+   void sendResetTargets(bool tasksOnly);
    bool isScopingCommanderMap() const    { return mScopingCommanderMap; }
    void setScopingCommanderMap(bool on) { mScopingCommanderMap = on; }
    S32  getServerTarget() const           { return mServerTarget; }

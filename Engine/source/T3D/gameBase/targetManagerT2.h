@@ -15,6 +15,7 @@
 #endif
 
 class GameBase;
+class GameConnection;
 class ShapeBaseData;
 class SimDataBlock;
 
@@ -70,8 +71,26 @@ public:
       U32  alwaysVisMask;
       U32  neverVisMask;
       U32  friendlyMask;
+      /// Nine bits: which of the datablock's hud images the target is drawn with.
+      U32  renderMask;
       /// The SensorData it senses with.  Nothing on this server senses yet.
       SimObjectPtr<SimDataBlock> sensorData;
+   };
+
+   /// What a TargetInfoEvent carries, one bit each. The first five are the
+   /// tags, in the order the event writes them.
+   enum InfoField
+   {
+      FieldName        = 1 << 0,
+      FieldSkin        = 1 << 1,
+      FieldPrefSkin    = 1 << 2,
+      FieldVoice       = 1 << 3,
+      FieldType        = 1 << 4,
+      FieldSensorGroup = 1 << 5,
+      FieldDataBlock   = 1 << 6,
+      FieldRenderMask  = 1 << 7,
+      FieldVoicePitch  = 1 << 8,
+      FieldAll         = 0x1ff,
    };
 
    /// Which of the per-target masks a group's mask is copied to.
@@ -98,6 +117,17 @@ public:
    void freeTarget(S32 id);
    void setSensorGroup(S32 id, S32 group);
    void setTargetObject(S32 id, GameBase *obj);
+
+   /// The name and skin a target is shown by, changed only when they differ
+   /// (0x66ea90, 0x66ec30). Each change is sent to the connections told about
+   /// the target.
+   void setName(S32 id, const NetStringHandle &name);
+   void setSkin(S32 id, const NetStringHandle &skin);
+   /// Nine bits. A mask is sent even when it does not change (0x66fb00).
+   void setRenderMask(S32 id, U32 mask);
+   /// Sends a connection every target whose allocation bit is set, team
+   /// targets included, each in full (0x66e3a0). Changes nothing.
+   void sendTargetsTo(GameConnection *conn);
    void setGroupMask(GroupMask which, S32 group, U32 mask);
 
    /// The colour one viewer group draws each target of a sensor group in, for
@@ -118,6 +148,14 @@ public:
 private:
    void clearTarget(Target &target);
    void takeGroupMasks(Target &target, S32 group) const;
+
+   /// The connections told about a target: each established one that has its
+   /// data blocks, where the target changes or is allocated (0x66d1c0).
+   void broadcastInfo(S32 id, U32 fields);
+   /// Each established connection is told a target is gone (0x66d390).
+   void broadcastFree(S32 id);
+   /// Each connection told about targets is first told to forget them all.
+   void broadcastReset();
 
    U32 &freeCount()          { return mBlock[BlockFreeCount]; }
    U32 &allocMask(U32 word)  { return mBlock[BlockAllocMask + word]; }

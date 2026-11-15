@@ -935,10 +935,11 @@ class TargetInfoEvent : public NetEvent
    SimObjectId mDataBlock;
 
 public:
-   TargetInfoEvent()
+   /// Built empty: a field goes out only once a setter has given it.
+   TargetInfoEvent(U32 target = 0)
    {
       mGuaranteeType = GuaranteedOrdered;
-      mTarget = 0;
+      mTarget = target;
       for (U32 i = 0; i < ClientTarget::NumTags; i++)
       {
          mTagHere[i] = false;
@@ -954,8 +955,56 @@ public:
       mDataBlock = 0;
    }
 
-   void pack(NetConnection *, BitStream *) {}
-   void write(NetConnection *, BitStream *) {}
+   /// A tag is its connection index for the string, or none for an empty one.
+   void setTag(U32 tag, U32 index, bool hasString)
+   {
+      mTagHere[tag] = true;
+      mTag[tag] = hasString ? index + 1 : 0;
+   }
+   void setSensorGroup(U32 group)
+   {
+      mSensorGroupHere = true;
+      mSensorGroup = group;
+   }
+   /// The datablock's object id, or 0 for none.
+   void setDataBlock(SimObjectId id)
+   {
+      mDataBlockHere = true;
+      mDataBlock = id;
+   }
+   void setRenderMask(U32 mask)
+   {
+      mRenderMaskHere = true;
+      mRenderMask = mask;
+   }
+   /// A pitch from 0.5 to 2, sent as a share of that range.
+   void setVoicePitch(F32 pitch)
+   {
+      F32 share = (pitch - 0.5f) / 1.5f;
+      if (share < 0.0f)
+         share = 0.0f;
+      if (share > 1.0f)
+         share = 1.0f;
+      mVoicePitchHere = true;
+      mVoicePitch = U32(share * F32((1 << VoicePitchBits) - 1) + 0.5f);
+   }
+
+   void pack(NetConnection *, BitStream *stream)
+   {
+      stream->writeInt(mTarget, TargetBits);
+      for (U32 i = 0; i < ClientTarget::NumTags; i++)
+         if (stream->writeFlag(mTagHere[i]) && stream->writeFlag(mTag[i] != 0))
+            stream->writeInt(mTag[i] - 1, ConnectionStringTable::EntryBitSize);
+      if (stream->writeFlag(mSensorGroupHere))
+         stream->writeInt(mSensorGroup, SensorGroupBits);
+      if (stream->writeFlag(mDataBlockHere) && stream->writeFlag(mDataBlock != 0))
+         stream->writeInt(mDataBlock - DataBlockObjectIdFirst, DataBlockBits);
+      if (stream->writeFlag(mRenderMaskHere))
+         stream->writeInt(mRenderMask, RenderMaskBits);
+      if (stream->writeFlag(mVoicePitchHere))
+         stream->writeInt(mVoicePitch, VoicePitchBits);
+   }
+   void write(NetConnection *conn, BitStream *stream) { pack(conn, stream); }
    void unpack(NetConnection *, BitStream *stream)
    {
       mTarget = stream->readInt(TargetBits);
@@ -1036,6 +1085,54 @@ IMPLEMENT_CO_CLIENTEVENT_V1(TargetInfoEvent);
 ConsoleDocClass( TargetInfoEvent,
    "@brief Tells a client what one target is called and how it "
    "sounds.\n\n@internal" );
+
+void GameConnection::sendTargetInfo(S32 target, U32 fields)
+{
+   // 0x66d1c0. Only the fields asked for are set, and a tag goes out as this
+   // connection's index for its string, which the mapping event before it
+   // has already sent.
+   TargetManagerT2::Target &t = TargetManagerT2::server()->getTarget(target);
+   TargetInfoEvent *event = new TargetInfoEvent(target);
+
+   NetStringHandle *tags[ClientTarget::NumTags] =
+      { &t.name, &t.skin, &t.prefSkin, &t.voice, &t.type };
+   for (U32 i = 0; i < ClientTarget::NumTags; i++)
+   {
+      if (!(fields & (1 << i)))
+         continue;
+
+      NetStringHandle string = *tags[i];
+      if (string.isValidString())
+         event->setTag(i, checkString(string, NULL), true);
+      else
+         event->setTag(i, 0, false);
+   }
+
+   if (fields & TargetManagerT2::FieldSensorGroup)
+      event->setSensorGroup(t.sensorGroup);
+   if (fields & TargetManagerT2::FieldDataBlock)
+      event->setDataBlock(t.dataBlock.isNull() ? 0 : t.dataBlock->getId());
+   if (fields & TargetManagerT2::FieldRenderMask)
+      event->setRenderMask(t.renderMask);
+   if (fields & TargetManagerT2::FieldVoicePitch)
+      event->setVoicePitch(t.voicePitch);
+
+   postNetEvent(event);
+}
+
+void GameConnection::sendTargetFree(S32 target)
+{
+   // 0x66d390. Only an established connection is told.
+   if (isEstablished())
+      postNetEvent(new TargetFreeEvent(target));
+}
+
+void GameConnection::sendResetTargets(bool tasksOnly)
+{
+   // 0x66e2e0. Only an established connection is told.
+   if (isEstablished())
+      postNetEvent(new ResetClientTargetsEvent(tasksOnly));
+}
 
 //----------------------------------------------------------------------------
 
