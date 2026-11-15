@@ -292,6 +292,41 @@ namespace T2Layout
       T2DbImageShellExitVariance,
       T2DbImageShellVelocity,
       T2DbImageCasing,
+      T2DbProjectileShapeName,
+      T2DbProjectileEmitterDelay,
+      T2DbProjectileBubbleEmitTime,
+      T2DbProjectileExplodeOnWaterImpact,
+      T2DbProjectileDepthTolerance,
+      T2DbProjectileUnderwaterExplosion,
+      T2DbProjectileSplash,
+      T2DbProjectileFireSound,
+      T2DbProjectileWetFireSound,
+      T2DbProjectileDelayEmitter,
+      T2DbProjectileDecal,
+      T2DbProjectileDecalLast = T2DbProjectileDecal + 5,
+      T2DbProjectileDryVelocity,
+      T2DbProjectileWetVelocity,
+      T2DbProjectileFizzleTime,
+      T2DbProjectileFizzleUnderwater,
+      T2DbProjectileActivateDelay,
+      T2DbProjectileExplodeOnDeath,
+      T2DbProjectileReflectOnWaterImpactAngle,
+      T2DbProjectileDeflectionOnWaterImpact,
+      T2DbProjectileDoDynamicClientHits,
+      T2DbProjectileMinRotSpeedX,
+      T2DbProjectileMinRotSpeedY,
+      T2DbProjectileMinRotSpeedZ,
+      T2DbProjectileMaxRotSpeedX,
+      T2DbProjectileMaxRotSpeedY,
+      T2DbProjectileMaxRotSpeedZ,
+      T2DbProjectileSize,
+      T2DbProjectileUseLensFlare,
+      T2DbProjectileTexture,
+      T2DbProjectileTextureLast = T2DbProjectileTexture + 11,
+      T2DbTracerMinPixels,
+      T2DbTracerAlpha,
+      T2DbTracerColor,
+      T2DbRenderCross,
       T2DbProjectileVelocity,
       T2DbProjectileLifetime,
       T2DbProjectileSound,
@@ -321,7 +356,6 @@ namespace T2Layout
       T2DbExplosion,
       T2DbProjectileBaseEmitter,
       T2DbProjectileBubbleEmitter,
-      T2DbProjectileSplash,
       T2DbFaceViewer,
       T2DbProjectileLightRadius,
       T2DbProjectileLightColorR,
@@ -946,7 +980,19 @@ namespace T2Layout
 
    /// The word a whole float goes out as, where Tribes 2 sends all 32 bits of
    /// one rather than a fraction of a scale.
-   inline U32 t2WholeWord(F32 value)
+   /// A time in milliseconds as retail keeps one: whole ticks, rounded up. A
+/// lifetimeMS of 5000 is 157 ticks and goes out as 5024.
+inline U32 t2TickMs(S32 ms, S32 least = 0, S32 most = 0)
+{
+   if(ms < least)
+      ms = least;
+   S32 ticks = (ms + 31) / 32;
+   if(most && ticks > most)
+      ticks = most;
+   return U32(ticks * 32);
+}
+
+inline U32 t2WholeWord(F32 value)
    {
       U32 word;
       dMemcpy(&word, &value, sizeof(word));
