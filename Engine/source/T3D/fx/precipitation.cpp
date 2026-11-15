@@ -22,6 +22,8 @@
 
 #include "platform/platform.h"
 #include "T3D/fx/precipitation.h"
+#include "T3D/gameBase/stubsT2.h"
+#include "T3D/gameBase/t2Layout.h"
 
 #include "math/mathIO.h"
 #include "console/consoleTypes.h"
@@ -168,6 +170,40 @@ void PrecipitationData::initPersistFields()
 
    Parent::initPersistFields();
 }
+
+// HH: Added for Tribes 2 compatibility. What a Tribes 2 body carries for
+// precipitation, settled against demo000's rain, snow and sand. This class
+// declares none of these fields, so the values are the ones its script set
+// and the body is written from those; sand sets none of maxSize's neighbours
+// and carries 1.0 in all three, which is what retail holds for them.
+void PrecipitationData::publishT2Data()
+{
+   Parent::publishT2Data();
+
+   static const StubT2::Field sFields[] =
+   {
+      { "soundProfile",     T2Layout::T2DbPrecipSound,            StubT2::DataBlock, NULL  },
+      { "type",             T2Layout::T2DbPrecipType,             StubT2::Word,      NULL  },
+      { "maxSize",          T2Layout::T2DbPrecipMaxSize,          StubT2::Whole,     "1.0" },
+      { "materialList",     T2Layout::T2DbPrecipMaterialList,     StubT2::Text,      NULL  },
+      { "sizeX",            T2Layout::T2DbPrecipSizeX,            StubT2::Whole,     "1.0" },
+      { "sizeY",            T2Layout::T2DbPrecipSizeY,            StubT2::Whole,     "1.0" },
+      { "movingBoxPer",     T2Layout::T2DbPrecipMovingBoxPer,     StubT2::Whole,     NULL  },
+      { "divHeightVal",     T2Layout::T2DbPrecipDivHeightVal,     StubT2::Whole,     NULL  },
+      { "sizeBigBox",       T2Layout::T2DbPrecipSizeBigBox,       StubT2::Whole,     NULL  },
+      { "topBoxSpeed",      T2Layout::T2DbPrecipTopBoxSpeed,      StubT2::Whole,     NULL  },
+      { "frontBoxSpeed",    T2Layout::T2DbPrecipFrontBoxSpeed,    StubT2::Whole,     NULL  },
+      { "topBoxDrawPer",    T2Layout::T2DbPrecipTopBoxDrawPer,    StubT2::Whole,     NULL  },
+      { "bottomDrawHeight", T2Layout::T2DbPrecipBottomDrawHeight, StubT2::Whole,     NULL  },
+      { "skipIfPer",        T2Layout::T2DbPrecipSkipIfPer,        StubT2::Whole,     NULL  },
+      { "bottomSpeedPer",   T2Layout::T2DbPrecipBottomSpeedPer,   StubT2::Whole,     NULL  },
+      { "frontSpeedPer",    T2Layout::T2DbPrecipFrontSpeedPer,    StubT2::Whole,     NULL  },
+      { "frontRadiusPer",   T2Layout::T2DbPrecipFrontRadiusPer,   StubT2::Whole,     NULL  },
+   };
+
+   StubT2::publish(this, sFields, sizeof(sFields) / sizeof(sFields[0]));
+}
+
 
 bool PrecipitationData::preload( bool server, String &errorStr )
 {
