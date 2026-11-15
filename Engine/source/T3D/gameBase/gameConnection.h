@@ -53,6 +53,7 @@ class MoveManager;
 class MoveList;
 struct Move;
 struct AuthInfo;
+class ColorI;
 
 #define GameString TORQUE_APP_NAME
 
@@ -287,6 +288,11 @@ public:
    // HH: Added for Tribes 2 compatibility.
    S32  getSensorGroup() const   { return mSensorGroup; }
    void setSensorGroup(S32 group) { mSensorGroup = group; }
+   /// The server's side of conn.setSensorGroup: the colours the group sees
+   /// go first, then the group itself. Only the server sends these.
+   void assignSensorGroup(S32 group);
+   /// Sends the colours one viewer group sees, for the targets in mask.
+   void sendSensorGroupColours(U32 group, U32 mask, const ColorI *colours);
    bool isScopingCommanderMap() const    { return mScopingCommanderMap; }
    void setScopingCommanderMap(bool on) { mScopingCommanderMap = on; }
    S32  getServerTarget() const           { return mServerTarget; }

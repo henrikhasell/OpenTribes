@@ -10,6 +10,9 @@
 #ifndef _NETSTRINGTABLE_H_
 #include "sim/netStringTable.h"
 #endif
+#ifndef _COLOR_H_
+#include "core/color.h"
+#endif
 
 class GameBase;
 class ShapeBaseData;
@@ -19,7 +22,8 @@ class SimDataBlock;
 /// built at 0x66c2c0).  A target is what the HUD, the sensors and the
 /// commander map know an object by; the scripts allocate one per client and
 /// per object whose datablock has a targetTypeTag, and hand its id to
-/// GameBase.setTarget.  This is the server's state only: nothing here is sent.
+/// GameBase.setTarget.  Targets are the server's state only; the sensor group
+/// colours are the one part sent, to the connections in the group they affect.
 class TargetManagerT2
 {
 public:
@@ -41,7 +45,8 @@ public:
    enum Block
    {
       BlockFreeCount  = 0,                             // +0x180c
-      BlockZero       = 1,                             // +0x1810, +0x1814
+      BlockZero       = 1,                             // +0x1810
+      BlockGroupCount = 2,                             // +0x1814
       BlockAlwaysVis  = 3,                             // +0x1818
       BlockNeverVis   = BlockAlwaysVis + SensorGroups, // +0x1898
       BlockFriendly   = BlockNeverVis + SensorGroups,  // +0x1918
@@ -95,6 +100,16 @@ public:
    void setTargetObject(S32 id, GameBase *obj);
    void setGroupMask(GroupMask which, S32 group, U32 mask);
 
+   /// The colour one viewer group draws each target of a sensor group in, for
+   /// the targets in mask. The viewer group's connections are told at once
+   /// (0x66f950), and a connection that joins later is told with its group.
+   void setGroupColours(S32 group, U32 mask, const ColorI &colour);
+   const ColorI *groupColours(S32 group) const { return mColours[group]; }
+
+   /// The number of sensor groups the scripts count (0x66f210). Nothing on this
+   /// server reads it yet: the loop that does is not ported.
+   void setGroupCount(S32 count) { mBlock[BlockGroupCount] = count; }
+
    bool isTargetVisible(S32 id, S32 group) const;
    bool isTargetFriendly(S32 id, S32 group) const;
 
@@ -110,6 +125,8 @@ private:
 
    U32    mBlock[BlockWords];
    Target mTargets[MaxTargets];
+   /// Row is the viewer group, entry the sensor group it sees.
+   ColorI mColours[SensorGroups][SensorGroups];
 };
 
 #endif
