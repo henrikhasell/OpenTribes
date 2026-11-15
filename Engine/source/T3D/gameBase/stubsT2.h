@@ -20,7 +20,9 @@ namespace StubT2
       Colour,  ///< four bytes, as the layout's colour op takes them
       Word,    ///< a whole number
       Flag,    ///< a true or a false
-      Text,    ///< a string
+      Text,      ///< a string
+      DataBlock, ///< the name of another datablock, sent as its id
+      Vector3,   ///< three floats in one script field, over three slots
    };
 
    struct Field
