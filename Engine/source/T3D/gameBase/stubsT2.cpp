@@ -119,3 +119,13 @@ void warn(const char *kind, const char *className)
 }
 
 }
+
+// HH: Added for Tribes 2 compatibility. Retail frees the objects its resource
+// cache keeps from the mission that is ending, and the scripts call this as
+// each one ends. This engine keeps no cache of that kind, so there is nothing
+// to free, and the function only has to exist.
+ConsoleFunction(purgeResources, void, 1, 1, "purgeResources();")
+{
+   TORQUE_UNUSED(argc);
+   TORQUE_UNUSED(argv);
+}
