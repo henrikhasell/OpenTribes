@@ -549,6 +549,16 @@ namespace T2Protocol
       { "ItemData",  52, OpRaw,   32, T2DbItemLightRadius     },
       { "ItemData",  53, OpFlag,   1, T2DbItemLightOnlyStatic },
 
+   // EffectProfile, settled against a recorded retail server: node 0 is the
+   // minDistance and node 1 the maxDistance of ArmorJetEffect's 5 and 10, and
+   // node 4 is the effect it names. Node 2 is 0.125 and node 3 is nought in
+   // all 128 bodies of demo000, which is every EffectProfile the game has, so
+   // they are values no script reaches rather than fields of their own.
+      { "EffectProfile",  0, OpRaw,    32, T2DbEffectMinDistance },
+      { "EffectProfile",  1, OpRaw,    32, T2DbEffectMaxDistance },
+      { "EffectProfile",  2, OpRaw,    32, T2DbEffectThird       },
+      { "EffectProfile",  4, OpString,  0, T2DbEffectName        },
+
    // RunningLightData, settled against a recorded retail server for its
    // radius, colour, type, length, node name and texture. Its two vectors are
    // the only fields left and go out in the script's own order, direction
