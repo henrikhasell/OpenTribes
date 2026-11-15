@@ -272,6 +272,8 @@ namespace T2Protocol
       { "DebrisData", 28, OpDataBlockId, 11, T2DbDebrisExplosion  },
 
       { "AudioProfile", 7, OpDataBlockId, 11, T2DbAudioDescription },
+      { "AudioProfile",  6, OpDataBlockId, 11, T2DbAudioEffect      },
+      { "AudioProfile",  3, OpString,       0, T2DbAudioFile        },
 
       { "AudioDescription",  0, OpFloat,  6, T2DbAudioVolume             },
       { "AudioDescription",  1, OpFlag,   1, T2DbAudioLooping            },
