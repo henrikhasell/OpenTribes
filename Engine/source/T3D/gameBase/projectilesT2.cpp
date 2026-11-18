@@ -171,6 +171,10 @@ public:
       /// between one tick and 510 of them, which retail's onAdd says in as
       /// many words.
    virtual U32 lifetimeWord() const { return U32(lifetimeMS); }
+
+      /// A bolt and a bullet fly at one speed in air and another under water;
+      /// every other class flies at the one velocity.
+   virtual F32 launchSpeed(bool inWater) const { return velocity; }
    bool unpackData(BitStream *stream, U32 classId);
 
       // HH: Added for Tribes 2 compatibility.
@@ -782,6 +786,16 @@ bool ProjectileDataT2::unpackData(BitStream *stream, U32 classId)
       typedef ProjectileDataT2 Parent;                                       \
    public:                                                                   \
       DECLARE_CONOBJECT(className);                                          \
+      className()                                                            \
+      {                                                                      \
+         if(linear)                                                          \
+            gravityMod = 0.0f;                                               \
+      }                                                                      \
+      F32 launchSpeed(bool inWater) const                                    \
+      {                                                                      \
+         return linear ? (inWater ? wetVelocity : dryVelocity)               \
+                       : Parent::launchSpeed(inWater);                       \
+      }                                                                      \
       U32 lifetimeWord() const                                               \
       {                                                                      \
          return linear ? T2Layout::t2TickMs(lifetimeMS, 32, 510)             \
@@ -1160,7 +1174,9 @@ bool ProjectileT2::onNewDataBlock(GameBaseData *dptr, bool reload)
          // behind itself, and none of that is inside a box the size of the
          // point it is at -- which would have the scene cull the lot.
       mBoxReach = getMax(mData->scale.x * mData->scale.y * 0.5f,
-                         mData->blurLifetime * mData->velocity) + 1.0f;
+                         mData->blurLifetime *
+                         getMax(mData->launchSpeed(false),
+                                mData->launchSpeed(true))) + 1.0f;
       mObjBox.minExtents.set(-mBoxReach, -mBoxReach, -mBoxReach);
       mObjBox.maxExtents.set( mBoxReach,  mBoxReach,  mBoxReach);
       resetWorldBox();
@@ -1343,7 +1359,7 @@ void ProjectileT2::processTick(const Move *move)
 
    if(mNeedsSpeed)
    {
-      mVelocity *= mData->velocity;
+      mVelocity *= mData->launchSpeed(isInWaterT2(getContainer(), mPosition));
       mNeedsSpeed = false;
    }
 
@@ -1404,7 +1420,7 @@ void ProjectileT2::advanceTime(F32 dt)
 
    if(mNeedsSpeed)
    {
-      mVelocity *= mData->velocity;
+      mVelocity *= mData->launchSpeed(isInWaterT2(getContainer(), mPosition));
       mNeedsSpeed = false;
 
       if(mCatchUp > 0.0f)
