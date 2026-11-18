@@ -2987,7 +2987,7 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
             if(isImage)
             {
                sBody.images[slot].hasDataBlock = true;
-               sBody.images[slot].dataBlockId = dbId;
+               sBody.images[slot].dataBlockId = dbId + DataBlockObjectIdFirst;
             }
             if(isSound)
                sBody.sounds[soundSlot].profile = S32(dbId);
