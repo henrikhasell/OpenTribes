@@ -165,6 +165,15 @@ void SFXALVoice::_seek( U32 sample )
 {
    AL_SANITY_CHECK();
    
+   // A static buffer that is still loading has no data yet, and OpenAL refuses
+   // to upload into a buffer that a source holds. Do not bind it here: keep the
+   // offset and let _play() apply it once the buffer is ready and bound.
+   if( !_getBuffer()->isReady() )
+   {
+      mResumeAtSampleOffset = F32( sample );
+      return;
+   }
+
    _lateBindStaticBufferIfNecessary();
    mOpenAL.alSourcei( mSourceName, AL_SAMPLE_OFFSET, sample );
 
