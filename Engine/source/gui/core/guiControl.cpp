@@ -736,9 +736,11 @@ bool GuiControl::onAdd()
       GuiControlProfile *profile = NULL;
       Sim::findObject( "GuiDefaultProfile", profile );
 
-      AssertISV( profile != NULL, avar("GuiControl::onAdd() unable to find specified profile and GuiDefaultProfile does not exist!") );
-
-      setControlProfile( profile );
+      // A dedicated server never defines GuiDefaultProfile, since it builds no
+      // GUI. Retail carries on without one, so a control here is left without
+      // a profile rather than stopping the server.
+      if ( profile )
+         setControlProfile( profile );
    }
 
    // HH: Modified for Tribes 2 compatibility.
@@ -754,7 +756,9 @@ bool GuiControl::onAdd()
    d.zDefined = true;
    d.zEnable = false;
 
-   mDefaultGuiSB = GFX->createStateBlock( d );
+   // No device on a dedicated server, so nothing is drawn and no state block is needed.
+   if ( GFX )
+      mDefaultGuiSB = GFX->createStateBlock( d );
 
    // Return Success.
    return true;

@@ -420,6 +420,17 @@ bool StandardMainLoop::handleCommandLine( S32 argc, const char **argv )
    // Tribes 2 mounts base before console_start.cs, whose -mod replaces it.
    Platform::FS::SetModPaths( String::EmptyString );
 
+   // A dedicated server opens no window, but the objects its scripts build
+   // still reach for the graphics device. Give them the null device up front.
+   for ( S32 i = 1; i < argc; i++ )
+   {
+      if ( dStricmp( argv[i], "-dedicated" ) == 0 )
+      {
+         Con::evaluate( "GFXInit::createNullDevice();" );
+         break;
+      }
+   }
+
    // Executes an entry script file. This is "console_start.cs"
    // by default, but any file name (with no whitespace
    // in it) may be run if it is specified as the first

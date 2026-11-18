@@ -80,7 +80,7 @@
 //    Server::PlayerCount
 //    Server::BotCount
 //    Server::GuidList[playerCount]
-//    Server::Dedicated
+//    $Host::Dedicated
 //    Server::Status
 //    Pref::Server::Name
 //    Pref::Server::Password
@@ -1703,7 +1703,7 @@ static void handleGameMasterInfoRequest( const NetAddress* address, U32 key, U8 
 #if defined(TORQUE_OS_XENON)
       temp8 |= ServerInfo::Status_Xenon;
 #endif
-      if ( Con::getBoolVariable( "Server::Dedicated" ) )
+      if ( Con::getBoolVariable( "$Host::Dedicated" ) )
          temp8 |= ServerInfo::Status_Dedicated;
       if ( dStrlen( Con::getVariable( "pref::Server::Password" ) ) > 0 )
          temp8 |= ServerInfo::Status_Passworded;
@@ -1967,7 +1967,7 @@ static void handleGameInfoRequest( const NetAddress* address, U32 key, U8 flags 
 #if defined(TORQUE_OS_XENON)
       status |= ServerInfo::Status_Xenon;
 #endif
-      if ( Con::getBoolVariable( "Server::Dedicated" ) )
+      if ( Con::getBoolVariable( "$Host::Dedicated" ) )
          status |= ServerInfo::Status_Dedicated;
       if ( dStrlen( Con::getVariable( "pref::Server::Password" ) ) )
          status |= ServerInfo::Status_Passworded;
