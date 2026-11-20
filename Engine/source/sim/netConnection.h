@@ -469,6 +469,11 @@ public:
 
    void connect(const NetAddress *address);
 
+   /// Joins the server in this process over the handshake a remote join runs,
+   /// minus the socket. The connectLocal method and localConnect both call it.
+   /// Returns "" on success, "error" otherwise.
+   const char *connectLocal();
+
    //----------------------------------------------------------------
    /// @name Global Connection List
    /// @{

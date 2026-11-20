@@ -323,7 +323,10 @@ void NetConnection::checkMaxRate()
    {
       packetRateToServer = 128;
       packetRateToClient = 128;
-      packetSize = 1024;
+      // HH: Added for Tribes 2 compatibility. A rate is sent in RateBitSize
+      // (10) bits, so 1024 reads back as 0 and the far end sizes its packets
+      // to the hard limit, past which a burst of events overflows.
+      packetSize = 1023;
    }
 
    gPacketUpdateDelayToServer = 1024 / packetRateToServer;
@@ -1481,8 +1484,13 @@ DefineEngineMethod( NetConnection, connectLocal, const char*, (),,
    "@see See @ref local_connections for a description of local connections and their use.  See "
    "NetConnection::connect() to connect to a server running in another process (on the same machine or not).\n")
 {
-   ConsoleObject *co = ConsoleObject::create(object->getClassName());
-   NetConnection *client = object;
+   return object->connectLocal();
+}
+
+const char *NetConnection::connectLocal()
+{
+   ConsoleObject *co = ConsoleObject::create(getClassName());
+   NetConnection *client = this;
    NetConnection *server = dynamic_cast<NetConnection *>(co);
    BitStream *stream = BitStream::getPacketStream();
 
