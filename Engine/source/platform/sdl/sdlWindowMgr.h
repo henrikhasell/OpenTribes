@@ -4,6 +4,11 @@
 #include "windowManager/platformWindowMgr.h"
 #include "platform/sdl/sdlWindow.h"
 
+#include <SDL3/SDL_scancode.h>
+
+/// The engine key code an SDL scancode reports, or 0 if the engine has none.
+U16 sdlToTorqueKey( SDL_Scancode code );
+
 class PlatformWindowManagerSDL : public PlatformWindowManager
 {
 public:
