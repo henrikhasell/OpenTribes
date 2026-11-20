@@ -138,6 +138,9 @@ class ActionMap : public SimObject
 
    void dumpActionMap(const char* fileName, const bool append) const;
 
+   /// Drop every binding, leaving the map itself in place.
+   void clearMap();
+
    static bool createEventDescriptor(const char* pEventString, EventDescriptor* pDescriptor);
 
    bool processBind(const U32 argc, const char** argv, SimObject* object = NULL);

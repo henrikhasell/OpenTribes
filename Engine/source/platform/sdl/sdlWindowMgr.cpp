@@ -22,7 +22,7 @@ static U32 sdlModifiers()
 
 /// SDL scancode to the engine's key codes. The letter and digit runs are
 /// contiguous in both, so those map arithmetically.
-static U16 sdlToTorqueKey( SDL_Scancode code )
+U16 sdlToTorqueKey( SDL_Scancode code )
 {
    static_assert( KEY_Z - KEY_A == 25, "KEY_A..KEY_Z must stay contiguous" );
    static_assert( KEY_9 - KEY_1 ==  8, "KEY_1..KEY_9 must stay contiguous" );

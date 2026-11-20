@@ -206,6 +206,12 @@ ActionMap::ActionMap()
 //------------------------------------------------------------------------------
 ActionMap::~ActionMap()
 {
+   clearMap();
+}
+
+//------------------------------------------------------------------------------
+void ActionMap::clearMap()
+{
    for (U32 i = 0; i < mDeviceMaps.size(); i++)
       delete mDeviceMaps[i];
    mDeviceMaps.clear();
@@ -252,12 +258,13 @@ void ActionMap::dumpActionMap(const char* fileName, const bool append) const
       else
       {
          // IMPORTANT -- do NOT change the following line, it identifies the file as an input map file
-         dStrcpy( lineBuffer, "// Torque Input Map File\n" );
+         dStrcpy( lineBuffer, "// Tribes 2 Input Map File\n" );
          iostrm->write( dStrlen( lineBuffer ), lineBuffer );
       }
 
-      dSprintf(lineBuffer, 1023, "if (isObject(%s)) %s.delete();\n"
-                                 "new ActionMap(%s);\n", getName(), getName(), getName());
+      // Each section clears its own map first, as retail's files do, so
+      // loading a file replaces the bindings rather than adding to them.
+      dSprintf(lineBuffer, 1023, "%s.clearMap();\n", getName());
       iostrm->write(dStrlen(lineBuffer), lineBuffer);
 
       // Dump all the binds to the console...
@@ -304,13 +311,13 @@ void ActionMap::dumpActionMap(const char* fileName, const bool append) const
 
             if (rNode.flags & Node::HasDeadZone) {
                char buff[64];
-               dSprintf(buff, 63, ", \"%g %g\"", rNode.deadZoneBegin, rNode.deadZoneEnd);
+               dSprintf(buff, 63, ", \"%f %f\"", rNode.deadZoneBegin, rNode.deadZoneEnd);
                dStrcat(lineBuffer, buff);
             }
 
             if (rNode.flags & Node::HasScale) {
                char buff[64];
-               dSprintf(buff, 63, ", %g", rNode.scaleFactor);
+               dSprintf(buff, 63, ", %f", rNode.scaleFactor);
                dStrcat(lineBuffer, buff);
             }
 
@@ -755,8 +762,9 @@ const char* ActionMap::getBinding( const char* command )
          if ( getKeyString( node->action, keyBuffer ) )
          {
             dSprintf( buffer, sizeof( buffer ), "%s\t%s%s", deviceBuffer, modifierString, keyBuffer );
+            // One record per binding: retail's remapper reads them with getRecord().
             if ( returnString[0] )
-               dStrcat( returnString, "\t" );
+               dStrcat( returnString, "\n" );
             dStrcat( returnString, buffer );
          }
       }
@@ -1272,6 +1280,30 @@ bool ActionMap::processBind(const U32 argc, const char** argv, SimObject* object
    // Ensure that the console function is properly specified?
    //
    // DMMTODO
+
+   // A command has one binding per map, as retail's remapper relies on: binding
+   // it again moves it to the new input, so the old one has to go. Object
+   // bindings are left alone, since one function serves many objects.
+   if (object == NULL)
+   {
+      for (U32 i = 0; i < mDeviceMaps.size(); i++)
+      {
+         DeviceMap* pDevMap = mDeviceMaps[i];
+         for (U32 j = 0; j < pDevMap->nodeMap.size(); )
+         {
+            Node& rNode = pDevMap->nodeMap[j];
+            if (!(rNode.flags & Node::BindCmd) && rNode.object == NULL &&
+                rNode.consoleFunction && dStricmp(rNode.consoleFunction, pFnName) == 0)
+            {
+               dFree(rNode.makeConsoleCommand);
+               dFree(rNode.breakConsoleCommand);
+               pDevMap->nodeMap.erase(j);
+            }
+            else
+               j++;
+         }
+      }
+   }
 
    // Create the full bind entry, and place it in the map
    //
@@ -1864,6 +1896,17 @@ DefineEngineMethod( ActionMap, unbindObj, bool, ( const char* device, const char
     return object->processUnbind( device, action, simObject );
 }
 
+DefineEngineMethod( ActionMap, clearMap, void, (),,
+   "@brief Removes every binding from the ActionMap.\n\n"
+   "Saved input maps start each section with this call, so loading one replaces the bindings the map had.\n"
+	"@tsexample\n"
+	"moveMap.clearMap();\n"
+	"@endtsexample\n\n"
+   "@see ActionMap")
+{
+   object->clearMap();
+}
+
 DefineEngineMethod( ActionMap, save, void, ( const char* fileName, bool append ), ( NULL, false ),
    "@brief Saves the ActionMap to a file or dumps it to the console.\n\n"
    "@param fileName The file path to save the ActionMap to. If a filename is not specified "
@@ -2230,15 +2273,15 @@ AsciiMapping gAsciiMap[] =
    { "comma",           0x002c },
    { "minus",           0x002d },
    { "period",          0x002e },
-   //{ "slash",           0x002f },
+   { "slash",           0x002f },
    //{ "colon",           0x003a },
-   //{ "semicolon",       0x003b },
-   //{ "lessthan",        0x003c },
-   //{ "equals",          0x003d },
+   { "semicolon",       0x003b },
+   { "lessthan",        0x003c },
+   { "equals",          0x003d },
    //{ "morethan",        0x003e },
-   //{ "lbracket",        0x005b },
+   { "lbracket",        0x005b },
    { "backslash",       0x005c },
-   //{ "rbracket",        0x005d },
+   { "rbracket",        0x005d },
    //{ "circumflex",      0x005e },
    //{ "underscore",      0x005f },
    { "grave",           0x0060 },
