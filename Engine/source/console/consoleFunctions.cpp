@@ -285,6 +285,21 @@ DefineConsoleFunction( strpos, S32, ( const char* haystack, const char* needle, 
 
 //-----------------------------------------------------------------------------
 
+DefineConsoleFunction( strcspn, S32, ( const char* str, const char* set ),,
+   "Find the length of the leading part of @a str that holds none of the characters in @a set.\n"
+   "@param str The string to search.\n"
+   "@param set The characters to look for.\n"
+   "@return The index of the first character in @a str that is in @a set, or the length of @a str if none is.\n\n"
+   "@tsexample\n"
+   "strcspn( \"My/Config\", \"/?\" ) // Returns 2.\n"
+   "@endtsexample\n"
+   "@ingroup Strings" )
+{
+   return dStrcspn( str, set );
+}
+
+//-----------------------------------------------------------------------------
+
 DefineConsoleFunction( ltrim, const char*, ( const char* str ),,
    "Remove leading whitespace from the string.\n"
    "@param str A string.\n"
