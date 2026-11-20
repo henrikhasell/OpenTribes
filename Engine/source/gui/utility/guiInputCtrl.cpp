@@ -100,16 +100,25 @@ void GuiInputCtrl::onSleep()
 
 
 //------------------------------------------------------------------------------
+// A modifier is never delivered on its own: it qualifies the key pressed with
+// it, which carries it in the event's modifier flags. SDL reports each pair of
+// shift, control and alt keys as one code, so those codes count too.
 static bool isModifierKey( U16 keyCode )
 {
    switch ( keyCode )
    {
+      case KEY_SHIFT:
+      case KEY_CONTROL:
+      case KEY_ALT:
+      case KEY_LSHIFT:
+      case KEY_RSHIFT:
       case KEY_LCONTROL:
       case KEY_RCONTROL:
       case KEY_LALT:
       case KEY_RALT:
-      case KEY_LSHIFT:
-      case KEY_RSHIFT:
+      case KEY_MAC_OPT:
+      case KEY_MAC_LOPT:
+      case KEY_MAC_ROPT:
          return( true );
    }
 
@@ -121,7 +130,7 @@ IMPLEMENT_CALLBACK( GuiInputCtrl, onInputEvent, void, (const char* device, const
 	"@brief Callback that occurs when an input is triggered on this control\n\n"
 	"@param device The device type triggering the input, such as keyboard, mouse, etc\n"
 	"@param action The actual event occuring, such as a key or button\n"
-	"@param state True if the action is being pressed, false if it is being release\n\n"
+	"@param state True when the action is pressed; releases are not reported\n\n"
 );
 
 //------------------------------------------------------------------------------
@@ -146,20 +155,5 @@ bool GuiInputCtrl::onInputEvent( const InputEventInfo &event )
          return( true );
       }
    }
-   else if ( event.action == SI_BREAK )
-   {
-      if ( ( event.objType == SI_KEY ) && isModifierKey( event.objInst ) )
-      {
-         char keyString[32];
-         if ( !ActionMap::getKeyString( event.objInst, keyString ) )
-            return( false );
-
-         //Con::executef( this, "onInputEvent", "keyboard", keyString, "0" );
-		 onInputEvent_callback("keyboard", keyString, 0);
-
-         return( true );
-      }
-   }
-
    return( false );
 }
