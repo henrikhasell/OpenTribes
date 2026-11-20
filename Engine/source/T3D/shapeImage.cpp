@@ -1410,6 +1410,13 @@ void ShapeBase::getMuzzleVector(U32 imageSlot,VectorF* vec)
    {
       MountedImage& image = mMountedImageList[imageSlot];
 
+      // An empty slot has no datablock to correct the aim with.
+      if (!image.dataBlock)
+      {
+         mat.getColumn(1, vec);
+         return;
+      }
+
       bool fp = gc->isFirstPerson();
       if ((fp && image.dataBlock->correctMuzzleVector) ||
          (!fp && image.dataBlock->correctMuzzleVectorTP))
@@ -1437,6 +1444,14 @@ void ShapeBase::getRenderMuzzleVector(U32 imageSlot,VectorF* vec)
    if (gc && !gc->isAIControlled())
    {
       MountedImage& image = mMountedImageList[imageSlot];
+
+      // A beam can outlive the image it follows: an empty slot has no
+      // datablock to correct the aim with (crash seen on a sniper beam).
+      if (!image.dataBlock)
+      {
+         mat.getColumn(1, vec);
+         return;
+      }
 
       bool fp = gc->isFirstPerson();
       if ((fp && image.dataBlock->correctMuzzleVector) ||
