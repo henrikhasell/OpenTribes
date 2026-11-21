@@ -45,6 +45,7 @@ public:
    bool onAdd();
    bool preload(bool server, String &errorStr);
    bool unpackData(BitStream *stream, U32 classId);
+   void publishT2Data();
 
    DECLARE_CONOBJECT(ForceFieldBareData);
 };
@@ -92,7 +93,11 @@ public:
    bool onAdd();
    void onRemove();
    bool onNewDataBlock(GameBaseData *dptr, bool reload);
+   U32  packUpdate(NetConnection *conn, U32 mask, BitStream *stream,
+                   bool isInitial);
    bool unpackUpdate(BitStream *stream, bool isInitial);
+   void getT2Body(T2Layout::Body *body, bool isInitial, U32 mask,
+                  NetConnection *conn) const override;
 
    void processTick(const Move *move);
    void interpolateTick(F32 delta);

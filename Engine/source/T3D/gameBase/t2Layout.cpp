@@ -2734,6 +2734,8 @@ static bool writeBodyFlag(const T2DataBlockLayout *layout, S32 at, bool *set)
       case T2FieldBeamHit:            *set = sWriteBody.beamHit;          return true;
       case T2FieldBeamWet:            *set = sWriteBody.beamWet;          return true;
       case T2FieldBeamFollow:         *set = sWriteBody.beamFollow;       return true;
+      // The team a field lets through is named only on a body that has one.
+      case T2FieldTargetHere:         *set = sWriteBody.hasTarget;        return true;
       default:                                                            return false;
    }
 }
@@ -2868,6 +2870,17 @@ static bool writeBodyWord(const T2DataBlockLayout *layout, S32 at, U32 *word)
       case T2FieldSourceSlot:
          *word = sWriteBody.sourceSlot;
          return true;
+      // A field's state, the fade an opening or closing one is in, and the
+      // team it lets through (nine bits, the target manager's id).
+      case T2FieldFieldState:
+         *word = sWriteBody.fieldState;
+         return true;
+      case T2FieldFieldFade:
+         *word = sWriteBody.fieldFade;
+         return true;
+      case T2FieldTarget:
+         *word = U32(sWriteBody.target) & 0x1ff;
+         return true;
       case T2FieldBeamEnergy:
          if(!sWriteBody.hasBeamEnergy)
             return false;
@@ -2989,6 +3002,15 @@ static bool ghostFlagAt(S32 at, bool *set)
                if(!sWriteBody.flightWords)
                   break;
                *set = sWriteBody.hasSourceObject;
+               return true;
+            // A field's state flag goes out set when the body has a state; the
+            // team flag goes out set when it has a team, and leads into the
+            // state's flag.
+            case T2FieldFieldState:
+               *set = sWriteBody.hasFieldState;
+               return true;
+            case T2FieldTargetHere:
+               *set = sWriteBody.hasTarget;
                return true;
             default:
                break;

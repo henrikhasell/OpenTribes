@@ -150,6 +150,39 @@ bool ForceFieldBareData::unpackData(BitStream *stream, U32 classId)
    return true;
 }
 
+// HH: Added for Tribes 2 compatibility. The fields unpackData reads, the way
+// ForceFieldBareData::packData (0x00675450) writes them: the colours as four
+// bytes, the rest as words, then the five texture names in order.
+void ForceFieldBareData::publishT2Data()
+{
+   Parent::publishT2Data();
+
+   T2Layout::publishDataBlockWord(T2Layout::T2DbFieldFadeMS, U32(fadeMS));
+   T2Layout::publishDataBlockWhole(T2Layout::T2DbFieldBaseTranslucency,
+                                   baseTranslucency);
+   T2Layout::publishDataBlockWhole(T2Layout::T2DbFieldPowerOffTranslucency,
+                                   powerOffTranslucency);
+   T2Layout::publishDataBlockFlag(T2Layout::T2DbFieldTeamPermiable,
+                                  teamPermiable);
+   T2Layout::publishDataBlockFlag(T2Layout::T2DbFieldOtherPermiable,
+                                  otherPermiable);
+   T2Layout::publishDataBlockWord(T2Layout::T2DbFieldColor,
+                                  T2Layout::t2ColorWord(color));
+   T2Layout::publishDataBlockWord(T2Layout::T2DbFieldPowerOffColor,
+                                  T2Layout::t2ColorWord(powerOffColor));
+   T2Layout::publishDataBlockWord(T2Layout::T2DbFieldFramesPerSec,
+                                  U32(framesPerSec));
+   T2Layout::publishDataBlockWord(T2Layout::T2DbFieldNumFrames,
+                                  U32(numFrames));
+   T2Layout::publishDataBlockWhole(T2Layout::T2DbFieldScrollSpeed,
+                                   scrollSpeed);
+   T2Layout::publishDataBlockWhole(T2Layout::T2DbFieldUMapping, umapping);
+   T2Layout::publishDataBlockWhole(T2Layout::T2DbFieldVMapping, vmapping);
+
+   for(U32 i = 0; i < NumTextures; i++)
+      T2Layout::publishBodyString(String(textureName[i] ? textureName[i] : ""));
+}
+
 IMPLEMENT_CO_NETOBJECT_V1(ForceFieldBare);
 
 ConsoleDocClass( ForceFieldBare,
@@ -237,6 +270,51 @@ bool ForceFieldBare::unpackUpdate(BitStream *stream, bool isInitial)
    }
 
    return true;
+}
+
+// HH: Added for Tribes 2 compatibility. The state goes out on a first body and
+// on every body that carries a state change, with the fade an opening or
+// closing field is in. The team rides on the state bodies (see packUpdate).
+void ForceFieldBare::getT2Body(T2Layout::Body *body, bool isInitial, U32 mask,
+                               NetConnection *conn) const
+{
+   Parent::getT2Body(body, isInitial, mask, conn);
+
+   // The scale is the box's size, and the layout reads it on every first
+   // body, so a unit scale goes out too rather than zeros.
+   if(isInitial)
+   {
+      body->hasScale = true;
+      body->scale = getScale();
+   }
+
+   if(!isInitial && !(mask & StateMask))
+      return;
+
+   body->hasFieldState = true;
+   body->fieldState = mState;
+   if(mState == Opening || mState == Closing)
+      body->fieldFade = U32(mFadeTime);
+
+   // The team the field lets through rides on a state body. A first body
+   // carries the transform instead, and the layout has no room for both.
+   if(!isInitial && getTarget() >= 0)
+   {
+      body->hasTarget = true;
+      body->target = getTarget();
+   }
+}
+
+// HH: Added for Tribes 2 compatibility. A first body carries the transform,
+// which the layout cannot send with the team, so the team follows on a state
+// body of its own.
+U32 ForceFieldBare::packUpdate(NetConnection *conn, U32 mask,
+                               BitStream *stream, bool isInitial)
+{
+   const U32 retMask = Parent::packUpdate(conn, mask, stream, isInitial);
+   if(isInitial)
+      setMaskBits(StateMask);
+   return retMask;
 }
 
 void ForceFieldBare::tickFade()
