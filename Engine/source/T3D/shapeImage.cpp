@@ -521,11 +521,17 @@ void ShapeBaseImageData::publishT2Data()
                                      shapeName ? shapeName : "" );
    T2Layout::publishDataBlockWord( T2Layout::T2DbImageMountPoint, mountPoint );
 
-   // The eye offset, six of a transform's words in the order the body reads
-   // them, and the flag that says the fourth column's w is negative.
-   const F32 *offset = eyeOffset;
+   // Where the script's offset and rotation put the image on its mount point,
+   // as the three parts of its position and then the three of its quaternion,
+   // with the flag that says that quaternion's w is negative. The client's
+   // reader builds the mount offset back from these; eyeOffset is not on the
+   // wire, since no retail script sets one.
+   const Point3F pos = mountOffset.getPosition();
+   const QuatF rot( mountOffset );
+   const F32 offset[6] = { pos.x, pos.y, pos.z, rot.x, rot.y, rot.z };
    for( U32 i = 0; i < 6; i++ )
       T2Layout::publishDataBlockWhole( T2Layout::T2DbImageOffset + i, offset[i] );
+   T2Layout::publishDataBlockFlag( T2Layout::T2DbImageOffsetWNegative, rot.w < 0.0f );
 
    T2Layout::publishDataBlockFlag( T2Layout::T2DbImageCloakable, cloakable );
    T2Layout::publishDataBlockFlag( T2Layout::T2DbImageEmap, emap );
