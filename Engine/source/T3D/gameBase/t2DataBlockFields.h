@@ -224,6 +224,7 @@ namespace T2Protocol
       { "ExplosionData", 5, OpFlag, 1, T2DbFaceViewer },
 
    // The file name opens the body, then the sound and the emitter it names.
+      { "ExplosionData",   0, OpString,      0, T2DbExplosionShape },
       { "ExplosionData", 109, OpDataBlockId, 11, T2DbExplosionSound },
       { "ExplosionData", 108, OpDataBlockId, 11, T2DbExplosionParticleEmitter },
       { "ExplosionData",   3, OpInt,   14, T2DbExplosionParticleDensity   },

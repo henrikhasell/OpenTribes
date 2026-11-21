@@ -397,6 +397,7 @@ namespace T2Layout
       T2DbExplosionKeys,
       T2DbExplosionTime,
       T2DbExplosionSize,
+      T2DbExplosionShape,
       T2DbExplosionSound,
       T2DbExplosionParticleEmitter,
       T2DbExplosionParticleDensity,

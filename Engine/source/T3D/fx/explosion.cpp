@@ -662,6 +662,13 @@ void ExplosionData::publishT2Data()
 {
    Parent::publishT2Data();
 
+   // The shape is written without its shapes/ folder, as debris's is, and a
+   // client's preload puts the folder back.
+   const char *shape = dtsFileName ? dtsFileName : "";
+   if( const char *leaf = dStrstr( shape, "shapes/" ) )
+      shape = leaf + dStrlen( "shapes/" );
+   T2Layout::publishDataBlockString( T2Layout::T2DbExplosionShape, shape );
+
    T2Layout::publishDataBlockFlag( T2Layout::T2DbFaceViewer, faceViewer );
    T2Layout::publishDataBlockWord( T2Layout::T2DbPlaySpeed,
                                    U32( playSpeed / 0.05f ) );
