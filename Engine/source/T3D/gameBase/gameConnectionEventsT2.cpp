@@ -902,7 +902,9 @@ public:
    DECLARE_CONOBJECT(FogChallengeEvent);
 };
 
-IMPLEMENT_CO_CLIENTEVENT_V1(FogChallengeEvent);
+// Retail declares this event in both directions, and its client sends it to
+// the server, so the server must accept it from a client.
+IMPLEMENT_CO_NETEVENT_V1(FogChallengeEvent);
 
 ConsoleDocClass( FogChallengeEvent,
    "@brief Asks a client how far it can see through fog.\n\n@internal" );
