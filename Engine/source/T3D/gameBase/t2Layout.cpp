@@ -2300,6 +2300,9 @@ static bool writeStateFlag(S32 at, bool *set)
       const ImageState &state = sWriteStates[index];
       if(part == T2StateSequenceSign)    { *set = state.hasSequence;    return true; }
       if(part == T2StateSequenceVisSign) { *set = state.hasSequenceVis; return true; }
+      // A state's sound is an id behind this flag; the flag is set when the
+      // state has one, which is what the reader takes to start its sound.
+      if(part == T2StateSound)           { *set = state.sound >= 0;     return true; }
    }
 
    return false;
