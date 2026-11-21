@@ -19,11 +19,11 @@ opentribes config="debug" telnet_port="2323": (install config)
 
 retail telnet_port="2324":
     PYTHONPATH="{{justfile_directory()}}/scripts" \
-    python -m launch --telnet-port "{{telnet_port}}" retail
+    python -m launch --telnet-port "{{telnet_port}}" --connect local retail
 
 dedicated telnet_port="2325":
     PYTHONPATH="{{justfile_directory()}}/scripts" \
-    python -m launch --telnet-port "{{telnet_port}}" --dedicated retail
+    python -m launch --telnet-port "{{telnet_port}}" --dedicated opentribes
 
 [positional-arguments]
 telnet telnet_port *commands:
