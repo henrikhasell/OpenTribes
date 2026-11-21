@@ -104,6 +104,10 @@ namespace T2Protocol
       T2FieldBeamEnergy,            ///< readFloat(bits) of the shot's
                                     ///< strength
       T2FieldPowered,               ///< the flag that says it has power
+      T2FieldStaticBlock,           ///< the flag that opens a 10-bit and a 5-bit
+                                    ///< raw word before a StaticShape's
+                                    ///< transform; never sent, as nothing names
+                                    ///< what the words carry
       T2FieldTurretAim,             ///< the flag a turret's aim follows
       T2FieldTurretHeading,
       T2FieldTurretPitch,
@@ -239,6 +243,11 @@ namespace T2Protocol
       { "StaticShape",           11, OpRaw,  32, T2FieldAffine   },
       { "StaticShape",            5, OpFlag,  1, T2FieldQuatSign },
       { "StaticShape",            4, OpRaw,  32, T2FieldScale    },
+
+   // StaticShape's tail, read after its ShapeBase body: the block that is
+   // never sent, the transform, then the power as a bare flag on every body.
+      { "StaticShape",           15, OpFlag,  1, T2FieldStaticBlock },
+      { "StaticShape",            1, OpFlag,  1, T2FieldPowered     },
 
       { "ScopeAlwaysShape",       6, OpRaw,  32, T2FieldAffine   },
       { "ScopeAlwaysShape",      12, OpFlag,  1, T2FieldQuatSign },

@@ -2736,6 +2736,12 @@ static bool writeBodyFlag(const T2DataBlockLayout *layout, S32 at, bool *set)
       case T2FieldBeamFollow:         *set = sWriteBody.beamFollow;       return true;
       // The team a field lets through is named only on a body that has one.
       case T2FieldTargetHere:         *set = sWriteBody.hasTarget;        return true;
+      // A StaticShape's power is a bare flag, so every body carries it.
+      case T2FieldPowered:
+         *set = sWriteBody.hasPowered && sWriteBody.powered;
+         return true;
+      // Nothing names the block behind this flag, so it is never sent.
+      case T2FieldStaticBlock:        *set = false;                       return true;
       default:                                                            return false;
    }
 }
