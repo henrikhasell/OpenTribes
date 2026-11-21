@@ -2207,6 +2207,23 @@ void ShapeBase::getT2Body(T2Layout::Body *body, bool isInitial, U32 mask,
 {
    Parent::getT2Body(body, isInitial, mask, conn);
 
+   // The damage block goes out on a first body and whenever the damage
+   // changes. The level is a share of maxDamage, which the ghost scales back
+   // up, and it drives the health bar and the armour decals (the damage
+   // sequence's position, in updateDamageLevel).
+   if (mDataBlock && (isInitial || (mask & DamageMask)))
+   {
+      const F32 maxDamage = mDataBlock->maxDamage;
+      body->hasDamage = true;
+      body->damage = maxDamage > 0.0f ? mClampF(mDamage / maxDamage, 0.0f, 1.0f)
+                                      : 0.0f;
+      body->hasDamageState = true;
+      body->damageState = U32(mDamageState);
+      body->blowApart = mBlowApart;
+      body->hasDamageDir = true;
+      body->damageDir = damageDir;
+   }
+
    const U32 imageSlots = getMin((U32)MaxMountedImages, (U32)T2Layout::MaxImages);
    if (isInitial || (mask & ImageMask))
    {

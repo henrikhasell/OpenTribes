@@ -1857,6 +1857,10 @@ static bool isBodyMask(const T2DataBlockLayout *layout, S32 at)
       return part == T2SoundChanged;
    if(shapeAt(layout, at, &part) && part == T2MountChanged)
       return true;
+   // The damage block's gate is the level, which a body carries when it has
+   // any damage to send. The state and direction behind it are not gates.
+   if(damageAt(layout, at, &part))
+      return part == T2DamageLevel;
 
    // The look block has no flag of its own that a body could set; its head
    // pitch is the first word under it, sent whenever the body carries a head.
@@ -2687,6 +2691,19 @@ static bool writeBodyFlag(const T2DataBlockLayout *layout, S32 at, bool *set)
       }
    }
 
+   // The damage block goes out when the body has damage to send, and its
+   // blow-apart flag says whether the object is blown apart.
+   U32 damagePart;
+   if(damageAt(layout, at, &damagePart))
+   {
+      switch(damagePart)
+      {
+         case T2DamageLevel:     *set = sWriteBody.hasDamage;         return true;
+         case T2DamageBlowApart: *set = sWriteBody.blowApart;         return true;
+         default:                                                     break;
+      }
+   }
+
    const T2GhostFieldRow *row = fieldAt(layout, at);
    if(!row)
       return false;
@@ -2765,6 +2782,38 @@ static bool writeBodyWord(const T2DataBlockLayout *layout, S32 at, U32 *word)
          case T2MountGhost:     *word = U32(sWriteBody.mountGhost); return true;
          case T2MountNode:      *word = sWriteBody.mountNode;       return true;
          default:                                                   break;
+      }
+   }
+
+   // The damage block's words, in the order the reader takes them: the level,
+   // the state, then the direction's phi and theta.
+   U32 damagePart;
+   if(damageAt(layout, at, &damagePart))
+   {
+      switch(damagePart)
+      {
+         case T2DamageLevel:
+            if(!sWriteBody.hasDamage)
+               return false;
+            *word = t2FloatWord(sWriteBody.damage, n.bits);
+            return true;
+         case T2DamageState:
+            *word = sWriteBody.damageState;
+            return true;
+         case T2DamageDirPhi:
+         case T2DamageDirTheta:
+         {
+            if(!sWriteBody.hasDamageDir)
+               return false;
+
+            F32 phi, theta;
+            vectorAngles(sWriteBody.damageDir, &phi, &theta);
+            *word = damagePart == T2DamageDirPhi
+               ? t2SignedFloatWord(phi / M_PI_F, n.bits)
+               : t2SignedFloatWord(theta / M_HALFPI_F, n.bits);
+            return true;
+         }
+         default:                                                    break;
       }
    }
 
