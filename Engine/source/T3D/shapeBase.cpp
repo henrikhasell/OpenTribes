@@ -2152,12 +2152,6 @@ void ShapeBase::readT2Mount(const T2Layout::Body &body)
       return;
    }
 
-   // Every body names the mount again, and mountObject would rewrite the rider's
-   // transform each time it ran. A mount it already has is no change.
-   if (isMounted() && getObjectMount() == mount &&
-       getMountNode() == body.mountNode)
-      return;
-
    mount->mountObject(this, S32(body.mountNode));
 }
 
@@ -2282,11 +2276,12 @@ void ShapeBase::getT2Body(T2Layout::Body *body, bool isInitial, U32 mask,
       slot.profile = (st.play && st.profile) ? S32(st.profile->getId()) : -1;
    }
 
-   // Sent on every body rather than on a change: the rider has no bit of its
-   // own for its mount, and readT2Mount takes a mount it already has as no
-   // change. A mount the connection has not ghosted yet is left out, because
-   // the reader cannot name it.
-   if (conn)
+   // Sent on a first body and whenever the mount changes, which the rider's
+   // MountedMask says (SceneObject::onMount and onUnmount). Until the
+   // connection has ghosted the mount, every body carries it: the reader
+   // cannot name an unghosted mount, and a bit sent meanwhile is spent.
+   if (conn && (isInitial || (mask & MountedMask) ||
+                (mMount.object && conn->getGhostIndex(mMount.object) < 0)))
    {
       if (!mMount.object)
       {

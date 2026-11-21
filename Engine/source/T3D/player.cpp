@@ -5514,17 +5514,6 @@ void Player::readT2Action(const T2Layout::Body &body)
 
 void Player::onT2BodyRead(const T2Layout::Body &body)
 {
-   // HH: Added for Tribes 2 compatibility. What a body says of the action, the
-   // arm and the look, for the same debugging the image and thread traces do.
-   if (Con::getBoolVariable("$pref::Net::traceGhostActions", false))
-      Con::printf("T2 action: %s %d (ghost %d) action %d (%d) hold %d atEnd %d "
-                  "pos %d %g arm %d (%d) head %g %g hasPos %d at %g %g %g",
-                  getClassName(), getId(), getNetIndex(), body.hasAction,
-                  body.action, body.actionHold, body.actionAtEnd,
-                  body.hasActionPos, body.actionPos, body.hasArm, body.arm,
-                  body.head.x, body.head.y, body.hasPosition,
-                  body.position.x, body.position.y, body.position.z);
-
    readT2Damage(body);
    readT2Invincible(body);
    readT2Shield(body);
@@ -5553,10 +5542,14 @@ void Player::onT2BodyRead(const T2Layout::Body &body)
    if (body.hasArm && mDataBlock)
       readT2Arm(body);
 
+   if (!body.hasPosition)
+      return;
+
+   const Point3F rot(0.0f, 0.0f, body.hasYaw ? body.yaw : mRot.z);
+
    // HH: Added for Tribes 2 compatibility.
    // Retail scales the head's yaw by maxLookAngle too, not maxFreelookAngle
-   // (0x005db8d4, 0x005db8ef). Read before the position check, so the head
-   // moves whether or not the body carries a position.
+   // (0x005db8d4, 0x005db8ef).
    if (body.hasHead && mDataBlock)
    {
       mHead.x = body.head.x * mDataBlock->maxLookAngle;
@@ -5564,11 +5557,6 @@ void Player::onT2BodyRead(const T2Layout::Body &body)
       delta.head = mHead;
       delta.headVec.set(0.0f, 0.0f, 0.0f);
    }
-
-   if (!body.hasPosition)
-      return;
-
-   const Point3F rot(0.0f, 0.0f, body.hasYaw ? body.yaw : mRot.z);
 
    delta.pos = body.position;
    delta.rot = rot;
@@ -5594,14 +5582,19 @@ void Player::getT2Body(T2Layout::Body *body, bool isInitial, U32 mask,
 {
    Parent::getT2Body(body, isInitial, mask, conn);
 
-   // The walk reads a player's position and rotation in every body, not only
-   // a first one, so every body says where the player is. A body without them
-   // would read the player back at the origin.
+   // The walk reads a player's position, heading and velocity in every body,
+   // not only a first one. Without them the client keeps its own heading (north
+   // for a new ghost) and no velocity, so the walk never turns and its cycle
+   // runs at the wrong speed (see Player::updateActionThread).
    const MatrixF &transform = getTransform();
    body->hasPosition = true;
    body->position = transform.getPosition();
    body->hasRotation = true;
    body->rotation = transform;
+   body->hasYaw = true;
+   body->yaw = mRot.z;
+   body->hasVelocity = true;
+   body->velocity = mVelocity;
 
    if (!mDataBlock)
       return;

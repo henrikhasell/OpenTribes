@@ -2025,16 +2025,69 @@ namespace Plan
    /// images are, are both this.
    static bool gatesWanted(const T2DataBlockLayout *layout, S32 at)
    {
-      Vector<S32> nodes(__FILE__, __LINE__);
-      if(!gateNodes(layout, at, &nodes))
-         return false;
+      const T2DataNode &flag = layout->nodes[at];
 
-      for(U32 i = 0; i < nodes.size(); i++)
+      S32 shared[192];
+      const U32 sharedCount = reachable(layout, flag.a, shared,
+                                        ELEMENTS(shared));
+
+      S32 stack[128];
+      U32 depth = 0;
+      stack[depth++] = flag.b;
+
+      S32 seen[192];
+      U32 seenCount = 0;
+
+      while(depth)
       {
-         const S32 walk = nodes[i];
+         const S32 walk = stack[--depth];
+         if(walk < 0 || U32(walk) >= layout->count)
+            continue;
+
+         // Shared with the clear arm, so past where the two rejoin.
+         U32 i = 0;
+         for(; i < sharedCount; i++)
+            if(shared[i] == walk)
+               break;
+         if(i < sharedCount)
+            continue;
+
+         for(i = 0; i < seenCount; i++)
+            if(seen[i] == walk)
+               break;
+         if(i < seenCount)
+            continue;
+         if(seenCount >= ELEMENTS(seen))
+            return false;
+         seen[seenCount++] = walk;
+
          if(U32(walk) < sField.size() && sField[walk] >= 0 &&
             published(U32(sField[walk])))
             return true;
+
+         const T2DataNode &n = layout->nodes[walk];
+         if(n.op == OpEnd || n.op == OpEndBody)
+            continue;
+
+         if(n.op == OpSelect || n.op == OpReadBr)
+         {
+            if(!layout->select)
+               return false;
+            const U32 arms = n.op == OpReadBr ? 2u : 1u << n.bits;
+            for(U32 arm = 0; arm < arms; arm++)
+            {
+               if(depth >= ELEMENTS(stack))
+                  return false;
+               stack[depth++] = layout->select[n.a + arm];
+            }
+            continue;
+         }
+
+         if(depth + 2 > ELEMENTS(stack))
+            return false;
+         stack[depth++] = n.a;
+         if(n.op == OpFlag || n.op == OpLoop)
+            stack[depth++] = n.b;
       }
 
       return false;
@@ -2336,6 +2389,43 @@ static QuatF writeQuat()
    return QuatF(m);
 }
 
+// HH: Added for Tribes 2 compatibility. The inverses of what the reader takes
+// back: the yaw as a share of a turn, the speed in thirty-seconds of a metre
+// and the direction as normalVector(word, 10) reads it.
+
+/// The heading a body's yaw goes out as, a share of a turn read back as
+/// word / mask turns.
+static U32 writeYawWord(U32 bits)
+{
+   const U32 mask = (1 << bits) - 1;
+   const F32 yaw = sWriteBody.hasYaw ? sWriteBody.yaw : 0.0f;
+   const F32 turns = yaw / M_2PI_F;
+   const F32 share = turns - mFloor(turns);
+   return t2ScaledWord(share, F64(mask), 0.5) & mask;
+}
+
+/// The speed a body's velocity goes out as, in thirty-seconds of a metre.
+static U32 writeSpeedWord(U32 bits)
+{
+   const U32 mask = (1 << bits) - 1;
+   const U32 word = t2ScaledWord(sWriteBody.velocity.len(), 32.0);
+   return word > mask ? mask : word;
+}
+
+/// The direction of a body's velocity: a heading in the low eleven bits and an
+/// elevation in the ten above them.
+static U32 writeDirectionWord()
+{
+   const F32 len = sWriteBody.velocity.len();
+   const Point3F dir = len > 0.0f ? sWriteBody.velocity * (1.0f / len)
+                                  : Point3F(0.0f, 0.0f, 0.0f);
+
+   const F32 phi   = mAtan2(dir.x, dir.y);
+   const F32 theta = mAsin(mClampF(dir.z, -1.0f, 1.0f));
+   return t2SignedFloatWord(phi / M_PI_F, 11) |
+          (t2SignedFloatWord(theta / M_HALFPI_F, 10) << 11);
+}
+
 /// Whether the node starts a run of words the body has, and with what.
 static bool ghostRunAt(S32 at)
 {
@@ -2531,6 +2621,7 @@ static bool writeBodyFlag(const T2DataBlockLayout *layout, S32 at, bool *set)
    switch(row->field)
    {
       case T2FieldJetting:            *set = sWriteBody.jetting;          return true;
+      case T2FieldVelocityHere:       *set = sWriteBody.hasVelocity;      return true;
       case T2FieldImpactHere:         *set = sWriteBody.hasImpactSound;   return true;
       case T2FieldActionHere:         *set = sWriteBody.hasAction;        return true;
       case T2FieldActionHold:         *set = sWriteBody.actionHold;       return true;
@@ -2603,6 +2694,9 @@ static bool writeBodyWord(const T2DataBlockLayout *layout, S32 at, U32 *word)
          *word = t2SignedFloatWord(sWriteBody.head.x, n.bits);     return true;
       case T2FieldHeadYaw:
          *word = t2SignedFloatWord(sWriteBody.head.y, n.bits);     return true;
+      case T2FieldYaw:         *word = writeYawWord(n.bits);        return true;
+      case T2FieldSpeed:       *word = writeSpeedWord(n.bits);      return true;
+      case T2FieldDirection:   *word = writeDirectionWord();        return true;
       default:                                                     return false;
    }
 }
