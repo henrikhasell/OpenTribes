@@ -8,6 +8,7 @@
 #include "T3D/gameBase/gameBase.h"
 #include "T3D/gameBase/gameConnection.h"
 #include "T3D/shapeBase.h"
+#include "sfx/sfxDescription.h"
 
 TargetManagerT2::TargetManagerT2()
 {
@@ -586,6 +587,43 @@ ConsoleFunction(sendTargetsToClient, void, 2, 2, "sendTargetsToClient(client)")
    if(!Sim::findObject(argv[1], conn))
       return;
    TargetManagerT2::server()->sendTargetsTo(conn);
+}
+
+ConsoleFunction(playTargetAudio, bool, 5, 5,
+   "playTargetAudio(target, fileTag, desc, update)")
+{
+   // 0x66fb50, then 0x66c010 for the send. The line is heard from the
+   // target's object. A file that is not a tagged string is entry 0, which
+   // is refused, so the scripts pass 'name' with its quotes.
+   SFXDescription *desc = NULL;
+   if(!Sim::findObject(argv[3], desc))
+   {
+      Con::errorf("Invalid audio description '%s'.", argv[3]);
+      return false;
+   }
+
+   const S32 id = dAtoi(argv[1]);
+   NetStringHandle file = tagArg(argv[2]);
+   if(id < 0 || id >= TargetManagerT2::MaxTargets)
+   {
+      Con::errorf("Failed to send target audio event to clients");
+      return false;
+   }
+
+   TargetManagerT2::Target &target = TargetManagerT2::server()->getTarget(id);
+   if(!target.allocated || target.object.isNull() || !file.isValidString())
+   {
+      Con::errorf("Failed to send target audio event to clients");
+      return false;
+   }
+
+   const Point3F position = target.object->getPosition();
+   SimGroup *clients = Sim::getClientGroup();
+   for(S32 i = 0; i < clients->size(); i++)
+      if(GameConnection *conn = dynamic_cast<GameConnection *>((*clients)[i]))
+         conn->sendTargetAudio(id, file, desc->getId(), position, dAtob(argv[4]));
+
+   return true;
 }
 
 ConsoleFunction(resetClientTargets, void, 3, 3, "resetClientTargets(client, tasksOnly)")

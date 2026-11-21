@@ -1148,6 +1148,7 @@ class SimTargetAudioEvent : public NetEvent
    U32 mDescription;
    bool mPositionHere;
    Point3F mPosition;
+   bool mUpdate;
 
 public:
    SimTargetAudioEvent()
@@ -1159,10 +1160,36 @@ public:
       mDescription = 0;
       mPositionHere = false;
       mPosition.set(0.0f, 0.0f, 0.0f);
+      mUpdate = false;
    }
 
-   void pack(NetConnection *, BitStream *) {}
-   void write(NetConnection *, BitStream *) {}
+   /// A line as playTargetAudio sends it. The file is this connection's
+   /// string entry and the description the datablock's position in the send
+   /// order. Unguaranteed, as the default is.
+   SimTargetAudioEvent(U32 target, U32 file, U32 description,
+                       const Point3F &position, bool update)
+   {
+      mGuaranteeType = Unguaranteed;
+      mTarget = target;
+      mFile = file;
+      mDescriptionHere = true;
+      mDescription = description;
+      mPositionHere = false;
+      mPosition = position;
+      mUpdate = update;
+   }
+
+   void pack(NetConnection *, BitStream *stream)
+   {
+      stream->writeInt(mTarget, TargetBits);
+      stream->writeInt(mFile, ConnectionStringTable::EntryBitSize);
+      if (stream->writeFlag(mDescriptionHere))
+         stream->writeInt(mDescription, DataBlockBits);
+      if (stream->writeFlag(mPositionHere))
+         stream->writeCompressedPoint(mPosition, 0.01f);
+      stream->writeFlag(mUpdate);
+   }
+   void write(NetConnection *conn, BitStream *stream) { pack(conn, stream); }
    void unpack(NetConnection *, BitStream *stream)
    {
       mTarget = stream->readInt(TargetBits);
@@ -1251,3 +1278,21 @@ IMPLEMENT_CO_CLIENTEVENT_V1(SimTargetAudioEvent);
 
 ConsoleDocClass( SimTargetAudioEvent,
    "@brief Plays a line from a target's own voice pack.\n\n@internal" );
+
+void GameConnection::sendTargetAudio(S32 target, const NetStringHandle &file,
+                                     SimObjectId description,
+                                     const Point3F &position, bool update)
+{
+   // 0x66c010. A connection without its datablocks has no description to
+   // name, so it is told nothing.
+   if (!isEstablished() || !getReceivedDataBlocks())
+      return;
+
+   // The string entry is checked here, so a NetStringEvent for it is posted
+   // ahead of the line.
+   NetStringHandle string = file;
+   const U32 entry = checkString(string, NULL);
+   postNetEvent(new SimTargetAudioEvent(U32(target), entry,
+                                        U32(description - DataBlockObjectIdFirst),
+                                        position, update));
+}

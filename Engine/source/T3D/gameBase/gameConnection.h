@@ -303,6 +303,10 @@ public:
    void sendTargetInfo(S32 target, U32 fields);
    /// Tells this connection a target is gone, or that it should forget all.
    void sendTargetFree(S32 target);
+   /// Plays a line of a target's voice pack at a position, on this connection.
+   void sendTargetAudio(S32 target, const NetStringHandle &file,
+                        SimObjectId description, const Point3F &position,
+                        bool update);
    void sendResetTargets(bool tasksOnly);
    bool isScopingCommanderMap() const    { return mScopingCommanderMap; }
    void setScopingCommanderMap(bool on) { mScopingCommanderMap = on; }
