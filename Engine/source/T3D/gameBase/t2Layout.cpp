@@ -2308,6 +2308,8 @@ static bool writeStateFlag(S32 at, bool *set)
    return false;
 }
 
+static bool writingFlight();
+
 /// Whether a flag goes out set: the value the body keeps there if it keeps
 /// one, or whether the run behind it holds anything published.
 static bool planTakesSet(S32 at)
@@ -2317,6 +2319,13 @@ static bool planTakesSet(S32 at)
       return set;
    if(writeStateFlag(at, &set))
       return set;
+
+   // A projectile's body names every flag it sends, and a flag it does not
+   // name clears. The defaults below are the datablock write's table, which
+   // a ghost walk inherits from whichever layout that write last resolved, so
+   // a flight could take an impact arm by accident.
+   if(writingFlight())
+      return false;
 
    const S16 field = Plan::fieldAt(at);
    if(field >= 0)
@@ -2336,6 +2345,13 @@ static bool planTakesSet(S32 at)
 static Body sWriteBody;
 static bool sHasWriteBody = false;
 static bool sWriteInitial = false;
+
+/// Whether the ghost being written is a projectile's flight or impact, whose
+/// body names every flag it sends.
+static bool writingFlight()
+{
+   return sGhostWalk && sWriteBody.flightWords;
+}
 
 /// The words a multi-word field still owes, in the order the body carries
 /// them: a run is started by the node its field row names and taken by the
@@ -2429,6 +2445,42 @@ static U32 writeDirectionWord()
           (t2SignedFloatWord(theta / M_HALFPI_F, 10) << 11);
 }
 
+/// The angles a unit vector goes out as. The reader builds the vector as
+/// (sin phi cos theta, cos phi cos theta, sin theta), so phi is its heading and
+/// theta its elevation.
+static void vectorAngles(const Point3F &v, F32 *phi, F32 *theta)
+{
+   const F32 len = v.len();
+   const Point3F dir = len > 0.0f ? v * (1.0f / len) : Point3F(0.0f, 0.0f, 1.0f);
+
+   *phi   = mAtan2(dir.x, dir.y);
+   *theta = mAsin(mClampF(dir.z, -1.0f, 1.0f));
+}
+
+/// The point, velocity, explosion or impact a flight's body carries under a
+/// field that names it as words, or NULL when it carries none.
+static const Point3F *flightPoint(U32 field)
+{
+   if(!sWriteBody.flightWords)
+      return NULL;
+
+   switch(field)
+   {
+      case T2FieldPointWords:
+         return sWriteBody.hasPosition ? &sWriteBody.position : NULL;
+      case T2FieldVelocityWords:
+         return sWriteBody.hasVelocity ? &sWriteBody.velocity : NULL;
+      case T2FieldExplodeWords:
+         return sWriteBody.hasExplodePoint ? &sWriteBody.explodePoint : NULL;
+      case T2FieldImpactWords:
+         return sWriteBody.hasImpactNormal ? &sWriteBody.impactNormal : NULL;
+      case T2FieldInheritedVel:
+         return sWriteBody.hasInheritedVel ? &sWriteBody.inheritedVel : NULL;
+      default:
+         return NULL;
+   }
+}
+
 /// Whether the node starts a run of words the body has, and with what.
 static bool ghostRunAt(S32 at)
 {
@@ -2481,6 +2533,23 @@ static bool ghostRunAt(S32 at)
          sWriteRun[0] = floatWord(sWriteBody.scale.x);
          sWriteRun[1] = floatWord(sWriteBody.scale.y);
          sWriteRun[2] = floatWord(sWriteBody.scale.z);
+         sWriteRunLeft = 3;
+         return true;
+      }
+
+      case T2FieldPointWords:
+      case T2FieldVelocityWords:
+      case T2FieldExplodeWords:
+      case T2FieldImpactWords:
+      case T2FieldInheritedVel:
+      {
+         const Point3F *v = flightPoint(row->field);
+         if(!v)
+            return false;
+
+         sWriteRun[0] = floatWord(v->x);
+         sWriteRun[1] = floatWord(v->y);
+         sWriteRun[2] = floatWord(v->z);
          sWriteRunLeft = 3;
          return true;
       }
@@ -2632,6 +2701,15 @@ static bool writeBodyFlag(const T2DataBlockLayout *layout, S32 at, bool *set)
       case T2FieldActionFirstPerson:  *set = sWriteBody.actionFirstPerson; return true;
       case T2FieldActionPosHere:      *set = sWriteBody.hasActionPos;     return true;
       case T2FieldArmHere:            *set = sWriteBody.hasArm;           return true;
+      // A linear projectile's flight is the arm its direction is on; without
+      // the flag set the reader takes its impact arm and explodes it where it
+      // starts.
+      case T2FieldFlying:             *set = sWriteBody.flightWords &&
+                                             sWriteBody.hasDirection;     return true;
+      case T2FieldBeamInitial:        *set = sWriteBody.beamInitial;      return true;
+      case T2FieldBeamHit:            *set = sWriteBody.beamHit;          return true;
+      case T2FieldBeamWet:            *set = sWriteBody.beamWet;          return true;
+      case T2FieldBeamFollow:         *set = sWriteBody.beamFollow;       return true;
       default:                                                            return false;
    }
 }
@@ -2700,6 +2778,30 @@ static bool writeBodyWord(const T2DataBlockLayout *layout, S32 at, U32 *word)
       case T2FieldYaw:         *word = writeYawWord(n.bits);        return true;
       case T2FieldSpeed:       *word = writeSpeedWord(n.bits);      return true;
       case T2FieldDirection:   *word = writeDirectionWord();        return true;
+      case T2FieldNormalPhi:
+      case T2FieldNormalTheta:
+      {
+         if(!sWriteBody.hasDirection)
+            return false;
+
+         F32 phi, theta;
+         vectorAngles(sWriteBody.direction, &phi, &theta);
+         *word = row->field == T2FieldNormalPhi
+            ? t2SignedFloatWord(phi / M_PI_F, n.bits)
+            : t2SignedFloatWord(theta / M_HALFPI_F, n.bits);
+         return true;
+      }
+      case T2FieldSourceObject:
+         *word = sWriteBody.hasSourceObject ? sWriteBody.sourceObject : 0;
+         return true;
+      case T2FieldSourceSlot:
+         *word = sWriteBody.sourceSlot;
+         return true;
+      case T2FieldBeamEnergy:
+         if(!sWriteBody.hasBeamEnergy)
+            return false;
+         *word = t2FloatWord(sWriteBody.beamEnergy, n.bits);
+         return true;
       default:                                                     return false;
    }
 }
@@ -2800,6 +2902,22 @@ static bool ghostFlagAt(S32 at, bool *set)
                return true;
             case T2FieldScale:
                *set = sWriteBody.hasScale;
+               return true;
+            // A flight's words go out set only when the body carries them, so
+            // a grenade's explosion stays clear until it has one.
+            case T2FieldPointWords:
+            case T2FieldVelocityWords:
+            case T2FieldExplodeWords:
+            case T2FieldImpactWords:
+            case T2FieldInheritedVel:
+               if(!sWriteBody.flightWords)
+                  break;
+               *set = flightPoint(behind->field) != NULL;
+               return true;
+            case T2FieldSourceObject:
+               if(!sWriteBody.flightWords)
+                  break;
+               *set = sWriteBody.hasSourceObject;
                return true;
             default:
                break;
@@ -4949,6 +5067,7 @@ void clearBody(Body *body)
    body->hasScale = false;
    body->hasVelocity = false;
    body->hasDirection = false;
+   body->flightWords = false;
    body->hasImpactNormal = false;
    body->hasBeamTarget = false;
    body->hasZap = false;

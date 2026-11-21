@@ -8,6 +8,9 @@ namespace T2Protocol
       T2FieldPosition,              ///< a compressed point, world space
       T2FieldYaw,                   ///< readFloat(bits) turns of heading
       T2FieldVelocityHere,          ///< the flag a velocity follows, clear
+      T2FieldFlying,                ///< a linear projectile's flight flag: set
+                                    ///< for the arm that carries its direction,
+                                    ///< clear for the impact arm that does not
       T2FieldSpeed,                 ///< readInt(bits) thirty-seconds of a
       T2FieldDirection,             ///< readNormalVector(10), both of its
       T2FieldTransform,             ///< the first of a MatrixF's 16 floats
@@ -306,6 +309,7 @@ namespace T2Protocol
       { "StationFXPersonal",      5, OpInt,  11, T2FieldStationObject },
 
 #define T2_LINEAR_PROJECTILE_FIELDS( cls )                             \
+      { cls, 23, OpFlag,         1,  T2FieldFlying       },            \
       { cls, 17, OpPoint,        0,  T2FieldPosition     },            \
       { cls, 16, OpSignedFloat, 15,  T2FieldNormalPhi    },            \
       { cls, 15, OpSignedFloat, 14,  T2FieldNormalTheta  },            \

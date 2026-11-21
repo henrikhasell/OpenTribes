@@ -57,6 +57,10 @@ namespace T2Layout
       Point3F velocity;             ///< metres a second, world space
       bool    hasDirection;
       Point3F direction;
+      bool    flightWords;          ///< a projectile's point, velocity and
+                                    ///< explosion go out as the words its
+                                    ///< layout names, and its gates follow
+                                    ///< which of those the body carries
       bool    hasImpactNormal;
       Point3F impactNormal;
       bool    zapHit;               ///< the lance reached something; a dry

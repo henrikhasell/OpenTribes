@@ -139,6 +139,12 @@ public:
       // the datablock's radius, its indirect damage and its kick.
    DECLARE_CALLBACK(void, onExplode, (GameBase *proj, Point3F pos, F32 mod));
 
+      // HH: Added for Tribes 2 compatibility. `ProjectileData::onCollision` is
+      // where a direct hit's damage comes from: the target takes the
+      // datablock's direct damage, and the explosion follows it.
+   DECLARE_CALLBACK(void, onCollision, (GameBase *proj, GameBase *target,
+                                        F32 mod, Point3F pos, Point3F normal));
+
       /// A bullet is seen as the streak it leaves, which is what retail draws
       /// of one, so the shape its datablock also names is never wanted.
    bool namesGameBaseShape() const { return streakLength <= 0.0f; }
@@ -196,6 +202,17 @@ IMPLEMENT_CALLBACK( ProjectileDataT2, onExplode, void,
    "@param proj The projectile\n"
    "@param pos Where it went off\n"
    "@param mod How much of its damage it carries\n" );
+
+IMPLEMENT_CALLBACK( ProjectileDataT2, onCollision, void,
+   ( GameBase *proj, GameBase *target, F32 mod, Point3F pos, Point3F normal ),
+   ( proj, target, mod, pos, normal ),
+   "@brief Called on the server where a projectile hits something it can "
+   "damage, before it goes off.\n\n"
+   "@param proj The projectile\n"
+   "@param target What it hit\n"
+   "@param mod How much of its direct damage it carries\n"
+   "@param pos Where it hit\n"
+   "@param normal The surface it hit\n" );
 
 ConsoleDocClass( ProjectileDataT2,
    "@brief What a Tribes 2 projectile's datablock says about its flight.\n\n"
@@ -848,6 +865,20 @@ static void headingMatrixT2(MatrixF *mat, const VectorF &along)
    mat->setColumn(2, up);
 }
 
+static bool isInWaterT2(SceneContainer *container, const Point3F &point);
+
+/// The ghost index a connection has for the object that fired a projectile or
+/// beam, or -1 when there is none. A body names its source by that index, and
+/// leaves the source out where the connection has not ghosted it yet.
+static S32 launchSourceGhost(SimObjectId source, NetConnection *conn)
+{
+   if(!conn || !source)
+      return -1;
+
+   NetObject *obj = dynamic_cast<NetObject *>(Sim::findObject(source));
+   return obj ? conn->getGhostIndex(obj) : -1;
+}
+
 class ProjectileT2 : public GameBase, public ISceneLight
 {
    typedef GameBase Parent;
@@ -889,6 +920,7 @@ class ProjectileT2 : public GameBase, public ISceneLight
    Point3F mStart;            ///< where the body put it
    Point3F mPosition;         ///< where it has got to since
    VectorF mVelocity;         ///< metres a second, which is all the flight is
+   VectorF mLaunchVelocity;   ///< what a server's body says it was fired at
    bool    mNeedsSpeed;       ///< the body gave a direction and the datablock
                               ///< the speed, and it arrives after the body
    bool    mBounces;          ///< a grenade's family does; a disc goes off
@@ -929,6 +961,8 @@ class ProjectileT2 : public GameBase, public ISceneLight
 protected:
    bool    mStopsOnDamageable;///< an energy bolt goes off on anything it can
                               ///< damage; a grenade bounces off it
+   bool    mGrenadeFamily;    ///< a grenade, flare, bomb or energy bolt: its
+                              ///< body carries a velocity and it bounces
 
 public:
    ProjectileT2();
@@ -994,14 +1028,36 @@ void ProjectileT2::getT2Body(T2Layout::Body *body, bool isInitial, U32 mask,
 
    body->hasRotation = false;
    body->hasScale = false;
+   body->flightWords = true;
 
    if(isInitial)
    {
       body->hasPosition = true;
       body->position = mStart;
-      body->hasDirection = !mInitialDirection.isZero();
-      body->direction = mInitialDirection;
 
+      // A grenade's family says its launch as a velocity, which the reader
+      // flies as a bouncing body; a linear one says its direction and the
+      // client takes the speed from the datablock.
+      if(mGrenadeFamily)
+      {
+         body->hasVelocity = true;
+         body->velocity = mLaunchVelocity;
+      }
+      else
+      {
+         body->hasDirection = !mInitialDirection.isZero();
+         body->direction = mInitialDirection;
+      }
+
+      // The shooter is left out of its own shot until the connection has
+      // ghosted it, which is what the reader's source covers.
+      const S32 ghost = launchSourceGhost(mSourceObject, conn);
+      if(ghost >= 0)
+      {
+         body->hasSourceObject = true;
+         body->sourceObject = U32(ghost);
+         body->sourceSlot = U32(mSourceSlotField);
+      }
    }
 }
 
@@ -1022,6 +1078,7 @@ ProjectileT2::ProjectileT2()
      mStart(0.0f, 0.0f, 0.0f),
      mPosition(0.0f, 0.0f, 0.0f),
      mVelocity(0.0f, 0.0f, 0.0f),
+     mLaunchVelocity(0.0f, 0.0f, 0.0f),
      mNeedsSpeed(false),
      mBounces(false),
      mTrail(__FILE__, __LINE__),
@@ -1043,6 +1100,7 @@ ProjectileT2::ProjectileT2()
      mLight(NULL)
 {
    mStopsOnDamageable = false;
+   mGrenadeFamily = false;
    mTypeMask |= ProjectileObjectType;
 }
 
@@ -1069,7 +1127,7 @@ bool ProjectileT2::onAdd()
       mTrailAt = mEmitAt = mInitialPosition;
       mVelocity = mInitialDirection;
       mNeedsSpeed = true;
-      mBounces = false;
+      mBounces = mGrenadeFamily;
       mFlying = true;
 
       MatrixF mat(true);
@@ -1079,6 +1137,15 @@ bool ProjectileT2::onAdd()
 
    resetWorldBox();
    addToScene();
+
+   // The launch processTick makes is worked out here, once the object has the
+   // container the water test needs, so a body can say it before the first tick.
+   if(isServerObject() && mNeedsSpeed && mData)
+   {
+      SceneContainer *container = getContainer();
+      mLaunchVelocity = mInitialDirection *
+         mData->launchSpeed(container && isInWaterT2(container, mPosition));
+   }
 
       // Nothing else moves it: the flight happens here, on a server as well
       // as on a client, because a server's own copy is what goes off and
@@ -1620,6 +1687,17 @@ void ProjectileT2::step(F32 dt)
       (mStopsOnDamageable && damageable))
    {
       mFlying = false;
+
+      // A direct hit is the target's damage before the explosion, which is
+      // the datablock's onCollision. Only a server deals it.
+      if(isServerObject() && damageable)
+      {
+         ShapeBase *target = dynamic_cast<ShapeBase *>(info.object);
+         if(target)
+            mData->onCollision_callback(this, target, 1.0f, mPosition,
+                                        mImpactNormal);
+      }
+
       explode();
       return;
    }
@@ -2126,22 +2204,30 @@ void ProjectileT2::drawGlow(const SceneRenderState *state, F32 clear)
    }
 }
 
-#define IMPLEMENT_PROJECTILE_T2( className, stopsOnDamageable )              \
+// HH: The grenade family is the classes whose layout names a velocity, and
+// which bounce; the linear family flies its direction at the datablock's speed.
+#define IMPLEMENT_PROJECTILE_T2( className, stopsOnDamageable, grenade )     \
    class className : public ProjectileT2                                     \
    {                                                                         \
       typedef ProjectileT2 Parent;                                           \
    public:                                                                   \
-      className() { mStopsOnDamageable = stopsOnDamageable; }                \
+      className()                                                            \
+      {                                                                      \
+         mStopsOnDamageable = stopsOnDamageable;                             \
+         mGrenadeFamily = grenade;                                           \
+      }                                                                      \
       DECLARE_CONOBJECT(className);                                          \
    };                                                                        \
    IMPLEMENT_CO_NETOBJECT_V1(className);                                     \
    ConsoleDocClass( className, "@brief A Tribes 2 projectile.\n\n@internal" )
 
-IMPLEMENT_PROJECTILE_T2( EnergyProjectile, true );
-IMPLEMENT_PROJECTILE_T2( GrenadeProjectile, false );
-IMPLEMENT_PROJECTILE_T2( LinearFlareProjectile, false );
-IMPLEMENT_PROJECTILE_T2( LinearProjectile, false );
-IMPLEMENT_PROJECTILE_T2( TracerProjectile, false );
+IMPLEMENT_PROJECTILE_T2( EnergyProjectile, true, true );
+IMPLEMENT_PROJECTILE_T2( GrenadeProjectile, false, true );
+IMPLEMENT_PROJECTILE_T2( FlareProjectile, false, true );
+IMPLEMENT_PROJECTILE_T2( BombProjectile, false, true );
+IMPLEMENT_PROJECTILE_T2( LinearFlareProjectile, false, false );
+IMPLEMENT_PROJECTILE_T2( LinearProjectile, false, false );
+IMPLEMENT_PROJECTILE_T2( TracerProjectile, false, false );
 
 //----------------------------------------------------------------------------
 
@@ -2393,6 +2479,12 @@ protected:
    bool    mFollow;
    SimObjectId mSourceObject;
    U32     mSourceSlot;
+      /// Where a server's scripts fired it from and the way it was aimed, and
+      /// the source and slot they named, which its body says.
+   Point3F mInitialPosition;
+   VectorF mInitialDirection;
+   S32     mLaunchSource;
+   S32     mLaunchSlot;
    GFXStateBlockRef mBeamSB;
    GFXStateBlockRef mFlareSB;
    GFXStateBlockRef mGlowSB;
@@ -2407,11 +2499,14 @@ protected:
 
 public:
    BeamProjectileT2();
+   static void initPersistFields();
 
    bool onAdd();
    void onRemove();
    bool onNewDataBlock(GameBaseData *dptr, bool reload);
    void onT2BodyRead(const T2Layout::Body &body);
+   void getT2Body(T2Layout::Body *body, bool isInitial, U32 mask,
+                  NetConnection *conn) const;
    void advanceTime(F32 dt);
    void prepRenderImage(SceneRenderState *state);
 
@@ -2439,9 +2534,34 @@ BeamProjectileT2::BeamProjectileT2()
      mWet(false),
      mFollow(false),
      mSourceObject(0),
-     mSourceSlot(0)
+     mSourceSlot(0),
+     mInitialPosition(0.0f, 0.0f, 0.0f),
+     mInitialDirection(0.0f, 0.0f, 0.0f),
+     mLaunchSource(0),
+     mLaunchSlot(0)
 {
    mTypeMask |= ProjectileObjectType;
+}
+
+// HH: Added for Tribes 2 compatibility. A server's scripts fire a beam from
+// its muzzle and state where, and which way it was aimed, the same as a
+// projectile is fired.
+void BeamProjectileT2::initPersistFields()
+{
+   Parent::initPersistFields();
+
+   addField("initialPosition",  TYPEID< Point3F >(),
+      Offset(mInitialPosition, BeamProjectileT2),
+      "Where it starts, which is the muzzle point of what fired it.");
+   addField("initialDirection", TYPEID< Point3F >(),
+      Offset(mInitialDirection, BeamProjectileT2),
+      "And the way it was aimed.");
+   addField("sourceObject",     TYPEID< S32 >(),
+      Offset(mLaunchSource, BeamProjectileT2),
+      "What fired it, which its body names so a client can follow it.");
+   addField("sourceSlot",       TYPEID< S32 >(),
+      Offset(mLaunchSlot, BeamProjectileT2),
+      "The image slot it was fired from.");
 }
 
 bool BeamProjectileT2::onAdd()
@@ -2454,6 +2574,37 @@ bool BeamProjectileT2::onAdd()
    setGlobalBounds();
    resetWorldBox();
    addToScene();
+
+   // A server has no source to follow, so it works out where a fixed beam
+   // ends with the same cast a client makes, and says so in its body.
+   if(isServerObject() && mData && !mInitialDirection.isZero())
+   {
+      VectorF aim = mInitialDirection;
+      aim.normalizeSafe();
+
+      mStart = mInitialPosition;
+      mEnd = mStart + aim * mData->range;
+
+      SceneContainer *container = getContainer();
+      ShapeBase *src = dynamic_cast<ShapeBase *>(
+         Sim::findObject(SimObjectId(mLaunchSource)));
+      RayInfo info;
+      if(container)
+      {
+         if(src)
+            src->disableCollision();
+         mHit = container->castRay(mStart, mEnd,
+                                   sProjectileCollisionMask | WaterObjectType,
+                                   &info);
+         if(src)
+            src->enableCollision();
+      }
+      if(mHit)
+      {
+         mEnd = info.point;
+         mWet = info.object && (info.object->getTypeMask() & WaterObjectType);
+      }
+   }
 
    if(isClientObject() && mData && mFades)
    {
@@ -2558,6 +2709,43 @@ void BeamProjectileT2::onT2BodyRead(const T2Layout::Body &body)
       mEndFrom = mEnd;
       mEndTo = body.explodePoint;
       mEase = 0.0f;
+   }
+}
+
+// HH: Added for Tribes 2 compatibility. The first body is the whole beam: where
+// it starts and ends, whether it hit and whether that was water, and the source
+// and slot a targeting beam follows the aim of. A client works the follow out
+// for itself, so the body only has to name the source.
+void BeamProjectileT2::getT2Body(T2Layout::Body *body, bool isInitial, U32 mask,
+                                 NetConnection *conn) const
+{
+   Parent::getT2Body(body, isInitial, mask, conn);
+
+   body->hasRotation = false;
+   body->hasScale = false;
+   body->flightWords = true;
+
+   if(!isInitial)
+      return;
+
+   const S32 ghost = launchSourceGhost(SimObjectId(mLaunchSource), conn);
+
+   body->beamInitial = true;
+   body->hasPosition = true;
+   body->position = mStart;
+   body->hasExplodePoint = true;
+   body->explodePoint = mEnd;
+   body->beamHit = mHit;
+   body->beamWet = mWet;
+   body->beamFollow = !mFades && ghost >= 0;
+   body->hasBeamEnergy = true;
+   body->beamEnergy = 1.0f;
+
+   if(ghost >= 0)
+   {
+      body->hasSourceObject = true;
+      body->sourceObject = U32(ghost);
+      body->sourceSlot = U32(mLaunchSlot);
    }
 }
 
