@@ -2742,6 +2742,10 @@ static bool writeBodyFlag(const T2DataBlockLayout *layout, S32 at, bool *set)
          return true;
       // Nothing names the block behind this flag, so it is never sent.
       case T2FieldStaticBlock:        *set = false;                       return true;
+      // The transform goes out with its scale, whenever the body carries one.
+      case T2FieldTransformHere:      *set = sWriteBody.hasRotation;      return true;
+      // Nothing the class sends sits behind this flag, so it goes out clear.
+      case T2FieldUnnamedBlock:       *set = false;                       return true;
       default:                                                            return false;
    }
 }

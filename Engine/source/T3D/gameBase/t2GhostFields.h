@@ -125,6 +125,11 @@ namespace T2Protocol
       T2FieldHeadPitch,             ///< readSignedFloat(bits) of the head's
                                     ///< pitch, a share of maxLookAngle
       T2FieldHeadYaw,               ///< the same for its yaw
+
+      T2FieldTransformHere,         ///< the flag a transform and its scale
+                                    ///< follow: set when the body carries one
+      T2FieldUnnamedBlock,          ///< a flag over a block the class never
+                                    ///< names, which therefore goes out clear
    };
 
    inline U32 t2FieldWords(U32 field)
@@ -218,6 +223,14 @@ namespace T2Protocol
       { "InteriorInstance",      27, OpRaw, 32, T2FieldScale     },
       { "InteriorInstance",      33, OpRaw, 32, T2FieldTransform },
       { "InteriorInstance",      49, OpRaw, 32, T2FieldScale     },
+   // The flags an interior's body is walked through. Node 1 gates the
+   // transform of a later body; nodes 3, 4, 6 and 7 gate blocks an interior
+   // never names (a string, and the datablock ids, which it does not have).
+      { "InteriorInstance",       1, OpFlag, 1, T2FieldTransformHere },
+      { "InteriorInstance",       3, OpFlag, 1, T2FieldUnnamedBlock  },
+      { "InteriorInstance",       4, OpFlag, 1, T2FieldUnnamedBlock  },
+      { "InteriorInstance",       6, OpFlag, 1, T2FieldUnnamedBlock  },
+      { "InteriorInstance",       7, OpFlag, 1, T2FieldUnnamedBlock  },
 
       { "TSStatic",               0, OpRaw, 32, T2FieldTransform },
       { "TSStatic",              16, OpRaw, 32, T2FieldScale     },

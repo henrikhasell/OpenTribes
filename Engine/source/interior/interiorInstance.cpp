@@ -297,6 +297,38 @@ bool InteriorInstance::unpackUpdate(BitStream *stream, bool isInitial)
    return true;
 }
 
+// HH: Added for Tribes 2 compatibility. A first body names the interior's CRC
+// and its bare file name, which the reader puts back under interiors/. The
+// transform and its scale follow whenever the transform's mask bit is set, and
+// the scale goes out even when it is one.
+void InteriorInstance::getT2Body(T2Layout::Body *body, bool isInitial, U32 mask,
+                                 NetConnection *conn) const
+{
+   Parent::getT2Body(body, isInitial, mask, conn);
+
+   if(isInitial)
+   {
+      T2Layout::publishBodyWord(mCRC);
+
+      const String file = mInteriorFileName ? mInteriorFileName : "";
+      const S32 slash = file.find('/', 0, String::Right);
+      T2Layout::publishBodyString(slash < 0 ? file : file.substr(slash + 1));
+      // The interior's skin string, which an interior never names.
+      T2Layout::publishBodyString("");
+   }
+
+   if(!isInitial && !(mask & TransformMask))
+      return;
+
+   const MatrixF &transform = getTransform();
+   body->hasPosition = true;
+   body->position = transform.getPosition();
+   body->hasRotation = true;
+   body->rotation = transform;
+   body->hasScale = true;
+   body->scale = getScale();
+}
+
 bool InteriorInstance::onAdd()
 {
    if(! _loadInterior())
@@ -1141,7 +1173,10 @@ bool InteriorInstance::_setInteriorFile( void *object, const char *, const char 
    if(inst->isProperlyAdded())
       inst->_unloadInterior();
 
-   inst->mInteriorFileName = StringTable->insert(data);
+   // HH: Added for Tribes 2 compatibility. A mission names a bare .dif, which
+   // lives under interiors/ in the Tribes 2 archives.
+   inst->mInteriorFileName = StringTable->insert(
+      data[0] ? T2Layout::resourcePath(data, "interiors/").c_str() : "");
 
    if(inst->isProperlyAdded())
    {
