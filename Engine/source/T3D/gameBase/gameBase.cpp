@@ -488,9 +488,11 @@ void GameBase::getT2Body(T2Layout::Body *body, bool isInitial, U32 mask,
       body->hasRotation = true;
       body->rotation = transform;
 
-      const Point3F scale = getScale();
-      body->hasScale = scale.x != 1.0f || scale.y != 1.0f || scale.z != 1.0f;
-      body->scale = scale;
+      // The layout reads the scale whenever it reads the transform, so a unit
+      // scale goes out too; without it the words are zeros and the shape is
+      // drawn at no size.
+      body->hasScale = true;
+      body->scale = getScale();
    }
 }
 
