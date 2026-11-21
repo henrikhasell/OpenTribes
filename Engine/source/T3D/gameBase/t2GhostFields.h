@@ -8,9 +8,13 @@ namespace T2Protocol
       T2FieldPosition,              ///< a compressed point, world space
       T2FieldYaw,                   ///< readFloat(bits) turns of heading
       T2FieldVelocityHere,          ///< the flag a velocity follows, clear
-      T2FieldFlying,                ///< a linear projectile's flight flag: set
-                                    ///< for the arm that carries its direction,
-                                    ///< clear for the impact arm that does not
+      T2FieldFlying,                ///< a linear projectile's flying flag: set
+                                    ///< for the arms of a flight and of one that
+                                    ///< went off in flight, clear for an impact
+                                    ///< that was never flying
+      T2FieldExploded,              ///< a flying linear projectile's flag that
+                                    ///< sets its explosion arm, which carries
+                                    ///< where it went off and the surface it hit
       T2FieldSpeed,                 ///< readInt(bits) thirty-seconds of a
       T2FieldDirection,             ///< readNormalVector(10), both of its
       T2FieldTransform,             ///< the first of a MatrixF's 16 floats
@@ -310,6 +314,7 @@ namespace T2Protocol
 
 #define T2_LINEAR_PROJECTILE_FIELDS( cls )                             \
       { cls, 23, OpFlag,         1,  T2FieldFlying       },            \
+      { cls, 22, OpFlag,         1,  T2FieldExploded     },            \
       { cls, 17, OpPoint,        0,  T2FieldPosition     },            \
       { cls, 16, OpSignedFloat, 15,  T2FieldNormalPhi    },            \
       { cls, 15, OpSignedFloat, 14,  T2FieldNormalTheta  },            \

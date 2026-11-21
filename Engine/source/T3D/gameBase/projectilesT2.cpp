@@ -963,6 +963,10 @@ protected:
                               ///< damage; a grenade bounces off it
    bool    mGrenadeFamily;    ///< a grenade, flare, bomb or energy bolt: its
                               ///< body carries a velocity and it bounces
+   S32     mRetireTicks;      ///< ticks a server keeps what went off before
+                              ///< deleting it, so the explosion gets out; -1
+                              ///< while it is still flying
+   void retire();
 
 public:
    ProjectileT2();
@@ -982,6 +986,7 @@ public:
       // HH: Added for Tribes 2 compatibility. What a server's scripts state
       // when they fire one, and what its body says when it is ghosted.
    static void initPersistFields();
+   enum { ExplodeMask = Parent::NextFreeMask };
    void getT2Body(T2Layout::Body *body, bool isInitial, U32 mask,
                   NetConnection *conn) const;
 
@@ -1029,6 +1034,19 @@ void ProjectileT2::getT2Body(T2Layout::Body *body, bool isInitial, U32 mask,
    body->hasRotation = false;
    body->hasScale = false;
    body->flightWords = true;
+
+   // What went off is the impact arm: where it went off, and the surface it
+   // hit. A linear projectile's reader takes that for an end, and explodes it
+   // there. An initial body of one that went off first says the same, so
+   // the client never flies it.
+   if(mExploded && !mGrenadeFamily)
+   {
+      body->hasPosition = true;
+      body->position = mPosition;
+      body->hasImpactNormal = true;
+      body->impactNormal = mImpactNormal;
+      return;
+   }
 
    if(isInitial)
    {
@@ -1101,6 +1119,7 @@ ProjectileT2::ProjectileT2()
 {
    mStopsOnDamageable = false;
    mGrenadeFamily = false;
+   mRetireTicks = -1;
    mTypeMask |= ProjectileObjectType;
 }
 
@@ -1383,6 +1402,13 @@ void ProjectileT2::explode()
 
    mExploded = true;
 
+   // The explosion goes to the ghosts in a body of its own. Only the linear
+   // family's impact arm is encoded so far; a grenade's explosion is the
+   // words its layout names, which are not written yet, so a grenade still
+   // goes off on the server alone.
+   if(isServerObject() && !mGrenadeFamily)
+      setMaskBits(ExplodeMask);
+
    // HH: Added for Tribes 2 compatibility. The damage is the script's, and a
    // server is the only end that deals it: ProjectileData::onExplode calls
    // RadiusExplosion, which searches for what is near and damages it.
@@ -1423,8 +1449,17 @@ void ProjectileT2::processTick(const Move *move)
 {
    Parent::processTick(move);
 
-   if(!isServerObject() || !mFlying || !mData)
+   if(!isServerObject() || !mData)
       return;
+
+   // What has gone off stays a few ticks, so its explosion is packed into an
+   // update before the object is deleted and the ghost with it.
+   if(!mFlying)
+   {
+      if(mRetireTicks >= 0 && --mRetireTicks < 0)
+         safeDeleteObject();
+      return;
+   }
 
    if(mNeedsSpeed)
    {
@@ -1441,7 +1476,7 @@ void ProjectileT2::processTick(const Move *move)
       mFlying = false;
       if(mData->explodeOnDeath)
          explode();
-      safeDeleteObject();
+      retire();
       return;
    }
 
@@ -1452,10 +1487,18 @@ void ProjectileT2::processTick(const Move *move)
    mat.setPosition(mPosition);
    setTransform(mat);
 
-   // step() ends the flight where it hit something, and the explosion with
-   // it: there is nothing left for a server to keep.
+   // step() ends the flight where it hit something, and the explosion with it;
+   // the object is kept for the ticks it takes that to reach the ghosts.
    if(!mFlying)
-      safeDeleteObject();
+      retire();
+}
+
+/// Ticks a server keeps what has gone off, which covers an update's send.
+static const S32 sRetireTicks = 16;
+
+void ProjectileT2::retire()
+{
+   mRetireTicks = sRetireTicks;
 }
 
 void ProjectileT2::advanceTime(F32 dt)

@@ -2701,11 +2701,18 @@ static bool writeBodyFlag(const T2DataBlockLayout *layout, S32 at, bool *set)
       case T2FieldActionFirstPerson:  *set = sWriteBody.actionFirstPerson; return true;
       case T2FieldActionPosHere:      *set = sWriteBody.hasActionPos;     return true;
       case T2FieldArmHere:            *set = sWriteBody.hasArm;           return true;
-      // A linear projectile's flight is the arm its direction is on; without
-      // the flag set the reader takes its impact arm and explodes it where it
-      // starts.
+      // A linear projectile that is flying sets this flag, and so does one that
+      // went off in flight: its flying arm carries the direction, or else the
+      // explosion. Only an impact that was never flying clears it, and an
+      // explosion is what that arm is for.
       case T2FieldFlying:             *set = sWriteBody.flightWords &&
-                                             sWriteBody.hasDirection;     return true;
+                                             (sWriteBody.hasDirection ||
+                                              sWriteBody.hasImpactNormal);
+                                                                          return true;
+      // Set on the explosion arm of a flying projectile, which the reader takes
+      // as where it went off and the surface it hit.
+      case T2FieldExploded:           *set = sWriteBody.flightWords &&
+                                             sWriteBody.hasImpactNormal;  return true;
       case T2FieldBeamInitial:        *set = sWriteBody.beamInitial;      return true;
       case T2FieldBeamHit:            *set = sWriteBody.beamHit;          return true;
       case T2FieldBeamWet:            *set = sWriteBody.beamWet;          return true;
@@ -2787,6 +2794,21 @@ static bool writeBodyWord(const T2DataBlockLayout *layout, S32 at, U32 *word)
          F32 phi, theta;
          vectorAngles(sWriteBody.direction, &phi, &theta);
          *word = row->field == T2FieldNormalPhi
+            ? t2SignedFloatWord(phi / M_PI_F, n.bits)
+            : t2SignedFloatWord(theta / M_HALFPI_F, n.bits);
+         return true;
+      }
+      // The surface an impact arm names is the same vector, on the same two
+      // words in the reader's order (phi first, then theta).
+      case T2FieldImpactPhi:
+      case T2FieldImpactTheta:
+      {
+         if(!sWriteBody.hasImpactNormal)
+            return false;
+
+         F32 phi, theta;
+         vectorAngles(sWriteBody.impactNormal, &phi, &theta);
+         *word = row->field == T2FieldImpactPhi
             ? t2SignedFloatWord(phi / M_PI_F, n.bits)
             : t2SignedFloatWord(theta / M_HALFPI_F, n.bits);
          return true;
