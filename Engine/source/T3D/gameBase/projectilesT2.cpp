@@ -1149,6 +1149,10 @@ bool ProjectileT2::onAdd()
       mBounces = mGrenadeFamily;
       mFlying = true;
 
+      // The shooter is left out of its own shot for the first seven ticks, as
+      // a client has it from the body. The muzzle can sit inside the shooter.
+      mNoSourceHit = 7.0f * TickSec;
+
       MatrixF mat(true);
       mat.setPosition(mPosition);
       setTransform(mat);
