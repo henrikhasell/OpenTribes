@@ -92,9 +92,10 @@ void VehicleBlocker::onRemove()
 // words of every body as this object's transform, and nothing else sends one
 // for a blocker. Left empty, the client gets an all-zero matrix, which
 // collision then tries to invert.
-void VehicleBlocker::getT2Body(T2Layout::Body *body, bool isInitial) const
+void VehicleBlocker::getT2Body(T2Layout::Body *body, bool isInitial, U32 mask,
+                               NetConnection *conn) const
 {
-   Parent::getT2Body(body, isInitial);
+   Parent::getT2Body(body, isInitial, mask, conn);
 
    body->hasRotation = true;
    body->rotation = getTransform();

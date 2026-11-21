@@ -86,23 +86,47 @@ public:
          T2Layout::publishBodyString(sequences[i]);
    }
 
+   // HH: Added for Tribes 2 compatibility. The base shape and the sequences
+   // as the script set them, for a datablock no wire sent: a local game
+   // declares its shape constructors in script and never unpacks them.
+   Vector<String> scriptFields()
+   {
+      Vector<String> fields;
+      const char *base = getDataField(StringTable->insert("baseShape"), NULL);
+      if(!base || !base[0])
+         return fields;
+
+      fields.push_back(String(base));
+      for(U32 i = 0; ; i++)
+      {
+         char slot[32];
+         dSprintf(slot, sizeof(slot), "sequence%u", i);
+         const char *value = getDataField(StringTable->insert(slot), NULL);
+         if(!value || !value[0])
+            break;
+         fields.push_back(String(value));
+      }
+      return fields;
+   }
+
    bool preload(bool server, String &errorStr)
    {
       if(!Parent::preload(server, errorStr))
          return false;
 
-      if(mFields.empty())
+      const Vector<String> fields = mFields.empty() ? scriptFields() : mFields;
+      if(fields.empty())
          return true;
 
-      const String shape = T2Layout::resourcePath(mFields[0].c_str(),
+      const String shape = T2Layout::resourcePath(fields[0].c_str(),
                                                   "shapes/");
       if(TSShapeConstructor::findShapeConstructor(shape))
          return true;
 
       TSShapeConstructor *ctor = new TSShapeConstructor(shape);
-      for(U32 i = 1; i < mFields.size(); i++)
+      for(U32 i = 1; i < fields.size(); i++)
       {
-         const String entry = sequenceEntry(mFields[i]);
+         const String entry = sequenceEntry(fields[i]);
          ctor->setDataField(StringTable->insert("sequence"), NULL,
                             entry.c_str());
       }

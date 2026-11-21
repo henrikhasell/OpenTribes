@@ -310,6 +310,10 @@ struct PlayerData: public ShapeBaseData {
    static const char* T2ActionAnimationList[NumT2TableActionAnims];
    U16 t2ActionMap[NumT2Actions];
    U32 actionFromT2(U32 t2Action) const;
+   /// HH: Added for Tribes 2 compatibility. The inverse of actionFromT2: the
+   /// number a Tribes 2 peer knows this action by, or NumT2Actions when it
+   /// has none.
+   U32 t2ActionFor(U32 action) const;
 
    U32 lookAction;
 
@@ -703,6 +707,9 @@ protected:
    /// @}
 
    void onT2BodyRead( const T2Layout::Body &body ) override;
+   // HH: Added for Tribes 2 compatibility. The server's half of onT2BodyRead.
+   void getT2Body( T2Layout::Body *body, bool isInitial, U32 mask,
+                   NetConnection *conn ) const override;
    // HH: Added for Tribes 2 compatibility.
    F32 getCloakAlpha( bool image ) const override;
    void readT2Action( const T2Layout::Body &body );

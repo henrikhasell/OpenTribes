@@ -287,7 +287,8 @@ public:
    bool unpackUpdate(BitStream *stream, bool isInitial);
 
    // HH: Added for Tribes 2 compatibility.
-   void getT2Body(T2Layout::Body *body, bool isInitial) const;
+   void getT2Body(T2Layout::Body *body, bool isInitial, U32 mask,
+                  NetConnection *conn) const;
 
    void onEditorEnable();
    void onEditorDisable();

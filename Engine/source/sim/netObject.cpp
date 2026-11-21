@@ -334,7 +334,7 @@ U32 NetObject::packUpdate(NetConnection *conn, U32 mask, BitStream *stream,
    T2Layout::Body body;
    T2Layout::beginBody();
    T2Layout::clearBody(&body);
-   getT2Body(&body, isInitial);
+   getT2Body(&body, isInitial, mask, conn);
    T2Layout::publishBody(body);
 
    T2Layout::writeGhost(stream, getClassName(), isInitial, &subject);

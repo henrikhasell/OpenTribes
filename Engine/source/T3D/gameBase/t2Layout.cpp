@@ -72,6 +72,11 @@ static F32 sSpeed = 0.0f;
 static F32 sPhi = 0.0f;
 static const void *sFieldsLayout = NULL;
 
+// HH: Added for Tribes 2 compatibility. True while a ghost body is being
+// written. The body's labels belong to its class's ghost layout, so a packet
+// data walk, which runs another layout, must not read them.
+static bool sGhostWalk = false;
+
 const Body &lastBody()
 {
    return sBody;
@@ -1839,6 +1844,32 @@ static bool imageAt(const T2DataBlockLayout *layout, S32 at, U32 *slot,
    return true;
 }
 
+/// HH: Added for Tribes 2 compatibility. A flag that announces a part a body
+/// can carry: the mask of an image slot, a thread, a sound slot or a mount.
+static bool isBodyMask(const T2DataBlockLayout *layout, S32 at)
+{
+   U32 slot, part;
+   if(imageAt(layout, at, &slot, &part))
+      return part == T2ImageMask;
+   if(threadAt(layout, at, &slot, &part))
+      return part == T2ThreadMask;
+   if(soundAt(layout, at, &slot, &part))
+      return part == T2SoundChanged;
+   if(shapeAt(layout, at, &part) && part == T2MountChanged)
+      return true;
+
+   // The look block has no flag of its own that a body could set; its head
+   // pitch is the first word under it, sent whenever the body carries a head.
+   const T2GhostFieldRow *row = fieldAt(layout, at);
+   return row && row->field == T2FieldHeadPitch;
+}
+
+/// Whether a body carries the part a node is, for the gate in front of it.
+static bool bodyPartCarried(const T2DataBlockLayout *layout, S32 at,
+                            bool *carried);
+
+static bool writeBodyFlag(const T2DataBlockLayout *layout, S32 at, bool *set);
+
 // HH: Added for Tribes 2 compatibility.
 //
 // Writing a body is reading one backwards: the same graph, with the values a
@@ -1916,12 +1947,11 @@ namespace Plan
       return count;
    }
 
-   /// Whether anything the flag at \a at gates was published. What it gates is
-   /// what its set arm reaches and its clear arm does not -- the two come back
-   /// together somewhere, and everything from there on belongs to neither.
-   /// A flag over one value and one over a whole block, as ShapeBaseData's hud
-   /// images are, are both this.
-   static bool gatesWanted(const T2DataBlockLayout *layout, S32 at)
+   /// Every node a gate's set arm reaches before the arm rejoins its clear
+   /// arm, which is the block the gate says is there. False when the block is
+   /// too large to walk, which a gate treats as holding nothing.
+   static bool gateNodes(const T2DataBlockLayout *layout, S32 at,
+                         Vector<S32> *out)
    {
       const T2DataNode &flag = layout->nodes[at];
 
@@ -1958,10 +1988,7 @@ namespace Plan
          if(seenCount >= ELEMENTS(seen))
             return false;
          seen[seenCount++] = walk;
-
-         if(U32(walk) < sField.size() && sField[walk] >= 0 &&
-            published(U32(sField[walk])))
-            return true;
+         out->push_back(walk);
 
          const T2DataNode &n = layout->nodes[walk];
          if(n.op == OpEnd || n.op == OpEndBody)
@@ -1988,8 +2015,42 @@ namespace Plan
             stack[depth++] = n.b;
       }
 
+      return true;
+   }
+
+   /// Whether anything the flag at \a at gates was published. What it gates is
+   /// what its set arm reaches and its clear arm does not -- the two come back
+   /// together somewhere, and everything from there on belongs to neither.
+   /// A flag over one value and one over a whole block, as ShapeBaseData's hud
+   /// images are, are both this.
+   static bool gatesWanted(const T2DataBlockLayout *layout, S32 at)
+   {
+      Vector<S32> nodes(__FILE__, __LINE__);
+      if(!gateNodes(layout, at, &nodes))
+         return false;
+
+      for(U32 i = 0; i < nodes.size(); i++)
+      {
+         const S32 walk = nodes[i];
+         if(U32(walk) < sField.size() && sField[walk] >= 0 &&
+            published(U32(sField[walk])))
+            return true;
+      }
+
       return false;
    }
+
+   /// HH: Added for Tribes 2 compatibility. The body-part masks behind each
+   /// gate of one layout, worked out once for it: a gate in front of a block
+   /// of ShapeBase's parts is set when the body carries one of them. Kept
+   /// apart from the datablock plan above, which packet data and datablocks
+   /// still use.
+   struct GateParts
+   {
+      const T2DataBlockLayout *layout;
+      Vector<Vector<S32> >     parts;
+   };
+   static Vector<GateParts *> sGateCaches(__FILE__, __LINE__);
 
    /// Worked out once per class and set of published fields, since every
    /// instance of a class publishes the same ones.
@@ -2022,6 +2083,41 @@ namespace Plan
       }
    }
 
+   /// HH: Added for Tribes 2 compatibility. Builds the gate table for a layout
+   /// the first time it is asked for, and keeps it for the next body.
+   static void resolveBodyGates(const T2DataBlockLayout *layout,
+                                Vector<Vector<S32> > *parts)
+   {
+      parts->setSize(layout->count);
+      for(U32 i = 0; i < layout->count; i++)
+      {
+         (*parts)[i].clear();
+         const T2DataNode &n = layout->nodes[i];
+         if(n.op != OpFlag || !isBranch(&n))
+            continue;
+         Vector<S32> nodes(__FILE__, __LINE__);
+         if(!gateNodes(layout, S32(i), &nodes))
+            continue;
+         for(U32 j = 0; j < nodes.size(); j++)
+            if(isBodyMask(layout, nodes[j]))
+               (*parts)[i].push_back(nodes[j]);
+      }
+   }
+
+   static const Vector<Vector<S32> > &gatePartsFor(
+      const T2DataBlockLayout *layout)
+   {
+      for(U32 i = 0; i < sGateCaches.size(); i++)
+         if(sGateCaches[i]->layout == layout)
+            return sGateCaches[i]->parts;
+
+      GateParts *cache = new GateParts;
+      cache->layout = layout;
+      resolveBodyGates(layout, &cache->parts);
+      sGateCaches.push_back(cache);
+      return cache->parts;
+   }
+
    static S16 fieldAt(S32 at)
    {
       return at >= 0 && U32(at) < sField.size() ? sField[at] : -1;
@@ -2030,6 +2126,26 @@ namespace Plan
    static bool takeSet(S32 at)
    {
       return at >= 0 && U32(at) < sTakeSet.size() && sTakeSet[at];
+   }
+
+   /// HH: Added for Tribes 2 compatibility. Whether the body carries any part
+   /// behind this gate. False for a gate with no body part behind it, which
+   /// falls back to the datablock fields.
+   static bool bodyGate(const T2DataBlockLayout *layout, S32 at, bool *set)
+   {
+      const Vector<Vector<S32> > &gates = gatePartsFor(layout);
+      if(at < 0 || U32(at) >= gates.size() || gates[at].empty())
+         return false;
+
+      *set = false;
+      const Vector<S32> &masks = gates[at];
+      for(U32 i = 0; i < masks.size() && !*set; i++)
+      {
+         bool carried = false;
+         if(bodyPartCarried(layout, masks[i], &carried) && carried)
+            *set = true;
+      }
+      return true;
    }
 }
 
@@ -2149,6 +2265,10 @@ static bool planTakesSet(S32 at)
    const S16 field = Plan::fieldAt(at);
    if(field >= 0)
       return sDbHas[field] && writeWord(at) != 0;
+
+   if(sGhostWalk &&
+      Plan::bodyGate((const T2DataBlockLayout *)sFieldsLayout, at, &set))
+      return set;
 
    return Plan::takeSet(at);
 }
@@ -2327,6 +2447,166 @@ static bool ghostBodyFlagAt(S32 at)
    return root.op == OpFlag && isBranch(&root);
 }
 
+// HH: Added for Tribes 2 compatibility.
+// The write side of the parts the readers in runGhost label. Each one is a
+// flag or a word a ShapeBase or Player body carries, and is taken from the
+// body published for it, so the reader gets back what the server holds. A
+// node none of these claims is left to the walk, which sends its default.
+
+static bool bodyPartCarried(const T2DataBlockLayout *layout, S32 at,
+                            bool *carried)
+{
+   const T2GhostFieldRow *row = fieldAt(layout, at);
+   if(row && row->field == T2FieldHeadPitch)
+   {
+      *carried = sWriteBody.hasHead;
+      return true;
+   }
+   return writeBodyFlag(layout, at, carried);
+}
+
+/// The flag a labelled node sends, when it is one of the parts a body carries.
+static bool writeBodyFlag(const T2DataBlockLayout *layout, S32 at, bool *set)
+{
+   U32 slot, part;
+   if(imageAt(layout, at, &slot, &part))
+   {
+      const Body::Image &image = sWriteBody.images[slot];
+      switch(part)
+      {
+         case T2ImageMask:      *set = image.present;                 return true;
+         case T2ImageHasBlock:  *set = image.hasDataBlock;            return true;
+         case T2ImageHasSkin:   *set = image.hasSkinName || image.hasSkinTag;
+                                                                      return true;
+         // Set is a skin sent as a tag; a clear one is a name.
+         case T2ImageSkinKind:  *set = image.hasSkinTag;              return true;
+         case T2ImageTrigger:   *set = image.triggerDown;             return true;
+         case T2ImageLoaded:    *set = image.loaded;                  return true;
+         case T2ImageAmmo:      *set = image.ammo;                    return true;
+         case T2ImageWet:       *set = image.wet;                     return true;
+         case T2ImageTarget:    *set = image.target;                  return true;
+         case T2ImageExtra:     *set = image.fireOnInitial;           return true;
+         default:                                                     return false;
+      }
+   }
+
+   if(threadAt(layout, at, &slot, &part))
+   {
+      const Body::Thread &thread = sWriteBody.threads[slot];
+      switch(part)
+      {
+         case T2ThreadMask:     *set = thread.present;                return true;
+         case T2ThreadForward:  *set = thread.forward;                return true;
+         case T2ThreadAtEnd:    *set = thread.atEnd;                  return true;
+         default:                                                     return false;
+      }
+   }
+
+   if(soundAt(layout, at, &slot, &part))
+   {
+      const Body::Sound &sound = sWriteBody.sounds[slot];
+      switch(part)
+      {
+         case T2SoundChanged:   *set = sound.present;                 return true;
+         case T2SoundPlay:      *set = sound.play;                    return true;
+         default:                                                     return false;
+      }
+   }
+
+   if(shapeAt(layout, at, &part))
+   {
+      switch(part)
+      {
+         case T2MountChanged:   *set = sWriteBody.hasMount;           return true;
+         case T2Mounted:
+            *set = sWriteBody.hasMount && sWriteBody.mountGhost >= 0;
+                                                                      return true;
+         default:                                                     return false;
+      }
+   }
+
+   const T2GhostFieldRow *row = fieldAt(layout, at);
+   if(!row)
+      return false;
+   switch(row->field)
+   {
+      case T2FieldJetting:            *set = sWriteBody.jetting;          return true;
+      case T2FieldImpactHere:         *set = sWriteBody.hasImpactSound;   return true;
+      case T2FieldActionHere:         *set = sWriteBody.hasAction;        return true;
+      case T2FieldActionHold:         *set = sWriteBody.actionHold;       return true;
+      case T2FieldActionAtEnd:        *set = sWriteBody.actionAtEnd;      return true;
+      case T2FieldActionFirstPerson:  *set = sWriteBody.actionFirstPerson; return true;
+      case T2FieldActionPosHere:      *set = sWriteBody.hasActionPos;     return true;
+      case T2FieldArmHere:            *set = sWriteBody.hasArm;           return true;
+      default:                                                            return false;
+   }
+}
+
+/// The word a labelled node sends, when it is one of the parts a body carries.
+static bool writeBodyWord(const T2DataBlockLayout *layout, S32 at, U32 *word)
+{
+   if(!layout || at < 0 || U32(at) >= layout->count)
+      return false;
+   const T2DataNode &n = layout->nodes[at];
+
+   U32 slot, part;
+   if(imageAt(layout, at, &slot, &part))
+   {
+      const Body::Image &image = sWriteBody.images[slot];
+      switch(part)
+      {
+         case T2ImageBlockId:   *word = image.dataBlockId;  return true;
+         case T2ImageSkinTag:   *word = image.skinTag;      return true;
+         case T2ImageFireCount: *word = image.fireCount;    return true;
+         default:                                           return false;
+      }
+   }
+
+   if(threadAt(layout, at, &slot, &part))
+   {
+      const Body::Thread &thread = sWriteBody.threads[slot];
+      switch(part)
+      {
+         case T2ThreadSequence: *word = U32(thread.sequence); return true;
+         case T2ThreadState:    *word = thread.state;         return true;
+         default:                                             return false;
+      }
+   }
+
+   if(soundAt(layout, at, &slot, &part) && part == T2SoundProfile)
+   {
+      *word = U32(sWriteBody.sounds[slot].profile);
+      return true;
+   }
+
+   if(shapeAt(layout, at, &part))
+   {
+      switch(part)
+      {
+         case T2MountGhost:     *word = U32(sWriteBody.mountGhost); return true;
+         case T2MountNode:      *word = sWriteBody.mountNode;       return true;
+         default:                                                   break;
+      }
+   }
+
+   const T2GhostFieldRow *row = fieldAt(layout, at);
+   if(!row)
+      return false;
+   switch(row->field)
+   {
+      case T2FieldImpactSound: *word = sWriteBody.impactSound;      return true;
+      case T2FieldAction:      *word = sWriteBody.action;           return true;
+      case T2FieldActionPos:
+         *word = t2SignedFloatWord(sWriteBody.actionPos, n.bits);  return true;
+      case T2FieldArm:         *word = sWriteBody.arm;              return true;
+      case T2FieldHeadPitch:
+         *word = t2SignedFloatWord(sWriteBody.head.x, n.bits);     return true;
+      case T2FieldHeadYaw:
+         *word = t2SignedFloatWord(sWriteBody.head.y, n.bits);     return true;
+      default:                                                     return false;
+   }
+}
+
 /// The word a ghost body sends at this node, where it has one.
 static bool ghostWordAt(S32 at, U32 *word)
 {
@@ -2350,6 +2630,14 @@ static bool ghostWordAt(S32 at, U32 *word)
    if(isDataBlockNode && sWriteBody.hasDataBlock)
    {
       *word = sWriteBody.dataBlockId;
+      return true;
+   }
+
+   U32 labelled;
+   if(sGhostWalk &&
+      writeBodyWord((const T2DataBlockLayout *)sFieldsLayout, at, &labelled))
+   {
+      *word = labelled;
       return true;
    }
 
@@ -2397,6 +2685,9 @@ static bool ghostFlagAt(S32 at, bool *set)
       *set = writeQuat().w < 0.0f;
       return true;
    }
+
+   if(sGhostWalk && writeBodyFlag(layout, at, set))
+      return true;
 
    // A flag whose set arm starts a run of words: it goes out set when the
    // body has them.
@@ -2448,6 +2739,14 @@ static U32 writeWord(S32 at)
 
 static const char *writeText(S32 at)
 {
+   // HH: Added for Tribes 2 compatibility. An image slot's skin is named by the
+   // slot, so it goes out from there rather than from the positional queue.
+   const T2DataBlockLayout *layout = (const T2DataBlockLayout *)sFieldsLayout;
+   U32 slot, part;
+   if(sGhostWalk && layout && imageAt(layout, at, &slot, &part) &&
+      part == T2ImageSkinName)
+      return sWriteBody.images[slot].skinName.c_str();
+
    // A string of a body whose reader takes them in the order they came.
    if(sWriteBodyStringsTaken < U32(sWriteBodyStrings.size()))
       return sWriteBodyStrings[sWriteBodyStringsTaken++].c_str();
@@ -3323,7 +3622,16 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
          {
             Point3F p(0.0f, 0.0f, 0.0f);
             if(write)
+            {
+               // HH: Modified for Tribes 2 compatibility. A ghost body's position
+               // goes out where the walk reads it; a point that is no position
+               // keeps going out as the origin it always has.
+               const T2GhostFieldRow *row = fieldAt(layout, at);
+               if(sGhostWalk && row && row->field == T2FieldPosition &&
+                  sWriteBody.hasPosition)
+                  p = sWriteBody.position;
                stream->writeCompressedPoint(p, 0.01f);
+            }
             else
             {
                stream->readCompressedPoint(&p, 0.01f);
@@ -4705,9 +5013,12 @@ static bool runGhost(BitStream *stream, const char *className,
    sShieldPhi = 0.0f;
    resolveGhostFields(className);
    bool found = false;
+   const bool outerGhost = sGhostWalk;
+   sGhostWalk = write;
    const bool ok = runNamed(stream, className, sT2GhostsRecovered,
                             ELEMENTS(sT2GhostsRecovered), &found, isInitial,
                             write);
+   sGhostWalk = outerGhost;
    if(!found)
       warnUnimplemented("ghost", className, write);
    if(ok && !write)
@@ -4744,6 +5055,8 @@ static bool runPacketData(BitStream *stream, const char *className,
    const U32 outerOwn = sOwnDataBlockId;
    sSubject = subject ? *subject : Subject();
    sOwnDataBlockId = 0;
+   const bool outerGhost = sGhostWalk;
+   sGhostWalk = false;
 
    bool found = false;
    bool ok = runNamed(stream, className, sT2PacketDataRecovered,
@@ -4756,6 +5069,7 @@ static bool runPacketData(BitStream *stream, const char *className,
 
    sSubject = outer;
    sOwnDataBlockId = outerOwn;
+   sGhostWalk = outerGhost;
    return ok;
 }
 

@@ -893,9 +893,10 @@ void TerrainBlock::onEditorDisable()
 // in the order its layout reads them: the CRC, the terrain file, the detail
 // texture, the square size and the squares it leaves empty. A client refuses
 // the connection outright where the CRC does not match the file it loaded.
-void TerrainBlock::getT2Body(T2Layout::Body *body, bool isInitial) const
+void TerrainBlock::getT2Body(T2Layout::Body *body, bool isInitial, U32 mask,
+                              NetConnection *conn) const
 {
-   Parent::getT2Body(body, isInitial);
+   Parent::getT2Body(body, isInitial, mask, conn);
 
    // Its transform travels in the body's own nodes, which this layout has
    // none of: a terrain sits where its file says.

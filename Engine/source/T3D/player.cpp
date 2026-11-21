@@ -1033,6 +1033,21 @@ U32 PlayerData::actionFromT2(U32 t2Action) const
    return t2Action < NumT2Actions ? t2ActionMap[t2Action] : U32(NullAnimation);
 }
 
+// HH: Added for Tribes 2 compatibility. Searches the same map actionFromT2
+// reads, so the number sent is one the reader maps back to this action. Our
+// NullAnimation is also a map entry, so it is refused before the search.
+U32 PlayerData::t2ActionFor(U32 action) const
+{
+   if (action == NullAnimation)
+      return NumT2Actions;
+
+   for (U32 t2 = 0; t2 < NumT2Actions; t2++)
+      if (t2ActionMap[t2] == action)
+         return t2;
+
+   return NumT2Actions;
+}
+
 bool PlayerData::isTableSequence(S32 seq)
 {
    // The sequences from the table must already have
@@ -2661,6 +2676,13 @@ void Player::updateMove(const Move* move)
          }
       }
 
+      // A head change reaches the ghost only in a body, and a body goes out on
+      // its mask bits. The recentre above moves the head on moves that look at
+      // nothing, so compare against where it started.
+      if (!isGhost() &&
+          (mHead.x != delta.headVec.x || mHead.z != delta.headVec.z))
+         setMaskBits(MoveMask);
+
       // constrain the range of mRot.z
       while (mRot.z < 0.0f)
          mRot.z += M_2PI_F;
@@ -3824,6 +3846,12 @@ void Player::setActionThread(U32 action,bool forward,bool hold,bool wait,bool fs
       mActionAnimation.atEnd           = false;
       mActionAnimation.delayTicks      = (S32)sNewAnimationTickTime;
       mActionAnimation.atEnd           = false;
+
+      // HH: Added for Tribes 2 compatibility. A ghost learns the action from
+      // the body, and only ActionMask sends it, so a change made here must
+      // raise the bit or the ghost keeps the last action it was sent.
+      if (!isGhost())
+         setMaskBits(ActionMask);
 
       if (sUseAnimationTransitions && (action != PlayerData::LandAnim || !(mDataBlock->landSequenceTime > 0.0f && !mDataBlock->transitionToLand)) && (isGhost()/* || mActionAnimation.animateOnServer*/))
       {
@@ -5486,6 +5514,17 @@ void Player::readT2Action(const T2Layout::Body &body)
 
 void Player::onT2BodyRead(const T2Layout::Body &body)
 {
+   // HH: Added for Tribes 2 compatibility. What a body says of the action, the
+   // arm and the look, for the same debugging the image and thread traces do.
+   if (Con::getBoolVariable("$pref::Net::traceGhostActions", false))
+      Con::printf("T2 action: %s %d (ghost %d) action %d (%d) hold %d atEnd %d "
+                  "pos %d %g arm %d (%d) head %g %g hasPos %d at %g %g %g",
+                  getClassName(), getId(), getNetIndex(), body.hasAction,
+                  body.action, body.actionHold, body.actionAtEnd,
+                  body.hasActionPos, body.actionPos, body.hasArm, body.arm,
+                  body.head.x, body.head.y, body.hasPosition,
+                  body.position.x, body.position.y, body.position.z);
+
    readT2Damage(body);
    readT2Invincible(body);
    readT2Shield(body);
@@ -5514,14 +5553,10 @@ void Player::onT2BodyRead(const T2Layout::Body &body)
    if (body.hasArm && mDataBlock)
       readT2Arm(body);
 
-   if (!body.hasPosition)
-      return;
-
-   const Point3F rot(0.0f, 0.0f, body.hasYaw ? body.yaw : mRot.z);
-
    // HH: Added for Tribes 2 compatibility.
    // Retail scales the head's yaw by maxLookAngle too, not maxFreelookAngle
-   // (0x005db8d4, 0x005db8ef).
+   // (0x005db8d4, 0x005db8ef). Read before the position check, so the head
+   // moves whether or not the body carries a position.
    if (body.hasHead && mDataBlock)
    {
       mHead.x = body.head.x * mDataBlock->maxLookAngle;
@@ -5529,6 +5564,11 @@ void Player::onT2BodyRead(const T2Layout::Body &body)
       delta.head = mHead;
       delta.headVec.set(0.0f, 0.0f, 0.0f);
    }
+
+   if (!body.hasPosition)
+      return;
+
+   const Point3F rot(0.0f, 0.0f, body.hasYaw ? body.yaw : mRot.z);
 
    delta.pos = body.position;
    delta.rot = rot;
@@ -5543,6 +5583,79 @@ void Player::onT2BodyRead(const T2Layout::Body &body)
       mVelocity = body.velocity;
 
    setPosition(body.position, rot);
+}
+
+// HH: Added for Tribes 2 compatibility.
+// The server's half of onT2BodyRead, readT2Action and readT2Arm. Each part
+// goes out when its bit is in the mask, or whole on a first body, as in
+// ShapeBase::getT2Body.
+void Player::getT2Body(T2Layout::Body *body, bool isInitial, U32 mask,
+                       NetConnection *conn) const
+{
+   Parent::getT2Body(body, isInitial, mask, conn);
+
+   // The walk reads a player's position and rotation in every body, not only
+   // a first one, so every body says where the player is. A body without them
+   // would read the player back at the origin.
+   const MatrixF &transform = getTransform();
+   body->hasPosition = true;
+   body->position = transform.getPosition();
+   body->hasRotation = true;
+   body->rotation = transform;
+
+   if (!mDataBlock)
+      return;
+
+   // setActionThread and setArmThread both set ActionMask, so the action and
+   // the arm go out in the same body.
+   if (isInitial || (mask & ActionMask))
+   {
+      const U32 action = mDataBlock->t2ActionFor(mActionAnimation.action);
+      if (action != PlayerData::NumT2Actions)
+      {
+         body->hasAction = true;
+         body->action = action;
+         body->actionHold = mActionAnimation.holdAtEnd;
+         body->actionAtEnd = mActionAnimation.atEnd;
+         body->actionFirstPerson = mActionAnimation.firstPerson;
+
+         // A first body says how far through the action it is, for a player
+         // that joins mid-animation. A later one starts the action at its
+         // beginning, as setActionThread does.
+         if (isInitial && mActionAnimation.thread)
+         {
+            body->hasActionPos = true;
+            body->actionPos = mShapeInstance->getPos(mActionAnimation.thread);
+         }
+      }
+
+      const U32 arm = mDataBlock->t2ActionFor(mArmAnimation.action);
+      if (arm != PlayerData::NumT2Actions)
+      {
+         body->hasArm = true;
+         body->arm = arm;
+      }
+   }
+
+   // The look is the first word under the look block, which the body opens
+   // whenever it carries a head (see isBodyMask in t2Layout.cpp). Pitch and yaw
+   // go out as shares of maxLookAngle (see onT2BodyRead).
+   if (mDataBlock->maxLookAngle > 0.0f)
+   {
+      body->hasHead = true;
+      body->head.x = mClampF(mHead.x / mDataBlock->maxLookAngle, -1.0f, 1.0f);
+      body->head.y = mClampF(mHead.z / mDataBlock->maxLookAngle, -1.0f, 1.0f);
+   }
+
+   // Jetting is a state the reader takes as it stands, so every body says it.
+   body->hasJetting = true;
+   body->jetting = mJetting;
+
+   if (isInitial || (mask & ImpactMask))
+   {
+      body->hasImpactSound = true;
+      body->impactSound = U32(mImpactSound);
+   }
 }
 
 void Player::setPosition(const Point3F& pos,const Point3F& rot)

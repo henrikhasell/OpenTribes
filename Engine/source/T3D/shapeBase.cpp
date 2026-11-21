@@ -2152,6 +2152,12 @@ void ShapeBase::readT2Mount(const T2Layout::Body &body)
       return;
    }
 
+   // Every body names the mount again, and mountObject would rewrite the rider's
+   // transform each time it ran. A mount it already has is no change.
+   if (isMounted() && getObjectMount() == mount &&
+       getMountNode() == body.mountNode)
+      return;
+
    mount->mountObject(this, S32(body.mountNode));
 }
 
@@ -2193,6 +2199,110 @@ void ShapeBase::readT2Sounds(const T2Layout::Body &body)
 
       if (isProperlyAdded())
          updateAudioState(st);
+   }
+}
+
+// HH: Added for Tribes 2 compatibility.
+// The server's half of the readers above. A part goes out when its bit is in
+// the mask, or whole on a first body, so a reader that applies a part on
+// every body only ever sees a change it was sent. An image slot is the
+// exception: it always goes out whole, because setImage leaves a slot that
+// already holds its datablock alone.
+void ShapeBase::getT2Body(T2Layout::Body *body, bool isInitial, U32 mask,
+                          NetConnection *conn) const
+{
+   Parent::getT2Body(body, isInitial, mask, conn);
+
+   const U32 imageSlots = getMin((U32)MaxMountedImages, (U32)T2Layout::MaxImages);
+   if (isInitial || (mask & ImageMask))
+   {
+      for (U32 i = 0; i < imageSlots; i++)
+      {
+         const MountedImage &image = mMountedImageList[i];
+         T2Layout::Body::Image &slot = body->images[i];
+
+         slot.present = true;
+         // No datablock is an emptied slot, which the reader takes as a
+         // change of its own.
+         slot.hasDataBlock = image.dataBlock != NULL;
+         if (slot.hasDataBlock)
+            slot.dataBlockId = image.dataBlock->getId() - DataBlockObjectIdFirst;
+
+         slot.hasSkinName = image.skinNameHandle.isValidString();
+         if (slot.hasSkinName)
+            slot.skinName = image.skinNameHandle.getString();
+
+         slot.triggerDown = image.triggerDown;
+         slot.loaded = image.loaded;
+         slot.ammo = image.ammo;
+         slot.wet = image.wet;
+         slot.target = image.target;
+
+         // The network keeps three bits of the count (MountedImage::fireCount),
+         // and a ghost compares what it last read against the same three bits.
+         slot.fireCount = image.fireCount & 7;
+
+         // A ghost's first body fires a slot only when the server is mid-shot.
+         slot.fireOnInitial = isInitial && image.dataBlock && image.state &&
+                              image.state->fire;
+      }
+   }
+
+   const U32 threadSlots = getMin((U32)MaxScriptThreads, (U32)T2Layout::MaxThreads);
+   for (U32 i = 0; i < threadSlots; i++)
+   {
+      if (!isInitial && !(mask & (ThreadMaskN << i)))
+         continue;
+
+      const Thread &st = mScriptThread[i];
+      // A slot with no sequence has nothing for a ghost to play.
+      if (st.sequence < 0)
+         continue;
+
+      T2Layout::Body::Thread &slot = body->threads[i];
+      slot.present = true;
+      slot.sequence = U32(st.sequence);
+      slot.state = st.state;
+      slot.forward = st.timescale >= 0.0f;
+      slot.atEnd = st.atEnd;
+   }
+
+   const U32 soundSlots = getMin((U32)MaxSoundThreads, (U32)T2Layout::MaxSounds);
+   for (U32 i = 0; i < soundSlots; i++)
+   {
+      if (!isInitial && !(mask & (SoundMaskN << i)))
+         continue;
+
+      const Sound &st = mSoundThread[i];
+      T2Layout::Body::Sound &slot = body->sounds[i];
+      slot.present = true;
+      slot.play = st.play;
+      // A profile goes out as its id, which the ghost resolves. A stopped slot
+      // parks at -1, as retail does (0x5ef375).
+      slot.profile = (st.play && st.profile) ? S32(st.profile->getId()) : -1;
+   }
+
+   // Sent on every body rather than on a change: the rider has no bit of its
+   // own for its mount, and readT2Mount takes a mount it already has as no
+   // change. A mount the connection has not ghosted yet is left out, because
+   // the reader cannot name it.
+   if (conn)
+   {
+      if (!mMount.object)
+      {
+         body->hasMount = true;
+         body->mountGhost = -1;
+      }
+      else
+      {
+         const S32 ghost = conn->getGhostIndex(mMount.object);
+         if (ghost >= 0)
+         {
+            body->hasMount = true;
+            body->mountGhost = ghost;
+            body->mountNode = U32(mMount.node);
+         }
+      }
    }
 }
 

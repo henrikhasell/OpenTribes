@@ -1547,6 +1547,11 @@ public:
 
    void onT2BodyRead(const T2Layout::Body &body) override;
 
+   // HH: Added for Tribes 2 compatibility. The server's half of readT2Images,
+   // readT2Threads, readT2Sounds and readT2Mount.
+   void getT2Body(T2Layout::Body *body, bool isInitial, U32 mask,
+                  NetConnection *conn) const override;
+
    /// Tribes 2's ShapeBase::playShieldEffect (0x005eb8e0): the server marks
    /// the hit for its clients and a client starts the flash.
    void playShieldEffect(const Point3F &normal, F32 energy);

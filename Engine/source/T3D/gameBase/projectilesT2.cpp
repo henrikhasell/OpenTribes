@@ -948,7 +948,8 @@ public:
       // HH: Added for Tribes 2 compatibility. What a server's scripts state
       // when they fire one, and what its body says when it is ghosted.
    static void initPersistFields();
-   void getT2Body(T2Layout::Body *body, bool isInitial) const;
+   void getT2Body(T2Layout::Body *body, bool isInitial, U32 mask,
+                  NetConnection *conn) const;
 
       /// Where a script put it and which way it was aimed, held until onAdd
       /// so the two arrive together however the fields were written.
@@ -986,9 +987,10 @@ void ProjectileT2::initPersistFields()
 
 // HH: Added for Tribes 2 compatibility. A projectile's body says where it
 // started and which way, and a client works the speed out of the datablock.
-void ProjectileT2::getT2Body(T2Layout::Body *body, bool isInitial) const
+void ProjectileT2::getT2Body(T2Layout::Body *body, bool isInitial, U32 mask,
+                             NetConnection *conn) const
 {
-   Parent::getT2Body(body, isInitial);
+   Parent::getT2Body(body, isInitial, mask, conn);
 
    body->hasRotation = false;
    body->hasScale = false;

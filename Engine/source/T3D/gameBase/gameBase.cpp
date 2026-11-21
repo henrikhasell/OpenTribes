@@ -469,9 +469,10 @@ void GameBase::onT2BodyHeadRead(const T2Layout::Body &body)
 // HH: Added for Tribes 2 compatibility. Where a body is sent whole it names
 // the object's datablock and says where it is; a later one says only what
 // changed, which is a class's own business.
-void GameBase::getT2Body(T2Layout::Body *body, bool isInitial) const
+void GameBase::getT2Body(T2Layout::Body *body, bool isInitial, U32 mask,
+                         NetConnection *conn) const
 {
-   Parent::getT2Body(body, isInitial);
+   Parent::getT2Body(body, isInitial, mask, conn);
 
    if(mDataBlock)
    {

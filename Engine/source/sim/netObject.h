@@ -384,7 +384,12 @@ public:
    /// which is the same Body a read fills: the walk takes its values back out
    /// of this, and a field the body says nothing about keeps the layout's
    /// default. `isInitial` is a first body, which carries everything.
-   virtual void getT2Body(T2Layout::Body *body, bool isInitial) const {}
+   /// `mask` is what changed since the last body, and `conn` is the connection
+   /// the body is written for. A part is sent only when its bit is in `mask`,
+   /// as Torque's own packUpdate does, so a reader that applies a part again
+   /// on every body never sees a change it did not ask for.
+   virtual void getT2Body(T2Layout::Body *body, bool isInitial, U32 mask,
+                          NetConnection *conn) const {}
 
    /// Queries the object about information used to determine scope.
    ///
