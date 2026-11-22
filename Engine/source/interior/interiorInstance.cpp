@@ -313,8 +313,9 @@ void InteriorInstance::getT2Body(T2Layout::Body *body, bool isInitial, U32 mask,
       const String file = mInteriorFileName ? mInteriorFileName : "";
       const S32 slash = file.find('/', 0, String::Right);
       T2Layout::publishBodyString(slash < 0 ? file : file.substr(slash + 1));
-      // The interior's skin string, which an interior never names.
-      T2Layout::publishBodyString("");
+      // The interior's skin base. Retail sends "base" for every interior, as
+      // the wire shows (decoded from a retail server's capture).
+      T2Layout::publishBodyString("base");
    }
 
    if(!isInitial && !(mask & TransformMask))

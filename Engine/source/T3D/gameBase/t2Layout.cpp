@@ -2321,6 +2321,13 @@ static bool planTakesSet(S32 at)
    bool set;
    if(ghostFlagAt(at, &set))
       return set;
+   // HH: Added for Tribes 2 compatibility. An interior's showTerrainInside
+   // (node 32) and alarmState (node 52) go out clear, as a retail server sends
+   // them. The default sent alarmState set, and a retail client crashes when a
+   // second interior loads with it set.
+   if(sGhostWalk && sFieldsLayout && (at == 32 || at == 52) &&
+      !dStrcmp(((const T2DataBlockLayout *)sFieldsLayout)->name, "InteriorInstance"))
+      return false;
    if(writeStateFlag(at, &set))
       return set;
 
