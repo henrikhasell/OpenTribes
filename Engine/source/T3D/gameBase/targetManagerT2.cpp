@@ -450,6 +450,19 @@ ConsoleFunction(setTargetSensorGroup, void, 3, 3, "setTargetSensorGroup(targetId
    TargetManagerT2::server()->setSensorGroup(id, group);
 }
 
+// The scripts cap a friendly shot's damage with this (StaticShapeData::
+// damageObject), so a missing one reads as an enemy and the cap never applies.
+ConsoleFunction(isTargetFriendly, bool, 3, 3, "isTargetFriendly(targetId, sensorGroup)")
+{
+   const S32 id = validateTarget(dAtoi(argv[1]), "cIsTargetFriendly", false);
+   if(id == -1)
+      return false;
+   const S32 group = validateSensorGroup(dAtoi(argv[2]), "cIsTargetFriendly");
+   if(group == -1)
+      return false;
+   return TargetManagerT2::server()->isTargetFriendly(id, group);
+}
+
 ConsoleFunction(setTargetSensorData, void, 3, 3, "setTargetSensorData(targetId, sensorData)")
 {
    // 0x66f720.  Anything that is not a datablock is no sensor at all.
