@@ -2224,6 +2224,17 @@ void ShapeBase::getT2Body(T2Layout::Body *body, bool isInitial, U32 mask,
       body->damageDir = damageDir;
    }
 
+   // The flash goes out once, on the body after the shield turned a hit away.
+   // The energy is the share left, which the ghost reads as its strength.
+   if (mDataBlock && !isInitial && (mask & ShieldMask))
+   {
+      const F32 maxEnergy = mDataBlock->maxEnergy;
+      body->hasShield = true;
+      body->shieldNormal = mShieldNormal;
+      body->shieldEnergy = maxEnergy > 0.0f
+                           ? mClampF(mEnergy / maxEnergy, 0.0f, 1.0f) : 0.0f;
+   }
+
    const U32 imageSlots = getMin((U32)MaxMountedImages, (U32)T2Layout::MaxImages);
    if (isInitial || (mask & ImageMask))
    {

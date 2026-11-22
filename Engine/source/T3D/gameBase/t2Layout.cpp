@@ -841,6 +841,7 @@ enum T2ShieldPart
    T2ShieldNormal,                  ///< the whole normal, or its phi alone
    T2ShieldTheta,
    T2ShieldEnergy,
+   T2ShieldFlag,                    ///< set when a shield turned a hit away
 
    T2ShieldParts
 };
@@ -887,6 +888,7 @@ static bool matchShield(const T2DataBlockLayout *layout, S32 top, S16 *parts)
    if(!isBareFlag(other) || other->a != energy->a)
       return false;
 
+   parts[T2ShieldFlag]   = S16(top);
    parts[T2ShieldNormal] = S16(pick->a);
    parts[T2ShieldTheta]  = theta;
    parts[T2ShieldEnergy] = theta >= 0 ? S16(nodeAt(layout, theta)->a)
@@ -2698,6 +2700,14 @@ static bool writeBodyFlag(const T2DataBlockLayout *layout, S32 at, bool *set)
       }
    }
 
+   // The shield's flag goes out on the body of a hit it turned away.
+   U32 shieldPart;
+   if(shieldAt(layout, at, &shieldPart) && shieldPart == T2ShieldFlag)
+   {
+      *set = sWriteBody.hasShield;
+      return true;
+   }
+
    // The damage block goes out when the body has damage to send, and its
    // blow-apart flag says whether the object is blown apart.
    U32 damagePart;
@@ -2801,6 +2811,39 @@ static bool writeBodyWord(const T2DataBlockLayout *layout, S32 at, U32 *word)
          case T2MountGhost:     *word = U32(sWriteBody.mountGhost); return true;
          case T2MountNode:      *word = sWriteBody.mountNode;       return true;
          default:                                                   break;
+      }
+   }
+
+   // The shield's words, in the order the reader takes them: the normal, then
+   // the energy left. They go out only on a body that carries a shield.
+   U32 shieldPart;
+   if(shieldAt(layout, at, &shieldPart) && shieldPart != T2ShieldFlag)
+   {
+      if(!sWriteBody.hasShield)
+         return false;
+
+      switch(shieldPart)
+      {
+         case T2ShieldNormal:
+         case T2ShieldTheta:
+         {
+            F32 phi, theta;
+            vectorAngles(sWriteBody.shieldNormal, &phi, &theta);
+            // A whole normal is a 9-bit phi above an 8-bit theta; a node
+            // that is one part of it carries only that part.
+            if(n.bits == 17)
+               *word = t2SignedFloatWord(phi / M_PI_F, 9) |
+                       (t2SignedFloatWord(theta / M_HALFPI_F, 8) << 9);
+            else if(shieldPart == T2ShieldNormal)
+               *word = t2SignedFloatWord(phi / M_PI_F, n.bits);
+            else
+               *word = t2SignedFloatWord(theta / M_HALFPI_F, n.bits);
+            return true;
+         }
+         case T2ShieldEnergy:
+            *word = t2FloatWord(sWriteBody.shieldEnergy, n.bits);
+            return true;
+         default:                                                    break;
       }
    }
 
