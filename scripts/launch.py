@@ -1,9 +1,13 @@
 #!/usr/bin/env python3
 import argparse
 import os
+import re
 import shlex
+import signal
 import socket
+import subprocess
 import sys
+import time
 from pathlib import Path
 from typing import Literal, Optional
 
@@ -50,6 +54,51 @@ def exec(*args) -> None:
     os.execv(args[0], args)
 
 
+# Wine logs the crash dialog's text on the msgbox channel when it opens it:
+#   msgbox:MSGBOX_OnInit L"Unhandled exception: c0000005\nAt address: 0066d073\n"
+FAULT_RE = re.compile(
+    r'msgbox:MSGBOX_OnInit L"Unhandled exception: ([0-9a-fA-F]+)\\nAt address:\s*([0-9a-fA-F]+)'
+)
+
+
+def kill_game(proc: subprocess.Popen) -> None:
+    try:
+        os.killpg(proc.pid, signal.SIGKILL)
+    except ProcessLookupError:
+        pass
+    subprocess.run("pkill -9 -x Tribes2.exe", shell=True)
+    subprocess.run("wineserver -k", shell=True)
+
+
+def run_supervised(args: list[str]) -> int:
+    """Run the game as a child, stop it at the first unhandled exception.
+
+    Wine's crash dialog blocks the game until someone closes it, so the
+    game is killed as soon as its message box is logged. The crash text is
+    echoed to stderr so it can be read without a screenshot.
+    """
+    print("+", shlex.join(args), file=sys.stderr, flush=True)
+    env = dict(os.environ, WINEDEBUG="err+all,+msgbox")
+    proc = subprocess.Popen(
+        args, cwd=GAMEDATA, env=env, stderr=subprocess.PIPE,
+        start_new_session=True,
+    )
+    for raw in proc.stderr:
+        line = raw.decode(errors="replace")
+        sys.stderr.write(line)
+        sys.stderr.flush()
+        if match := FAULT_RE.search(line):
+            code, address = match.groups()
+            print(
+                f"UNHANDLED EXCEPTION code=0x{code} at address=0x{address}; "
+                "killing the game",
+                file=sys.stderr, flush=True,
+            )
+            kill_game(proc)
+            return 1
+    return proc.wait()
+
+
 def launch(
     mode: Literal["retail", "opentribes"],
     telnet_port: Optional[int] = None,
@@ -86,6 +135,8 @@ def launch(
     ]
 
     delete_dso_files()
+    if mode == "retail":
+        sys.exit(run_supervised(argv))
     exec(*argv)
 
 
