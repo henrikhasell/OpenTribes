@@ -74,11 +74,21 @@ void compute4Lights( vec3 wsView,
       sqDists[i] = dot( lightVector, lightVector );
    }
 
-   // Attenuation
-   vec4 atten = vec4( 1.0 ) - ( sqDists * inLightInvRadiusSq );
+   // HH: Modified for Tribes 2 compatibility.
+   // Tribes 2 lit a shape with OpenGL's own point lights, at a linear
+   // attenuation of one over the radius and none constant or quadratic
+   // (0x00573c97): radius / distance, past the radius as well as inside it.
+   // A light with no radius is the sun's, which does not fall off. Nothing
+   // is clamped light by light; OpenGL clamped only the sum.
+   vec4 atten = vec4( 1.0 );
+   for ( i = 0; i < C4L_MAX_LIGHTS; ++i )
+   {
+      if ( inLightInvRadiusSq[i] > 0.0 )
+         atten[i] = inversesqrt( max( sqDists[i] * inLightInvRadiusSq[i], 1.0e-6 ) );
+   }
 
    // Combine the light colors for output.
-   vec4 diffuse = clamp( nDotL * atten, vec4( 0.0 ), vec4( 1.0 ) );
+   vec4 diffuse = nDotL * atten;
    outDiffuse = vec4( 0.0 );
    for ( i = 0; i < C4L_MAX_LIGHTS; ++i )
       outDiffuse += vec4( diffuse[i] ) * inLightColor[i];
