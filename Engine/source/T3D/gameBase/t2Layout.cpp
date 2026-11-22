@@ -2696,6 +2696,7 @@ static bool writeBodyFlag(const T2DataBlockLayout *layout, S32 at, bool *set)
          case T2Mounted:
             *set = sWriteBody.hasMount && sWriteBody.mountGhost >= 0;
                                                                       return true;
+         case T2TargetChanged:  *set = sWriteBody.hasTarget;          return true;
          default:                                                     return false;
       }
    }
@@ -2810,6 +2811,11 @@ static bool writeBodyWord(const T2DataBlockLayout *layout, S32 at, U32 *word)
       {
          case T2MountGhost:     *word = U32(sWriteBody.mountGhost); return true;
          case T2MountNode:      *word = sWriteBody.mountNode;       return true;
+         case T2TargetId:
+            if(!sWriteBody.hasTarget)
+               return false;
+            *word = U32(sWriteBody.target);
+            return true;
          default:                                                   break;
       }
    }

@@ -480,6 +480,15 @@ void GameBase::getT2Body(T2Layout::Body *body, bool isInitial, U32 mask,
       body->dataBlockId = mDataBlock->getId() - DataBlockObjectIdFirst;
    }
 
+   // The target's id goes out on every body that has one. A ghost shows the
+   // name and health of the target it names, so a station or generator that
+   // sends none is never named.
+   if(getTarget() >= 0)
+   {
+      body->hasTarget = true;
+      body->target = getTarget();
+   }
+
    if(isInitial)
    {
       const MatrixF &transform = getTransform();
