@@ -45,6 +45,19 @@ RenderObjectMgr::RenderObjectMgr(RenderInstType riType, F32 renderOrder, F32 pro
    mOverrideMat = NULL;
 }
 
+// HH: Added for Tribes 2 compatibility.
+// An object that asks to be sorted among the translucent meshes is drawn by
+// RenderTranslucentMgr, which is notified of the same type; drawing it here
+// as well would add it into the scene twice.
+void RenderObjectMgr::addElement( RenderInst *inst )
+{
+   if ( inst->translucentSort &&
+        inst->type == RenderPassManager::RIT_ObjectTranslucent )
+      return;
+
+   Parent::addElement( inst );
+}
+
 void RenderObjectMgr::initPersistFields()
 {
    Parent::initPersistFields();

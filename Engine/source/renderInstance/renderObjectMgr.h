@@ -39,6 +39,7 @@ public:
    virtual void setOverrideMaterial(BaseMatInstance* overrideMat); 
 
    // RenderBinMgr
+   virtual void addElement(RenderInst *inst);
    virtual void render(SceneRenderState * state);
 
    // ConsoleObject
