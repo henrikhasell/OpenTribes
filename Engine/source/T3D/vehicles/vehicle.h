@@ -138,7 +138,11 @@ struct VehicleData: public ShapeBaseData
    bool preload(bool server, String &errorStr);
    // HH: Added for Tribes 2 compatibility.
    bool unpackData(BitStream *stream, U32 classId) override;
+   // HH: Added for Tribes 2 compatibility.
+   void publishT2Data() override;
    static S32 sentDataBlockId(U32 field);
+   static void publishDataBlockId(U32 field, const SimObject *object,
+                                  S32 sentId);
    static void initPersistFields();
 
    DECLARE_CONOBJECT(VehicleData);

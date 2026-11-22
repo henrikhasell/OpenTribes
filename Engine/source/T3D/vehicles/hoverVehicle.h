@@ -120,6 +120,7 @@ class HoverVehicleData : public VehicleData
    bool preload(bool server, String &errorStr);
    // HH: Added for Tribes 2 compatibility.
    bool unpackData(BitStream *stream, U32 classId) override;
+   void publishT2Data() override;
 
    DECLARE_CONOBJECT(HoverVehicleData);
    static void initPersistFields();

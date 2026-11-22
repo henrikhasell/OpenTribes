@@ -371,6 +371,90 @@ bool VehicleData::unpackData(BitStream *stream, U32 classId)
    return true;
 }
 
+// HH: Added for Tribes 2 compatibility.
+// The id a datablock field goes out as: the object's own where the script
+// named one, else the id it was sent, and no field at all where neither is.
+void VehicleData::publishDataBlockId(U32 field, const SimObject *object,
+                                     S32 sentId)
+{
+   const S32 id = object ? S32(object->getId()) : sentId;
+   if (id != -1 && id != 0)
+      T2Layout::publishDataBlockWord(field, U32(id) - DataBlockObjectIdFirst);
+}
+
+// HH: Added for Tribes 2 compatibility.
+// The fields VehicleData::unpackData (0x609450) reads after ShapeBaseData's.
+// Every vehicle datablock carries them, so each subclass publishes on top.
+void VehicleData::publishT2Data()
+{
+   Parent::publishT2Data();
+
+   T2Layout::publishDataBlockWhole(T2Layout::T2DbBodyRestitution,
+                                   body.restitution);
+   T2Layout::publishDataBlockWhole(T2Layout::T2DbBodyFriction,
+                                   body.friction);
+
+   for (U32 i = 0; i < Body::MaxSounds; i++)
+      publishDataBlockId(T2Layout::T2DbBodySound + i, body.sound[i],
+                         bodySoundID[i]);
+
+   static const struct { U32 field; F32 VehicleData::*member; } sFields[] =
+   {
+      { T2Layout::T2DbMinImpactSpeed,         &VehicleData::minImpactSpeed         },
+      { T2Layout::T2DbSoftImpactSpeed,        &VehicleData::softImpactSpeed        },
+      { T2Layout::T2DbHardImpactSpeed,        &VehicleData::hardImpactSpeed        },
+      { T2Layout::T2DbMinRollSpeed,           &VehicleData::minRollSpeed           },
+      { T2Layout::T2DbMaxSteerinAngle,        &VehicleData::maxSteeringAngle       },
+      { T2Layout::T2DbMaxDrag,                &VehicleData::maxDrag                },
+      { T2Layout::T2DbMinDrag,                &VehicleData::minDrag                },
+      { T2Layout::T2DbJetForce,               &VehicleData::jetForce               },
+      { T2Layout::T2DbJetEnergyDrain,         &VehicleData::jetEnergyDrain         },
+      { T2Layout::T2DbMinJetEnergy,           &VehicleData::minJetEnergy           },
+      { T2Layout::T2DbCameraOffset,           &VehicleData::cameraOffset           },
+      { T2Layout::T2DbCameraLag,              &VehicleData::cameraLag              },
+      { T2Layout::T2DbTriggerDustHeight,      &VehicleData::triggerDustHeight      },
+      { T2Layout::T2DbDustHeight,             &VehicleData::dustHeight             },
+      { T2Layout::T2DbNumDmgEmitterAreas,     &VehicleData::numDmgEmitterAreas     },
+      { T2Layout::T2DbExitSplashSoundVel,     &VehicleData::exitSplashSoundVel     },
+      { T2Layout::T2DbSoftSplashSoundVel,     &VehicleData::softSplashSoundVel     },
+      { T2Layout::T2DbMedSplashSoundVel,      &VehicleData::medSplashSoundVel      },
+      { T2Layout::T2DbHardSplashSoundVel,     &VehicleData::hardSplashSoundVel     },
+      { T2Layout::T2DbSplashFreqMod,          &VehicleData::splashFreqMod          },
+      { T2Layout::T2DbSplashVelEpsilon,       &VehicleData::splashVelEpsilon       },
+      { T2Layout::T2DbCollDamageThresholdVel, &VehicleData::collDamageThresholdVel },
+      { T2Layout::T2DbCollDamageMultiplier,   &VehicleData::collDamageMultiplier   },
+   };
+
+   for (U32 i = 0; i < sizeof(sFields) / sizeof(sFields[0]); i++)
+      T2Layout::publishDataBlockWhole(sFields[i].field, this->*sFields[i].member);
+
+   for (U32 i = 0; i < VC_NUM_DAMAGE_EMITTER_AREAS; i++)
+   {
+      const U32 at = T2Layout::T2DbDamageEmitterOffset + i * 3;
+      T2Layout::publishDataBlockWhole(at,     damageEmitterOffset[i].x);
+      T2Layout::publishDataBlockWhole(at + 1, damageEmitterOffset[i].y);
+      T2Layout::publishDataBlockWhole(at + 2, damageEmitterOffset[i].z);
+   }
+
+   for (U32 i = 0; i < VC_NUM_DAMAGE_LEVELS; i++)
+      T2Layout::publishDataBlockWhole(T2Layout::T2DbDamageLevelTolerance + i,
+                                      damageLevelTolerance[i]);
+
+   for (U32 i = 0; i < MaxSounds; i++)
+      publishDataBlockId(T2Layout::T2DbWaterSound + i, waterSound[i],
+                         waterSoundID[i]);
+
+   publishDataBlockId(T2Layout::T2DbDustEmitter, dustEmitter, dustID);
+
+   for (U32 i = 0; i < VC_NUM_DAMAGE_EMITTERS; i++)
+      publishDataBlockId(T2Layout::T2DbDamageEmitter + i,
+                         damageEmitterList[i], damageEmitterIDList[i]);
+
+   for (U32 i = 0; i < VC_NUM_SPLASH_EMITTERS; i++)
+      publishDataBlockId(T2Layout::T2DbSplashEmitter + i,
+                         splashEmitterList[i], splashEmitterIDList[i]);
+}
+
 
 //----------------------------------------------------------------------------
 
