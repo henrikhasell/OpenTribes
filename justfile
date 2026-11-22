@@ -15,7 +15,7 @@ install config="release": (build config)
 
 opentribes config="debug" telnet_port="2323": (install config)
     PYTHONPATH="{{justfile_directory()}}/scripts" \
-    python -m launch --telnet-port "{{telnet_port}}" opentribes
+    python -m launch --telnet-port "{{telnet_port}}" --connect local opentribes
 
 retail telnet_port="2324":
     PYTHONPATH="{{justfile_directory()}}/scripts" \
