@@ -4,6 +4,7 @@
 #include "core/strings/stringFunctions.h"
 #include "console/console.h"
 #include "console/netClassTable.h"
+#include "console/sim.h"
 #include "math/mPoint3.h"
 #include "math/mQuat.h"
 #include "math/mMathFn.h"
@@ -2216,8 +2217,10 @@ static bool runGraph(BitStream *stream, const T2DataBlockLayout *layout,
                sBody.images[slot].hasDataBlock = true;
                sBody.images[slot].dataBlockId = dbId;
             }
+            // The wire carries the datablock's position, but the profile is
+            // looked up as an object id, which sits DataBlockObjectIdFirst above it.
             if(isSound)
-               sBody.sounds[soundSlot].profile = S32(dbId);
+               sBody.sounds[soundSlot].profile = S32(dbId + DataBlockObjectIdFirst);
             if(!write)
                sDataBlockIds.push_back(dbId);
             break;
