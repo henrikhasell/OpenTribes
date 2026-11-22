@@ -208,7 +208,6 @@ class Vehicle: public ShapeBase
    CollisionList mContacts;
    Rigid mRigid;
    ShapeBaseConvex mConvex;
-   int restCount;
 
    SimObjectPtr<ParticleEmitter> mDustEmitterList[VehicleData::VC_NUM_DUST_EMITTERS];
    SimObjectPtr<ParticleEmitter> mDamageEmitterList[VehicleData::VC_NUM_DAMAGE_EMITTERS];
@@ -217,7 +216,6 @@ class Vehicle: public ShapeBase
    //
    virtual bool onNewDataBlock( GameBaseData *dptr, bool reload );
    void updatePos(F32 dt);
-   bool updateCollision(F32 dt);
    bool resolveCollision(Rigid& ns,CollisionList& cList);
    bool resolveContacts(Rigid& ns,CollisionList& cList,F32 dt);
    bool resolveDisplacement(Rigid& ns,CollisionState *state,F32 dt);
