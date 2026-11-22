@@ -1155,7 +1155,7 @@ class SimTargetAudioEvent : public NetEvent
 public:
    SimTargetAudioEvent()
    {
-      mGuaranteeType = Unguaranteed;
+      mGuaranteeType = GuaranteedOrdered;
       mTarget = 0;
       mFile = 0;
       mDescriptionHere = false;
@@ -1167,11 +1167,13 @@ public:
 
    /// A line as playTargetAudio sends it. The file is this connection's
    /// string entry and the description the datablock's position in the send
-   /// order. Unguaranteed, as the default is.
+   /// order. Guaranteed, because an unguaranteed event is read and released
+   /// with no reference taken (NetConnection::eventReadPacket), which asserts
+   /// in a client on the first line.
    SimTargetAudioEvent(U32 target, U32 file, U32 description,
                        const Point3F &position, bool update)
    {
-      mGuaranteeType = Unguaranteed;
+      mGuaranteeType = GuaranteedOrdered;
       mTarget = target;
       mFile = file;
       mDescriptionHere = true;
