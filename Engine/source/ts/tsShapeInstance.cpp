@@ -920,18 +920,10 @@ S32 TSShapeInstance::setDetailFromDistance( const SceneRenderState *state, F32 s
       return mCurrentDetailLevel;
    }
 
-   // The pixel scale is used the linearly scale the lod
-   // selection based on the viewport size.
-   //
-   // The original calculation from TGEA was...
-   //
-   // pixelScale = viewport.extent.x * 1.6f / 640.0f;
-   //
-   // Since we now work on the viewport height, assuming
-   // 4:3 aspect ratio, we've changed the reference value
-   // to 300 to be more compatible with legacy shapes.
-   //
-   const F32 pixelScale = state->getViewport().extent.y / 300.0f;
+   // HH: Modified for Tribes 2 compatibility.
+   // Tribes 2's detail sizes are pixels on a screen 640 wide: its pixel
+   // scale is the viewport's width over 640 (dglSetViewport, 0x447570).
+   const F32 pixelScale = state->getViewport().extent.x / 640.0f;
 
    // This is legacy DTS support for older "multires" based
    // meshes.  The original crossbow weapon uses this.
