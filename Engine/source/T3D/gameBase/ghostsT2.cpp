@@ -25,6 +25,5 @@ IMPLEMENT_GHOST_T2( AIObjective );
 IMPLEMENT_GHOST_T2( AudioEmitter );
 IMPLEMENT_GHOST_T2( BombProjectile );
 IMPLEMENT_GHOST_T2( FireballAtmosphere );
-IMPLEMENT_GHOST_T2( FlareProjectile );
 IMPLEMENT_GHOST_T2( ParticleEmissionDummy );
 IMPLEMENT_GHOST_T2( Shockwave );

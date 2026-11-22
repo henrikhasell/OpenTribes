@@ -101,7 +101,6 @@ IMPLEMENT_DATABLOCK_T2( AudioSampleEnvironment );
 IMPLEMENT_DATABLOCK_T2( BombProjectileData );
 IMPLEMENT_DATABLOCK_T2( EffectProfile );
 IMPLEMENT_DATABLOCK_T2( FireballAtmosphereData );
-IMPLEMENT_DATABLOCK_T2( FlareProjectileData );
 IMPLEMENT_DATABLOCK_T2( JetEffectData );
 IMPLEMENT_DATABLOCK_T2( ParticleEmissionDummyData );
 IMPLEMENT_DATABLOCK_T2( RunningLightData );
