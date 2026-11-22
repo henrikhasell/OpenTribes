@@ -80,12 +80,29 @@ bool SimDataBlock::onAdd()
 
 //-----------------------------------------------------------------------------
 
+// HH: Modified for Tribes 2 compatibility.
+// Tribes 2 numbers datablocks from zero, so an id of zero means both "no id
+// yet" and "the first datablock", and the range test this used -- which read
+// an unnumbered object as client-only -- cannot fire. Every declared datablock
+// kept the dynamic id the manager gave it instead, which left it out of
+// DataBlockGroup, which is the group a server transmits.
 void SimDataBlock::assignId()
 {
-   // We don't want the id assigned by the manager, but it may have
-   // already been assigned a correct data block id.
-   if ( isClientOnly() )
-      setId(sNextObjectId++);
+   // The declaration this answers for always reaches it on a fresh object; one
+   // already registered has the id it was registered with.
+   if ( isProperlyAdded() )
+      return;
+
+   const SimObjectId id = sNextObjectId++;
+   setId( id );
+
+   // Zero is the one id registration reads as unset and replaces, so it has to
+   // be forced -- as the datablocks arriving on a client are
+   // (SimDataBlockEvent::process). Nothing registers between here and this
+   // object's own registration: a datablock body holds fields, not
+   // declarations.
+   if ( !id )
+      SimObject::setForcedId( id );
 }
 
 //-----------------------------------------------------------------------------
