@@ -360,6 +360,10 @@ ConsoleDocClass( WheeledVehicle,
 
 WheeledVehicle::WheeledVehicle()
 {
+   // HH: Added for Tribes 2 compatibility.
+   // A wheeled vehicle casts a shadow (0x00612bb9).
+   mGenerateShadowT2 = true;
+
    mDataBlock = 0;
    mBraking = false;
    mWheelContact = false;
