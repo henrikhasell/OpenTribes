@@ -888,7 +888,19 @@ static bool matchShield(const T2DataBlockLayout *layout, S32 top, S16 *parts)
    if(!isBareFlag(other) || other->a != energy->a)
       return false;
 
-   parts[T2ShieldFlag]   = S16(top);
+   // The flag that says a shield is there is the one whose set arm is this
+   // block: it reads the normal and energy only when it is set.
+   S16 outer = S16(top);
+   for(U32 i = 0; i < layout->count; i++)
+   {
+      const T2DataNode *n = nodeAt(layout, S32(i));
+      if(n && n->op == OpFlag && n->b == top && n->a != top)
+      {
+         outer = S16(i);
+         break;
+      }
+   }
+   parts[T2ShieldFlag]   = outer;
    parts[T2ShieldNormal] = S16(pick->a);
    parts[T2ShieldTheta]  = theta;
    parts[T2ShieldEnergy] = theta >= 0 ? S16(nodeAt(layout, theta)->a)
@@ -2766,6 +2778,9 @@ static bool writeBodyFlag(const T2DataBlockLayout *layout, S32 at, bool *set)
       case T2FieldStaticBlock:        *set = false;                       return true;
       // The transform goes out with its scale, whenever the body carries one.
       case T2FieldTransformHere:      *set = sWriteBody.hasRotation;      return true;
+      // Every StaticShape body carries its ShapeBase body, which sits behind
+      // this flag's set arm.
+      case T2FieldShapeBaseHere:      *set = true;                        return true;
       // Nothing the class sends sits behind this flag, so it goes out clear.
       case T2FieldUnnamedBlock:       *set = false;                       return true;
       default:                                                            return false;

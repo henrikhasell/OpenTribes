@@ -128,6 +128,8 @@ namespace T2Protocol
 
       T2FieldTransformHere,         ///< the flag a transform and its scale
                                     ///< follow: set when the body carries one
+      T2FieldShapeBaseHere,         ///< the flag over a StaticShape's ShapeBase
+                                    ///< body, which every such body carries
       T2FieldUnnamedBlock,          ///< a flag over a block the class never
                                     ///< names, which therefore goes out clear
    };
@@ -257,8 +259,10 @@ namespace T2Protocol
       { "StaticShape",            5, OpFlag,  1, T2FieldQuatSign },
       { "StaticShape",            4, OpRaw,  32, T2FieldScale    },
 
-   // StaticShape's tail, read after its ShapeBase body: the block that is
-   // never sent, the transform, then the power as a bare flag on every body.
+   // StaticShape's ShapeBase body is opened by node 193, which is set on every
+   // body. Its tail, read after that body: the block that is never sent, the
+   // transform, then the power as a bare flag on every body.
+      { "StaticShape",          193, OpFlag,  1, T2FieldShapeBaseHere },
       { "StaticShape",           15, OpFlag,  1, T2FieldStaticBlock },
       { "StaticShape",            1, OpFlag,  1, T2FieldPowered     },
 
