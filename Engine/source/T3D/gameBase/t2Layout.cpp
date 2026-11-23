@@ -982,6 +982,7 @@ static void noteShield(U32 part, U32 word, U32 bits)
 enum T2ShapePart
 {
    T2TargetChanged,
+   T2TargetHere,
    T2TargetId,
    T2InvincibleHere,
    T2InvincibleTime,
@@ -1032,6 +1033,7 @@ static bool matchTarget(const T2DataBlockLayout *layout, S32 top, S16 *parts)
       return false;
 
    parts[T2TargetChanged] = S16(top);
+   parts[T2TargetHere]    = S16(changed->b);
    parts[T2TargetId]      = S16(here->b);
    return true;
 }
@@ -2697,6 +2699,8 @@ static bool writeBodyFlag(const T2DataBlockLayout *layout, S32 at, bool *set)
             *set = sWriteBody.hasMount && sWriteBody.mountGhost >= 0;
                                                                       return true;
          case T2TargetChanged:  *set = sWriteBody.hasTarget;          return true;
+         // The here flag names the id that follows it, and goes out with it.
+         case T2TargetHere:     *set = sWriteBody.hasTarget;          return true;
          default:                                                     return false;
       }
    }
