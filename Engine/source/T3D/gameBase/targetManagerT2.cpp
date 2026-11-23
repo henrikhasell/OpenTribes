@@ -438,6 +438,30 @@ ConsoleFunction(getTargetSensorGroup, S32, 2, 2, "getTargetSensorGroup(targetId)
    return TargetManagerT2::server()->getTarget(id).sensorGroup;
 }
 
+ConsoleFunction(getTargetGameName, const char*, 2, 2, "getTargetGameName(targetId)")
+{
+   // The name a task or waypoint is labelled with: the target's name tag and
+   // its type tag, as the sensors and the commander map show it.  Empty for
+   // a target that is not allocated.
+   const S32 id = validateTarget(dAtoi(argv[1]), "cGetTargetGameName", false);
+   if(id == -1)
+      return "";
+
+   const TargetManagerT2::Target &target = TargetManagerT2::server()->getTarget(id);
+   const char *name = target.name.getString();
+   const char *type = target.type.getString();
+
+   char *buffer = Con::getReturnBuffer(256);
+   buffer[0] = 0;
+   if(name && name[0] && type && type[0])
+      dSprintf(buffer, 256, "%s %s", name, type);
+   else if(name && name[0])
+      dSprintf(buffer, 256, "%s", name);
+   else if(type && type[0])
+      dSprintf(buffer, 256, "%s", type);
+   return buffer;
+}
+
 ConsoleFunction(setTargetSensorGroup, void, 3, 3, "setTargetSensorGroup(targetId, sensorGroup)")
 {
    // 0x66f0e0.
