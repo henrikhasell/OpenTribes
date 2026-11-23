@@ -240,6 +240,9 @@ class InteriorInstance : public SceneZoneSpace
       static void consoleInit();
 
       // NetObject.
+      // HH: Added for Tribes 2 compatibility.
+      void getT2Body(T2Layout::Body *body, bool isInitial, U32 mask,
+                     NetConnection *conn) const override;
 
       // SceneObject.
       virtual bool buildPolyList(PolyListContext context, AbstractPolyList *polyList, const Box3F &box, const SphereF &sphere);

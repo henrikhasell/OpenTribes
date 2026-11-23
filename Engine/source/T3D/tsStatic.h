@@ -118,6 +118,8 @@ protected:
 
    // HH: Added for Tribes 2 compatibility.
    bool unpackUpdate(BitStream *stream, bool isInitial);
+   void getT2Body(T2Layout::Body *body, bool isInitial, U32 mask,
+                  NetConnection *conn) const override;
 
    // Collision
    void prepCollision();
@@ -193,6 +195,9 @@ public:
    static void initPersistFields();
    static bool _setFieldSkin( void *object, const char* index, const char* data );
    static const char *_getFieldSkin( void *object, const char *data );
+   // HH: Added for Tribes 2 compatibility. A mission names a bare shape file,
+   // which lives under shapes/ in the Tribes 2 archives.
+   static bool _setShapeName( void *object, const char* index, const char* data );
 
    // Skinning
    void setSkinName( const char *name );

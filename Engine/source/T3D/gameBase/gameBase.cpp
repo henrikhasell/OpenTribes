@@ -466,6 +466,45 @@ void GameBase::onT2BodyHeadRead(const T2Layout::Body &body)
       setDataBlock(data);
 }
 
+// HH: Added for Tribes 2 compatibility. Where a body is sent whole it names
+// the object's datablock and says where it is; a later one says only what
+// changed, which is a class's own business.
+void GameBase::getT2Body(T2Layout::Body *body, bool isInitial, U32 mask,
+                         NetConnection *conn) const
+{
+   Parent::getT2Body(body, isInitial, mask, conn);
+
+   if(mDataBlock)
+   {
+      body->hasDataBlock = true;
+      body->dataBlockId = mDataBlock->getId() - DataBlockObjectIdFirst;
+   }
+
+   // The target's id goes out on every body that has one. A ghost shows the
+   // name and health of the target it names, so a station or generator that
+   // sends none is never named.
+   if(getTarget() >= 0)
+   {
+      body->hasTarget = true;
+      body->target = getTarget();
+   }
+
+   if(isInitial)
+   {
+      const MatrixF &transform = getTransform();
+      body->hasPosition = true;
+      body->position = transform.getPosition();
+      body->hasRotation = true;
+      body->rotation = transform;
+
+      // The layout reads the scale whenever it reads the transform, so a unit
+      // scale goes out too; without it the words are zeros and the shape is
+      // drawn at no size.
+      body->hasScale = true;
+      body->scale = getScale();
+   }
+}
+
 void GameBase::getT2Subject(T2Layout::Subject *subject,
                             NetConnection *conn) const
 {

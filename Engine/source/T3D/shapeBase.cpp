@@ -103,12 +103,16 @@ IMPLEMENT_CALLBACK( ShapeBaseData, onImpact, void, ( ShapeBase* obj, SceneObject
    "@param vec Collision impact vector\n"
    "@param len Length of the impact vector\n" );
 
-IMPLEMENT_CALLBACK( ShapeBaseData, onCollision, void, ( ShapeBase* obj, SceneObject *collObj, VectorF vec, F32 len ), ( obj, collObj, vec, len ),
+// HH: Modified for Tribes 2 compatibility. Tribes 2 raises this with the two
+// objects and nothing else: every one of its scripts takes
+// `(%data, %obj, %col)`, and `Armor::onCollision` has a fourth of its own --
+// a vehicle node another script forces -- which it reads as "mount whatever
+// was hit" when it is not empty. Passing the impact vector there mounted a
+// player on the first thing it touched, which on open ground is the terrain.
+IMPLEMENT_CALLBACK( ShapeBaseData, onCollision, void, ( ShapeBase* obj, SceneObject *collObj ), ( obj, collObj ),
    "@brief Called when we collide with another object.\n\n"
    "@param obj The ShapeBase object\n"
-   "@param collObj The object we collided with\n"
-   "@param vec Collision impact vector\n"
-   "@param len Length of the impact vector\n" );
+   "@param collObj The object we collided with\n" );
 
 IMPLEMENT_CALLBACK( ShapeBaseData, onDamage, void, ( ShapeBase* obj, F32 delta ), ( obj, delta ),
    "@brief Called when the object is damaged.\n\n"
@@ -168,6 +172,7 @@ ShapeBaseData::ShapeBaseData()
    shadowNode( -1 ),
    shapeName( StringTable->insert("") ),
    cloakTexName( StringTable->insert("") ),
+   heatSignature( 1.0f ),
    mass( 1.0f ),
    drag( 0.0f ),
    density( 1.0f ),
@@ -446,6 +451,179 @@ bool ShapeBaseData::unpackData(BitStream *stream, U32 classId)
    }
 
    return true;
+}
+
+// HH: Added for Tribes 2 compatibility. unpackData's fields the other way
+// round. Every shape datablock opens with these, whatever its class adds, so
+// this is what puts a shape, a mass and a hud image on all of them.
+//
+// A value goes out whenever this datablock holds one rather than only when it
+// differs from the prototype, which is what retail elides against: the end
+// state of the reader is the same either way, and sending it does not rest on
+// the other end's prototype matching ours. What is still conditional is what
+// a clear flag means something by -- an id retail keeps as -1 for "none", and
+// a hud block with no image, where sending an empty one would claim there is
+// one.
+void ShapeBaseData::publishT2Data()
+{
+   Parent::publishT2Data();
+
+   T2Layout::publishDataBlockFlag(T2Layout::T2DbComputeCRC, computeCRC);
+   if (computeCRC)
+      T2Layout::publishDataBlockWord(T2Layout::T2DbShapeCRC, mCRC);
+
+   static const struct { U32 field; StringTableEntry ShapeBaseData::*member; }
+      sStrings[] =
+   {
+      { T2Layout::T2DbShapeFile,       &ShapeBaseData::shapeName       },
+      { T2Layout::T2DbDebrisShapeName, &ShapeBaseData::debrisShapeName },
+      { T2Layout::T2DbCmdCategory,     &ShapeBaseData::cmdCategory     },
+      { T2Layout::T2DbCmdMiniIconName, &ShapeBaseData::cmdMiniIconName },
+   };
+
+   for (U32 i = 0; i < sizeof(sStrings) / sizeof(sStrings[0]); i++)
+   {
+      const StringTableEntry str = this->*sStrings[i].member;
+      T2Layout::publishDataBlockString(sStrings[i].field, str ? str : "");
+   }
+
+   static const struct { U32 field; F32 ShapeBaseData::*member; } sFields[] =
+   {
+      { T2Layout::T2DbMass,             &ShapeBaseData::mass             },
+      { T2Layout::T2DbDrag,             &ShapeBaseData::drag             },
+      { T2Layout::T2DbDensity,          &ShapeBaseData::density          },
+      { T2Layout::T2DbMaxEnergy,        &ShapeBaseData::maxEnergy        },
+      { T2Layout::T2DbCameraMaxDist,    &ShapeBaseData::cameraMaxDist    },
+      { T2Layout::T2DbCameraMinDist,    &ShapeBaseData::cameraMinDist    },
+      { T2Layout::T2DbCameraDefaultFov, &ShapeBaseData::cameraDefaultFov },
+      { T2Layout::T2DbCameraMinFov,     &ShapeBaseData::cameraMinFov     },
+      { T2Layout::T2DbCameraMaxFov,     &ShapeBaseData::cameraMaxFov     },
+   };
+
+   // Each of these is behind a flag of its own and goes out only where it
+   // differs from the same field of a default-made object of this class,
+   // which is what retail's packData compares against (0x005e5d5e compares
+   // mass against the one at 0x840454, a ShapeBaseData of its own at
+   // 0x8403e0). A body that sends them all is not the body retail sends: an
+   // item's carries its shape and little else.
+   const ShapeBaseData &proto = T2Layout::t2DefaultOf<ShapeBaseData>();
+
+   for (U32 i = 0; i < sizeof(sFields) / sizeof(sFields[0]); i++)
+   {
+      const F32 value = this->*sFields[i].member;
+      if (value == proto.*sFields[i].member)
+         continue;
+
+      T2Layout::publishDataBlockWhole(sFields[i].field, value);
+   }
+
+   // An id of -1 is none, and none is the flag left clear. A server's scripts
+   // name the datablock and a client is handed the id instead, so whichever
+   // this end has is the one that goes out.
+   static const struct
+   {
+      U32 field;
+      S32 ShapeBaseData::*id;
+      SimObjectPtr<GameBaseData> ShapeBaseData::*named;
+   }
+   sIds[] =
+   {
+      { T2Layout::T2DbCmdIcon,        &ShapeBaseData::cmdIconID,   NULL },
+      { T2Layout::T2DbShapeExplosion, &ShapeBaseData::explosionID, NULL },
+      { T2Layout::T2DbShapeUnderwaterExplosion,
+                                &ShapeBaseData::underwaterExplosionID, NULL },
+      { T2Layout::T2DbShapeDebris,    &ShapeBaseData::debrisID,    NULL },
+   };
+
+   const SimObject *named[] = { cmdIcon, explosion, underwaterExplosion,
+                                debris };
+
+   for (U32 i = 0; i < sizeof(sIds) / sizeof(sIds[0]); i++)
+   {
+      const S32 id = named[i] ? S32(named[i]->getId())
+                              : this->*sIds[i].id;
+      if (id != -1 && id != 0)
+         T2Layout::publishDataBlockWord(sIds[i].field,
+                                        U32(id) - DataBlockObjectIdFirst);
+   }
+
+   // What a sensor sees it as, which is one and not nought unless a script
+   // says so.
+   if (heatSignature != proto.heatSignature)
+      T2Layout::publishDataBlockWhole(T2Layout::T2DbHeatSignature,
+                                      heatSignature);
+
+   static const struct { U32 field; bool ShapeBaseData::*member; } sFlags[] =
+   {
+      { T2Layout::T2DbObserveThroughObject,
+                                       &ShapeBaseData::observeThroughObject   },
+      { T2Layout::T2DbEmap,                 &ShapeBaseData::emap                },
+      { T2Layout::T2DbIsInvincible,         &ShapeBaseData::isInvincible        },
+      { T2Layout::T2DbRenderWhenDestroyed,  &ShapeBaseData::renderWhenDestroyed },
+      { T2Layout::T2DbInheritEnergyFromMount,
+                                       &ShapeBaseData::inheritEnergyFromMount },
+      { T2Layout::T2DbFirstPersonOnly,      &ShapeBaseData::firstPersonOnly     },
+      { T2Layout::T2DbUseEyePoint,          &ShapeBaseData::useEyePoint         },
+      { T2Layout::T2DbCanControl,           &ShapeBaseData::canControl          },
+      { T2Layout::T2DbCanObserve,           &ShapeBaseData::canObserve          },
+   };
+
+   for (U32 i = 0; i < sizeof(sFlags) / sizeof(sFlags[0]); i++)
+      T2Layout::publishDataBlockFlag(sFlags[i].field, this->*sFlags[i].member);
+
+   // The colour comes with the radius or not at all.
+   if (sensorRadius)
+   {
+      T2Layout::publishDataBlockWord(T2Layout::T2DbSensorRadius,
+                                     U32(sensorRadius));
+      const U8 rgba[] = { sensorColor.red, sensorColor.green,
+                          sensorColor.blue, sensorColor.alpha };
+      for (U32 i = 0; i < 4; i++)
+         T2Layout::publishDataBlockWord(T2Layout::T2DbSensorColorR + i, rgba[i]);
+   }
+
+   // Not behind a flag: every body carries it, which is why a retail
+   // server's items all say 300.
+   T2Layout::publishDataBlockWord(T2Layout::T2DbShieldEffectLifetimeMS,
+                                  U32(shieldEffectLifetimeMS));
+
+   if (shieldEffectScale != proto.shieldEffectScale)
+   {
+      T2Layout::publishDataBlockWhole(T2Layout::T2DbShieldEffectScaleX,
+                                      shieldEffectScale.x);
+      T2Layout::publishDataBlockWhole(T2Layout::T2DbShieldEffectScaleY,
+                                      shieldEffectScale.y);
+      T2Layout::publishDataBlockWhole(T2Layout::T2DbShieldEffectScaleZ,
+                                      shieldEffectScale.z);
+   }
+
+   for (U32 i = 0; i < NumHudRenderImages; i++)
+   {
+      const StringTableEntry friendly = hudImageNameFriendly[i];
+      if (!friendly || !friendly[0])
+         continue;
+
+      T2Layout::publishDataBlockString(T2Layout::T2DbHudImageFriendly + i,
+                                       friendly);
+      const StringTableEntry enemy = hudImageNameEnemy[i];
+      if (enemy && enemy[0])
+         T2Layout::publishDataBlockString(T2Layout::T2DbHudImageEnemy + i,
+                                          enemy);
+
+      static const struct { U32 field; bool (ShapeBaseData::*member)[NumHudRenderImages]; }
+         sHudFlags[] =
+      {
+         { T2Layout::T2DbHudRenderCenter,    &ShapeBaseData::hudRenderCenter    },
+         { T2Layout::T2DbHudRenderModulated, &ShapeBaseData::hudRenderModulated },
+         { T2Layout::T2DbHudRenderAlways,    &ShapeBaseData::hudRenderAlways    },
+         { T2Layout::T2DbHudRenderDistance,  &ShapeBaseData::hudRenderDistance  },
+         { T2Layout::T2DbHudRenderName,      &ShapeBaseData::hudRenderName      },
+      };
+
+      for (U32 f = 0; f < sizeof(sHudFlags) / sizeof(sHudFlags[0]); f++)
+         T2Layout::publishDataBlockFlag(sHudFlags[f].field + i,
+                                        (this->*sHudFlags[f].member)[i]);
+   }
 }
 
 bool ShapeBaseData::preload(bool server, String &errorStr)
@@ -810,6 +988,8 @@ void ShapeBaseData::initPersistFields()
 
       addField( "cmdCategory", TypeString, Offset(cmdCategory, ShapeBaseData),
          "The commander map's category for this shape." );
+      addField( "heatSignature", TypeF32, Offset(heatSignature, ShapeBaseData),
+         "What a sensor and a seeking missile read this shape by." );
       addField( "cmdIcon", TYPEID< GameBaseData >(), Offset(cmdIcon, ShapeBaseData),
          "The CommanderIconData the commander map draws this shape with." );
       addField( "cmdMiniIconName", TypeString, Offset(cmdMiniIconName, ShapeBaseData),
@@ -2013,6 +2193,139 @@ void ShapeBase::readT2Sounds(const T2Layout::Body &body)
 
       if (isProperlyAdded())
          updateAudioState(st);
+   }
+}
+
+// HH: Added for Tribes 2 compatibility.
+// The server's half of the readers above. A part goes out when its bit is in
+// the mask, or whole on a first body, so a reader that applies a part on
+// every body only ever sees a change it was sent. An image slot is the
+// exception: it always goes out whole, because setImage leaves a slot that
+// already holds its datablock alone.
+void ShapeBase::getT2Body(T2Layout::Body *body, bool isInitial, U32 mask,
+                          NetConnection *conn) const
+{
+   Parent::getT2Body(body, isInitial, mask, conn);
+
+   // The damage block goes out on a first body and whenever the damage
+   // changes. The level is a share of maxDamage, which the ghost scales back
+   // up, and it drives the health bar and the armour decals (the damage
+   // sequence's position, in updateDamageLevel).
+   if (mDataBlock && (isInitial || (mask & DamageMask)))
+   {
+      const F32 maxDamage = mDataBlock->maxDamage;
+      body->hasDamage = true;
+      body->damage = maxDamage > 0.0f ? mClampF(mDamage / maxDamage, 0.0f, 1.0f)
+                                      : 0.0f;
+      body->hasDamageState = true;
+      body->damageState = U32(mDamageState);
+      body->blowApart = mBlowApart;
+      body->hasDamageDir = true;
+      body->damageDir = damageDir;
+   }
+
+   // The flash goes out once, on the body after the shield turned a hit away.
+   // The energy is the share left, which the ghost reads as its strength.
+   if (mDataBlock && !isInitial && (mask & ShieldMask))
+   {
+      const F32 maxEnergy = mDataBlock->maxEnergy;
+      body->hasShield = true;
+      body->shieldNormal = mShieldNormal;
+      body->shieldEnergy = maxEnergy > 0.0f
+                           ? mClampF(mEnergy / maxEnergy, 0.0f, 1.0f) : 0.0f;
+   }
+
+   const U32 imageSlots = getMin((U32)MaxMountedImages, (U32)T2Layout::MaxImages);
+   if (isInitial || (mask & ImageMask))
+   {
+      for (U32 i = 0; i < imageSlots; i++)
+      {
+         const MountedImage &image = mMountedImageList[i];
+         T2Layout::Body::Image &slot = body->images[i];
+
+         slot.present = true;
+         // No datablock is an emptied slot, which the reader takes as a
+         // change of its own.
+         slot.hasDataBlock = image.dataBlock != NULL;
+         if (slot.hasDataBlock)
+            slot.dataBlockId = image.dataBlock->getId() - DataBlockObjectIdFirst;
+
+         slot.hasSkinName = image.skinNameHandle.isValidString();
+         if (slot.hasSkinName)
+            slot.skinName = image.skinNameHandle.getString();
+
+         slot.triggerDown = image.triggerDown;
+         slot.loaded = image.loaded;
+         slot.ammo = image.ammo;
+         slot.wet = image.wet;
+         slot.target = image.target;
+
+         // The network keeps three bits of the count (MountedImage::fireCount),
+         // and a ghost compares what it last read against the same three bits.
+         slot.fireCount = image.fireCount & 7;
+
+         // A ghost's first body fires a slot only when the server is mid-shot.
+         slot.fireOnInitial = isInitial && image.dataBlock && image.state &&
+                              image.state->fire;
+      }
+   }
+
+   const U32 threadSlots = getMin((U32)MaxScriptThreads, (U32)T2Layout::MaxThreads);
+   for (U32 i = 0; i < threadSlots; i++)
+   {
+      if (!isInitial && !(mask & (ThreadMaskN << i)))
+         continue;
+
+      const Thread &st = mScriptThread[i];
+      // A slot with no sequence has nothing for a ghost to play.
+      if (st.sequence < 0)
+         continue;
+
+      T2Layout::Body::Thread &slot = body->threads[i];
+      slot.present = true;
+      slot.sequence = U32(st.sequence);
+      slot.state = st.state;
+      slot.forward = st.timescale >= 0.0f;
+      slot.atEnd = st.atEnd;
+   }
+
+   const U32 soundSlots = getMin((U32)MaxSoundThreads, (U32)T2Layout::MaxSounds);
+   for (U32 i = 0; i < soundSlots; i++)
+   {
+      if (!isInitial && !(mask & (SoundMaskN << i)))
+         continue;
+
+      const Sound &st = mSoundThread[i];
+      T2Layout::Body::Sound &slot = body->sounds[i];
+      slot.present = true;
+      slot.play = st.play;
+      // A profile goes out as its id, which the ghost resolves. A stopped slot
+      // parks at -1, as retail does (0x5ef375).
+      slot.profile = (st.play && st.profile) ? S32(st.profile->getId()) : -1;
+   }
+
+   // Sent on a first body and whenever the mount changes, which the rider's
+   // MountedMask says (SceneObject::onMount and onUnmount). Until the
+   // connection has ghosted the mount, every body carries it: the reader
+   // cannot name an unghosted mount, and a bit sent meanwhile is spent.
+   if (conn && (isInitial || (mask & MountedMask) ||
+                (mMount.object && conn->getGhostIndex(mMount.object) < 0)))
+   {
+      if (!mMount.object)
+      {
+         body->hasMount = true;
+         body->mountGhost = -1;
+      }
+      else
+      {
+         const S32 ghost = conn->getGhostIndex(mMount.object);
+         if (ghost >= 0)
+         {
+            body->hasMount = true;
+            body->mountGhost = ghost;
+            body->mountNode = U32(mMount.node);
+         }
+      }
    }
 }
 
@@ -3936,7 +4249,7 @@ void ShapeBase::notifyCollision()
 void ShapeBase::onCollision( SceneObject *object, const VectorF &vec )
 {
    if (!isGhost())
-      mDataBlock->onCollision_callback( this, object, vec, vec.len() );
+      mDataBlock->onCollision_callback( this, object );
 }
 
 //--------------------------------------------------------------------------

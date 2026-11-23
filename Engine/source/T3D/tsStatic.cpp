@@ -137,7 +137,8 @@ void TSStatic::initPersistFields()
 {
    addGroup("Media");
 
-      addField("shapeName",   TypeShapeFilename,  Offset( mShapeName, TSStatic ),
+      addProtectedField("shapeName", TypeShapeFilename, Offset( mShapeName, TSStatic ),
+         &_setShapeName, &defaultProtectedGetFn,
          "%Path and filename of the model file (.DTS, .DAE) to use for this TSStatic." );
 
       addProtectedField( "skin", TypeRealString, Offset( mAppliedSkinName, TSStatic ), &_setFieldSkin, &_getFieldSkin,
@@ -204,6 +205,15 @@ void TSStatic::initPersistFields()
    Parent::initPersistFields();
 }
 
+bool TSStatic::_setShapeName( void *object, const char *index, const char *data )
+{
+   TSStatic *ts = static_cast<TSStatic*>( object );
+   if ( ts )
+      ts->mShapeName = StringTable->insert(
+         data && data[0] ? T2Layout::resourcePath( data, "shapes/" ).c_str() : "" );
+   return false;
+}
+
 bool TSStatic::_setFieldSkin( void *object, const char *index, const char *data )
 {
    TSStatic *ts = static_cast<TSStatic*>( object );
@@ -242,6 +252,27 @@ bool TSStatic::unpackUpdate(BitStream *stream, bool isInitial)
       mShapeName = StringTable->insert(T2Layout::resourcePath(shape, "shapes/").c_str());
 
    return true;
+}
+
+// HH: Added for Tribes 2 compatibility. The layout's body is a transform, a
+// scale and the shape's file name, and has no flags to decide.
+void TSStatic::getT2Body(T2Layout::Body *body, bool isInitial, U32 mask,
+                         NetConnection *conn) const
+{
+   Parent::getT2Body(body, isInitial, mask, conn);
+
+   const MatrixF &transform = getTransform();
+   body->hasPosition = true;
+   body->position = transform.getPosition();
+   body->hasRotation = true;
+   body->rotation = transform;
+   body->hasScale = true;
+   body->scale = getScale();
+
+   // A bare file name, which is what a read puts back under shapes/.
+   const String file = mShapeName ? mShapeName : "";
+   const S32 slash = file.find('/', 0, String::Right);
+   T2Layout::publishBodyString(slash < 0 ? file : file.substr(slash + 1));
 }
 
 bool TSStatic::onAdd()

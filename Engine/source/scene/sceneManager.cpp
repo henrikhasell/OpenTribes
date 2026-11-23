@@ -97,6 +97,19 @@ MODULE_BEGIN( Scene )
    MODULE_SHUTDOWN
    {
       SAFE_DELETE( gClientSceneGraph );
+   }
+
+MODULE_END;
+
+// Sim frees the server's objects on shutdown, and an object still in the
+// server scene removes itself through its scene manager. That manager must
+// outlive Sim, so it is deleted after Sim rather than with the Scene module.
+MODULE_BEGIN( ServerSceneGraph )
+
+   MODULE_SHUTDOWN_AFTER( Sim )
+
+   MODULE_SHUTDOWN
+   {
       SAFE_DELETE( gServerSceneGraph );
    }
 

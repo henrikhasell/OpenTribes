@@ -8,6 +8,13 @@ namespace T2Protocol
       T2FieldPosition,              ///< a compressed point, world space
       T2FieldYaw,                   ///< readFloat(bits) turns of heading
       T2FieldVelocityHere,          ///< the flag a velocity follows, clear
+      T2FieldFlying,                ///< a linear projectile's flying flag: set
+                                    ///< for the arms of a flight and of one that
+                                    ///< went off in flight, clear for an impact
+                                    ///< that was never flying
+      T2FieldExploded,              ///< a flying linear projectile's flag that
+                                    ///< sets its explosion arm, which carries
+                                    ///< where it went off and the surface it hit
       T2FieldSpeed,                 ///< readInt(bits) thirty-seconds of a
       T2FieldDirection,             ///< readNormalVector(10), both of its
       T2FieldTransform,             ///< the first of a MatrixF's 16 floats
@@ -97,6 +104,10 @@ namespace T2Protocol
       T2FieldBeamEnergy,            ///< readFloat(bits) of the shot's
                                     ///< strength
       T2FieldPowered,               ///< the flag that says it has power
+      T2FieldStaticBlock,           ///< the flag that opens a 10-bit and a 5-bit
+                                    ///< raw word before a StaticShape's
+                                    ///< transform; never sent, as nothing names
+                                    ///< what the words carry
       T2FieldTurretAim,             ///< the flag a turret's aim follows
       T2FieldTurretHeading,
       T2FieldTurretPitch,
@@ -114,6 +125,13 @@ namespace T2Protocol
       T2FieldHeadPitch,             ///< readSignedFloat(bits) of the head's
                                     ///< pitch, a share of maxLookAngle
       T2FieldHeadYaw,               ///< the same for its yaw
+
+      T2FieldTransformHere,         ///< the flag a transform and its scale
+                                    ///< follow: set when the body carries one
+      T2FieldShapeBaseHere,         ///< the flag over a StaticShape's ShapeBase
+                                    ///< body, which every such body carries
+      T2FieldUnnamedBlock,          ///< a flag over a block the class never
+                                    ///< names, which therefore goes out clear
    };
 
    inline U32 t2FieldWords(U32 field)
@@ -207,6 +225,14 @@ namespace T2Protocol
       { "InteriorInstance",      27, OpRaw, 32, T2FieldScale     },
       { "InteriorInstance",      33, OpRaw, 32, T2FieldTransform },
       { "InteriorInstance",      49, OpRaw, 32, T2FieldScale     },
+   // The flags an interior's body is walked through. Node 1 gates the
+   // transform of a later body; nodes 3, 4, 6 and 7 gate blocks an interior
+   // never names (a string, and the datablock ids, which it does not have).
+      { "InteriorInstance",       1, OpFlag, 1, T2FieldTransformHere },
+      { "InteriorInstance",       3, OpFlag, 1, T2FieldUnnamedBlock  },
+      { "InteriorInstance",       4, OpFlag, 1, T2FieldUnnamedBlock  },
+      { "InteriorInstance",       6, OpFlag, 1, T2FieldUnnamedBlock  },
+      { "InteriorInstance",       7, OpFlag, 1, T2FieldUnnamedBlock  },
 
       { "TSStatic",               0, OpRaw, 32, T2FieldTransform },
       { "TSStatic",              16, OpRaw, 32, T2FieldScale     },
@@ -232,6 +258,13 @@ namespace T2Protocol
       { "StaticShape",           11, OpRaw,  32, T2FieldAffine   },
       { "StaticShape",            5, OpFlag,  1, T2FieldQuatSign },
       { "StaticShape",            4, OpRaw,  32, T2FieldScale    },
+
+   // StaticShape's ShapeBase body is opened by node 193, which is set on every
+   // body. Its tail, read after that body: the block that is never sent, the
+   // transform, then the power as a bare flag on every body.
+      { "StaticShape",          193, OpFlag,  1, T2FieldShapeBaseHere },
+      { "StaticShape",           15, OpFlag,  1, T2FieldStaticBlock },
+      { "StaticShape",            1, OpFlag,  1, T2FieldPowered     },
 
       { "ScopeAlwaysShape",       6, OpRaw,  32, T2FieldAffine   },
       { "ScopeAlwaysShape",      12, OpFlag,  1, T2FieldQuatSign },
@@ -306,6 +339,8 @@ namespace T2Protocol
       { "StationFXPersonal",      5, OpInt,  11, T2FieldStationObject },
 
 #define T2_LINEAR_PROJECTILE_FIELDS( cls )                             \
+      { cls, 23, OpFlag,         1,  T2FieldFlying       },            \
+      { cls, 22, OpFlag,         1,  T2FieldExploded     },            \
       { cls, 17, OpPoint,        0,  T2FieldPosition     },            \
       { cls, 16, OpSignedFloat, 15,  T2FieldNormalPhi    },            \
       { cls, 15, OpSignedFloat, 14,  T2FieldNormalTheta  },            \

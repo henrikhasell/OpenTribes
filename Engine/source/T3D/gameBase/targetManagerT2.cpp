@@ -8,6 +8,7 @@
 #include "T3D/gameBase/gameBase.h"
 #include "T3D/gameBase/gameConnection.h"
 #include "T3D/shapeBase.h"
+#include "sfx/sfxDescription.h"
 
 TargetManagerT2::TargetManagerT2()
 {
@@ -38,6 +39,7 @@ void TargetManagerT2::clearTarget(Target &target)
    target.alwaysVisMask = 0;
    target.neverVisMask  = 0;
    target.friendlyMask  = 0;
+   target.renderMask    = 0;
    target.sensorData    = NULL;
 }
 
@@ -71,6 +73,7 @@ void TargetManagerT2::resetTargets()
    // clears its copy of the targets (0x66d610); that is V34e.  Each object
    // then loses its target as setTargetInfo(NULL) has it (0x5e37e0), so an
    // object outliving the reset is not left naming an id reused later.
+   broadcastReset();
    for(U32 i = 0; i < MaxTargets; i++)
       if(GameBase *obj = mTargets[i].object)
          obj->mTarget = -1;
@@ -138,6 +141,7 @@ S32 TargetManagerT2::allocTarget(const NetStringHandle &name,
       Sim::findObject(dataBlockId, data);
    target.dataBlock = data;
 
+   broadcastInfo(id, FieldAll);
    return id;
 }
 
@@ -149,6 +153,7 @@ void TargetManagerT2::freeTarget(S32 id)
    if(GameBase *obj = target.object)
       obj->mTarget = -1;
 
+   broadcastFree(id);
    clearTarget(target);
 
    const U32 bit = 1u << (id & 31);
@@ -168,6 +173,81 @@ void TargetManagerT2::setSensorGroup(S32 id, S32 group)
 
    target.sensorGroup = group;
    takeGroupMasks(target, group);
+   broadcastInfo(id, FieldSensorGroup);
+}
+
+void TargetManagerT2::setName(S32 id, const NetStringHandle &name)
+{
+   // 0x66ea90 and 0x66d9a0.
+   Target &target = mTargets[id];
+   if(target.name == name)
+      return;
+
+   target.name = name;
+   broadcastInfo(id, FieldName);
+}
+
+void TargetManagerT2::setSkin(S32 id, const NetStringHandle &skin)
+{
+   // 0x66ec30 and 0x66da70.
+   Target &target = mTargets[id];
+   if(target.skin == skin)
+      return;
+
+   target.skin = skin;
+   broadcastInfo(id, FieldSkin);
+}
+
+void TargetManagerT2::setRenderMask(S32 id, U32 mask)
+{
+   // 0x66fb00 and 0x66ddf0.  Retail sends it even when nothing changed.
+   mTargets[id].renderMask = mask & 0x1ff;
+   broadcastInfo(id, FieldRenderMask);
+}
+
+void TargetManagerT2::setDataBlock(S32 id, ShapeBaseData *data)
+{
+   // 0x66de40.  Retail sends it even when the datablock is already set.
+   mTargets[id].dataBlock = data;
+   broadcastInfo(id, FieldDataBlock);
+}
+
+void TargetManagerT2::sendTargetsTo(GameConnection *conn)
+{
+   // 0x66e3a0 and 0x66ccc0.  Nothing is sent to a connection not yet told
+   // about targets, and the scripts ask for it once its data blocks are in.
+   if(!conn->isEstablished() || !conn->getReceivedDataBlocks())
+      return;
+
+   for(S32 id = 0; id < MaxTargets; id++)
+      if(allocMask(id >> 5) & (1u << (id & 31)))
+         conn->sendTargetInfo(id, FieldAll);
+}
+
+void TargetManagerT2::broadcastInfo(S32 id, U32 fields)
+{
+   SimGroup *clients = Sim::getClientGroup();
+   for(S32 i = 0; i < clients->size(); i++)
+      if(GameConnection *conn = dynamic_cast<GameConnection *>((*clients)[i]))
+         if(conn->isEstablished() && conn->getReceivedDataBlocks())
+            conn->sendTargetInfo(id, fields);
+}
+
+void TargetManagerT2::broadcastFree(S32 id)
+{
+   SimGroup *clients = Sim::getClientGroup();
+   for(S32 i = 0; i < clients->size(); i++)
+      if(GameConnection *conn = dynamic_cast<GameConnection *>((*clients)[i]))
+         conn->sendTargetFree(id);
+}
+
+void TargetManagerT2::broadcastReset()
+{
+   SimGroup *clients = Sim::getClientGroup();
+   for(S32 i = 0; i < clients->size(); i++)
+      if(GameConnection *conn = dynamic_cast<GameConnection *>((*clients)[i]))
+         if(conn->isEstablished() && conn->getReceivedDataBlocks())
+            conn->sendResetTargets(false);
 }
 
 void TargetManagerT2::setTargetObject(S32 id, GameBase *obj)
@@ -195,6 +275,22 @@ void TargetManagerT2::setGroupMask(GroupMask which, S32 group, U32 mask)
          target.friendlyMask = mask;
    }
    groupMask(tables[which], group) = mask;
+}
+
+void TargetManagerT2::setGroupColours(S32 group, U32 mask, const ColorI &colour)
+{
+   // 0x66f950, with 0x66ca50 telling the connections. Only the viewer group's
+   // own connections are sent its row, and a connection that joins later is
+   // sent it with its group.
+   for(U32 i = 0; i < SensorGroups; i++)
+      if(mask & (1u << i))
+         mColours[group][i] = colour;
+
+   SimGroup *clients = Sim::getClientGroup();
+   for(S32 i = 0; i < clients->size(); i++)
+      if(GameConnection *conn = dynamic_cast<GameConnection *>((*clients)[i]))
+         if(conn->getSensorGroup() == group)
+            conn->sendSensorGroupColours(group, mask, mColours[group]);
 }
 
 bool TargetManagerT2::isTargetVisible(S32 id, S32 group) const
@@ -342,6 +438,30 @@ ConsoleFunction(getTargetSensorGroup, S32, 2, 2, "getTargetSensorGroup(targetId)
    return TargetManagerT2::server()->getTarget(id).sensorGroup;
 }
 
+ConsoleFunction(getTargetGameName, const char*, 2, 2, "getTargetGameName(targetId)")
+{
+   // The name a task or waypoint is labelled with: the target's name tag and
+   // its type tag, as the sensors and the commander map show it.  Empty for
+   // a target that is not allocated.
+   const S32 id = validateTarget(dAtoi(argv[1]), "cGetTargetGameName", false);
+   if(id == -1)
+      return "";
+
+   const TargetManagerT2::Target &target = TargetManagerT2::server()->getTarget(id);
+   const char *name = target.name.getString();
+   const char *type = target.type.getString();
+
+   char *buffer = Con::getReturnBuffer(256);
+   buffer[0] = 0;
+   if(name && name[0] && type && type[0])
+      dSprintf(buffer, 256, "%s %s", name, type);
+   else if(name && name[0])
+      dSprintf(buffer, 256, "%s", name);
+   else if(type && type[0])
+      dSprintf(buffer, 256, "%s", type);
+   return buffer;
+}
+
 ConsoleFunction(setTargetSensorGroup, void, 3, 3, "setTargetSensorGroup(targetId, sensorGroup)")
 {
    // 0x66f0e0.
@@ -352,6 +472,19 @@ ConsoleFunction(setTargetSensorGroup, void, 3, 3, "setTargetSensorGroup(targetId
    if(group == -1)
       return;
    TargetManagerT2::server()->setSensorGroup(id, group);
+}
+
+// The scripts cap a friendly shot's damage with this (StaticShapeData::
+// damageObject), so a missing one reads as an enemy and the cap never applies.
+ConsoleFunction(isTargetFriendly, bool, 3, 3, "isTargetFriendly(targetId, sensorGroup)")
+{
+   const S32 id = validateTarget(dAtoi(argv[1]), "cIsTargetFriendly", false);
+   if(id == -1)
+      return false;
+   const S32 group = validateSensorGroup(dAtoi(argv[2]), "cIsTargetFriendly");
+   if(group == -1)
+      return false;
+   return TargetManagerT2::server()->isTargetFriendly(id, group);
 }
 
 ConsoleFunction(setTargetSensorData, void, 3, 3, "setTargetSensorData(targetId, sensorData)")
@@ -410,6 +543,136 @@ ConsoleFunction(setSensorGroupFriendlyMask, void, 3, 3, "setSensorGroupFriendlyM
    TargetManagerT2::server()->setGroupMask(TargetManagerT2::GroupFriendly, group, dAtoui(argv[2]));
 }
 
+ConsoleFunction(setSensorGroupColor, void, 4, 4, "setSensorGroupColor(sensorGroup, groupMask, color)")
+{
+   // 0x66f950.  The colour is "r g b a" as the script gives it. A value it
+   // leaves off is 0, and alpha is 255. Retail's value there is not established.
+   const S32 group = validateSensorGroup(dAtoi(argv[1]), "cSetSensorGroupColor");
+   if(group == -1)
+      return;
+
+   S32 r = 0, g = 0, b = 0, a = 255;
+   dSscanf(argv[3], "%d %d %d %d", &r, &g, &b, &a);
+   TargetManagerT2::server()->setGroupColours(group, dAtoui(argv[2]),
+      ColorI((U8)r, (U8)g, (U8)b, (U8)a));
+}
+
+ConsoleFunction(setSensorGroupCount, void, 2, 2, "setSensorGroupCount(count)")
+{
+   // 0x66f210.  Zero up to every group, team zero included, is valid.
+   const S32 count = dAtoi(argv[1]);
+   if(count < 0 || count > TargetManagerT2::SensorGroups)
+   {
+      Con::errorf("TargetManager::cSetSensorGroupCount: invalid group count [%d]", count);
+      return;
+   }
+   TargetManagerT2::server()->setGroupCount(count);
+}
+
+ConsoleFunction(setTargetName, void, 3, 3, "setTargetName(targetId, nameTag)")
+{
+   // 0x66ea90.  Team targets are named too; the checks let them be changed.
+   const S32 id = validateTarget(dAtoi(argv[1]), "cSetTargetName", false);
+   if(id == -1)
+      return;
+   TargetManagerT2::server()->setName(id, tagArg(argv[2]));
+}
+
+ConsoleFunction(setTargetSkin, void, 3, 3, "setTargetSkin(targetId, skinTag)")
+{
+   // 0x66ec30.
+   const S32 id = validateTarget(dAtoi(argv[1]), "cSetTargetSkin", false);
+   if(id == -1)
+      return;
+   TargetManagerT2::server()->setSkin(id, tagArg(argv[2]));
+}
+
+ConsoleFunction(getTargetRenderMask, S32, 2, 2, "getTargetRenderMask(targetId)")
+{
+   // 0x66fab0.
+   const S32 id = validateTarget(dAtoi(argv[1]), "cGetTargetRender", false);
+   if(id == -1)
+      return -1;
+   return TargetManagerT2::server()->getTarget(id).renderMask;
+}
+
+ConsoleFunction(setTargetRenderMask, void, 3, 3, "setTargetRenderMask(targetId, mask)")
+{
+   // 0x66fb00.
+   const S32 id = validateTarget(dAtoi(argv[1]), "cSetTargetRender", false);
+   if(id == -1)
+      return;
+   TargetManagerT2::server()->setRenderMask(id, dAtoui(argv[2]));
+}
+
+ConsoleFunction(setTargetDataBlock, void, 3, 3, "setTargetDataBlock(targetId, dataBlock)")
+{
+   // 0x66fa40.  Anything that is not a datablock, 0 included, clears it.
+   const S32 id = validateTarget(dAtoi(argv[1]), "cSetTargetDataBlock", false);
+   if(id == -1)
+      return;
+   ShapeBaseData *data = NULL;
+   Sim::findObject(argv[2], data);
+   TargetManagerT2::server()->setDataBlock(id, data);
+}
+
+ConsoleFunction(sendTargetsToClient, void, 2, 2, "sendTargetsToClient(client)")
+{
+   // 0x66e3a0.  The scripts send each client its targets once its data
+   // blocks are in.
+   GameConnection *conn = NULL;
+   if(!Sim::findObject(argv[1], conn))
+      return;
+   TargetManagerT2::server()->sendTargetsTo(conn);
+}
+
+ConsoleFunction(playTargetAudio, bool, 5, 5,
+   "playTargetAudio(target, fileTag, desc, update)")
+{
+   // 0x66fb50, then 0x66c010 for the send. The line is heard from the
+   // target's object. A file that is not a tagged string is entry 0, which
+   // is refused, so the scripts pass 'name' with its quotes.
+   SFXDescription *desc = NULL;
+   if(!Sim::findObject(argv[3], desc))
+   {
+      Con::errorf("Invalid audio description '%s'.", argv[3]);
+      return false;
+   }
+
+   const S32 id = dAtoi(argv[1]);
+   NetStringHandle file = tagArg(argv[2]);
+   if(id < 0 || id >= TargetManagerT2::MaxTargets)
+   {
+      Con::errorf("Failed to send target audio event to clients");
+      return false;
+   }
+
+   TargetManagerT2::Target &target = TargetManagerT2::server()->getTarget(id);
+   if(!target.allocated || target.object.isNull() || !file.isValidString())
+   {
+      Con::errorf("Failed to send target audio event to clients");
+      return false;
+   }
+
+   const Point3F position = target.object->getPosition();
+   SimGroup *clients = Sim::getClientGroup();
+   for(S32 i = 0; i < clients->size(); i++)
+      if(GameConnection *conn = dynamic_cast<GameConnection *>((*clients)[i]))
+         conn->sendTargetAudio(id, file, desc->getId(), position, dAtob(argv[4]));
+
+   return true;
+}
+
+ConsoleFunction(resetClientTargets, void, 3, 3, "resetClientTargets(client, tasksOnly)")
+{
+   // 0x66e2e0.  tasksOnly asks for the commander's tasks and waypoints, which
+   // a client does not keep, so the client clears nothing for it.
+   GameConnection *conn = NULL;
+   if(!Sim::findObject(argv[1], conn))
+      return;
+   conn->sendResetTargets(dAtob(argv[2]));
+}
+
 ConsoleMethod(GameBase, setTarget, void, 3, 3, "obj.setTarget(targetId)")
 {
    // 0x5e3570.  A ghost's target is the server's to say.
@@ -437,11 +700,21 @@ ConsoleMethod(GameConnection, setSensorGroup, void, 3, 3, "conn.setSensorGroup(g
    // to a server is not one a server can place in a group.
    if(object == GameConnection::getConnectionToServer())
       return;
-   object->setSensorGroup(dAtoi(argv[2]));
+   object->assignSensorGroup(dAtoi(argv[2]));
 }
 
 ConsoleMethod(GameConnection, getSensorGroup, S32, 2, 2, "conn.getSensorGroup()")
 {
    // 0x5fdcd0.
    return object->getSensorGroup();
+}
+
+ConsoleMethod(GameConnection, getReceivedDataBlocks, bool, 2, 2, "conn.getReceivedDataBlocks()")
+{
+   return object->getReceivedDataBlocks();
+}
+
+ConsoleMethod(GameConnection, setReceivedDataBlocks, void, 3, 3, "conn.setReceivedDataBlocks(received)")
+{
+   object->setReceivedDataBlocks(dAtob(argv[2]));
 }

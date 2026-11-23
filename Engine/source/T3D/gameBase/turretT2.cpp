@@ -123,6 +123,29 @@ bool TurretData::unpackData(BitStream *stream, U32 classId)
    return true;
 }
 
+// HH: Added for Tribes 2 compatibility. The raw nodes carry a float's own bits.
+static U32 turretFloatBits(F32 value)
+{
+   U32 bits;
+   dMemcpy(&bits, &value, sizeof(bits));
+   return bits;
+}
+
+// HH: Added for Tribes 2 compatibility. Written where unpackData reads them, so
+// a retail client's range checks see the turret's own values and not zeros.
+void TurretData::publishT2Data()
+{
+   Parent::publishT2Data();
+
+   T2Layout::publishDataBlockWord(T2Layout::T2DbThetaMin, turretFloatBits(thetaMin));
+   T2Layout::publishDataBlockWord(T2Layout::T2DbThetaMax, turretFloatBits(thetaMax));
+   T2Layout::publishDataBlockWord(T2Layout::T2DbThetaNull, turretFloatBits(thetaNull));
+   T2Layout::publishDataBlockFlag(T2Layout::T2DbNeverUpdateControl, neverUpdateControl);
+   T2Layout::publishDataBlockWord(T2Layout::T2DbPrimaryAxis, U32(primaryAxis));
+   T2Layout::publishDataBlockWord(T2Layout::T2DbMaxCapacitorEnergy, turretFloatBits(maxCapacitorEnergy));
+   T2Layout::publishDataBlockWord(T2Layout::T2DbCapacitorRechargeRate, turretFloatBits(capacitorRechargeRate));
+}
+
 IMPLEMENT_CO_DATABLOCK_V1(TurretImageData);
 
 ConsoleDocClass( TurretImageData,
@@ -245,6 +268,21 @@ bool TurretImageData::unpackData(BitStream *stream, U32 classId)
       useCapacitor = word != 0;
 
    return true;
+}
+
+// HH: Added for Tribes 2 compatibility. The timings go out as whole words of
+// 32 ms each, which unpackData shifts back up.
+void TurretImageData::publishT2Data()
+{
+   Parent::publishT2Data();
+
+   T2Layout::publishDataBlockWord(T2Layout::T2DbActivationMS, U32(activationMS) >> 5);
+   T2Layout::publishDataBlockWord(T2Layout::T2DbDeactivateDelayMS, U32(deactivateDelayMS) >> 5);
+   T2Layout::publishDataBlockWord(T2Layout::T2DbDegPerSecTheta, U32(degPerSecTheta));
+   T2Layout::publishDataBlockWord(T2Layout::T2DbDegPerSecPhi, U32(degPerSecPhi));
+   T2Layout::publishDataBlockFlag(T2Layout::T2DbDontFireInsideDamageRadius, dontFireInsideDamageRadius);
+   T2Layout::publishDataBlockWord(T2Layout::T2DbDamageRadius, turretFloatBits(damageRadius));
+   T2Layout::publishDataBlockFlag(T2Layout::T2DbUseCapacitor, useCapacitor);
 }
 
 IMPLEMENT_CO_NETOBJECT_V1(Turret);

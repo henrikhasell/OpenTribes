@@ -282,7 +282,13 @@ public:
    void onRemove();
 
    // HH: Added for Tribes 2 compatibility.
+   U32  packUpdate(NetConnection *conn, U32 mask, BitStream *stream,
+                   bool isInitial);
    bool unpackUpdate(BitStream *stream, bool isInitial);
+
+   // HH: Added for Tribes 2 compatibility.
+   void getT2Body(T2Layout::Body *body, bool isInitial, U32 mask,
+                  NetConnection *conn) const;
 
    void onEditorEnable();
    void onEditorDisable();

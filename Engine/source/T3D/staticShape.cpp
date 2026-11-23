@@ -31,6 +31,7 @@
 #include "T3D/gameBase/moveManager.h"
 #include "ts/tsShapeInstance.h"
 #include "T3D/staticShape.h"
+#include "T3D/gameBase/t2Layout.h"
 #include "math/mathIO.h"
 #include "sim/netConnection.h"
 #include "scene/sceneObjectLightingPlugin.h"
@@ -247,6 +248,31 @@ void StaticShape::onUnmount(ShapeBase*,S32)
 {
    // Make sure the client get's the final server pos.
    setMaskBits(PositionMask);
+}
+
+// HH: Added for Tribes 2 compatibility. The layout reads the transform block
+// (the quaternion's flag and the scale) under the flag a shape's transform
+// sets, and the scale is read whenever the block is, so a unit scale goes out
+// too. The power is a bare flag every body carries, so it goes out on every
+// body. A moved shape sends its transform again.
+void StaticShape::getT2Body(T2Layout::Body *body, bool isInitial, U32 mask,
+                            NetConnection *conn) const
+{
+   Parent::getT2Body(body, isInitial, mask, conn);
+
+   body->hasPowered = true;
+   body->powered = mPowered;
+
+   if(!isInitial && !(mask & PositionMask))
+      return;
+
+   const MatrixF &transform = getTransform();
+   body->hasPosition = true;
+   body->position = transform.getPosition();
+   body->hasRotation = true;
+   body->rotation = transform;
+   body->hasScale = true;
+   body->scale = getScale();
 }
 
 

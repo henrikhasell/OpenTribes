@@ -422,12 +422,15 @@ PlayerData::PlayerData()
 
    jetEmitter = NULL;
    jetEmitterID = 0;
+   jetEffect = NULL;
+   jetEffectID = 0;
    for (U32 i = 0; i < NumT2Actions; i++)
       t2ActionMap[i] = NullAnimation;
    for (S32 i = 0; i < MaxJetNodes; i++)
       jetNode[i] = -1;
 
    splash = NULL;
+   splashID = 0;
    splashId = 0;
    splashVelocity = 1.0f;
    splashAngle = 45.0f;
@@ -459,6 +462,107 @@ PlayerData::PlayerData()
    dMemset( actionList, 0, sizeof(actionList) );
 }
 
+// HH: Added for Tribes 2 compatibility.
+// PlayerData's fields and the slots they travel in, which both ends use:
+// unpackData takes each one out of the layout and publishT2Data puts it
+// back, so neither side can drift from the other.
+static const struct { U32 field; F32 PlayerData::*member; } sT2Fields[] =
+{
+   { T2Layout::T2DbJetForce,                 &PlayerData::jetForce                 },
+   { T2Layout::T2DbUnderwaterJetForce,       &PlayerData::underwaterJetForce       },
+   { T2Layout::T2DbUnderwaterVertJetFactor,  &PlayerData::underwaterVertJetFactor  },
+   { T2Layout::T2DbJetEnergyDrain,           &PlayerData::jetEnergyDrain           },
+   { T2Layout::T2DbUnderwaterJetEnergyDrain, &PlayerData::underwaterJetEnergyDrain },
+   { T2Layout::T2DbMinJetEnergy,             &PlayerData::minJetEnergy             },
+   { T2Layout::T2DbMaxJetForwardSpeed,       &PlayerData::maxJetForwardSpeed       },
+   { T2Layout::T2DbMaxJetHorizontalPercentage,
+     &PlayerData::maxJetHorizontalPercentage },
+   { T2Layout::T2DbHeatDecayPerSec,          &PlayerData::heatDecayPerSec          },
+   { T2Layout::T2DbHeatIncreasePerSec,       &PlayerData::heatIncreasePerSec       },
+
+   { T2Layout::T2DbMinLookAngle,             &PlayerData::minLookAngle             },
+   { T2Layout::T2DbMaxLookAngle,             &PlayerData::maxLookAngle             },
+   { T2Layout::T2DbMaxFreelookAngle,         &PlayerData::maxFreelookAngle         },
+   { T2Layout::T2DbMaxTimeScale,             &PlayerData::maxTimeScale             },
+   { T2Layout::T2DbMaxStepHeight,            &PlayerData::maxStepHeight            },
+   { T2Layout::T2DbRunForce,                 &PlayerData::runForce                 },
+   { T2Layout::T2DbRunEnergyDrain,           &PlayerData::runEnergyDrain           },
+   { T2Layout::T2DbMinRunEnergy,             &PlayerData::minRunEnergy             },
+   { T2Layout::T2DbMaxForwardSpeed,          &PlayerData::maxForwardSpeed          },
+   { T2Layout::T2DbMaxBackwardSpeed,         &PlayerData::maxBackwardSpeed         },
+   { T2Layout::T2DbMaxSideSpeed,             &PlayerData::maxSideSpeed             },
+   { T2Layout::T2DbMaxUnderwaterForwardSpeed,
+     &PlayerData::maxUnderwaterForwardSpeed },
+   { T2Layout::T2DbMaxUnderwaterBackwardSpeed,
+     &PlayerData::maxUnderwaterBackwardSpeed },
+   { T2Layout::T2DbMaxUnderwaterSideSpeed,   &PlayerData::maxUnderwaterSideSpeed   },
+   { T2Layout::T2DbRunSurfaceAngle,          &PlayerData::runSurfaceAngle          },
+   { T2Layout::T2DbRecoverRunForceScale,     &PlayerData::recoverRunForceScale     },
+   { T2Layout::T2DbJumpForce,                &PlayerData::jumpForce                },
+   { T2Layout::T2DbJumpEnergyDrain,          &PlayerData::jumpEnergyDrain          },
+   { T2Layout::T2DbMinJumpEnergy,            &PlayerData::minJumpEnergy            },
+   { T2Layout::T2DbMinJumpSpeed,             &PlayerData::minJumpSpeed             },
+   { T2Layout::T2DbMaxJumpSpeed,             &PlayerData::maxJumpSpeed             },
+   { T2Layout::T2DbJumpSurfaceAngle,         &PlayerData::jumpSurfaceAngle         },
+   { T2Layout::T2DbHorizMaxSpeed,            &PlayerData::horizMaxSpeed            },
+   { T2Layout::T2DbHorizResistSpeed,         &PlayerData::horizResistSpeed         },
+   { T2Layout::T2DbHorizResistFactor,        &PlayerData::horizResistFactor        },
+   { T2Layout::T2DbUpMaxSpeed,               &PlayerData::upMaxSpeed               },
+   { T2Layout::T2DbUpResistSpeed,            &PlayerData::upResistSpeed            },
+   { T2Layout::T2DbUpResistFactor,           &PlayerData::upResistFactor           },
+   { T2Layout::T2DbSplashVelocity,           &PlayerData::splashVelocity           },
+   { T2Layout::T2DbSplashAngle,              &PlayerData::splashAngle              },
+   { T2Layout::T2DbSplashFreqMod,            &PlayerData::splashFreqMod            },
+   { T2Layout::T2DbSplashVelEpsilon,         &PlayerData::splashVelEpsilon         },
+   { T2Layout::T2DbBubbleEmitTime,           &PlayerData::bubbleEmitTime           },
+   { T2Layout::T2DbMedSplashSoundVel,        &PlayerData::medSplashSoundVel        },
+   { T2Layout::T2DbHardSplashSoundVel,       &PlayerData::hardSplashSoundVel       },
+   { T2Layout::T2DbExitSplashSoundVel,       &PlayerData::exitSplashSoundVel       },
+   { T2Layout::T2DbFootSplashHeight,         &PlayerData::footSplashHeight         },
+   { T2Layout::T2DbMinImpactSpeed,           &PlayerData::minImpactSpeed           },
+   { T2Layout::T2DbFootPuffRadius,           &PlayerData::footPuffRadius           },
+   { T2Layout::T2DbDecalOffset,              &PlayerData::decalOffset              },
+   { T2Layout::T2DbGroundImpactMinSpeed,     &PlayerData::groundImpactMinSpeed     },
+   { T2Layout::T2DbGroundImpactShakeDuration,
+     &PlayerData::groundImpactShakeDuration },
+   { T2Layout::T2DbGroundImpactShakeFalloff,
+     &PlayerData::groundImpactShakeFalloff },
+};
+
+static const struct { U32 field; Point3F PlayerData::*vector;
+                      F32 Point3F::*part; } sT2Parts[] =
+{
+   { T2Layout::T2DbBoxSizeX, &PlayerData::boxSize, &Point3F::x },
+   { T2Layout::T2DbBoxSizeY, &PlayerData::boxSize, &Point3F::y },
+   { T2Layout::T2DbBoxSizeZ, &PlayerData::boxSize, &Point3F::z },
+   { T2Layout::T2DbGroundImpactShakeFreqX,
+     &PlayerData::groundImpactShakeFreq, &Point3F::x },
+   { T2Layout::T2DbGroundImpactShakeFreqY,
+     &PlayerData::groundImpactShakeFreq, &Point3F::y },
+   { T2Layout::T2DbGroundImpactShakeFreqZ,
+     &PlayerData::groundImpactShakeFreq, &Point3F::z },
+   { T2Layout::T2DbGroundImpactShakeAmpX,
+     &PlayerData::groundImpactShakeAmp, &Point3F::x },
+   { T2Layout::T2DbGroundImpactShakeAmpY,
+     &PlayerData::groundImpactShakeAmp, &Point3F::y },
+   { T2Layout::T2DbGroundImpactShakeAmpZ,
+     &PlayerData::groundImpactShakeAmp, &Point3F::z },
+};
+
+static const struct { U32 field; S32 PlayerData::*member; } sT2Counts[] =
+{
+   { T2Layout::T2DbRecoverDelay,     &PlayerData::recoverDelay     },
+   { T2Layout::T2DbJumpDelay,        &PlayerData::jumpDelay        },
+   { T2Layout::T2DbFootPuffNumParts, &PlayerData::footPuffNumParts },
+};
+
+static const struct { U32 field; S32 PlayerData::*member; } sT2Emitters[] =
+{
+   { T2Layout::T2DbJetEmitter,      &PlayerData::jetEmitterID },
+   { T2Layout::T2DbDustEmitter,     &PlayerData::dustID       },
+   { T2Layout::T2DbFootPuffEmitter, &PlayerData::footPuffID   },
+};
+
 bool PlayerData::unpackData(BitStream *stream, U32 classId)
 {
    if (!Parent::unpackData(stream, classId))
@@ -469,131 +573,48 @@ bool PlayerData::unpackData(BitStream *stream, U32 classId)
    if (T2Layout::lastDataBlockWord(T2Layout::T2DbNoFrictionOnSki, &flag))
       noFrictionOnSki = flag != 0;
 
-   static const struct { U32 field; F32 PlayerData::*member; } sFields[] =
-   {
-      { T2Layout::T2DbJetForce,                 &PlayerData::jetForce                 },
-      { T2Layout::T2DbUnderwaterJetForce,       &PlayerData::underwaterJetForce       },
-      { T2Layout::T2DbUnderwaterVertJetFactor,  &PlayerData::underwaterVertJetFactor  },
-      { T2Layout::T2DbJetEnergyDrain,           &PlayerData::jetEnergyDrain           },
-      { T2Layout::T2DbUnderwaterJetEnergyDrain, &PlayerData::underwaterJetEnergyDrain },
-      { T2Layout::T2DbMinJetEnergy,             &PlayerData::minJetEnergy             },
-      { T2Layout::T2DbMaxJetForwardSpeed,       &PlayerData::maxJetForwardSpeed       },
-      { T2Layout::T2DbMaxJetHorizontalPercentage,
-        &PlayerData::maxJetHorizontalPercentage },
-      { T2Layout::T2DbHeatDecayPerSec,          &PlayerData::heatDecayPerSec          },
-      { T2Layout::T2DbHeatIncreasePerSec,       &PlayerData::heatIncreasePerSec       },
-
-      { T2Layout::T2DbMinLookAngle,             &PlayerData::minLookAngle             },
-      { T2Layout::T2DbMaxLookAngle,             &PlayerData::maxLookAngle             },
-      { T2Layout::T2DbMaxFreelookAngle,         &PlayerData::maxFreelookAngle         },
-      { T2Layout::T2DbMaxTimeScale,             &PlayerData::maxTimeScale             },
-      { T2Layout::T2DbMaxStepHeight,            &PlayerData::maxStepHeight            },
-      { T2Layout::T2DbRunForce,                 &PlayerData::runForce                 },
-      { T2Layout::T2DbRunEnergyDrain,           &PlayerData::runEnergyDrain           },
-      { T2Layout::T2DbMinRunEnergy,             &PlayerData::minRunEnergy             },
-      { T2Layout::T2DbMaxForwardSpeed,          &PlayerData::maxForwardSpeed          },
-      { T2Layout::T2DbMaxBackwardSpeed,         &PlayerData::maxBackwardSpeed         },
-      { T2Layout::T2DbMaxSideSpeed,             &PlayerData::maxSideSpeed             },
-      { T2Layout::T2DbMaxUnderwaterForwardSpeed,
-        &PlayerData::maxUnderwaterForwardSpeed },
-      { T2Layout::T2DbMaxUnderwaterBackwardSpeed,
-        &PlayerData::maxUnderwaterBackwardSpeed },
-      { T2Layout::T2DbMaxUnderwaterSideSpeed,   &PlayerData::maxUnderwaterSideSpeed   },
-      { T2Layout::T2DbRunSurfaceAngle,          &PlayerData::runSurfaceAngle          },
-      { T2Layout::T2DbRecoverRunForceScale,     &PlayerData::recoverRunForceScale     },
-      { T2Layout::T2DbJumpForce,                &PlayerData::jumpForce                },
-      { T2Layout::T2DbJumpEnergyDrain,          &PlayerData::jumpEnergyDrain          },
-      { T2Layout::T2DbMinJumpEnergy,            &PlayerData::minJumpEnergy            },
-      { T2Layout::T2DbMinJumpSpeed,             &PlayerData::minJumpSpeed             },
-      { T2Layout::T2DbMaxJumpSpeed,             &PlayerData::maxJumpSpeed             },
-      { T2Layout::T2DbJumpSurfaceAngle,         &PlayerData::jumpSurfaceAngle         },
-      { T2Layout::T2DbHorizMaxSpeed,            &PlayerData::horizMaxSpeed            },
-      { T2Layout::T2DbHorizResistSpeed,         &PlayerData::horizResistSpeed         },
-      { T2Layout::T2DbHorizResistFactor,        &PlayerData::horizResistFactor        },
-      { T2Layout::T2DbUpMaxSpeed,               &PlayerData::upMaxSpeed               },
-      { T2Layout::T2DbUpResistSpeed,            &PlayerData::upResistSpeed            },
-      { T2Layout::T2DbUpResistFactor,           &PlayerData::upResistFactor           },
-      { T2Layout::T2DbSplashVelocity,           &PlayerData::splashVelocity           },
-      { T2Layout::T2DbSplashAngle,              &PlayerData::splashAngle              },
-      { T2Layout::T2DbSplashFreqMod,            &PlayerData::splashFreqMod            },
-      { T2Layout::T2DbSplashVelEpsilon,         &PlayerData::splashVelEpsilon         },
-      { T2Layout::T2DbBubbleEmitTime,           &PlayerData::bubbleEmitTime           },
-      { T2Layout::T2DbMedSplashSoundVel,        &PlayerData::medSplashSoundVel        },
-      { T2Layout::T2DbHardSplashSoundVel,       &PlayerData::hardSplashSoundVel       },
-      { T2Layout::T2DbExitSplashSoundVel,       &PlayerData::exitSplashSoundVel       },
-      { T2Layout::T2DbFootSplashHeight,         &PlayerData::footSplashHeight         },
-      { T2Layout::T2DbMinImpactSpeed,           &PlayerData::minImpactSpeed           },
-      { T2Layout::T2DbFootPuffRadius,           &PlayerData::footPuffRadius           },
-      { T2Layout::T2DbDecalOffset,              &PlayerData::decalOffset              },
-      { T2Layout::T2DbGroundImpactMinSpeed,     &PlayerData::groundImpactMinSpeed     },
-      { T2Layout::T2DbGroundImpactShakeDuration,
-        &PlayerData::groundImpactShakeDuration },
-      { T2Layout::T2DbGroundImpactShakeFalloff,
-        &PlayerData::groundImpactShakeFalloff },
-   };
-
-   for (U32 i = 0; i < sizeof(sFields) / sizeof(sFields[0]); i++)
+   for (U32 i = 0; i < sizeof(sT2Fields) / sizeof(sT2Fields[0]); i++)
    {
       F32 value;
-      if (T2Layout::lastDataBlockField(sFields[i].field, &value))
-         this->*sFields[i].member = value;
+      if (T2Layout::lastDataBlockField(sT2Fields[i].field, &value))
+         this->*sT2Fields[i].member = value;
    }
 
-   static const struct { U32 field; Point3F PlayerData::*vector;
-                         F32 Point3F::*part; } sParts[] =
-   {
-      { T2Layout::T2DbBoxSizeX, &PlayerData::boxSize, &Point3F::x },
-      { T2Layout::T2DbBoxSizeY, &PlayerData::boxSize, &Point3F::y },
-      { T2Layout::T2DbBoxSizeZ, &PlayerData::boxSize, &Point3F::z },
-      { T2Layout::T2DbGroundImpactShakeFreqX,
-        &PlayerData::groundImpactShakeFreq, &Point3F::x },
-      { T2Layout::T2DbGroundImpactShakeFreqY,
-        &PlayerData::groundImpactShakeFreq, &Point3F::y },
-      { T2Layout::T2DbGroundImpactShakeFreqZ,
-        &PlayerData::groundImpactShakeFreq, &Point3F::z },
-      { T2Layout::T2DbGroundImpactShakeAmpX,
-        &PlayerData::groundImpactShakeAmp, &Point3F::x },
-      { T2Layout::T2DbGroundImpactShakeAmpY,
-        &PlayerData::groundImpactShakeAmp, &Point3F::y },
-      { T2Layout::T2DbGroundImpactShakeAmpZ,
-        &PlayerData::groundImpactShakeAmp, &Point3F::z },
-   };
-
-   for (U32 i = 0; i < sizeof(sParts) / sizeof(sParts[0]); i++)
+   for (U32 i = 0; i < sizeof(sT2Parts) / sizeof(sT2Parts[0]); i++)
    {
       F32 value;
-      if (T2Layout::lastDataBlockField(sParts[i].field, &value))
-         (this->*sParts[i].vector).*sParts[i].part = value;
+      if (T2Layout::lastDataBlockField(sT2Parts[i].field, &value))
+         (this->*sT2Parts[i].vector).*sT2Parts[i].part = value;
    }
 
    // Tick and particle counts, which Tribes 2 writes as whole words.
-   static const struct { U32 field; S32 PlayerData::*member; } sCounts[] =
-   {
-      { T2Layout::T2DbRecoverDelay,     &PlayerData::recoverDelay     },
-      { T2Layout::T2DbJumpDelay,        &PlayerData::jumpDelay        },
-      { T2Layout::T2DbFootPuffNumParts, &PlayerData::footPuffNumParts },
-   };
 
-   for (U32 i = 0; i < sizeof(sCounts) / sizeof(sCounts[0]); i++)
+   for (U32 i = 0; i < sizeof(sT2Counts) / sizeof(sT2Counts[0]); i++)
    {
       U32 word;
-      if (T2Layout::lastDataBlockWord(sCounts[i].field, &word))
-         this->*sCounts[i].member = S32(word);
+      if (T2Layout::lastDataBlockWord(sT2Counts[i].field, &word))
+         this->*sT2Counts[i].member = S32(word);
    }
 
-   static const struct { U32 field; S32 PlayerData::*member; } sEmitters[] =
-   {
-      { T2Layout::T2DbJetEmitter,      &PlayerData::jetEmitterID },
-      { T2Layout::T2DbDustEmitter,     &PlayerData::dustID       },
-      { T2Layout::T2DbFootPuffEmitter, &PlayerData::footPuffID   },
-   };
-
-   for (U32 i = 0; i < sizeof(sEmitters) / sizeof(sEmitters[0]); i++)
+   for (U32 i = 0; i < sizeof(sT2Emitters) / sizeof(sT2Emitters[0]); i++)
    {
       U32 word;
-      if (T2Layout::lastDataBlockWord(sEmitters[i].field, &word))
-         this->*sEmitters[i].member = S32(word);
+      if (T2Layout::lastDataBlockWord(sT2Emitters[i].field, &word))
+         this->*sT2Emitters[i].member = S32(word + DataBlockObjectIdFirst);
    }
+
+   U32 jetEffectWord;
+   if (T2Layout::lastDataBlockWord(T2Layout::T2DbPlayerJetEffect, &jetEffectWord))
+      jetEffectID = S32(jetEffectWord + DataBlockObjectIdFirst);
+
+   U32 splashWord;
+   if (T2Layout::lastDataBlockWord(T2Layout::T2DbPlayerDecal, &splashWord))
+      decalID = S32(splashWord + DataBlockObjectIdFirst);
+   if (T2Layout::lastDataBlockWord(T2Layout::T2DbPlayerSplash, &splashWord))
+      splashID = S32(splashWord + DataBlockObjectIdFirst);
+   for (U32 i = 0; i < NUM_SPLASH_EMITTERS; i++)
+      if (T2Layout::lastDataBlockWord(T2Layout::T2DbPlayerSplashEmitter + i, &splashWord))
+         splashEmitterIDList[i] = S32(splashWord + DataBlockObjectIdFirst);
 
    // HH: Added for Tribes 2 compatibility.
    // Kept for preload, which picks the footprint out of them by its class.
@@ -621,6 +642,94 @@ bool PlayerData::unpackData(BitStream *stream, U32 classId)
                   boxSize.x, boxSize.y, boxSize.z);
 
    return true;
+}
+
+// HH: Added for Tribes 2 compatibility. unpackData's fields the other way
+// round, off the tables above. The emitters and sounds differ: a read parks
+// them as ids for preload to resolve, and a server has long since resolved
+// them, so they go out as the ids of what they point at.
+void PlayerData::publishT2Data()
+{
+   Parent::publishT2Data();
+
+   // HH: Added for Tribes 2 compatibility. A body opens with this flag, ahead
+   // of every float, and unpackData already reads it back; nothing sent it, so
+   // a client always got the default and retail's own bodies carry it set.
+   T2Layout::publishDataBlockFlag(T2Layout::T2DbNoFrictionOnSki,
+                                  noFrictionOnSki);
+
+   for (U32 i = 0; i < sizeof(sT2Fields) / sizeof(sT2Fields[0]); i++)
+      T2Layout::publishDataBlockWhole(sT2Fields[i].field,
+                                      this->*sT2Fields[i].member);
+
+   for (U32 i = 0; i < sizeof(sT2Parts) / sizeof(sT2Parts[0]); i++)
+      T2Layout::publishDataBlockWhole(sT2Parts[i].field,
+                                      (this->*sT2Parts[i].vector).*sT2Parts[i].part);
+
+   for (U32 i = 0; i < sizeof(sT2Counts) / sizeof(sT2Counts[0]); i++)
+      T2Layout::publishDataBlockWord(sT2Counts[i].field,
+                                     U32(this->*sT2Counts[i].member));
+
+   static ParticleEmitterData *PlayerData::*const sT2EmitterBlocks[] =
+   {
+      &PlayerData::jetEmitter, &PlayerData::dustEmitter,
+      &PlayerData::footPuffEmitter,
+   };
+
+   for (U32 i = 0; i < sizeof(sT2Emitters) / sizeof(sT2Emitters[0]); i++)
+   {
+      const ParticleEmitterData *emitter = this->*sT2EmitterBlocks[i];
+      if (emitter)
+         T2Layout::publishDataBlockWord(sT2Emitters[i].field,
+                                        emitter->getId() - DataBlockObjectIdFirst);
+   }
+
+   // The jet effect goes out as the id of what it points at, the way the
+   // emitters do; an unresolved one still holds the id it was read as.
+   if (jetEffect)
+      T2Layout::publishDataBlockWord(T2Layout::T2DbPlayerJetEffect,
+                                     jetEffect->getId() - DataBlockObjectIdFirst);
+   else if (jetEffectID != 0)
+      T2Layout::publishDataBlockWord(T2Layout::T2DbPlayerJetEffect,
+                                     U32(jetEffectID) - DataBlockObjectIdFirst);
+
+   // The footprint, the splash and its emitters go out the same way: as the id
+   // of what they point at, or the id they were read as if nothing resolved.
+   if (decalData)
+      T2Layout::publishDataBlockWord(T2Layout::T2DbPlayerDecal,
+                                     decalData->getId() - DataBlockObjectIdFirst);
+   else if (decalID != 0)
+      T2Layout::publishDataBlockWord(T2Layout::T2DbPlayerDecal,
+                                     U32(decalID) - DataBlockObjectIdFirst);
+
+   if (splash)
+      T2Layout::publishDataBlockWord(T2Layout::T2DbPlayerSplash,
+                                     splash->getId() - DataBlockObjectIdFirst);
+   else if (splashID != 0)
+      T2Layout::publishDataBlockWord(T2Layout::T2DbPlayerSplash,
+                                     U32(splashID) - DataBlockObjectIdFirst);
+
+   for (U32 i = 0; i < NUM_SPLASH_EMITTERS; i++)
+   {
+      if (splashEmitterList[i])
+         T2Layout::publishDataBlockWord(T2Layout::T2DbPlayerSplashEmitter + i,
+                                        splashEmitterList[i]->getId() - DataBlockObjectIdFirst);
+      else if (splashEmitterIDList[i] != 0)
+         T2Layout::publishDataBlockWord(T2Layout::T2DbPlayerSplashEmitter + i,
+                                        U32(splashEmitterIDList[i]) - DataBlockObjectIdFirst);
+   }
+
+   for (U32 i = 0; i < MaxSounds; i++)
+   {
+      if (!sound[i])
+         continue;
+
+      // An unresolved one is still parked as an id with its low bit set.
+      const uintptr_t parked = uintptr_t(sound[i]);
+      const U32 id = (parked & 0x1) ? U32(parked >> 1) : sound[i]->getId();
+      T2Layout::publishDataBlockWord(T2Layout::T2DbPlayerSound + i,
+                                     id - DataBlockObjectIdFirst);
+   }
 }
 
 bool PlayerData::preload(bool server, String &errorStr)
@@ -807,6 +916,10 @@ bool PlayerData::preload(bool server, String &errorStr)
       if (!Sim::findObject(decalID, decalData))
          Con::errorf(ConsoleLogEntry::General, "PlayerData::preload Invalid packet, bad datablockId(decalData): 0x%x", decalID);
 
+   if (!splash && splashID != 0)
+      if (!Sim::findObject(splashID, splash))
+         Con::errorf(ConsoleLogEntry::General, "PlayerData::preload - Invalid packet, bad datablockId(splash): 0x%x", splashID);
+
    // HH: Added for Tribes 2 compatibility.
    // The footprint is the only DecalData the body named, so it needs no node
    // of its own: the ids the walk read are enough to find it.
@@ -824,6 +937,10 @@ bool PlayerData::preload(bool server, String &errorStr)
    if (!jetEmitter && jetEmitterID != 0 )
       if (!Sim::findObject(jetEmitterID, jetEmitter))
          Con::errorf(ConsoleLogEntry::General, "PlayerData::preload - Invalid packet, bad datablockId(jetEmitter): 0x%x", jetEmitterID);
+
+   if (!jetEffect && jetEffectID != 0)
+      if (!Sim::findObject(jetEffectID, jetEffect))
+         Con::errorf(ConsoleLogEntry::General, "PlayerData::preload - Invalid packet, bad datablockId(jetEffect): 0x%x", jetEffectID);
 
    for (int i=0; i<NUM_SPLASH_EMITTERS; i++)
       if( !splashEmitterList[i] && splashEmitterIDList[i] != 0 )
@@ -914,6 +1031,21 @@ void PlayerData::getGroundInfo(TSShapeInstance* si, TSThread* thread,ActionAnima
 U32 PlayerData::actionFromT2(U32 t2Action) const
 {
    return t2Action < NumT2Actions ? t2ActionMap[t2Action] : U32(NullAnimation);
+}
+
+// HH: Added for Tribes 2 compatibility. Searches the same map actionFromT2
+// reads, so the number sent is one the reader maps back to this action. Our
+// NullAnimation is also a map entry, so it is refused before the search.
+U32 PlayerData::t2ActionFor(U32 action) const
+{
+   if (action == NullAnimation)
+      return NumT2Actions;
+
+   for (U32 t2 = 0; t2 < NumT2Actions; t2++)
+      if (t2ActionMap[t2] == action)
+         return t2;
+
+   return NumT2Actions;
 }
 
 bool PlayerData::isTableSequence(S32 seq)
@@ -1042,6 +1174,9 @@ void PlayerData::initPersistFields()
       addField( "maxJetHorizontalPercentage", TypeF32, Offset(maxJetHorizontalPercentage, PlayerData),
          "@brief Most of the pack a move may take for horizontal thrust.\n\n"
          "@see maxJetForwardSpeed\n" );
+      addField( "jetEffect", TYPEID< SimDataBlock >(), Offset(jetEffect, PlayerData),
+         "@brief The jet effect a pack's flame is drawn by.\n\n"
+         "@internal\n" );
       addField( "jetEmitter", TYPEID< ParticleEmitterData >(), Offset(jetEmitter, PlayerData),
          "@brief Emitter the pack blows out of each of its nozzles.\n\n"
          "One emitter is created per `jetNozzle%d` node the shape carries, so "
@@ -2541,6 +2676,13 @@ void Player::updateMove(const Move* move)
          }
       }
 
+      // A head change reaches the ghost only in a body, and a body goes out on
+      // its mask bits. The recentre above moves the head on moves that look at
+      // nothing, so compare against where it started.
+      if (!isGhost() &&
+          (mHead.x != delta.headVec.x || mHead.z != delta.headVec.z))
+         setMaskBits(MoveMask);
+
       // constrain the range of mRot.z
       while (mRot.z < 0.0f)
          mRot.z += M_2PI_F;
@@ -3704,6 +3846,12 @@ void Player::setActionThread(U32 action,bool forward,bool hold,bool wait,bool fs
       mActionAnimation.atEnd           = false;
       mActionAnimation.delayTicks      = (S32)sNewAnimationTickTime;
       mActionAnimation.atEnd           = false;
+
+      // HH: Added for Tribes 2 compatibility. A ghost learns the action from
+      // the body, and only ActionMask sends it, so a change made here must
+      // raise the bit or the ghost keeps the last action it was sent.
+      if (!isGhost())
+         setMaskBits(ActionMask);
 
       if (sUseAnimationTransitions && (action != PlayerData::LandAnim || !(mDataBlock->landSequenceTime > 0.0f && !mDataBlock->transitionToLand)) && (isGhost()/* || mActionAnimation.animateOnServer*/))
       {
@@ -5423,6 +5571,84 @@ void Player::onT2BodyRead(const T2Layout::Body &body)
       mVelocity = body.velocity;
 
    setPosition(body.position, rot);
+}
+
+// HH: Added for Tribes 2 compatibility.
+// The server's half of onT2BodyRead, readT2Action and readT2Arm. Each part
+// goes out when its bit is in the mask, or whole on a first body, as in
+// ShapeBase::getT2Body.
+void Player::getT2Body(T2Layout::Body *body, bool isInitial, U32 mask,
+                       NetConnection *conn) const
+{
+   Parent::getT2Body(body, isInitial, mask, conn);
+
+   // The walk reads a player's position, heading and velocity in every body,
+   // not only a first one. Without them the client keeps its own heading (north
+   // for a new ghost) and no velocity, so the walk never turns and its cycle
+   // runs at the wrong speed (see Player::updateActionThread).
+   const MatrixF &transform = getTransform();
+   body->hasPosition = true;
+   body->position = transform.getPosition();
+   body->hasRotation = true;
+   body->rotation = transform;
+   body->hasYaw = true;
+   body->yaw = mRot.z;
+   body->hasVelocity = true;
+   body->velocity = mVelocity;
+
+   if (!mDataBlock)
+      return;
+
+   // setActionThread and setArmThread both set ActionMask, so the action and
+   // the arm go out in the same body.
+   if (isInitial || (mask & ActionMask))
+   {
+      const U32 action = mDataBlock->t2ActionFor(mActionAnimation.action);
+      if (action != PlayerData::NumT2Actions)
+      {
+         body->hasAction = true;
+         body->action = action;
+         body->actionHold = mActionAnimation.holdAtEnd;
+         body->actionAtEnd = mActionAnimation.atEnd;
+         body->actionFirstPerson = mActionAnimation.firstPerson;
+
+         // A first body says how far through the action it is, for a player
+         // that joins mid-animation. A later one starts the action at its
+         // beginning, as setActionThread does.
+         if (isInitial && mActionAnimation.thread)
+         {
+            body->hasActionPos = true;
+            body->actionPos = mShapeInstance->getPos(mActionAnimation.thread);
+         }
+      }
+
+      const U32 arm = mDataBlock->t2ActionFor(mArmAnimation.action);
+      if (arm != PlayerData::NumT2Actions)
+      {
+         body->hasArm = true;
+         body->arm = arm;
+      }
+   }
+
+   // The look is the first word under the look block, which the body opens
+   // whenever it carries a head (see isBodyMask in t2Layout.cpp). Pitch and yaw
+   // go out as shares of maxLookAngle (see onT2BodyRead).
+   if (mDataBlock->maxLookAngle > 0.0f)
+   {
+      body->hasHead = true;
+      body->head.x = mClampF(mHead.x / mDataBlock->maxLookAngle, -1.0f, 1.0f);
+      body->head.y = mClampF(mHead.z / mDataBlock->maxLookAngle, -1.0f, 1.0f);
+   }
+
+   // Jetting is a state the reader takes as it stands, so every body says it.
+   body->hasJetting = true;
+   body->jetting = mJetting;
+
+   if (isInitial || (mask & ImpactMask))
+   {
+      body->hasImpactSound = true;
+      body->impactSound = U32(mImpactSound);
+   }
 }
 
 void Player::setPosition(const Point3F& pos,const Point3F& rot)

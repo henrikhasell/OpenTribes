@@ -26,6 +26,7 @@
 #include "scene/sceneRenderState.h"
 #include "console/consoleTypes.h"
 #include "console/engineAPI.h"
+#include "console/sim.h"
 #include "collision/boxConvex.h"
 
 #include "core/stream/bitStream.h"
@@ -483,6 +484,145 @@ void Trigger::buildConvex(const Box3F& box, Convex* convex)
    cp->mSize.z = mObjBox.len_z() / 2.0f;
 }
 
+
+//------------------------------------------------------------------------------
+
+// HH: Added for Tribes 2 compatibility.
+// Retail's Trigger body, in the order its reader takes it: the GameBase part (a
+// datablock, and a target a trigger never has), the transform as a position, a
+// quaternion's xyz and the sign of its w, the scale, then the polyhedron's point,
+// plane and edge lists, each led by its count. Every number is a raw 32-bit
+// word. The recovered layout takes the scale and the counts as six words, which
+// leaves the next object 96 bits out of step, so a trigger writes its own body.
+
+U32 Trigger::packUpdate(NetConnection *, U32, BitStream *stream, bool)
+{
+   if(stream->writeFlag(mDataBlock != NULL))
+      stream->writeInt(mDataBlock->getId() - DataBlockObjectIdFirst, DataBlockObjectIdBitSize);
+   stream->writeFlag(false);
+
+   const MatrixF &mat = getTransform();
+   const QuatF rot(mat);
+   const Point3F &pos = mat.getPosition();
+   stream->write(pos.x);
+   stream->write(pos.y);
+   stream->write(pos.z);
+   stream->write(rot.x);
+   stream->write(rot.y);
+   stream->write(rot.z);
+   stream->writeFlag(rot.w < 0.0f);
+
+   const Point3F scale = getScale();
+   stream->write(scale.x);
+   stream->write(scale.y);
+   stream->write(scale.z);
+
+   stream->write(U32(mTriggerPolyhedron.pointList.size()));
+   for(U32 i = 0; i < mTriggerPolyhedron.pointList.size(); i++)
+   {
+      const Point3F &p = mTriggerPolyhedron.pointList[i];
+      stream->write(p.x);
+      stream->write(p.y);
+      stream->write(p.z);
+   }
+
+   stream->write(U32(mTriggerPolyhedron.planeList.size()));
+   for(U32 i = 0; i < mTriggerPolyhedron.planeList.size(); i++)
+   {
+      const PlaneF &p = mTriggerPolyhedron.planeList[i];
+      stream->write(p.x);
+      stream->write(p.y);
+      stream->write(p.z);
+      stream->write(p.d);
+   }
+
+   stream->write(U32(mTriggerPolyhedron.edgeList.size()));
+   for(U32 i = 0; i < mTriggerPolyhedron.edgeList.size(); i++)
+   {
+      const Polyhedron::Edge &e = mTriggerPolyhedron.edgeList[i];
+      stream->write(e.face[0]);
+      stream->write(e.face[1]);
+      stream->write(e.vertex[0]);
+      stream->write(e.vertex[1]);
+   }
+
+   return 0;
+}
+
+bool Trigger::unpackUpdate(BitStream *stream, bool)
+{
+   if(stream->readFlag())
+   {
+      const U32 id = stream->readInt(DataBlockObjectIdBitSize) + DataBlockObjectIdFirst;
+      TriggerData *data = NULL;
+      if(Sim::findObject(id, data) && data)
+         setDataBlock(data);
+   }
+
+   // GameBase's target, which a trigger never has. It is read all the same.
+   if(stream->readFlag() && stream->readFlag())
+      stream->readInt(9);
+
+   Point3F pos;
+   stream->read(&pos.x);
+   stream->read(&pos.y);
+   stream->read(&pos.z);
+
+   F32 x, y, z;
+   stream->read(&x);
+   stream->read(&y);
+   stream->read(&z);
+   const bool negW = stream->readFlag();
+   const F32 radicand = 1.0f - (x * x + y * y + z * z);
+   F32 w = radicand > 0.0f ? mSqrt(radicand) : 0.0f;
+   if(negW)
+      w = -w;
+
+   Point3F scale;
+   stream->read(&scale.x);
+   stream->read(&scale.y);
+   stream->read(&scale.z);
+
+   Polyhedron poly;
+   U32 count = 0;
+   stream->read(&count);
+   poly.pointList.setSize(count);
+   for(U32 i = 0; i < count; i++)
+   {
+      stream->read(&poly.pointList[i].x);
+      stream->read(&poly.pointList[i].y);
+      stream->read(&poly.pointList[i].z);
+   }
+
+   stream->read(&count);
+   poly.planeList.setSize(count);
+   for(U32 i = 0; i < count; i++)
+   {
+      stream->read(&poly.planeList[i].x);
+      stream->read(&poly.planeList[i].y);
+      stream->read(&poly.planeList[i].z);
+      stream->read(&poly.planeList[i].d);
+   }
+
+   stream->read(&count);
+   poly.edgeList.setSize(count);
+   for(U32 i = 0; i < count; i++)
+   {
+      stream->read(&poly.edgeList[i].face[0]);
+      stream->read(&poly.edgeList[i].face[1]);
+      stream->read(&poly.edgeList[i].vertex[0]);
+      stream->read(&poly.edgeList[i].vertex[1]);
+   }
+
+   MatrixF mat(true);
+   QuatF(x, y, z, w).setMatrix(&mat);
+   mat.setPosition(pos);
+
+   setTriggerPolyhedron(poly);
+   setScale(scale);
+   setTransform(mat);
+   return true;
+}
 
 //------------------------------------------------------------------------------
 

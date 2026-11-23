@@ -59,8 +59,9 @@ class StaticShape: public ShapeBase
 
 protected:
    enum MaskBits {
-      PositionMask = Parent::NextFreeMask,	  
-      NextFreeMask = Parent::NextFreeMask << 1
+      PositionMask = Parent::NextFreeMask,
+      PowerMask    = Parent::NextFreeMask << 1,
+      NextFreeMask = Parent::NextFreeMask << 2
    };
 
 public:
@@ -77,12 +78,24 @@ public:
    void interpolateTick(F32 delta);
    void setTransform(const MatrixF &mat);
 
+   // HH: Added for Tribes 2 compatibility. The power and the transform go out
+   // in the ghost body.
+   void getT2Body(T2Layout::Body *body, bool isInitial, U32 mask,
+                  NetConnection *conn) const override;
 
-   // power
-   void setPowered(bool power)      {mPowered = power;}
+   // power. A change goes out to the ghosts; a ghost's power comes from the
+   // server's body, so only the server marks it.
+   void setPowered(bool power)
+   {
+      if(mPowered == power)
+         return;
+      mPowered = power;
+      if(isServerObject())
+         setMaskBits(PowerMask);
+   }
    bool isPowered()                 {return(mPowered);}
 
-   static void initPersistFields();   
+   static void initPersistFields();
 };
 
 

@@ -9,6 +9,7 @@
 #include "T3D/gameBase/gameConnection.h"
 #include "T3D/gameBase/t2Layout.h"
 #include "T3D/gameBase/targetsT2.h"
+#include "T3D/gameBase/targetManagerT2.h"
 #include "T3D/shapeBase.h"
 #include "T3D/player.h"
 #include "core/crc.h"
@@ -568,6 +569,21 @@ public:
          mHere[i] = false;
    }
 
+   /// The colours of one viewer group for the targets in mask. Every colour in
+   /// the mask is sent, where retail leaves out those equal to its default: a
+   /// left-off colour reads back as red here, so sending all is the safe form.
+   SensorGroupColorEvent(U32 group, U32 mask, const ColorI *colours)
+   {
+      mGuaranteeType = GuaranteedOrdered;
+      mGroup = group;
+      mMask = mask;
+      for (U32 i = 0; i < NumGroups; i++)
+      {
+         mHere[i] = (mask & (1 << i)) != 0;
+         mColors[i] = colours[i];
+      }
+   }
+
    /// A group, a mask of the groups whose colour follows, and for each a flag
    /// and the colour's four bytes. A colour left off is red.
    void pack(NetConnection *, BitStream *stream)
@@ -604,6 +620,27 @@ IMPLEMENT_CO_CLIENTEVENT_V1(SensorGroupColorEvent);
 
 ConsoleDocClass( SensorGroupColorEvent,
    "@brief Gives a client the colour to draw a sensor group in.\n\n@internal" );
+
+void GameConnection::sendSensorGroupColours(U32 group, U32 mask, const ColorI *colours)
+{
+   // As retail does, nothing goes to a connection that is not established yet.
+   if (!isEstablished())
+      return;
+   postNetEvent(new SensorGroupColorEvent(group, mask, colours));
+}
+
+void GameConnection::assignSensorGroup(S32 group)
+{
+   // 0x5fdc90. Retail sends the colours before the group, and this keeps that
+   // order. An unchanged group sends nothing.
+   if (group == getSensorGroup())
+      return;
+
+   setSensorGroup(group);
+   sendSensorGroupColours(group, 0xffffffff,
+      TargetManagerT2::server()->groupColours(group));
+   postNetEvent(new SetSensorGroupEvent(group));
+}
 
 //----------------------------------------------------------------------------
 
@@ -702,7 +739,12 @@ public:
       stream->read(&mSum);
       stream->read(&mLength);
    }
-   void process(NetConnection *) {}
+   // The answer releases the datablock transfer. Retail runs dataBlocksDone
+   // whether or not the sums match, so the sums are not checked here.
+   void process(NetConnection *conn)
+   {
+      static_cast<GameConnection *>(conn)->finishDataBlocks(mLength);
+   }
 
    DECLARE_CONOBJECT(CRCChallengeResponseEvent);
 };
@@ -728,6 +770,15 @@ public:
       mGuaranteeType = GuaranteedOrdered;
       mSeed = mStart = mLength = 0;
       mWhole = false;
+   }
+
+   CRCChallengeEvent(U32 seed, U32 start, U32 length, bool whole)
+   {
+      mGuaranteeType = GuaranteedOrdered;
+      mSeed = seed;
+      mStart = start;
+      mLength = length;
+      mWhole = whole;
    }
 
    void pack(NetConnection *, BitStream *stream)
@@ -811,6 +862,20 @@ IMPLEMENT_CO_CLIENTEVENT_V1(CRCChallengeEvent);
 ConsoleDocClass( CRCChallengeEvent,
    "@brief Asks a client to checksum part of its install.\n\n@internal" );
 
+void GameConnection::sendDataBlocksChallenge(U32 sequence)
+{
+   if(isLocalConnection())
+   {
+      dataBlocksDone_callback(sequence);
+      return;
+   }
+
+   // Retail seeds its checksum once per process; a seed per transfer does the
+   // same job, as the client only folds it into the sums it sends back.
+   U32 seed = (U32) (Platform::getRandom() * (F32) U32_MAX);
+   postNetEvent(new CRCChallengeEvent(seed, 0, sequence, Con::getBoolVariable("$Host::CRCTextures")));
+}
+
 //----------------------------------------------------------------------------
 
 //----------------------------------------------------------------------------
@@ -837,7 +902,9 @@ public:
    DECLARE_CONOBJECT(FogChallengeEvent);
 };
 
-IMPLEMENT_CO_CLIENTEVENT_V1(FogChallengeEvent);
+// Retail declares this event in both directions, and its client sends it to
+// the server, so the server must accept it from a client.
+IMPLEMENT_CO_NETEVENT_V1(FogChallengeEvent);
 
 ConsoleDocClass( FogChallengeEvent,
    "@brief Asks a client how far it can see through fog.\n\n@internal" );
@@ -870,10 +937,11 @@ class TargetInfoEvent : public NetEvent
    SimObjectId mDataBlock;
 
 public:
-   TargetInfoEvent()
+   /// Built empty: a field goes out only once a setter has given it.
+   TargetInfoEvent(U32 target = 0)
    {
       mGuaranteeType = GuaranteedOrdered;
-      mTarget = 0;
+      mTarget = target;
       for (U32 i = 0; i < ClientTarget::NumTags; i++)
       {
          mTagHere[i] = false;
@@ -889,8 +957,56 @@ public:
       mDataBlock = 0;
    }
 
-   void pack(NetConnection *, BitStream *) {}
-   void write(NetConnection *, BitStream *) {}
+   /// A tag is its connection index for the string, or none for an empty one.
+   void setTag(U32 tag, U32 index, bool hasString)
+   {
+      mTagHere[tag] = true;
+      mTag[tag] = hasString ? index + 1 : 0;
+   }
+   void setSensorGroup(U32 group)
+   {
+      mSensorGroupHere = true;
+      mSensorGroup = group;
+   }
+   /// The datablock's object id, or 0 for none.
+   void setDataBlock(SimObjectId id)
+   {
+      mDataBlockHere = true;
+      mDataBlock = id;
+   }
+   void setRenderMask(U32 mask)
+   {
+      mRenderMaskHere = true;
+      mRenderMask = mask;
+   }
+   /// A pitch from 0.5 to 2, sent as a share of that range.
+   void setVoicePitch(F32 pitch)
+   {
+      F32 share = (pitch - 0.5f) / 1.5f;
+      if (share < 0.0f)
+         share = 0.0f;
+      if (share > 1.0f)
+         share = 1.0f;
+      mVoicePitchHere = true;
+      mVoicePitch = U32(share * F32((1 << VoicePitchBits) - 1) + 0.5f);
+   }
+
+   void pack(NetConnection *, BitStream *stream)
+   {
+      stream->writeInt(mTarget, TargetBits);
+      for (U32 i = 0; i < ClientTarget::NumTags; i++)
+         if (stream->writeFlag(mTagHere[i]) && stream->writeFlag(mTag[i] != 0))
+            stream->writeInt(mTag[i] - 1, ConnectionStringTable::EntryBitSize);
+      if (stream->writeFlag(mSensorGroupHere))
+         stream->writeInt(mSensorGroup, SensorGroupBits);
+      if (stream->writeFlag(mDataBlockHere) && stream->writeFlag(mDataBlock != 0))
+         stream->writeInt(mDataBlock - DataBlockObjectIdFirst, DataBlockBits);
+      if (stream->writeFlag(mRenderMaskHere))
+         stream->writeInt(mRenderMask, RenderMaskBits);
+      if (stream->writeFlag(mVoicePitchHere))
+         stream->writeInt(mVoicePitch, VoicePitchBits);
+   }
+   void write(NetConnection *conn, BitStream *stream) { pack(conn, stream); }
    void unpack(NetConnection *, BitStream *stream)
    {
       mTarget = stream->readInt(TargetBits);
@@ -972,6 +1088,54 @@ ConsoleDocClass( TargetInfoEvent,
    "@brief Tells a client what one target is called and how it "
    "sounds.\n\n@internal" );
 
+void GameConnection::sendTargetInfo(S32 target, U32 fields)
+{
+   // 0x66d1c0. Only the fields asked for are set, and a tag goes out as this
+   // connection's index for its string, which the mapping event before it
+   // has already sent.
+   TargetManagerT2::Target &t = TargetManagerT2::server()->getTarget(target);
+   TargetInfoEvent *event = new TargetInfoEvent(target);
+
+   NetStringHandle *tags[ClientTarget::NumTags] =
+      { &t.name, &t.skin, &t.prefSkin, &t.voice, &t.type };
+   for (U32 i = 0; i < ClientTarget::NumTags; i++)
+   {
+      if (!(fields & (1 << i)))
+         continue;
+
+      NetStringHandle string = *tags[i];
+      if (string.isValidString())
+         event->setTag(i, checkString(string, NULL), true);
+      else
+         event->setTag(i, 0, false);
+   }
+
+   if (fields & TargetManagerT2::FieldSensorGroup)
+      event->setSensorGroup(t.sensorGroup);
+   if (fields & TargetManagerT2::FieldDataBlock)
+      event->setDataBlock(t.dataBlock.isNull() ? 0 : t.dataBlock->getId());
+   if (fields & TargetManagerT2::FieldRenderMask)
+      event->setRenderMask(t.renderMask);
+   if (fields & TargetManagerT2::FieldVoicePitch)
+      event->setVoicePitch(t.voicePitch);
+
+   postNetEvent(event);
+}
+
+void GameConnection::sendTargetFree(S32 target)
+{
+   // 0x66d390. Only an established connection is told.
+   if (isEstablished())
+      postNetEvent(new TargetFreeEvent(target));
+}
+
+void GameConnection::sendResetTargets(bool tasksOnly)
+{
+   // 0x66e2e0. Only an established connection is told.
+   if (isEstablished())
+      postNetEvent(new ResetClientTargetsEvent(tasksOnly));
+}
+
 //----------------------------------------------------------------------------
 
 class SimTargetAudioEvent : public NetEvent
@@ -986,21 +1150,50 @@ class SimTargetAudioEvent : public NetEvent
    U32 mDescription;
    bool mPositionHere;
    Point3F mPosition;
+   bool mUpdate;
 
 public:
    SimTargetAudioEvent()
    {
-      mGuaranteeType = Unguaranteed;
+      mGuaranteeType = GuaranteedOrdered;
       mTarget = 0;
       mFile = 0;
       mDescriptionHere = false;
       mDescription = 0;
       mPositionHere = false;
       mPosition.set(0.0f, 0.0f, 0.0f);
+      mUpdate = false;
    }
 
-   void pack(NetConnection *, BitStream *) {}
-   void write(NetConnection *, BitStream *) {}
+   /// A line as playTargetAudio sends it. The file is this connection's
+   /// string entry and the description the datablock's position in the send
+   /// order. Guaranteed, because an unguaranteed event is read and released
+   /// with no reference taken (NetConnection::eventReadPacket), which asserts
+   /// in a client on the first line.
+   SimTargetAudioEvent(U32 target, U32 file, U32 description,
+                       const Point3F &position, bool update)
+   {
+      mGuaranteeType = GuaranteedOrdered;
+      mTarget = target;
+      mFile = file;
+      mDescriptionHere = true;
+      mDescription = description;
+      mPositionHere = false;
+      mPosition = position;
+      mUpdate = update;
+   }
+
+   void pack(NetConnection *, BitStream *stream)
+   {
+      stream->writeInt(mTarget, TargetBits);
+      stream->writeInt(mFile, ConnectionStringTable::EntryBitSize);
+      if (stream->writeFlag(mDescriptionHere))
+         stream->writeInt(mDescription, DataBlockBits);
+      if (stream->writeFlag(mPositionHere))
+         stream->writeCompressedPoint(mPosition, 0.01f);
+      stream->writeFlag(mUpdate);
+   }
+   void write(NetConnection *conn, BitStream *stream) { pack(conn, stream); }
    void unpack(NetConnection *, BitStream *stream)
    {
       mTarget = stream->readInt(TargetBits);
@@ -1089,3 +1282,21 @@ IMPLEMENT_CO_CLIENTEVENT_V1(SimTargetAudioEvent);
 
 ConsoleDocClass( SimTargetAudioEvent,
    "@brief Plays a line from a target's own voice pack.\n\n@internal" );
+
+void GameConnection::sendTargetAudio(S32 target, const NetStringHandle &file,
+                                     SimObjectId description,
+                                     const Point3F &position, bool update)
+{
+   // 0x66c010. A connection without its datablocks has no description to
+   // name, so it is told nothing.
+   if (!isEstablished() || !getReceivedDataBlocks())
+      return;
+
+   // The string entry is checked here, so a NetStringEvent for it is posted
+   // ahead of the line.
+   NetStringHandle string = file;
+   const U32 entry = checkString(string, NULL);
+   postNetEvent(new SimTargetAudioEvent(U32(target), entry,
+                                        U32(description - DataBlockObjectIdFirst),
+                                        position, update));
+}

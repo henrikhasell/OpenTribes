@@ -146,7 +146,10 @@ IMPLEMENT_CALLBACK( GameConnection, setLagIcon, void, (bool state), (state),
    "allow the game GUI to display some indicator to the player.\n\n"
    "@param state Set to true if the lag icon should be displayed.\n\n");
 
-IMPLEMENT_CALLBACK( GameConnection, onDataBlocksDone, void, (U32 sequence), (sequence),
+// HH: Modified for Tribes 2 compatibility. Tribes 2 names this callback
+// dataBlocksDone -- the name the exe carries and the one server.cs defines,
+// where nothing else calls it. Under Torque's name a join stops after phase 1.
+IMPLEMENT_CALLBACK( GameConnection, dataBlocksDone, void, (U32 sequence), (sequence),
    "@brief Called on the server when all datablocks has been sent to the client.\n\n"
    "During phase 1 of the mission download, all datablocks are sent from the server "
    "to the client.  Once all datablocks have been sent, this callback is called and "
@@ -424,6 +427,36 @@ ConsoleFunction(connect, void, 2, 3 + GameConnection::MaxConnectArgs,
       return;
    }
    conn->connect(&address);
+}
+
+// HH: Added for Tribes 2 compatibility.
+// The shell's Host Game joins the listen server it has just started through
+// this, with the same connect request a remote join sends.
+ConsoleFunction(localConnect, void, 1, 1 + GameConnection::MaxConnectArgs,
+   "localConnect([name [, race, skin, voice, pitch ...]]);")
+{
+   if(GameConnection *old = dynamic_cast<GameConnection *>(Sim::findObject("ServerConnection")))
+      old->deleteObject();
+
+   GameConnection *raw = new GameConnection;
+   raw->setJoinPassword("");
+   if(argc > 1)
+      raw->setConnectArgs(argc - 1, argv + 1);
+
+   if(!raw->registerObject("ServerConnection"))
+   {
+      delete raw;
+      return;
+   }
+
+   // A refused join can delete the client end itself, so hold it weakly.
+   SimObjectPtr<GameConnection> conn = raw;
+   if(conn->connectLocal()[0] != '\0')
+   {
+      Con::errorf("localConnect: the server in this process refused the join");
+      if(!conn.isNull())
+         conn->deleteObject();
+   }
 }
 
 ConsoleFunction(disconnect, void, 1, 1, "disconnect();")
@@ -1363,6 +1396,13 @@ void GameConnection::readPacket(BitStream *bstream)
 
             if(callScript)
             {
+               // HH: Added for Tribes 2 compatibility. The loading screen's
+               // poll raises that screen once the server's load info arrives.
+               // A local join can finish inside the poll's first half second,
+               // and the poll would then cover the game again. The first
+               // control object ends the loading screen, so it ends the poll.
+               if(Con::isFunction("cancelLoadInfoCheck"))
+                  Con::executef("cancelLoadInfoCheck");
                initialControlSet_callback();
             }
 
@@ -1850,7 +1890,7 @@ void GameConnection::handleConnectionMessage(U32 message, U32 sequence, U32 ghos
       {
          if(getDataBlockSequence() == sequence)
          {
-            onDataBlocksDone_callback( getDataBlockSequence() );
+            dataBlocksDone_callback( getDataBlockSequence() );
          }
       }
    }
@@ -1913,10 +1953,11 @@ DefineEngineMethod( GameConnection, transmitDataBlocks, void, (S32 sequence),,
         // Set up a pointer to the datablock.
         SimDataBlock* pDataBlock = 0;
 
-        // Set up a buffer for the datablock send.
-        U8 iBuffer[16384];
-        BitStream mStream(iBuffer, 16384);
-
+        // HH: Added for Tribes 2 compatibility. The local client holds the
+        // server's datablocks, so there is nothing to send and nothing to
+        // preload. A preload expects to be fed wire ids; run on an object the
+        // script already resolved, it nulls the sound or projectile the object
+        // holds, which would break the server's own copy.
         // Iterate through all the datablocks...
         for (U32 i = 0; i < iCount; i++)
         {
@@ -1925,23 +1966,6 @@ DefineEngineMethod( GameConnection, transmitDataBlocks, void, (S32 sequence),,
 
             // Set the client's new modified key.
             object->setMaxDataBlockModifiedKey(pDataBlock->getModifiedKey());
-
-            // HH: Modified for Tribes 2 compatibility -- the layout for
-            // a datablock is picked by its net class id.
-            const U32 classId = pDataBlock->getClassId(object->getNetClassGroup());
-
-            // Pack the datablock stream.
-            mStream.setPosition(0);
-            mStream.clearCompressionPoint();
-            pDataBlock->packData(&mStream, classId);
-
-            // Unpack the datablock stream.
-            mStream.setPosition(0);
-            mStream.clearCompressionPoint();
-            pDataBlock->unpackData(&mStream, classId);
-
-            // Preload the datablock on the dummy client.
-            pDataBlock->preload(false, NetConnection::getErrorBuffer());
         }
 
         // Get the last datablock (if any)...

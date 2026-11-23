@@ -58,4 +58,31 @@ public:
 #define IMPLEMENT_DATABLOCK_T2( className )                                 \
    IMPLEMENT_DATABLOCK_T2_SHAPE( className, false )
 
+// HH: A stub that knows which of its script's fields go on which of its
+// layout's nodes, and so has a body to write even though it declares no
+// fields of its own. The table is named sT2<className>Fields.
+#define IMPLEMENT_DATABLOCK_T2_WRITES( className )                          \
+   class className : public DataBlockT2                                      \
+   {                                                                         \
+      typedef DataBlockT2 Parent;                                            \
+   public:                                                                   \
+      DECLARE_CONOBJECT(className);                                          \
+      bool unpackData(BitStream *stream, U32 classId)                        \
+      {                                                                      \
+         StubT2::warn("datablock", getClassName());                          \
+         return Parent::unpackData(stream, classId);                         \
+      }                                                                      \
+      void publishT2Data()                                                   \
+      {                                                                      \
+         Parent::publishT2Data();                                            \
+         StubT2::publish(this, sT2##className##Fields,                       \
+            sizeof(sT2##className##Fields) /                                 \
+            sizeof(sT2##className##Fields[0]));                              \
+      }                                                                      \
+   };                                                                        \
+   IMPLEMENT_CO_DATABLOCK_V1(className);                                      \
+   ConsoleDocClass( className, "@brief A Tribes 2 datablock the port reads "  \
+                               "by its layout and writes from its script's "  \
+                               "own fields.\n\n@internal" )
+
 #endif

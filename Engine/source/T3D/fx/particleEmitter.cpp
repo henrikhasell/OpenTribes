@@ -141,7 +141,11 @@ ParticleEmitterData::ParticleEmitterData()
    lifetimeMS           = 0;
    lifetimeVarianceMS   = 0;
 
-   overrideAdvance  = true;
+   // HH: Modified for Tribes 2 compatibility. Tribes 2's default is false:
+   // the exe names only `overrideAdvance`, the scripts almost always write
+   // `overrideAdvances`, which retail therefore ignores, and a recorded retail
+   // server sends 0 for every one of those -- so false is what it was holding.
+   overrideAdvance  = false;
    orientParticles  = false;
    orientOnVelocity = true;
    useEmitterSizes  = false;
@@ -469,6 +473,54 @@ bool ParticleEmitterData::onAdd()
    }
 
    return true;
+}
+
+// HH: Added for Tribes 2 compatibility. unpackData's fields the other way
+// round, and the particle list a read takes off every id in the body.
+void ParticleEmitterData::publishT2Data()
+{
+   Parent::publishT2Data();
+
+   T2Layout::publishDataBlockWord(T2Layout::T2DbEjectionPeriodMS, U32(ejectionPeriodMS));
+   T2Layout::publishDataBlockWord(T2Layout::T2DbPeriodVarianceMS, U32(periodVarianceMS));
+
+   T2Layout::publishDataBlockWord(T2Layout::T2DbThetaMin,        U32(thetaMin));
+   T2Layout::publishDataBlockWord(T2Layout::T2DbThetaMax,        U32(thetaMax));
+   // Three a body only carries where they are not the default, each behind a
+   // flag of its own: a retail server sends none of them for DefaultEmitter.
+   if(phiReferenceVel != 0.0f)
+      T2Layout::publishDataBlockWord(T2Layout::T2DbPhiReferenceVel,
+                                     U32(phiReferenceVel));
+   if(phiVariance != 360.0f)
+      T2Layout::publishDataBlockWord(T2Layout::T2DbPhiVariance,
+                                     U32(phiVariance));
+
+   T2Layout::publishDataBlockWord(T2Layout::T2DbEjectionVelocity,
+                                  T2Layout::t2ScaledWord(ejectionVelocity, 100.0));
+   T2Layout::publishDataBlockWord(T2Layout::T2DbVelocityVariance,
+                                  T2Layout::t2ScaledWord(velocityVariance, 100.0));
+   if(ejectionOffset != 0.0f)
+      T2Layout::publishDataBlockWord(T2Layout::T2DbEjectionOffset,
+                                     T2Layout::t2ScaledWord(ejectionOffset, 100.0));
+
+   T2Layout::publishDataBlockWord(T2Layout::T2DbEmitterLifetimeMS, lifetimeMS >> 5);
+   T2Layout::publishDataBlockWord(T2Layout::T2DbEmitterLifetimeVarianceMS,
+                                  lifetimeVarianceMS >> 5);
+
+   T2Layout::publishDataBlockFlag(T2Layout::T2DbOverrideAdvance,  overrideAdvance);
+   T2Layout::publishDataBlockFlag(T2Layout::T2DbOrientParticles,  orientParticles);
+   T2Layout::publishDataBlockFlag(T2Layout::T2DbOrientOnVelocity, orientOnVelocity);
+   T2Layout::publishDataBlockFlag(T2Layout::T2DbUseEmitterSizes,  useEmitterSizes);
+   T2Layout::publishDataBlockFlag(T2Layout::T2DbUseEmitterColors, useEmitterColors);
+
+   // The particles this throws, which onAdd resolved out of the particles
+   // field into ids. An emitter that names none leaves the count clear and
+   // the body ends there, as the layout does without them.
+   T2Layout::publishDataBlockWord(T2Layout::T2DbEmitterParticleCount,
+                                  dataBlockIds.size());
+   for(U32 i = 0; i < dataBlockIds.size(); i++)
+      T2Layout::publishDataBlockWord(T2Layout::T2DbEmitterParticle,
+                                     dataBlockIds[i] - DataBlockObjectIdFirst);
 }
 
 //-----------------------------------------------------------------------------

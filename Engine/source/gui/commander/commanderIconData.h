@@ -58,6 +58,7 @@ public:
 
    bool unpackData(BitStream *stream, U32 classId);
    bool preload(bool server, String &errorStr);
+   void publishT2Data();
 
    /// The images, loaded the first time they are asked for.
    const Image &getImage(State state);

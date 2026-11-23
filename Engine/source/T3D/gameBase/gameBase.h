@@ -429,6 +429,9 @@ public:
 
    // HH: Added for Tribes 2 compatibility.
    void onT2BodyHeadRead(const T2Layout::Body &body) override;
+   void getT2Body(T2Layout::Body *body, bool isInitial, U32 mask,
+                  NetConnection *conn) const;
+
    void getT2Subject(T2Layout::Subject *subject,
                      NetConnection *conn) const override;
 

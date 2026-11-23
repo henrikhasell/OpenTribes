@@ -62,6 +62,9 @@ class ParticleEmitterData : public GameBaseData
    static void initPersistFields();
    bool preload(bool server, String &errorStr);
    bool unpackData(BitStream *stream, U32 classId) override;
+
+      // HH: Added for Tribes 2 compatibility.
+   void publishT2Data() override;
    bool onAdd();
    void allocPrimBuffer( S32 overrideSize = -1 );
 

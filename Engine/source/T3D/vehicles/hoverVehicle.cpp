@@ -408,6 +408,54 @@ bool HoverVehicleData::unpackData(BitStream *stream, U32 classId)
    return true;
 }
 
+// HH: Added for Tribes 2 compatibility.
+// The fields HoverVehicleData::unpackData (0x616a20) reads after VehicleData's.
+void HoverVehicleData::publishT2Data()
+{
+   Parent::publishT2Data();
+
+   static const struct { U32 field; F32 HoverVehicleData::*member; } sFields[] =
+   {
+      { T2Layout::T2DbDragForce,              &HoverVehicleData::dragForce              },
+      { T2Layout::T2DbVertFactor,             &HoverVehicleData::vertFactor             },
+      { T2Layout::T2DbFloatingThrustFactor,   &HoverVehicleData::floatingThrustFactor   },
+      { T2Layout::T2DbMainThrustForce,        &HoverVehicleData::mainThrustForce        },
+      { T2Layout::T2DbReverseThrustForce,     &HoverVehicleData::reverseThrustForce     },
+      { T2Layout::T2DbStrafeThrustForce,      &HoverVehicleData::strafeThrustForce      },
+      { T2Layout::T2DbTurboFactor,            &HoverVehicleData::turboFactor            },
+      { T2Layout::T2DbStabLenMin,             &HoverVehicleData::stabLenMin             },
+      { T2Layout::T2DbStabLenMax,             &HoverVehicleData::stabLenMax             },
+      { T2Layout::T2DbStabSpringConstant,     &HoverVehicleData::stabSpringConstant     },
+      { T2Layout::T2DbStabDampingConstant,    &HoverVehicleData::stabDampingConstant    },
+      { T2Layout::T2DbGyroDrag,               &HoverVehicleData::gyroDrag               },
+      { T2Layout::T2DbNormalForce,            &HoverVehicleData::normalForce            },
+      { T2Layout::T2DbRestorativeForce,       &HoverVehicleData::restorativeForce       },
+      { T2Layout::T2DbSteeringForce,          &HoverVehicleData::steeringForce          },
+      { T2Layout::T2DbRollForce,              &HoverVehicleData::rollForce              },
+      { T2Layout::T2DbPitchForce,             &HoverVehicleData::pitchForce             },
+      { T2Layout::T2DbTriggerTrailHeight,     &HoverVehicleData::triggerTrailHeight     },
+      { T2Layout::T2DbDustTrailFreqMod,       &HoverVehicleData::dustTrailFreqMod       },
+      { T2Layout::T2DbFloatingGravMag,        &HoverVehicleData::floatingGravMag        },
+      { T2Layout::T2DbBrakingForce,           &HoverVehicleData::brakingForce           },
+      { T2Layout::T2DbBrakingActivationSpeed, &HoverVehicleData::brakingActivationSpeed },
+   };
+
+   for (U32 i = 0; i < sizeof(sFields) / sizeof(sFields[0]); i++)
+      T2Layout::publishDataBlockWhole(sFields[i].field, this->*sFields[i].member);
+
+   T2Layout::publishDataBlockWhole(T2Layout::T2DbDustTrailOffset,     dustTrailOffset.x);
+   T2Layout::publishDataBlockWhole(T2Layout::T2DbDustTrailOffset + 1, dustTrailOffset.y);
+   T2Layout::publishDataBlockWhole(T2Layout::T2DbDustTrailOffset + 2, dustTrailOffset.z);
+
+   for (U32 i = 0; i < MaxSounds; i++)
+      publishDataBlockId(T2Layout::T2DbVehicleSound + i, sound[i], soundID[i]);
+   for (U32 i = 0; i < MaxJetEmitters; i++)
+      publishDataBlockId(T2Layout::T2DbVehicleJetEmitter + i, jetEmitter[i],
+                         jetEmitterID[i]);
+   publishDataBlockId(T2Layout::T2DbDustTrailEmitter, dustTrailEmitter,
+                      dustTrailID);
+}
+
 
 //--------------------------------------------------------------------------
 

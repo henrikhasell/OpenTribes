@@ -310,6 +310,10 @@ struct PlayerData: public ShapeBaseData {
    static const char* T2ActionAnimationList[NumT2TableActionAnims];
    U16 t2ActionMap[NumT2Actions];
    U32 actionFromT2(U32 t2Action) const;
+   /// HH: Added for Tribes 2 compatibility. The inverse of actionFromT2: the
+   /// number a Tribes 2 peer knows this action by, or NumT2Actions when it
+   /// has none.
+   U32 t2ActionFor(U32 action) const;
 
    U32 lookAction;
 
@@ -367,7 +371,13 @@ struct PlayerData: public ShapeBaseData {
    S32 jetEmitterID;
    S32 jetNode[MaxJetNodes];
 
+   // HH: Added for Tribes 2 compatibility. The jet effect a pack's flame is
+   // drawn by; a retail body names it as a datablock id, one past the emitter's.
+   SimDataBlock * jetEffect;
+   S32 jetEffectID;
+
    SplashData* splash;
+   S32 splashID;
    S32 splashId;
    F32 splashVelocity;
    F32 splashAngle;
@@ -398,6 +408,9 @@ struct PlayerData: public ShapeBaseData {
    PlayerData();
    bool preload(bool server, String &errorStr);
    bool unpackData(BitStream *stream, U32 classId) override;
+
+      // HH: Added for Tribes 2 compatibility.
+   void publishT2Data() override;
    void getGroundInfo(TSShapeInstance*,TSThread*,ActionAnimation*);
    bool isTableSequence(S32 seq);
    bool isJumpAction(U32 action);
@@ -694,6 +707,9 @@ protected:
    /// @}
 
    void onT2BodyRead( const T2Layout::Body &body ) override;
+   // HH: Added for Tribes 2 compatibility. The server's half of onT2BodyRead.
+   void getT2Body( T2Layout::Body *body, bool isInitial, U32 mask,
+                   NetConnection *conn ) const override;
    // HH: Added for Tribes 2 compatibility.
    F32 getCloakAlpha( bool image ) const override;
    void readT2Action( const T2Layout::Body &body );

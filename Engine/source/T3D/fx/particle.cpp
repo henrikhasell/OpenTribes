@@ -66,7 +66,11 @@ ConsoleDocClass( ParticleData,
    "@see ParticleEmitterNode\n"
 );
 
-static const float sgDefaultWindCoefficient = 0.0f;
+// HH: Modified for Tribes 2 compatibility. Tribes 2's default is one, not
+// Torque's nought: no particle in Equinox carries this field and the one
+// script that sets it sets 1.0, so that is the value retail elides against
+// and the value a body without it means.
+static const float sgDefaultWindCoefficient = 1.0f;
 static const float sgDefaultConstantAcceleration = 0.f;
 static const float sgDefaultSpinSpeed = 1.f;
 static const float sgDefaultSpinRandomMin = 0.f;
@@ -101,10 +105,14 @@ ParticleData::ParticleData()
       sizes[i] = 1.0;
    }
 
+   // HH: Modified for Tribes 2 compatibility. Tribes 2 blends over two keys
+   // unless a script says otherwise and marks the rest as past the end,
+   // which is what DefaultParticle's own times of 0, 1, 2, 2 spell out --
+   // where Torque spread four keys evenly.
    times[0] = 0.0f;
-   times[1] = 0.33f;
-   times[2] = 0.66f;
-   times[3] = 1.0f;
+   times[1] = 1.0f;
+   times[2] = 2.0f;
+   times[3] = 2.0f;
 
    texCoords[0].set(0.0,0.0);   // texture coords at 4 corners
    texCoords[1].set(0.0,1.0);   // of particle quad
@@ -115,6 +123,11 @@ ParticleData::ParticleData()
    animTexUVs = NULL;           // array of tile vertex UVs
    textureName = NULL;          // texture filename
    textureHandle = NULL;        // loaded texture handle
+
+   // HH: Added for Tribes 2 compatibility.
+   t2FrameCount = 0;
+   for (U32 i = 0; i < T2MaxFrames; i++)
+      t2FrameName[i] = NULL;
 }
 
 //-----------------------------------------------------------------------------
@@ -191,9 +204,14 @@ void ParticleData::initPersistFields()
 
    addField( "textureName", TYPEID< StringTableEntry >(), Offset(textureName, ParticleData),
       "Texture file to use for this particle." );
-   addField( "animTexName", TYPEID< StringTableEntry >(), Offset(textureName, ParticleData),
-      "@brief Texture file to use for this particle if animateTexture is true.\n\n"
-      "Deprecated. Use textureName instead." );
+   // HH: Modified for Tribes 2 compatibility. Tribes 2 names one texture per
+   // animation frame here, where Torque took this for another spelling of
+   // textureName and so kept only the last frame a script named.
+   addField( "animTexName", TYPEID< StringTableEntry >(), Offset(t2FrameName, ParticleData),
+      T2MaxFrames,
+      "@brief Texture file per animation frame, where animateTexture is true.\n\n"
+      "Tribes 2 animates over a list of these; Torque's own tiled scheme uses "
+      "textureName with animTexTiling instead." );
 
    // Interpolation variables
    addField( "colors", TYPEID< ColorF >(), Offset(colors, ParticleData), PDC_NUM_KEYS,
@@ -231,7 +249,10 @@ bool ParticleData::protectedSetTimes( void *object, const char *index, const cha
    else
       i = dAtoui(index);
 
-   pData->times[i] = mClampF( val, 0.f, 1.f );
+   // HH: Modified for Tribes 2 compatibility. A time past one is how Tribes 2
+   // marks a key beyond the end of the blend, so it is kept rather than
+   // clamped away.
+   pData->times[i] = mClampF( val, 0.f, 2.f );
 
    return true;
 }
@@ -290,6 +311,23 @@ bool ParticleData::onAdd()
       }
    }
 
+   // HH: Modified for Tribes 2 compatibility.
+   // Tribes 2 animates over a list of texture names and says nothing about
+   // tiles, so Torque's tiling rules threw out every animated particle the
+   // game has -- ShockParticle, FireballAtmosphereParticle and
+   // DebrisFireParticle never registered, on a client or a server.
+   t2FrameCount = 0;
+   for (U32 i = 0; i < T2MaxFrames; i++)
+      if (t2FrameName[i] && t2FrameName[i][0])
+         t2FrameCount = i + 1;
+
+   if (animateTexture && t2FrameCount)
+   {
+      if (!textureName || !textureName[0])
+         textureName = t2FrameName[0];
+      return true;
+   }
+
    // Here we validate parameters
    if (animateTexture) 
    {
@@ -298,7 +336,7 @@ bool ParticleData::onAdd()
      {
        Con::warnf(ConsoleLogEntry::General, 
                   "ParticleData(%s) bad value(s) for animTexTiling [%d or %d <= 0], invalid datablock", 
-                  animTexTiling.x, animTexTiling.y, getName());
+                  getName(), animTexTiling.x, animTexTiling.y);
        return false;
      }
 
@@ -307,7 +345,7 @@ bool ParticleData::onAdd()
      {
        Con::warnf(ConsoleLogEntry::General, 
                   "ParticleData(%s) bad values for animTexTiling [%d*%d > %d], invalid datablock", 
-                  animTexTiling.x, animTexTiling.y, 256, getName());
+                  getName(), animTexTiling.x, animTexTiling.y, 256);
        return false;
      }
 
@@ -390,12 +428,24 @@ bool ParticleData::unpackData(BitStream *stream, U32 classId)
                     T2Layout::t2Float(blues[i], 7),
                     T2Layout::t2Float(alphas[i], 7));
       sizes[i] = T2Layout::t2Float(sizeOf[i], 14) * 50.0f;
-      times[i] = T2Layout::t2Float(timeOf[i], 8);
+      // A key that closes the blend goes out as a time of two, which an
+      // eight bit field carries as 254.
+      times[i] = timeOf[i] == 254 ? 2.0f : T2Layout::t2Float(timeOf[i], 8);
    }
 
    const Vector<String> &strings = T2Layout::lastStrings();
    if( strings.size() && strings[0].isNotEmpty() )
       textureName = StringTable->insert( String("textures/") + strings[0] );
+
+   // HH: Added for Tribes 2 compatibility. More than one name is an animation,
+   // and the names are its frames in the order they came. Nothing on the wire
+   // says a particle is animated: carrying frames is what says it.
+   t2FrameCount = strings.size() > 1
+      ? getMin( (U32)strings.size(), (U32)T2MaxFrames ) : 0;
+   animateTexture = t2FrameCount > 0;
+   for( U32 i = 0; i < T2MaxFrames; i++ )
+      t2FrameName[i] = i < t2FrameCount
+         ? StringTable->insert( String("textures/") + strings[i] ) : NULL;
 
    if( Con::getBoolVariable("$pref::Net::traceDataBlockFields", false) )
       Con::printf("T2 ParticleData %d: drag %.3f gravity %.3f inherited %.3f "
@@ -406,6 +456,98 @@ bool ParticleData::unpackData(BitStream *stream, U32 classId)
                   textureName ? textureName : "none");
 
    return true;
+}
+
+// HH: Added for Tribes 2 compatibility. unpackData's fields the other way
+// round, at the same widths and through the same conversions.
+void ParticleData::publishT2Data()
+{
+   Parent::publishT2Data();
+
+   // Four groups a body only carries where they are not the default: a
+   // retail server sends none of them for DefaultParticle, whose script sets
+   // none of them, and sends the spin range for LightPuff, whose script does.
+   if(windCoefficient != 1.0f)
+      T2Layout::publishDataBlockWhole(T2Layout::T2DbWindCoefficient,
+                                      windCoefficient);
+   if(constantAcceleration != 0.0f)
+      T2Layout::publishDataBlockWhole(T2Layout::T2DbConstantAcceleration,
+                                      constantAcceleration);
+   if(spinSpeed != 1.0f)
+      T2Layout::publishDataBlockWhole(T2Layout::T2DbSpinSpeed, spinSpeed);
+
+   T2Layout::publishDataBlockFloat(T2Layout::T2DbDragCoefficient,
+                                   dragCoefficient / 5.0f, 10);
+   T2Layout::publishDataBlockSignedFloat(T2Layout::T2DbGravityCoefficient,
+                                         gravityCoefficient / 10.0f, 12);
+   T2Layout::publishDataBlockFloat(T2Layout::T2DbInheritedVelFactor,
+                                   inheritedVelFactor, 9);
+
+   T2Layout::publishDataBlockWord(T2Layout::T2DbParticleLifetimeMS,
+                                  U32(lifetimeMS) >> 5);
+   T2Layout::publishDataBlockWord(T2Layout::T2DbParticleLifetimeVarianceMS,
+                                  U32(lifetimeVarianceMS) >> 5);
+
+   if(spinRandomMin != 0.0f || spinRandomMax != 0.0f)
+   {
+      T2Layout::publishDataBlockWord(T2Layout::T2DbSpinRandomMin,
+                                     U32(S32(spinRandomMin) + 1000));
+      T2Layout::publishDataBlockWord(T2Layout::T2DbSpinRandomMax,
+                                     U32(S32(spinRandomMax) + 1000));
+   }
+
+   T2Layout::publishDataBlockFlag(T2Layout::T2DbUseInvAlpha, useInvAlpha);
+
+   // A body carries one key more than the number of times a script set under
+   // one: the last of them closes the blend, and its colour and size are
+   // whatever the datablock holds there. Asked for a particle with no times
+   // at all a retail server sends two keys, for one with times of 0 and 0.25
+   // three, and for one with 0, 0.3 and 0.6 four. The keys go out in the
+   // order the body carries them and the select ahead of them says how many.
+   U32 keys = 2;
+   for(U32 i = 0; i < PDC_NUM_KEYS; i++)
+      if(times[i] < 1.0f)
+         keys = getMax(keys, i + 2);
+   keys = getMin(keys, U32(PDC_NUM_KEYS));
+
+   T2Layout::publishDataBlockWord(T2Layout::T2DbParticleKeysLast, keys - 1);
+   for(U32 i = 0; i < keys; i++)
+   {
+      T2Layout::publishDataBlockFloat(T2Layout::T2DbParticleColorR, colors[i].red,   7);
+      T2Layout::publishDataBlockFloat(T2Layout::T2DbParticleColorG, colors[i].green, 7);
+      T2Layout::publishDataBlockFloat(T2Layout::T2DbParticleColorB, colors[i].blue,  7);
+      T2Layout::publishDataBlockFloat(T2Layout::T2DbParticleColorA, colors[i].alpha, 7);
+      T2Layout::publishDataBlockFloat(T2Layout::T2DbParticleSize, sizes[i] / 50.0f, 14);
+      // A time of two, which marks the key that closes the blend, is 510 in
+      // a field of eight bits -- which carries 254.
+      T2Layout::publishDataBlockWord(T2Layout::T2DbParticleTime,
+                                     U32(times[i] * 255.0f) & 0xff);
+   }
+
+   // The texture, which a read puts back under textures/ and so comes off
+   // again here.
+   // The texture names, which a read puts back under textures/ and so come
+   // off again here. An animated particle sends its frames; any other sends
+   // the one texture it has.
+   const char *names[T2MaxFrames];
+   U32 count = 0;
+   if(animateTexture && t2FrameCount)
+      for(U32 i = 0; i < t2FrameCount; i++)
+         names[count++] = t2FrameName[i];
+   else if(textureName && textureName[0])
+      names[count++] = textureName;
+
+   if(count)
+   {
+      T2Layout::publishDataBlockWord(T2Layout::T2DbParticleTextures, count);
+      for(U32 i = 0; i < count; i++)
+      {
+         const char *leaf = names[i] ? dStrstr(names[i], "textures/") : NULL;
+         T2Layout::publishDataBlockString(
+            T2Layout::T2DbParticleTextureName,
+            leaf ? leaf + dStrlen("textures/") : (names[i] ? names[i] : ""));
+      }
+   }
 }
 
 //-----------------------------------------------------------------------------
@@ -431,7 +573,26 @@ bool ParticleData::preload(bool server, String &errorStr)
         }
       }
 
-      if (animateTexture) 
+      // HH: Modified for Tribes 2 compatibility. A Tribes 2 particle animates
+      // over its own named frames and carries neither tiles nor a frame
+      // string, so none of Torque's tiled scheme applies to it.
+      if (animateTexture && t2FrameCount)
+      {
+         t2FrameHandle.setSize(t2FrameCount);
+         for (U32 i = 0; i < t2FrameCount; i++)
+         {
+            t2FrameHandle[i] = GFXTexHandle(t2FrameName[i],
+               &GFXDefaultStaticDiffuseProfile,
+               avar("%s() - t2FrameHandle (line %d)", __FUNCTION__, __LINE__));
+            if (!t2FrameHandle[i])
+            {
+               errorStr = String::ToString("Missing particle frame: %s",
+                                           t2FrameName[i]);
+               error = true;
+            }
+         }
+      }
+      else if (animateTexture) 
       {
         // Here we parse animTexFramesString into byte-size frame numbers in animTexFrames.
         // Each frame token must be separated by whitespace.

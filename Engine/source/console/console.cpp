@@ -38,6 +38,7 @@
 #include "console/ICallMethod.h"
 #include "console/engineAPI.h"
 #include <stdarg.h>
+#include <stdio.h>
 #include "platform/threads/mutex.h"
 
 
@@ -303,6 +304,19 @@ ConsoleFunctionGroupEnd( Clipboard );
 
 void postConsoleInput( RawData data );
 
+// Echoes every console line to the terminal. Warnings and errors go to stderr
+// so they can be told apart from ordinary output.
+static void stdioConsumer( U32 level, const char *consoleLine )
+{
+   FILE *out = ( level >= ConsoleLogEntry::Warning ) ? stderr : stdout;
+
+   fputs( consoleLine, out );
+   size_t len = dStrlen( consoleLine );
+   if ( len == 0 || consoleLine[len - 1] != '\n' )
+      fputc( '\n', out );
+   fflush( out );
+}
+
 void init()
 {
    AssertFatal(active == false, "Con::init should only be called once.");
@@ -312,6 +326,8 @@ void init()
    logFileName                   = NULL;
    newLogFile                    = true;
    gWarnUndefinedScriptVariables = false;
+
+   addConsumer( stdioConsumer );
 
    // Initialize subsystems.
    Namespace::init();

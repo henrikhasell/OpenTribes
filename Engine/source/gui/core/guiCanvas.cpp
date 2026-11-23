@@ -2378,7 +2378,7 @@ DefineEngineFunction( createCanvas, bool, ( const char *windowTitle ), ( "" ),
 
                "@ingroup GuiCore" )
 {
-   if ( Con::getBoolVariable( "$isDedicated" ) )
+   if ( dStricmp( Con::getVariable( "$LaunchMode" ), "DedicatedServer" ) == 0 )
    {
       Con::evaluate( "GFXInit::createNullDevice();" );
       return true;

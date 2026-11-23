@@ -58,6 +58,16 @@ bool CommanderIconData::preload(bool server, String &errorStr)
    return true;
 }
 
+// HH: Added for Tribes 2 compatibility. The five image specs go out as five body
+// strings, in the order unpackData reads them back.
+void CommanderIconData::publishT2Data()
+{
+   Parent::publishT2Data();
+
+   for (U32 i = 0; i < NumStates; i++)
+      T2Layout::publishBodyString(String(mImageNames[i] ? mImageNames[i] : ""));
+}
+
 static bool isTrue(const char *word)
 {
    return !dStricmp(word, "true") || dAtoi(word) != 0;
